@@ -1,0 +1,63 @@
+js
+. finish require.js modularization
+. fix select2 loading issues
+. firefox and safari support
+. hover to get point info (use voronoi to select)
+. build: bundle/optimize .js files into sg.min.js (usable w/o require.js)
+. build: run jslint
+. separate js from server git repo via git subtree?
+. highlight time-band and get summary of just that region (e.g. area under the curve)
+. grouped bar chart
+. more chart types: scatter, area, heatmap, stacked bar chart
+. support multiple X axes (to compare two data sets from different time)
+. interactive offset of X axis (to align second data set when comparing)
+. abstract X axis numeric type (currently hardcoded to date time)
+. grid lines, see e.g. http://www.d3noob.org/2013/01/adding-grid-lines-to-d3js-graph.html
+. improve default styling
+. icon for resize hitbox ('grippy corner')
+. keyboard navigation, up to zoom out, left to pan left, right to pan right, down to zoom in
+. don't ask for 'edge=true' for scatter/bar plots (performance optimization)
+. button to pop out graph into new window and resize with the window (make it easy to go full screen on a graph in presentations)
+
+data server
+* start on cassandra backend
+. support alternate data backends (set in application.conf like .api)
+. send hover highlight info down along with data (or separate feed?)
+. progress indicator when large data sets are being loaded
+. REST endpoint for summary region UI
+. simple subcription/notification api so web page can refresh when data changes
+. stream data from stdin pipe (cat file | awk | sg)
+. api for quick graphs from the REPL (import SG._;  plot(myList); plot(myList, myDashboard) )
+. try adding spire or saddle 
+. bump to sbt 13
+. stream data to javascript (optimization instead of refreshing the whole graph)
+
+-- done --
+* transitions for x and y axes
+* max-lock mode for y axes
+* --root option on the command line, to display app specific dashboards
+* move main.js into data server singlechart template
+* load directory and watch for changes
+* document component model
+* picker to choose which series to display
+* expose line smoothing options
+* more internal documentation (esp. bound data structures)
+* event timeline plot
+* revise documentation for component model
+. revise lock mode to lock on current value, not just series max (user can always zoom out)
+* handle file not found on /data request by returning a 404 
+* enable easily extending the REST api w/o building your own main server
+* get rid of serverDescribedGraph
+* data missing messages should spread out, not overlap each other
+* legend should go in an overlay
+* categorized plots: time axis should have a line along the top of the axis (with no y axes, the sides of the plot are hard to recognize) 
+* add some extra space within the clip region to fit in scatter plot marks that extend past the sides
+* time series bar graph
+* more default color palettes
+* dashboard zoom all mode
+* make history work on dashboards too
+* bump to current rev of d3
+* add first unit/integration tests 
+* rework zoom transition - generate transition from chart, not internally in the zoom component
+* add basic unit test for chart
+* add local api to serve data from javascript array 

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.out</target>
+        <encoder>
+            <pattern>%date{MM/dd HH:mm:ss.SSS} %-5level %logger{1} - %msg%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
+    </appender>
+
+    <logger name="nest" level="DEBUG" />
+    <logger name="akka.event.slf4j.Slf4jLogger" level="WARN" />
+
+    <root level="DEBUG">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>
+
