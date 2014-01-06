@@ -14,6 +14,8 @@
 
 package nest.sparkle.graph
 
+package nest.sparkle.graph  // oops
+
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.language.{ postfixOps, reflectiveCalls }
 import scala.concurrent.ExecutionContext
