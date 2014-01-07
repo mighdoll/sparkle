@@ -15,10 +15,9 @@
 import sbt._
 import sbt.Keys._
 
-object SparkleGraphBuild extends Build {
+object SparkleTimeBuild extends Build {
   import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseKeys
   import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
-  import SparkleKeys._
   import Dependencies._
   import sbtassembly.Plugin.AssemblyKeys._
   import spray.revolver.RevolverPlugin._
@@ -43,7 +42,7 @@ object SparkleGraphBuild extends Build {
     EclipseKeys.configurations := Set(sbt.Compile, sbt.Test, sbt.IntegrationTest)
   )
 
-  lazy val sparkleGraph = 
+  lazy val sparkleTime = 
     Project(id = "sparkle-time", base = file("."))
       .configs(IntegrationTest)
       .settings(bintraySettings:_*)
