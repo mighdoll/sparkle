@@ -1,7 +1,7 @@
 js
 . finish require.js modularization
 . fix select2 loading issues
-. firefox and safari support
+. verify basic firefox and safari support
 . hover to get point info (use voronoi to select)
 . build: bundle/optimize .js files into sg.min.js (usable w/o require.js)
 . build: run jslint
@@ -20,7 +20,6 @@ js
 . button to pop out graph into new window and resize with the window (make it easy to go full screen on a graph in presentations)
 
 data server
-* start on cassandra backend
 . support alternate data backends (set in application.conf like .api)
 . send hover highlight info down along with data (or separate feed?)
 . progress indicator when large data sets are being loaded
@@ -29,8 +28,8 @@ data server
 . stream data from stdin pipe (cat file | awk | sg)
 . api for quick graphs from the REPL (import SG._;  plot(myList); plot(myList, myDashboard) )
 . try adding spire or saddle 
-. bump to sbt 13
 . stream data to javascript (optimization instead of refreshing the whole graph)
+. publish sg script (that uses pre-built binary)
 
 -- done --
 * transitions for x and y axes
@@ -61,3 +60,5 @@ data server
 * rework zoom transition - generate transition from chart, not internally in the zoom component
 * add basic unit test for chart
 * add local api to serve data from javascript array 
+* start on cassandra backend
+. bump to sbt 13
