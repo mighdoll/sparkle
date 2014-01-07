@@ -9,6 +9,8 @@ resolvers ++= Seq(
   )(Resolver.ivyStylePatterns)
 )
 
+libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.5"
+
 addSbtPlugin("me.lessis" % "bintray-sbt" % "0.1.1")
 
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.10.1")
