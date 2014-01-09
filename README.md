@@ -3,11 +3,11 @@ sparkle-graph
 
 **This is a pre-release version of sparkle-graph.  The documentation is wrong, the API will change.**
 
-
 Introduction
 -------
-**Sparkle-graph** creates interactive dashboards from time series data.
+**Sparkle-graph** creates interactive dashboards from time series data.  
 
+[links to example zooming charts]
 
 Components
 ------
@@ -120,12 +120,12 @@ Custom dashboards require just a few lines of javascript configuration.  Here's 
     }
 
 Here are some simple examples:
-[request time](https://github.com/nestlabs/sparkle-graph/tree/master/dashboard/simple/simple.js) and
-[db requests](https://github.com/nestlabs/sparkle-graph/tree/master/dashboard/db-requests/dbDashboard.js).
-See [sparkle-graph example dashboards](https://github.com/nestlabs/sparkle-graph/tree/master/dashboard) for more examples.
+[request time](https://github.com/mighdoll/sparkle/tree/master/dashboard/simple/simple.js) and
+[db requests](https://github.com/mighdoll/sparkle/tree/master/dashboard/db-requests/dbDashboard.js).
+See [sparkle-graph example dashboards](https://github.com/mighdoll/sparkle/tree/master/dashboard) for more examples.
 
 It's also possible to extend the server to include custom code on the server that your dashboard can use.  For example, see 
-[TestCustomApi](https://github.com/nestlabs/sparkle-graph/src/test/scala/nest/sparkle/graph).
+[TestCustomApi](https://github.com/mighdoll/sparkle/blob/master/src/test/scala/nest/sparkle/graph/TestCustomApi.scala)
 
 #####Trying custom dashboards
 Run with your dashboard and data:
@@ -142,13 +142,11 @@ Sparkle-Graph Server reads time series numerical data.  You can point the server
 
 1. The data files must be in tab separated value format or comma separated value format.  (The server will automatically choose based on the file contents)
 1. The first line in each data file must be a header line, naming the columns.
-1. There must be a time column must be named something like 'time' or 'date'.  See findTimeColumn in the [source](https://github.com/nestlabs/sparkle-graph/blob/master/src/main/scala/nest/sparkle/graph/FileLoadedDataSet.scala).
+1. There must be a time column must be named something like 'time' or 'date'.  See findTimeColumn in the [source](https://github.com/mighdoll/sparkle/blob/master/src/main/scala/nest/sparkle/graph/FileLoadedDataSet.scala).
 1. The time column data format can be one of:
   1. a positive whole number - milliseconds since the epoch
   1. a decimal fraction - seconds and fractional seconds since the epoch
   1. a date string of the form: 2013-02-15T01:32:50.186
 1. All other data columns are interpreted as double precision floating point numbers.
-
-
 
 
