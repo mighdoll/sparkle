@@ -115,8 +115,13 @@ object MavenPublishTasks {
   /** read a java properties file */
   private def readProperties(file: File): Map[String, String] = {
     val properties = new Properties()
-    properties.load(new FileInputStream(file))
-    properties.asScala.map { case (k, v) => (k.toString, v.toString.trim) } toMap
+    val fileInput = new FileInputStream(file)
+    try {
+      properties.load(fileInput)
+      properties.asScala.map { case (k, v) => (k.toString, v.toString.trim) } toMap
+    } finally {
+      fileInput.close()
+    }
   }
 }
 
