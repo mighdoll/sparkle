@@ -33,7 +33,7 @@ import spray.routing.Directives
 import spray.routing.directives.LogEntry
 
 /** a REST API for serving data, relies on a DataRegistry to hold the data */
-trait DataService extends HttpService  with DataServiceV0 with DataServiceV1 {
+trait DataService extends HttpService with DataServiceV0 with DataServiceV1 {
   def registry: DataRegistry
   
   /** Subclasses set this to the default web page to display (e.g. the dashboard) */
