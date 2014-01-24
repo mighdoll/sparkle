@@ -28,10 +28,10 @@ sg.js supports the sparkle-time api, enabling zooming charts of potentially huge
 Plans
 -------
 Sparkle is being revised to:
-# use a websocket based api between visualization clients and the server
-# support multiple storage backends (file system, cassandra, kafka)
-# allow for easy application specific extensions of data transformations
-# include a pre-built 'sg' launcher and a sample dashboard for 
+* use a websocket based api between visualization clients and the server
+* support multiple storage backends (file system, cassandra, kafka)
+* allow for easy application specific extensions of data transformations
+* include a pre-built 'sg' launcher and a sample dashboard for streams
 
 More details in the [todo list](https://github.com/mighdoll/sparkle/blob/master/ToDo)
 
@@ -39,8 +39,9 @@ Using sparkle
 -------
 See [Using-sg](https://github.com/mighdoll/sparkle/blob/master/Using-sg.md)
 
-Using sparkle 
+Contributing to Sparkle 
 -------
-See [Using-sg](https://github.com/mighdoll/sparkle/blob/master/Using-sg.md)
+See [Contributing](https://github.com/mighdoll/sparkle/blob/master/contributing.md), [Building](https://github.com/mighdoll/sparkle/blob/master/Building.md), and
+ [javascript component model](https://github.com/mighdoll/sparkle/blob/master/component-model.md).
 
 
