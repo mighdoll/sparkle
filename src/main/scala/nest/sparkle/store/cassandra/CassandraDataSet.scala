@@ -14,11 +14,11 @@
 
 package nest.sparkle.store.cassandra
 
-import nest.sparkle.graph.DataSet2
+import nest.sparkle.store.DataSet
 import scala.concurrent.Future
-import nest.sparkle.graph.Column
+import nest.sparkle.store.Column
 
-case class CassandraDataSet(store: CassandraStore, name: String) extends DataSet2 {
+case class CassandraDataSet(store: CassandraStore, name: String) extends DataSet {
   /** return a column in this dataset (or FileNotFound) */
   def column[T, U](columnName: String): Future[Column[T, U]] = {
     ???

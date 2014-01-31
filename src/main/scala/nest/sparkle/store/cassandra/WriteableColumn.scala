@@ -16,9 +16,14 @@ package nest.sparkle.store.cassandra
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
-import nest.sparkle.graph.Event
+import nest.sparkle.store.Event
 
+/** A modifiable Storage column */
 trait WriteableColumn[T, U] {
+  /** Write events to the column.  Events are considered immutable once written.  Rewriting the same event is safe.  
+   *  
+   *  Overwriting an event with different values has undefined results.  i.e. in a time-value column, writing the same time twice will
+   *  have unpredictable results on downstream readers.  */
   def write(items:Iterable[Event[T,U]])(implicit executionContext: ExecutionContext): Future[Unit]
   def create(description: String)(implicit executionContext: ExecutionContext): Future[Unit]
   def erase()(implicit executionContext:ExecutionContext): Future[Unit]

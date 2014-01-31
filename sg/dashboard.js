@@ -13,7 +13,7 @@
    limitations under the License.  */
 
 define (["jslib/when/monitor/console", "jslib/when/when", "jslib/d3", 
-         "sg/util", "sg/richAxis", "sg/maxLock", "sg/data", "sg/metadata",
+         "sg/util", "sg/richAxis", "sg/maxLock", "sg/data3", "sg/metadata",
          "sg/zoom", "sg/chart", "sg/domCache"], 
         function(_console, when, _d3, util, _richAxis, _maxLock, 
                  networkDataApi, networkMetaDataApi, 

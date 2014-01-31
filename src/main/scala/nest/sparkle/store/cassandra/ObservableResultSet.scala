@@ -79,7 +79,7 @@ object ObservableResultSet {
         }        
       }
       
-      Observable(subscribed)
+      Observable.create(subscribed)
     }
 
   }

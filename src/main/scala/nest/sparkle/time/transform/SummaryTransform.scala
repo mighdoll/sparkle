@@ -1,0 +1,79 @@
+package nest.sparkle.time.transform
+
+import scala.concurrent.ExecutionContext
+import nest.sparkle.time.protocol.KeyValueType
+import nest.sparkle.time.protocol.JsonEventWriter
+import nest.sparkle.time.protocol.JsonDataStream
+import nest.sparkle.store.Column
+import nest.sparkle.util.ObservableFuture._
+import nest.sparkle.store.Event
+import spray.json._
+import spray.json.DefaultJsonProtocol._
+import scala.concurrent.Future
+import nest.sparkle.store.LongDoubleColumn
+import nest.sparkle.store.LongLongColumn
+
+/** A function that constructs a JsonDataStream.  The JsonDataStream will transform a single
+  * source column into a json output column on demand.
+  */
+abstract class ColumnTransform {
+  def apply[T: JsonWriter: Ordering, U: JsonWriter: Ordering](column: Column[T, U],
+                                                              transformParameters: JsObject)(implicit execution: ExecutionContext): JsonDataStream
+}
+
+object StandardColumnTransform {
+  /** Given an untyped future Column, call a transform function with the type specific column
+   *  when the future completes. */
+  def executeTypedTransform(futureColumns: Future[Seq[Column[_, _]]], // format: OFF
+      columnTransform:ColumnTransform, transformParameters:JsObject) 
+      (implicit execution: ExecutionContext):Future[Seq[JsonDataStream]] = { // format: ON
+    futureColumns.map { columns =>
+      columns.map {
+        case LongDoubleColumn(castColumn) => columnTransform(castColumn, transformParameters)
+        case LongLongColumn(castColumn)   => columnTransform(castColumn, transformParameters)
+      }
+    }
+  }
+}
+
+/** match a SummaryTransform string selector, and return a ColumnTransform to be applied to each source column */
+object SummaryTransform {
+  def unapply(transform: String): Option[ColumnTransform] = {
+    val lowerCase = transform.toLowerCase
+    if (lowerCase.startsWith("summarize")) {
+      lowerCase.stripPrefix("summarize") match {
+        case "max"     => Some(JustCopy) // TODO replace with an actual summary
+        case "min"     => ???
+        case "linear"  => ???
+        case "mean"    => ???
+        case "average" => ???
+        case "random"  => ???
+        case "sample"  => ???
+        case "uniques" => ???
+        case "sum"     => ???
+        case "count"   => ???
+        case "rate"    => ???
+        case _         => None
+      }
+    } else {
+      None
+    }
+  }
+}
+
+/** a transform that copies the array of source columns to json encodable output streams */
+object JustCopy extends ColumnTransform {
+  override def apply[T: JsonWriter: Ordering, U: JsonWriter: Ordering]( // format: OFF
+       column: Column[T, U],
+       transformParameters: JsObject
+     ) (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
+
+    /** return an outputStream that can produce a column */
+    val events = column.readRange() // just copy the entire source column to the output  
+    JsonDataStream(
+      dataStream = JsonEventWriter(events),
+      streamType = KeyValueType
+    )
+  }
+}
+

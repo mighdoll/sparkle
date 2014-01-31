@@ -6,13 +6,13 @@ require( ["sg/dashboard", "sg/sideAxis"],
     groups: [ { 
       label: "seconds",
       axis: sideAxis(),
-      named: [ { name: "epochs.csv/p90" } ]
+      named: [ { name: "src/test/resources/epochs.csv/p90" } ]
     } ]
   }];
 
-  var mohsBoard = dashboard().size([800, 400]), 
+  var simpleBoard = dashboard().size([800, 400]), 
       update = d3.selectAll("body").data([{charts:charts}]);
 
-  mohsBoard(update);
+  simpleBoard(update);
 
 });

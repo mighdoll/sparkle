@@ -19,7 +19,7 @@ object Dependencies {
     val scalaTest = "2.0"
     val akka = "2.2.3"
     val spray = "1.2.0"
-    val rxJava = "0.15.1"
+    val rxJava = "0.16.1"
   }
 
   // Spray + Akka
@@ -37,11 +37,13 @@ object Dependencies {
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
   val cassandra             = "org.apache.cassandra"      % "cassandra-all"           % "2.0.3"
   val cassandraClient       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.0.0-rc1"
+  val snappy                = "org.xerial.snappy"         % "snappy-java"             % "1.0.5"
+  val lz4                   = "net.jpountz.lz4"           % "lz4"                     % "1.2.0"
 
   val scalaReflect          = "org.scala-lang"            % "scala-reflect"           % "2.10.3"
 
-  val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % "0.15.1"
-  val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % "0.15.1"  intransitive()
+  val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
+  val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
               
 
   object Runtime {

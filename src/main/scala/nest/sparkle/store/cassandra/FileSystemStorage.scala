@@ -14,17 +14,17 @@
 
 package nest.sparkle.store.cassandra
 
-import nest.sparkle.graph.Storage
+import nest.sparkle.store.Storage
 import java.nio.file.Path
 import scala.concurrent.Future
-import nest.sparkle.graph.DataSet2
-import nest.sparkle.graph.Column
+import nest.sparkle.store.DataSet
+import nest.sparkle.store.Column
 
 case class FileSystemStorage(root:Path) extends Storage{
   /** return the dataset for the provided dataSet name or path (fooSet/barSet/mySet).  */
-  def dataSet(name: String): Future[DataSet2] = ???
+  def dataSet(name: String): Future[DataSet] = ???
 
   /** return a column from a columnPath like fooSet/barSet/columName*/
-  def column[T: CanSerialize, U: CanSerialize](columnPath: String): Future[Column[T, U]] = ???
+  def column[T, U](columnPath: String): Future[Column[T, U]] = ???
 
 }

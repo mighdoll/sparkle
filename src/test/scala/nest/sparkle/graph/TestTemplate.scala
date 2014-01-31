@@ -18,6 +18,11 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers
 import spray.testkit.ScalatestRouteTest
 import spray.http.StatusCodes
+import nest.sparkle.legacy.PreloadedStore
+import nest.sparkle.legacy.PreloadedRegistry
+import nest.sparkle.legacy.SampleData
+import nest.sparkle.time.server.DataService
+import nest.sparkle.time.server.ConfigServer
 
 class TestTemplate extends FunSuite with Matchers with ScalatestRouteTest
     with DataService {

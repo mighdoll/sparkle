@@ -15,7 +15,7 @@
 package nest.sparkle.util
 
 import org.scalatest.FunSuite
-import nest.sparkle.store.cassandra.ObservableFuture._
+import nest.sparkle.util.ObservableFuture._
 import org.scalatest.Matchers
 import scala.concurrent.Future
 import scala.util.Try

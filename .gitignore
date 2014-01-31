@@ -6,3 +6,4 @@ target/
 .project
 .worksheet
 *.sc
+*.log
