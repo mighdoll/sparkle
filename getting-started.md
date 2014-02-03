@@ -3,7 +3,11 @@
 
       $ cd sparkle-graph
       $ sbt/sbt
-      >  re-start  --left p90 --right count --csv /home/lee/sparkle-graph/src/test/resources/epochs.csv --title epochs --leftUnits secs 
-      > ~ products   # then browse to localhost:8080  
+
+      >  re-start --root dashboard/db-requests  src/test/resources
+        # or
+      >  re-start --root dashboard/simple src/test/resources
+
+      > ~ products   # then browse to localhost:1234
 
 
