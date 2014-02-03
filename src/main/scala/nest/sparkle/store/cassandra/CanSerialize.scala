@@ -20,14 +20,21 @@ import scala.reflect.runtime.universe._
 import scala.concurrent.duration.NANOSECONDS
 import com.datastax.driver.core.Row
 
+/** a cassandra serializer/deserializer */
 abstract class CanSerialize[T: TypeTag] {
+  /** return the cassandra data type */
   def columnType: String
 
+  /** return a string representation of the stored scala type */
   def nativeType: String = {
     val x = implicitly[TypeTag[T]]
     x.tpe.toString()
   }
+  
+  /** serialize a scala native type into an AnyRef that maps directly to a cassandra data type */
   def serialize(value: T): AnyRef = value.asInstanceOf[AnyRef]
+  
+  /** deserialize a scala native type from a cassandra row */
   def fromRow(row: Row, index: Int): T 
 
 }

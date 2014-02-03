@@ -31,7 +31,7 @@ object SparkleTimeBuild extends Build {
       EclipseKeys.withSource := true,
       EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource,
 
-      scalaVersion := "2.10.4-RC1",
+      scalaVersion := "2.10.4-RC2",
       scalaBinaryVersion := "2.10",
 //      testOptions += Tests.Argument("-oF"),    // show full stack traces
       scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps")
@@ -58,6 +58,8 @@ object SparkleTimeBuild extends Build {
           akkaRemoting,
           akkaSlf4j,
           cassandraClient,
+          snappy,
+          lz4,
           sprayJson,
           sprayClient,
           sprayRouting,

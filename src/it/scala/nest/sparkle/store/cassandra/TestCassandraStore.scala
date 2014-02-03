@@ -26,7 +26,7 @@ import org.scalacheck.Gen
 import scala.concurrent.Future
 import org.scalatest.BeforeAndAfterAll
 import scala.concurrent.duration._
-import nest.sparkle.graph.Event
+import nest.sparkle.store.Event
 
 class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with BeforeAndAfterAll {
   import ExecutionContext.Implicits.global
@@ -37,7 +37,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
   lazy val testDb = {
     val store = CassandraStore("localhost")
-    store.formatLocalDb("testCassandraStoreEvents")
+    store.format(Some("testCassandraStoreEvents"))
     val column = store.writeableColumn[NanoTime, Double](columnPath).await
     column.create("a test column").await
     store
@@ -75,25 +75,25 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
   test("read+write one item") {
     withTestDb { store =>
-      val writeColumn = store.writeableColumn[NanoTime, Double](columnPath).await
-      writeColumn.write(Seq(Event(NanoTime(100), 1.1d))).await
+      val writeColumn = store.writeableColumn[Long, Double](columnPath).await
+      writeColumn.write(Seq(Event(100L, 1.1d))).await
       
-      val readColumn = store.column[NanoTime, Double](columnPath).await
+      val readColumn = store.column[Long, Double](columnPath).await
       val read = readColumn.readRange(None, None)
       val results = read.toBlockingObservable.single
-      results shouldBe Event(NanoTime(100), 1.1d)
+      results shouldBe Event(100L, 1.1d)
     }
   }
 
   test("read+write many events") {
     withTestDb { implicit store =>
-      val writeColumn = store.writeableColumn[NanoTime, Double](columnPath).await
-      val readColumn = store.column[NanoTime, Double](columnPath).await
+      val writeColumn = store.writeableColumn[Long, Double](columnPath).await
+      val readColumn = store.column[Long, Double](columnPath).await
       forAll(Gen.chooseNum(0, 1000), minSuccessful(10)) { rowCount =>
         writeColumn.erase().await
         
         val events = Range(0, rowCount).map { index =>
-          Event(NanoTime(index), index.toDouble)
+          Event(index.toLong, index.toDouble)
         }.toIterable
         
         writeColumn.write(events).await
@@ -102,7 +102,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
         results.length shouldBe rowCount
         results.zipWithIndex.foreach {
           case (item, index) =>
-            item shouldBe Event(NanoTime(index), index.toDouble)
+            item shouldBe Event(index, index)
         }
       }
     }

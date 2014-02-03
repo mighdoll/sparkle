@@ -33,6 +33,27 @@ function jsonWhen(request) {
   return promise;
 }
 
+
+/** Make a POST request and returns a when.js promise */
+function jsonPost(url, json) {
+  var deferred = when.defer(),
+      promise = deferred.promise;
+
+  var xhr = d3.xhr(url, "application/json");
+  xhr.header("Content-Type", "application/json");
+  xhr.post(json, received); 
+
+  function received(err, response) {
+    if (err && err.status != 200) {
+      deferred.reject(err);
+    } else {
+      deferred.resolve(response.response);
+    }
+  }
+
+  return promise;
+}
+
 /** concatenate some "name=value" strings and return a list of query parameters.  Skip undefined strings. */
 function queryParams() {
   if (arguments.length === 0) return "";
@@ -48,6 +69,7 @@ function queryParams() {
 
 return {
   jsonWhen:jsonWhen,
+  jsonPost:jsonPost,
   queryParams:queryParams
 };
 

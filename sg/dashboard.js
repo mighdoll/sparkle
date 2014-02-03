@@ -12,11 +12,10 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define (["jslib/when/monitor/console", "jslib/when/when", "jslib/d3", 
-         "sg/util", "sg/richAxis", "sg/maxLock", "sg/data", "sg/metadata",
+define (["jslib/when/when", "jslib/d3", 
+         "sg/util", "sg/richAxis", "sg/maxLock", "sg/data3", 
          "sg/zoom", "sg/chart", "sg/domCache"], 
-        function(_console, when, _d3, util, _richAxis, _maxLock, 
-                 networkDataApi, networkMetaDataApi, 
+        function(when, _d3, util, _richAxis, _maxLock, networkDataApi, 
                  _zoom, chart, domCache) {
 
 /** Bind to an array containing a Dashboard object.
@@ -30,7 +29,6 @@ function dashboard() {
       _zoomTogether = false,
       _transitionTime = 300,
       _dataApi = networkDataApi,
-      _metaDataApi = networkMetaDataApi,
       _chart = chart();   
 
   var returnFn = function(container) {
@@ -46,8 +44,7 @@ function dashboard() {
         exit = update.exit(),
         zoomTogether = dashData.zoomTogether || _zoomTogether,
         transitionTime = dashData.transitionTime || _transitionTime,
-        dataApi = dashData.dataApi || _dataApi,
-        metaDataApi = dashData.metaDataApi || _metaDataApi;
+        dataApi = dashData.dataApi || _dataApi;
 
     /** setup containers for charts */
     enter.append("svg")
@@ -55,7 +52,7 @@ function dashboard() {
       .call(setSizeWithDefault, _size);
 
     /** update meta data for all named series in charts from the server, then draw/redraw the charts */
-    chartsMetaData(metaDataApi, charts).then(function() {
+    chartsMetaData(dataApi, charts).then(function() {
       redraw(update, transitionTime, dataApi);
     }).otherwise(rethrow);  // (rethrow for debugging)
 
@@ -194,16 +191,9 @@ function dashboard() {
     return returnFn;
   };
 
-  returnFn.metaDataApi = function(value) {
-    if (!value) return _metaDataApi;
-    _metaDataApi = value;
-    return returnFn;
-  };
-
 
   return returnFn;
 }
-
 
 /** Set the height and width of the selection using the bound data's .size property. */
 function setSize(selection) {
@@ -222,10 +212,9 @@ function setSizeWithDefault(selection, defaultSize) {
   setSize(selection);
 }
 
-
 /** Loads chart and series metadata from the server for all charts. 
  *  Return a promise that completes when the chart is loaded */
-function chartsMetaData(metaDataApi, charts) {
+function chartsMetaData(dataApi, charts) {
   var whens = [];
 
   charts.forEach(function(chartData) {
@@ -235,7 +224,7 @@ function chartsMetaData(metaDataApi, charts) {
       group.series = [];
 
       if (group.named) {
-        var futureSeries = fetchNamedSeries(metaDataApi, group.named).then(function(seriesArray) {
+        var futureSeries = fetchNamedSeries(dataApi, group.named).then(function(seriesArray) {
           group.series = group.series.concat(seriesArray);
         });
         groupWhens.push(futureSeries);
@@ -276,7 +265,7 @@ function chartsMetaData(metaDataApi, charts) {
   * Returns a promise that completes with an array of the new Series objects, or a special error Series
   * if the call returned with an error.
   * Call on an array of NamedSeries */
-function fetchNamedSeries(metaDataApi, named) {
+function fetchNamedSeries(dataApi, named) {
 
   /** return a 'fake' Series with an error property set */
   function errorSeries(err) {
@@ -287,28 +276,21 @@ function fetchNamedSeries(metaDataApi, named) {
 
   var futures =
     named.map(function(namedSeries) {
-      var promisedSeries = fetchSeriesInfo(metaDataApi, namedSeries);
+      var promisedSeries = fetchSeriesInfo(dataApi, namedSeries);
       return promisedSeries.otherwise(errorSeries);
     });
 
   return when.all(futures);
 }
 
-
-
 /** Fetch a namedSeries from the server via the /column REST api.
  *  Returns a promise that completes with a Series object.  */
-function fetchSeriesInfo(metaDataApi, namedSeries) {
+function fetchSeriesInfo(dataApi, namedSeries) {
   var setAndColumn = namedSeries.name,
       lastSlash = setAndColumn.lastIndexOf("/"),
       dataSetName = setAndColumn.slice(0, lastSlash),
       column = setAndColumn.slice(lastSlash+1, setAndColumn.length),
-      futureMetaData = metaDataApi.column(dataSetName, column, needsCategories());
-
-  /** return true if we need to fill in .categories from the server list of unique values */
-  function needsCategories() {
-    return !namedSeries.categories && plotter().needsCategories;
-  }
+      futureDomainRange = dataApi(dataSetName, column, {transform:"DomainRange"});
 
   /** plotter that will be used to plot this series */
   function plotter() {
@@ -316,13 +298,16 @@ function fetchSeriesInfo(metaDataApi, namedSeries) {
   }
 
   /** now that we have the series metadata from the server, fill in the Series */
-  function received(columnInfo) {
+  function received(data) {
+    var domainRange = dataApi.toObject(data);
     var series = {
       set: dataSetName,
       name: column,
-      range: millisToDates(columnInfo.range),
-      domain: millisToDates(columnInfo.domain)
+      range: domainRange.range,
+      domain: millisToDates(domainRange.domain)
     };
+
+    /** LATER support unique value coding via server transform
     if (columnInfo.uniqueValues) {
       if (namedSeries.valueCodes) {
         series.categories = columnInfo.uniqueValues.map(function(code) {
@@ -332,11 +317,13 @@ function fetchSeriesInfo(metaDataApi, namedSeries) {
         series.categories = columnInfo.uniqueValues;
       }
     }
+    */
+
     copyPropertiesExcept(series, namedSeries, "name");
     return series;
   }
 
-  return futureMetaData.then(received);
+  return futureDomainRange.then(received).otherwise(rethrow);
 }
 
 

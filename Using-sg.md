@@ -1,14 +1,15 @@
 Command line Options 
 ------
 
-  Usage: sg [OPTIONS] path
+  Usage: sg [OPTIONS] 
 
-    <path>              directory containing .tsv or .csv data
+    --files <path>      directory containing .tsv or .csv data
     --root path         directory containing custom web pages to serve
 
     --display           navigate the desktop web browser to the current dashboard
     --port port         tcp port for the web server (default port is 1234)
     --debug             turn on debug logging
+    --format            erase and reformat the database
     --help              show this help
 
 
@@ -38,7 +39,7 @@ It is also possible to extend the server to include custom code on the server th
 #####Trying custom dashboards
 Run with your dashboard and data:
 
-    > run --root my-dashboard-dir my-data-dir
+    > run --root my-dashboard-dir --files my-data-dir
 
 While developing, just edit the dashboard file and refresh the browser.  It is not necessary to restart the server after changing data files or dashboard javascript files.
 (The server doesn't cache the dashboard html/javascript files.  The server caches data files, but it is clever enough to reload the data files as they change on disk.)

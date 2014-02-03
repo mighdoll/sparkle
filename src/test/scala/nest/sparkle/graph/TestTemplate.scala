@@ -18,14 +18,18 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers
 import spray.testkit.ScalatestRouteTest
 import spray.http.StatusCodes
+import nest.sparkle.legacy.PreloadedStore
+import nest.sparkle.legacy.PreloadedRegistry
+import nest.sparkle.legacy.SampleData
+import nest.sparkle.time.protocol.TestDataService
+import nest.sparkle.time.server.ConfigServer
 
+/** test serving a custom webroot */
 class TestTemplate extends FunSuite with Matchers with ScalatestRouteTest
-    with DataService {
+    with TestDataService {
   override def testConfig = ConfigServer.loadConfig()   
-  def actorRefFactory = system // connect the DSL to the test ActorSystem
-  def executionContext = system.dispatcher
 
-  val registry = PreloadedRegistry(Nil)
+  override val registry = PreloadedRegistry(Nil)
   val store = PreloadedStore(List(SampleData))
   override def webRoot = Some("src/test/resources/subdir")
   
