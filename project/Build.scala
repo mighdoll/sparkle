@@ -31,7 +31,7 @@ object SparkleTimeBuild extends Build {
       EclipseKeys.withSource := true,
       EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource,
 
-      scalaVersion := "2.10.4-RC2",
+      scalaVersion := "2.10.4-RC3",
       scalaBinaryVersion := "2.10",
 //      testOptions += Tests.Argument("-oF"),    // show full stack traces
       scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps")
