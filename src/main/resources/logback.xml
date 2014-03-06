@@ -11,22 +11,13 @@
         </filter>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>${sparkle.log.dir:-.}/sparkle.log</file>
-        <append>false</append>
-        <encoder>
-            <pattern>%date{MM/dd HH:mm:ss.SSS} %-5level %logger{1} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
-
     <logger name="akka.event.slf4j.Slf4jLogger" level="WARN" />
     <logger name="com.codahale.metrics.JmxReporter" level="WARN" />
     <logger name="com.datastax.driver" level="WARN" />
 
     <root level="DEBUG">
-      <appender-ref ref="FILE"/>
       <appender-ref ref="CONSOLE"/>
+<!--  file appender attached programmatically -->
     </root>
 
 </configuration>

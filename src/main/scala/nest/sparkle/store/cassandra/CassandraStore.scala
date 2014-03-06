@@ -31,6 +31,7 @@ import scala.collection.JavaConverters._
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import spray.util._
 import nest.sparkle.store.WriteableStorage
+import nest.sparkle.util.Log
 
 case class AsciiString(val string: String) extends AnyVal
 case class NanoTime(val nanos: Long) extends AnyVal
@@ -67,13 +68,14 @@ class ConfiguredCassandra(config: Config) extends CassandraStore {
   override val defaultKeySpace = storeConfig.getString("keySpace")
 }
 
-/** a cassandra store data access layer configured with a single contact host parameter */
+/** a cassandra store data access layer configured with a single contact host parameter
+ *  // LATER consider getting rid of this, just always use configuration */
 class CassandraWithHost(contactHost: String) extends CassandraStore {
   override val contactHosts = Seq(contactHost)
 }
 
 /** a Storage DAO for cassandra.  */
-trait CassandraStore extends Storage with WriteableStorage {
+trait CassandraStore extends Storage with WriteableStorage with Log {
   lazy val catalog = ColumnCatalog(session)
   def contactHosts: Seq[String]
   val defaultKeySpace = "events"    // TODO get rid of this and rely on the .conf default
@@ -82,6 +84,7 @@ trait CassandraStore extends Storage with WriteableStorage {
   /** create a connection to the cassandra cluster */
   implicit lazy val session: Session = {
     val builder = Cluster.builder()
+    log.info(s"""starting session using contact hosts: ${contactHosts.mkString(",")}""")
     contactHosts.foreach{ builder.addContactPoint(_) }
     val cluster = builder.build()
     val session = cluster.connect()

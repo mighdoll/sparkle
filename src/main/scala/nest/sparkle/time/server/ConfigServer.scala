@@ -14,20 +14,19 @@
 
 package nest.sparkle.time.server
 
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import com.typesafe.config.ConfigValueFactory
 import java.io.File
 
-object ConfigServer {
-  /** Load the configuration from the application.conf and reference.conf resources.
-    * Allows overriding the akka log level, so that the .conf file can be e.g. WARN
-    * but a command line flag can turn it up.
-    */
-  def loadConfig(
-    configResource: String = "application.conf"): Config = {
+import com.typesafe.config.{Config, ConfigFactory}
 
+import nest.sparkle.util.Log
+import nest.sparkle.util.LogConfiguration.configureLogging
+
+object ConfigServer extends Log {
+  /** Load the configuration from the application.conf and reference.conf resources.
+    */
+  def loadConfig(configResource: String = "application.conf"): Config = {
     val root = ConfigFactory.load(configResource)
+    log.info(s"using config resource: $configResource")
     localConfig(root)
   }
 
@@ -38,6 +37,7 @@ object ConfigServer {
     val baseConfig = ConfigFactory.load()
     var root =
       configFileOpt.map { configFile =>
+        log.info(s"using config file: $configFile")
         val file = new File(configFile)
         val config = ConfigFactory.parseFile(file).resolve()
         config.withFallback(baseConfig)
@@ -49,7 +49,10 @@ object ConfigServer {
 
   /** point at the sparkle-time-server section of the config file, and optionally override debug settings */
   private def localConfig(root: Config): Config = {
-    root.getConfig("sparkle-time-server")
+    val local = root.getConfig("sparkle-time-server")
+    configureLogging(local)
+    local
   }
+
 
 }

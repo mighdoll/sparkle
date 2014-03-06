@@ -65,6 +65,7 @@ object SparkleTimeBuild extends Build {
           sprayRouting,
           sprayCan,
           sprayCaching,
+          scalaLogging,
           rxJavaCore,
           rxJavaScala,
           nScalaTime,
@@ -80,7 +81,13 @@ object SparkleTimeBuild extends Build {
           IT.scalaTest,
           IT.scalaCheck
          ),
-        licenses += ("Apache-2.0", url("http://apache.org/licenses/LICENSE-2.0.html"))
-      )
+        licenses += ("Apache-2.0", url("http://apache.org/licenses/LICENSE-2.0.html")),
+        // see http://stackoverflow.com/questions/7898273/how-to-get-logging-working-in-scala-unit-tests-with-testng-slf4s-and-logback
+        testOptions += Tests.Setup( cl =>
+           cl.loadClass("org.slf4j.LoggerFactory").
+             getMethod("getLogger",cl.loadClass("java.lang.String")).
+             invoke(null,"ROOT")
+          )
+        )
 
 }
