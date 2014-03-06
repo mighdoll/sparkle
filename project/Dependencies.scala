@@ -44,6 +44,7 @@ object Dependencies {
 
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
+  val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.0.1"
               
 
   object Runtime {

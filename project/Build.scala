@@ -65,6 +65,7 @@ object SparkleTimeBuild extends Build {
           sprayRouting,
           sprayCan,
           sprayCaching,
+          scalaLogging,
           rxJavaCore,
           rxJavaScala,
           nScalaTime,
