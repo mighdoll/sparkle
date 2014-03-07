@@ -45,7 +45,7 @@ class TestCors extends TestStore with StreamRequestor with TestDataService with 
       val allowed = allowedString.split(",").map(_.trim).toSet
       val expected = Set(
         "Origin", "X-Requested-With", "Content-Type", "Accept", "Accept-Encoding", "Accept-Language",
-        "Host", "Referer", "User-Agent"
+        "Host", "Referer", "User-Agent", "Authorization", "DNT", "Cache-Control", "Keep-Alive", "X-Requested-With"
       )
       if (allowed != expected) {
         println(s"""failing TestCors.Access-Control-Allow-Headers: 
