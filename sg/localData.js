@@ -25,7 +25,7 @@ define(["jslib/when/when"], function(when) {
     return function(setName, column, params) {
       var domain = params.domain,
           first,
-          extra = params.extraBeforeAfter;
+          extra = params.edgeExtra;
 
       dataArray.every( function(datum, index) {
         var dataTime = datum[0];

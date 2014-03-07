@@ -13,7 +13,7 @@
    limitations under the License.  */
 
 define (["jslib/when/when", "jslib/d3", 
-         "sg/util", "sg/richAxis", "sg/maxLock", "sg/data3", 
+         "sg/util", "sg/richAxis", "sg/maxLock", "sg/data", 
          "sg/zoom", "sg/chart", "sg/domCache"], 
         function(when, _d3, util, _richAxis, _maxLock, networkDataApi, 
                  _zoom, chart, domCache) {

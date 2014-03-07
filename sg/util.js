@@ -340,6 +340,18 @@ function shallowCopy(target, src) {
   return target;
 }
 
+/** return a copy of an object with null or undefined properties removed */
+function copyDefined(src) {
+  var copy = {};
+  for (var property in src) {
+    var value = src[property];
+    if (value != null && value != undefined) {
+      copy[property] = value;
+    } 
+  }
+  return copy;
+} 
+
 function copyPropertiesExcept(target, src, _notProperties) {
   var notProperties = [];
   for (var i = 2; i < arguments.length; i++) {

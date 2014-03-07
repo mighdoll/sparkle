@@ -13,7 +13,7 @@
    limitations under the License.  */
 
 define(["jslib/d3", "jslib/when/monitor/console", "jslib/when/when", 
-        "sg/data3", "sg/util", "sg/zoom", "sg/resizable", "sg/linePlot", "sg/richAxis", 
+        "sg/data", "sg/util", "sg/zoom", "sg/resizable", "sg/linePlot", "sg/richAxis", 
         "sg/legend", "sg/timeClip", "sg/domCache"], 
    function(_d3, _console, when, dataApi, _util, zoomBrush, resizable, linePlot, richAxis, 
             legend, timeClip, domCache) {
@@ -405,10 +405,10 @@ function chart() {
     * parameters:
     *   dataSeries - data descriptors array, a .data field will be added to each 
     *   domain - time range of data requested
-    *   approxMax - number of data points requested from the server (server may return more)
+    *   maxResults - number of data points requested from the server 
     *   completeFn - called when all data has been received
     */
-  function fetchData(dataApi, dataSeries, domain, approxMaxPoints) {
+  function fetchData(dataApi, dataSeries, domain, maxResults) {
     var allFetched = 
       dataSeries.map( function(series) {
         var summary, 
@@ -425,8 +425,8 @@ function chart() {
         
         var dataParams = {
             domain: domain,
-            extraBeforeAfter: true,    // LATER edge is only needed for linePlot..
-            approxMaxPoints: approxMaxPoints,
+            edgeExtra: true,    // LATER edge is only needed for linePlot..
+            maxResults: maxResults,
             summary: series.summary || summary,
             transform: "SummarizeMax", // LATER override per dataset
             filter: filter

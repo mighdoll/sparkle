@@ -108,7 +108,7 @@ object DomainRange extends ColumnTransform {
   override def apply[T: JsonWriter: Ordering, U: JsonWriter: Ordering](column: Column[T, U], transformParameters: JsObject) // format: OFF
         (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
-    val events = column.readRange() // all events
+    val events = column.readRange() // all events, TODO take a range from the transform parameters
 
     val dataStream = events.toSeq.map { seq =>
       if (!seq.isEmpty) {

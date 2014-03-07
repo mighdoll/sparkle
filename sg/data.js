@@ -15,22 +15,67 @@
 define(["jslib/when/monitor/console", "sg/request"], 
     function(_console, request) {
 
-/** Fetch data points from the server.  Return a When that completes with an array:[Date, Number].
+/** Fetch data points from the server.  Return a When that completes with the raw data 
+  * array from the server sent Streams message.  
   *
-  * params {
+  * Utility functions are available to convert incoming streams to convenient forms:
+  *   * [Milliseconds,Value] to [Date, Value].  millisToDates()
+  *   * [String,Value] to {name1: value1, name2: value2}. toObject()
+  *
+  * params: 
+  *   .transform:String  -- server transformation/summarization function to use
   *   ?.domain:[Date, Date] -- time range to fetch
-  *   ?.extraBeforeAfter:Boolean -- server should return an extra point before and after the domain
-  *   ?.approxMaxPoints:Number -- server should return about this many points
-  *   ?.summary:String  -- server summarization function to use
-  *   ?.filter:[String] -- only return points with these values
+  *   ?.edgeExtra:Boolean -- server should return an extra point before and after the domain
+  *   ?.maxResults:Number -- server should return no more than this many points
   */
-return function(setName, column, params) {
-  var uri = "/data/" + column + "/" + setName + constructQueryParams();
+  var returnFn = function(setName, column, params) {
+    var uri = "/v1/data"; 
 
-  return request.jsonWhen(uri).then(reformat);
+    return request.jsonPost(uri, streamRequestMessage()).then(streamsResponse);
 
-  /** convert to [Date,Number] format */
-  function reformat(jsonArray) {
+    /** process a Streams message from the server */
+    function streamsResponse(message) {
+      var streamsMessage = JSON.parse(message);
+      return streamsMessage.message.streams[0].data;
+    }
+
+    /** Construct a StreamRequest to request a transform from the server */
+    function streamRequest() {
+      // we send millis over the wire, so convert from the Date objects we use locally
+      var start = params.domain ? params.domain[0].getTime() : null,
+          end = params.domain ? params.domain[1].getTime() : null;
+
+      var transformParameters = {
+          maxResults: params.maxResults,
+          start: start,
+          end: end,
+          edgeExtra: params.edgeExtra
+      };
+
+      return {
+//        sendUpdates:false,  // for websockets
+//        itemLimit: 0,       // for websockets
+        sources: [setName + "/" + column],  
+        transform: params.transform,
+        transformParameters: copyDefined(transformParameters)
+      };
+    }
+
+    /** Return a StreamRequestMessage json string, suitable for sending a StreamRequest to the server */
+    function streamRequestMessage() {
+      var distributionMessage = {
+        requestId: 11,
+        realm: "foo",
+        messageType: "StreamRequest",
+        message: streamRequest(),
+        traceId: "13"
+      };
+      return JSON.stringify(distributionMessage);
+    }
+  };
+
+  /** convert [Millis,Number] to [Date, Number] format */
+  function millisToDates(jsonArray) {
     var data = jsonArray.map( function (row) { 
       var time = new Date(row[0]);
       return [time, row[1]]; 
@@ -38,26 +83,18 @@ return function(setName, column, params) {
     return data;
   }
 
-  /** Use params parameter block to construct url query parmeters for /data request */
-  function constructQueryParams() {
-    if (!params) return "";
-
-    var start = params.domain ? "start=" + params.domain[0].getTime() : null,
-        end = params.domain ? "end=" + params.domain[1].getTime() : null,
-        max = (
-            params.approxMaxPoints !== undefined && params.approxMaxPoints !== null
-          ) ? "max=" + params.approxMaxPoints : null,
-        edge = params.extraBeforeAfter ? "edge=" + params.extraBeforeAfter : null,
-        summary = params.summary ? "summary=" + params.summary : null,
-        filter = params.filter ? "filter=" + filterList() : null;
-
-    return request.queryParams(start, end, max, edge, summary, filter);
+  /** convert [String,Value] to {name1: value1, name2: value2}.  */
+  function toObject(jsonArray) {
+    var result = {};
+    jsonArray[0].forEach( function(element) {
+      result[element[0]] = element[1];
+    });
+    return result;
   }
 
-  function filterList() {
-    var list = params.filter.reduce(function(total, elem) {return total + "," + elem;});
-    return encodeURIComponent(list);
-  }
-}
+  returnFn.millisToDates = millisToDates;
+  returnFn.toObject = toObject;
+
+  return returnFn;
 
 });
