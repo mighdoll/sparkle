@@ -12,20 +12,16 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-package nest.sparkle.time.protocol
+package nest.sparkle.loader.kafka
 
-import nest.sparkle.time.server.DataService
-import nest.sparkle.legacy.DataRegistry
-import spray.testkit.ScalatestRouteTest
-import org.scalatest.Suite
+import kafka.serializer.Encoder
 
-trait TestDataService extends DataService with ScalatestRouteTest {
-  self: Suite =>
-  override lazy val corsHosts = List("*")
-  def actorRefFactory = system // connect the DSL to the test ActorSystem
-  def executionContext = system.dispatcher
+object KafkaEncoders {
+  object Implicits {
 
-// Members declared in nest.sparkle.time.server.DataService   
-  def registry: DataRegistry = ???      
+    implicit object StringEncoder extends Encoder[String] {
+      def toBytes(string:String): Array[Byte] = string.getBytes
+    }
 
+  }
 }

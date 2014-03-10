@@ -35,8 +35,8 @@ object Dependencies {
   val argot                 = "org.clapper"               %% "argot"                  % "1.0.0"
   val nScalaTime            = "com.github.nscala-time"    %% "nscala-time"            % "0.4.2"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
-  val cassandra             = "org.apache.cassandra"      % "cassandra-all"           % "2.0.3"
-  val cassandraClient       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.0.0-rc1"
+  val cassandraAll          = "org.apache.cassandra"      % "cassandra-all"           % "2.0.3"
+  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.0.0-rc1"
   val snappy                = "org.xerial.snappy"         % "snappy-java"             % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           % "lz4"                     % "1.2.0"
 
@@ -45,10 +45,15 @@ object Dependencies {
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
   val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.0.1"
-              
+  val kafka                 = ("org.apache.kafka"         %% "kafka"                  % "0.8.0" 
+                                  exclude("javax.jms", "jms") 
+                                  exclude("com.sun.jdmk", "jmxtools") 
+                                  exclude("com.sun.jmx", "jmxri")
+                                  exclude("org.slf4j", "slf4j-simple")
+                              )
 
   object Runtime {
-    val logback              = "ch.qos.logback"            % "logback-classic"         % "1.0.9"     
+    val logback              = "ch.qos.logback"            % "logback-classic"         % "1.0.9"      
   }
 
   object Test {
@@ -64,5 +69,44 @@ object Dependencies {
     val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray     % "it"
     val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka      % "it"
   }
+
+  val basicTest = Seq(
+    Test.scalaTest,
+    Test.scalaCheck,
+    IT.scalaTest,
+    IT.scalaCheck
+  )
+
+  val logging = Seq(
+    scalaLogging,
+    Runtime.logback
+  )
+
+  val testAndLogging = basicTest ++ logging
+
+
+  val spray = Seq(
+    sprayJson,
+    sprayClient,
+    sprayRouting,
+    sprayCan,
+    sprayCaching,
+    Test.sprayTestKit,
+    Test.akkaTestKit, // delete this after spray #446 is resolved 
+    IT.sprayTestKit,
+    IT.akkaTestKit // delete this after spray #446 is resolved 
+  )
+
+  val akka = Seq(
+    akkaActor,
+    akkaRemoting,
+    akkaSlf4j
+  )
+
+  val cassandraClient = Seq(
+    cassandraDriver,
+    snappy,
+    lz4
+  )
 
 }

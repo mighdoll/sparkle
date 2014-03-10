@@ -16,86 +16,39 @@ import sbt._
 import sbt.Keys._
 
 object SparkleTimeBuild extends Build {
-  import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseKeys
-  import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
   import Dependencies._
-  import sbtassembly.Plugin.AssemblyKeys._
-  import spray.revolver.RevolverPlugin._
-  import sbtrelease.ReleasePlugin._
-  import bintray.Plugin._
-
   // set prompt to name of current project
   override lazy val settings = super.settings :+ {
     shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
   }
 
-  lazy val sparkleSettings = Defaults.defaultSettings ++
-    sbtassembly.Plugin.assemblySettings ++
-    Seq(
-      organization := "nest",
-      EclipseKeys.withSource := true,
-      EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource,
-
-      scalaVersion := "2.10.4-RC2",
-      scalaBinaryVersion := "2.10",
-//      testOptions += Tests.Argument("-oF"),    // show full stack traces
-      scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps")
-    )
-
-  private lazy val itSettings = Defaults.itSettings ++ Seq(
-    // include integration test code (src/it) in generated eclipse projects
-    EclipseKeys.configurations := Set(sbt.Compile, sbt.Test, sbt.IntegrationTest)
-  )
-
   lazy val sparkleRoot = Project(id = "sparkle-root", base = file("."))
-      .aggregate(sparkleTime)
+    .aggregate(sparkleTime, kafkaLoader)
 
-  lazy val sparkleTime = 
+  lazy val sparkleTime =
     Project(id = "sparkle-time", base = file("sparkle"))
       .configs(IntegrationTest)
-      .settings(bintraySettings:_*)
-      .settings(MavenPublish.settings:_*)
-      .settings(itSettings: _*)
-      .settings(sparkleSettings: _*)
-      .settings(Revolver.settings: _*)
-      .settings(releaseSettings: _*)
+      .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= Seq(
+        libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ Seq(
           scalaReflect,
-          akkaActor,
-          akkaRemoting,
-          akkaSlf4j,
-          cassandraClient,
-          snappy,
-          lz4,
-          sprayJson,
-          sprayClient,
-          sprayRouting,
-          sprayCan,
-          sprayCaching,
-          scalaLogging,
           rxJavaCore,
           rxJavaScala,
           nScalaTime,
           argot,
-          openCsv,
-          Runtime.logback,
-          Test.scalaTest,
-          Test.scalaCheck,
-          Test.sprayTestKit,
-          Test.akkaTestKit,   // delete this after spray #446 is resolved 
-          IT.sprayTestKit,
-          IT.akkaTestKit,   // delete this after spray #446 is resolved 
-          IT.scalaTest,
-          IT.scalaCheck
-         ),
-        licenses += ("Apache-2.0", url("http://apache.org/licenses/LICENSE-2.0.html")),
-        // see http://stackoverflow.com/questions/7898273/how-to-get-logging-working-in-scala-unit-tests-with-testng-slf4s-and-logback
-        testOptions += Tests.Setup( cl =>
-           cl.loadClass("org.slf4j.LoggerFactory").
-             getMethod("getLogger",cl.loadClass("java.lang.String")).
-             invoke(null,"ROOT")
-          )
-        )
+          openCsv
+        ) 
+      )
+
+  lazy val kafkaLoader =
+    Project(id = "kafka-loader", base = file("kafka"))
+      .dependsOn(sparkleTime)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= Seq(
+          kafka
+        ) ++ testAndLogging
+      )
 
 }
