@@ -24,6 +24,11 @@ object SparkleTimeBuild extends Build {
   import sbtrelease.ReleasePlugin._
   import bintray.Plugin._
 
+  // set prompt to name of current project
+  override lazy val settings = super.settings :+ {
+    shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
+  }
+
   lazy val sparkleSettings = Defaults.defaultSettings ++
     sbtassembly.Plugin.assemblySettings ++
     Seq(
@@ -42,8 +47,11 @@ object SparkleTimeBuild extends Build {
     EclipseKeys.configurations := Set(sbt.Compile, sbt.Test, sbt.IntegrationTest)
   )
 
+  lazy val sparkleRoot = Project(id = "sparkle-root", base = file("."))
+      .aggregate(sparkleTime)
+
   lazy val sparkleTime = 
-    Project(id = "sparkle-time", base = file("."))
+    Project(id = "sparkle-time", base = file("sparkle"))
       .configs(IntegrationTest)
       .settings(bintraySettings:_*)
       .settings(MavenPublish.settings:_*)

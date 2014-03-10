@@ -31,7 +31,7 @@ class TestTemplate extends FunSuite with Matchers with ScalatestRouteTest
 
   override val registry = PreloadedRegistry(Nil)
   val store = PreloadedStore(List(SampleData))
-  override def webRoot = Some("src/test/resources/subdir")
+  override def webRoot = Some("sparkle/src/test/resources/subdir")
   
   test("serve index from custom webRoot") {
     Get("/") ~> route ~> check {

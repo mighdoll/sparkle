@@ -23,7 +23,7 @@ import scala.concurrent.ExecutionContext
 class TestTsvLoad extends FunSuite with Matchers {
   test("load A1 tsv file") {
     import ExecutionContext.Implicits.global
-    val loadedFuture = FileLoadedDataSet.loadAsync(Paths.get("src/test/resources/tsv/d1/A1"))
+    val loadedFuture = FileLoadedDataSet.loadAsync(Paths.get("sparkle/src/test/resources/tsv/d1/A1"))
     val dataSet = loadedFuture.await()
     dataSet.dataColumns.size should be (1)
     dataSet.time.length should be (158)

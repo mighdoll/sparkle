@@ -53,10 +53,10 @@ class TestFilesLoader extends FunSuite with Matchers with BeforeAndAfterAll {
   }
 
   test("load csv file") {
-    val filePath = "src/test/resources/epochs.csv"
+    val filePath = "sparkle/src/test/resources/epochs.csv"
     FilesLoader(filePath, testDb)
     onLoadComplete(filePath).await
-    val column = testDb.column[Long, Double]("src/test/resources/epochs.csv/count").await
+    val column = testDb.column[Long, Double]("sparkle/src/test/resources/epochs.csv/count").await
     val read = column.readRange(None, None)
     val results = read.toBlockingObservable.toList
     results.length shouldBe 2751

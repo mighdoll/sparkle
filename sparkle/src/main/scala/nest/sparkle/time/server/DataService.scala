@@ -36,9 +36,13 @@ import spray.routing.directives.LoggingMagnet.forRequestResponseFromHttpResponse
 import spray.routing.directives.OnCompleteFutureMagnet.apply
 import nest.sparkle.legacy.DataServiceV0
 import nest.sparkle.time.protocol.DataServiceV1
+import nest.sparkle.util.Log
+import java.nio.file.Path
+import java.nio.file.Files
+import java.nio.file.Paths
 
 /** http API for serving data and static web content */
-trait DataService extends HttpService with DataServiceV0 with DataServiceV1 {
+trait DataService extends HttpService with DataServiceV0 with DataServiceV1 with Log {
   def registry: DataRegistry
   /** Subclasses set this to the default web page to display (e.g. the dashboard) */
   def webRoot: Option[String] = None
@@ -58,8 +62,8 @@ trait DataService extends HttpService with DataServiceV0 with DataServiceV1 {
       RawHeader("Expires", "0"),
       RawHeader("Pragma", "no-cache")
     ) {
-      getFromResourceDirectory("web")
-    }
+        getFromResourceDirectory("web")
+      }
   }
 
   val rootPath: Route = { // static data from the template folder (if provided)

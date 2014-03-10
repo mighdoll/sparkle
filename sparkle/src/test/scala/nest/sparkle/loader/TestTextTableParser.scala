@@ -34,21 +34,21 @@ class TestTextTableParser extends FunSuite with Matchers {
   }
 
   test("load sample.csv file") {
-    loadRowInfo("src/test/resources/sample.csv") { rowInfo =>
+    loadRowInfo("sparkle/src/test/resources/sample.csv") { rowInfo =>
       rowInfo.names.length shouldBe 26
       rowInfo.rows.toSeq.size shouldBe 78
     }
   }
 
   test("load csv file with numeric timestamps") {
-    loadRowInfo("src/test/resources/epochs.csv") { rowInfo =>
+    loadRowInfo("sparkle/src/test/resources/epochs.csv") { rowInfo =>
       rowInfo.names.length shouldBe 4
       rowInfo.rows.toSeq.size shouldBe 2751
     }
   }
 
   test("load csv file with numeric timestamps and no header") {
-    loadRowInfo("src/test/resources/just-time.csv") { rowInfo =>
+    loadRowInfo("sparkle/src/test/resources/just-time.csv") { rowInfo =>
       rowInfo.rows.toSeq.size shouldBe 4
       rowInfo.names.size shouldBe 1
       //    val data = dataSet.data(metricName = "time", max = 1, summarize = "count").await()
