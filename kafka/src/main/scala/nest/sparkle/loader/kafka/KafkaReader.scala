@@ -68,9 +68,10 @@ class KafkaReader[T: Decoder](topic: String, config: Config = ConfigFactory.load
   /** open a connection to kafka */
   private def connect(): ConsumerConnector = {
     val properties = {
+      val readerConfig = config.getConfig("kafka-reader")
       /** extract the kafka-client settings verbatim, send directly to kafka */
-      val props = ConfigUtil.properties(config.getConfig("kafka-reader"))
-      val group = consumerGroup.getOrElse { config.getString("consumer-group") }
+      val props = ConfigUtil.properties(readerConfig)
+      val group = consumerGroup.getOrElse { readerConfig.getString("consumer-group") }
       props.put("group.id", group)
       props
     }

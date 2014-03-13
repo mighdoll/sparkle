@@ -46,7 +46,7 @@ class TestCassandraStore extends FunSuite
     val source = ConfigFactory.load().getConfig("sparkle-time-server")
     ConfigUtil.modifiedConfig(
       source, 
-      Some("sparkle-store-cassandra.key-space","testcassandrastore")
+      "sparkle-store-cassandra.key-space" -> "testcassandrastore"
     )
   }
   val storeConfig = config.getConfig("sparkle-store-cassandra")

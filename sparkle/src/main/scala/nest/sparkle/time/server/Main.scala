@@ -32,7 +32,7 @@ import nest.sparkle.legacy.PreloadedRegistry
 import com.typesafe.config.ConfigValueFactory
 import com.typesafe.config.Config
 import nest.sparkle.util.ArgotApp
-import nest.sparkle.util.ConfigUtil.modifiedConfig
+import nest.sparkle.util.ConfigUtil.optionModifiedConfig
 
 import nest.sparkle.store.WriteableStore
 
@@ -54,7 +54,7 @@ object Main extends ArgotApp {
     val portMapping = port.value.map { ("port", _) }
     val rootMapping = root.value.map { ("web-root", _) }
     val mappings = portMapping :: rootMapping :: Nil
-    val config = modifiedConfig(loadedConfig, mappings: _*)
+    val config = optionModifiedConfig(loadedConfig, mappings: _*)
 
     val launch = new ServerLaunch(config)
     

@@ -14,14 +14,14 @@
 
 package nest.sparkle.loader.kafka
 
-import kafka.serializer.Decoder
+import com.typesafe.config.ConfigFactory
+import nest.sparkle.util.LogConfiguration.configureLogging
 
-object KafkaDecoders {
-  object Implicits {
-
-    implicit object StringDecoder extends Decoder[String] {
-      def fromBytes(bytes: Array[Byte]): String = new String(bytes)
-    }
-    
+trait CassandraTestConfig {
+  private lazy val baseConfig = ConfigFactory.load()
+  lazy val cassandraConfig = {
+    val config = baseConfig.getConfig("sparkle-time-server")
+    configureLogging(config)
+    config
   }
 }

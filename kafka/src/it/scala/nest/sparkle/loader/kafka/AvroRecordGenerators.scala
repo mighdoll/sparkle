@@ -13,15 +13,25 @@
    limitations under the License.  */
 
 package nest.sparkle.loader.kafka
+import org.scalacheck.Arbitrary.arbitrary
+import org.scalacheck.Arbitrary
+import org.apache.avro.generic.GenericData
 
-import kafka.serializer.Decoder
-
-object KafkaDecoders {
+/** test generator support for making millis-double GenericRecord avro data */
+object AvroRecordGenerators {
+  private val genMillisDoubleRecord = for {
+    time <- arbitrary[Long]
+    value <- arbitrary[Double]
+    id <- arbitrary[Int]
+  } yield {
+    val record = new GenericData.Record(MillisDoubleAvro.schema)
+    record.put("id", id.toString)
+    record.put("time", time)
+    record.put("value", value)
+    record
+  }
+  
   object Implicits {
-
-    implicit object StringDecoder extends Decoder[String] {
-      def fromBytes(bytes: Array[Byte]): String = new String(bytes)
-    }
-    
+    implicit val arbitraryMillisDoubleRecord = Arbitrary(genMillisDoubleRecord)
   }
 }

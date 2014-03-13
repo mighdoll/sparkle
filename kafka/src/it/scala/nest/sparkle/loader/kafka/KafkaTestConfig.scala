@@ -14,14 +14,16 @@
 
 package nest.sparkle.loader.kafka
 
-import kafka.serializer.Decoder
+import com.typesafe.config.ConfigFactory
+import nest.sparkle.util.ConfigureLog4j
 
-object KafkaDecoders {
-  object Implicits {
-
-    implicit object StringDecoder extends Decoder[String] {
-      def fromBytes(bytes: Array[Byte]): String = new String(bytes)
-    }
-    
+/** (for tests) load the config file and initialize. 
+ *  expose a loaderConfig value so that tests can use the config.  */
+trait KafkaTestConfig { 
+  private lazy val baseConfig = ConfigFactory.load()
+  lazy val loaderConfig = {
+    val config = baseConfig.getConfig("kafka-loader")
+    ConfigureLog4j.configure(config)
+    config
   }
 }

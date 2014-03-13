@@ -24,8 +24,8 @@ import ch.qos.logback.classic.spi.{ILoggingEvent, LoggingEvent}
 import ch.qos.logback.core.{Appender, FileAppender}
 import ch.qos.logback.core.encoder.Encoder
 
-/** configure a log4j logger based on the config file */
-object LogConfiguration extends Log {
+/** configure a logback logger based on the config file */
+object LogConfiguration extends Log { // TODO rename to ConfigureLogback
 
   /** configure logging based on the .conf file */
   def configureLogging(config: Config) {
@@ -35,10 +35,10 @@ object LogConfiguration extends Log {
     }
   }
 
-  /** configure file based logger for logback, based on the .conf file */
+  /** configure file based logger for logback, based on settings in the .conf file */
   private def configureLogBack(config: Config, rootLogger: Logger) {
     val context = slf4j.LoggerFactory.getILoggerFactory().asInstanceOf[LoggerContext]
-    val logConfig = config.getConfig("log")
+    val logConfig = config.getConfig("logback")
     val file = logConfig.getString("file")
     val pattern = logConfig.getString("pattern")
     val append = logConfig.getBoolean("append")
@@ -55,4 +55,5 @@ object LogConfiguration extends Log {
     fileAppender.start()
     rootLogger.addAppender(fileAppender.asInstanceOf[Appender[ILoggingEvent]])
   }
+  
 }
