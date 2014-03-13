@@ -21,9 +21,10 @@ import scala.collection.JavaConverters._
 import nest.sparkle.util.Instance
 import nest.sparkle.legacy.DataRegistry
 import nest.sparkle.time.protocol.DataServiceV1
+import nest.sparkle.util.Log
 
 /** a DataService that reads configuration from a config file */
-trait ConfiguredDataService extends DataService {
+trait ConfiguredDataService extends DataService with Log {
   def config: Config
   override def customRoutes = customApis(config, registry)
   override lazy val corsHosts:List[String] = config.getStringList("cors-hosts").asScala.toList
@@ -34,7 +35,7 @@ trait ConfiguredDataService extends DataService {
   def customApis(config: Config, dataRegistry: DataRegistry)(implicit actorRefFactory: ActorRefFactory): Iterable[Route] = {
     val classes = config.getStringList("apis").asScala
     classes.map { className =>
-      Console.println(s"adding api from .conf: $className") // TODO use slf4j
+      log.info(s"adding api from .conf: $className") 
       val custom = Instance.byName[ApiExtension](className)(actorRefFactory, dataRegistry)
       custom.route
     }

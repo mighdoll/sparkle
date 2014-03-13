@@ -24,7 +24,7 @@ import scala.concurrent.ExecutionContext
 import nest.sparkle.loader.kafka.KafkaDecoders.Implicits._
 import rx.lang.scala.Observable
 
-class TestKafkaRoundTrip extends FunSuite with Matchers {
+class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
   import ExecutionContext.Implicits.global
 
   def randomStrings(count: Int, length: Int = 3): Seq[String] = {
@@ -33,7 +33,7 @@ class TestKafkaRoundTrip extends FunSuite with Matchers {
 
   def roundTripTest(writerFn: (KafkaTestTopic, Seq[String]) => Unit) {
     val entries = 3
-    val kafka = new KafkaTestTopic()
+    val kafka = new KafkaTestTopic(loaderConfig)
     val testData = randomStrings(entries)
     writerFn(kafka, testData)
     val stream = kafka.reader.stream()
@@ -58,7 +58,7 @@ class TestKafkaRoundTrip extends FunSuite with Matchers {
     val testData = randomStrings(entries)
     val testId = randomAlphaNum(3)
     
-    val kafka1 = new KafkaTestTopic(testId)
+    val kafka1 = new KafkaTestTopic(loaderConfig, testId)
     kafka1.writer.write(testData)
     val stream1 = kafka1.reader.stream()
     val results1 = stream1.take(entries / 2).toFutureSeq.await
@@ -66,7 +66,7 @@ class TestKafkaRoundTrip extends FunSuite with Matchers {
     kafka1.reader.commit()
     kafka1.reader.close() // trigger rebalancing immediately for test 
     
-    val kafka2 = new KafkaTestTopic(testId)
+    val kafka2 = new KafkaTestTopic(loaderConfig, testId)
     val stream2 = kafka2.reader.stream()
     val results2 = stream2.take(entries / 2).toFutureSeq.await
     (results1 ++ results2) shouldBe testData

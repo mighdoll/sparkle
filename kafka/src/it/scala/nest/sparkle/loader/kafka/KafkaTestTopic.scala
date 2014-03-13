@@ -18,16 +18,14 @@ import scala.concurrent.ExecutionContext
 import nest.sparkle.loader.kafka.KafkaEncoders.Implicits._
 import nest.sparkle.loader.kafka.KafkaDecoders.Implicits._
 import com.typesafe.config.ConfigFactory
+import com.typesafe.config.Config
 
 /** create a kafka reader/writer pair for a new test topic.  
  *  Topics are not cleaned up after completion.  */
-class KafkaTestTopic(id:String = randomAlphaNum(3)) {
+class KafkaTestTopic(loaderConfig:Config, id:String = randomAlphaNum(3)) {
   val topic = s"testTopic-$id"
   val clientGroup = s"testClient-$id"
 
-  val config = ConfigFactory.load()
-  private lazy val loaderConfig = config.getConfig("kafka-loader")
-  
   val writer = KafkaWriter[String](topic, loaderConfig)
   val reader = KafkaReader[String](topic, loaderConfig, clientGroup = Some(clientGroup))
 }

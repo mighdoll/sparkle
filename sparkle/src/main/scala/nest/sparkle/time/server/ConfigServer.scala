@@ -15,9 +15,7 @@
 package nest.sparkle.time.server
 
 import java.io.File
-
 import com.typesafe.config.{Config, ConfigFactory}
-
 import nest.sparkle.util.Log
 import nest.sparkle.util.LogConfiguration.configureLogging
 

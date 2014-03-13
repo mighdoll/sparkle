@@ -37,7 +37,7 @@ class KafkaWriter[T: Encoder](topic: String, config: Config) {
   def writeStream(stream: Observable[T]) {
     stream.toBlockingObservable.foreach{ datum =>
       writeElement(datum)
-    } // SCALA RX is this right
+    } // SCALA RX is this right - consider subscribe instead
   }
 
   /** write a collection of items to kafka. Note that this blocks the calling thread until it is done. */

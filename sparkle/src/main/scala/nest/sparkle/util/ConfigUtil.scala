@@ -18,21 +18,33 @@ import com.typesafe.config.Config
 import com.typesafe.config.ConfigValueFactory
 import scala.collection.JavaConverters._
 
-
 /** utility functions for working with the typesafe Config library */
 object ConfigUtil {
   /** apply some new key,value settings to a Config, returning the modified config */
-  def modifiedConfig(config: Config, overrides: Option[(String, Any)]*): Config = {
+  def optionModifiedConfig(config: Config, overrides: Option[(String, Any)]*): Config = {
     overrides.foldLeft(config){ (conf, keyValueOpt) =>
-      keyValueOpt map {
-        case (key, value) =>
-          conf.withValue(key, ConfigValueFactory.fromAnyRef(value))
-      } getOrElse config
+      keyValueOpt map modify(conf) getOrElse config
     }
   }
 
-  /** return a java.util.Properties from a config paragraph.  All keys in the 
-   *  selected config paragraph are interpreted as strings */
+  /** apply some new key,value settings to a Config, returning the modified config */
+  def modifiedConfig(config: Config, overrides: (String, Any)*): Config = {
+    overrides.foldLeft(config){ (conf, keyValue) =>
+      modify(conf).apply(keyValue)
+    }
+  }
+
+  /** return a partial function that modifies a Config with a key, value pair */
+  private def modify(config: Config): PartialFunction[(String, Any), Config] = {
+    case (key:String, values: Iterable[_]) =>
+      config.withValue(key, ConfigValueFactory.fromIterable(values.asJava))
+    case (key: String, value: Any) =>
+      config.withValue(key, ConfigValueFactory.fromAnyRef(value))
+  }
+
+  /** return a java.util.Properties from a config paragraph.  All keys in the
+    * selected config paragraph are interpreted as strings
+    */
   def properties(config: Config): java.util.Properties = {
     val entries =
       config.entrySet.asScala.map { entry =>

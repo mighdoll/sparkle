@@ -14,14 +14,18 @@
 
 package nest.sparkle.loader.kafka
 
-import kafka.serializer.Decoder
+import org.apache.avro.Schema
 
-object KafkaDecoders {
-  object Implicits {
-
-    implicit object StringDecoder extends Decoder[String] {
-      def fromBytes(bytes: Array[Byte]): String = new String(bytes)
-    }
-    
-  }
+trait SchemaFinder {
+  def schemaFor(topic:String):SchemaWithParseInfo
 }
+
+case class SchemaWithParseInfo(schema:Schema, parseInfo:SchemaParseInfo)    
+case class SchemaParseInfo(name:String, idField:String, keyField:String, valueFields:Seq[String])    // consider keyFields as a Seq
+
+class FixedAvroSchema(schema:Schema, parseInfo:SchemaParseInfo) extends SchemaFinder {
+  def schemaFor(topic:String):SchemaWithParseInfo = 
+    SchemaWithParseInfo(schema, parseInfo)
+}
+
+
