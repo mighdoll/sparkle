@@ -52,6 +52,9 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
     fn(testDb)
   }
 
+  /**
+   * Sanity test to make validate store can be created w/o an exception.
+   */
   test("create event schema and catalog") {
     withTestDb { _ => }
   }
@@ -105,6 +108,33 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
             item shouldBe Event(index, index)
         }
       }
+    }
+  }
+
+  test("multi-level dataset column") {
+    withTestDb { store =>
+      val parts = Array("a", "b", "c", "d", "e", "column")
+      val paths = parts.scanLeft(""){case ("",x) => x; case (last,x) => last + "/" + x}.tail
+      val writeColumn = store.writeableColumn[Long, Double](paths.last).await
+      writeColumn.create("a column with multi-level datasets").await
+      
+      // Each part except for the last should have a single dataset child
+      paths.dropRight(1).sliding(2).forall { pair =>
+        val parent = pair(0)
+        val child = pair(1)
+        val root = store.dataSet(parent).await
+        val childDataSets = root.childDataSets.toBlockingObservable.toList
+        childDataSets.length == 1 && childDataSets(0).name == child
+      } shouldBe true
+      
+      // The last dataset path should have one child that is a column
+      paths.takeRight(2).sliding(2).forall { pair =>
+        val parent = pair(0)
+        val child = pair(1)
+        val root = store.dataSet(parent).await
+        val columns = root.childColumns.toBlockingObservable.toList
+        columns.length == 1 && columns(0) == child
+      } shouldBe true
     }
   }
 

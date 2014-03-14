@@ -14,17 +14,32 @@
 
 package nest.sparkle.store.cassandra
 
+import scala.concurrent.{ ExecutionContext, Future }
+
+import rx.lang.scala.Observable
+
 import nest.sparkle.store.DataSet
-import scala.concurrent.Future
 import nest.sparkle.store.Column
 
 case class CassandraDataSet(store: CassandraStore, name: String) extends DataSet {
+  implicit def execution: ExecutionContext = store.execution
+  
   /** return a column in this dataset (or FileNotFound) */
   def column[T, U](columnName: String): Future[Column[T, U]] = {
     ???
   }
 
   /** return all child columns */
-  def childColumns: Future[Iterable[String]] = ???
+  def childColumns: Observable[String] = {
+    val read = store.dataSetCatalog.childrenOfParentPath(name)
+    read.filter { _.isColumn }.
+      map { entry => entry.childPath }
+  }
 
+  /** return all child datasets */
+  def childDataSets: Observable[DataSet] = {
+    val read = store.dataSetCatalog.childrenOfParentPath(name)
+    read.filter { ! _.isColumn }.
+      map { entry => CassandraDataSet(store, entry.childPath) }
+  }
 }

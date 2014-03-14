@@ -22,23 +22,36 @@ import nest.sparkle.util.GuavaConverters._
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import nest.sparkle.util.OptionConversion._
 
-/** metadata about a column of data */
-case class CatalogEntry(
-  val columnPath: String, //    name of the det and column, e.g. "server1.responseLatency/p99"
-  val tableName: String, //    cassandra table for the column e.g. "timestamp0double"
-  val description: String, //  description of the column (for developer UI documentation)
-  val domainType: String, //   type of domain elements, e.g. "NanoTime" for nanosecond timestamps
-  val rangeType: String //    type of range elements, e.g. "Double" for double event
-  )
+import nest.sparkle.store.{Catalog, CatalogEntry}
 
-case class CatalogStatements(val addCatalogEntry: PreparedStatement, val tableForColumn: PreparedStatement)
+/** 
+ * metadata about a column of data 
+ * 
+ * @param columnPath name of the det and column, e.g. "server1.responseLatency/p99"
+ * @param tableName cassandra table for the column e.g. "timestamp0double"
+ * @param description description of the column (for developer UI documentation)
+ * @param domainType type of domain elements, e.g. "NanoTime" for nanosecond timestamps
+ * @param rangeType type of range elements, e.g. "Double" for double event
+ */
+case class CassandraCatalogEntry(
+  override val columnPath: String,
+  tableName: String,
+  override val description: String,
+  override val domainType: String,
+  override val rangeType: String
+  ) extends CatalogEntry(columnPath, description, domainType, rangeType) 
+
+case class CatalogStatements(addCatalogEntry: PreparedStatement, tableForColumn: PreparedStatement)
 
 case class ColumnNotFound(column:String) extends RuntimeException(column)
+
 /** Manages a table of CatalogEntry rows in cassandra.  Each CatalogEntry references
   * the cassandra table holding the column data, as well as other
   * metadata about the column like the type of data that is stored in the column.
   */
-case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogStatements] {
+case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogStatements] 
+  //with Catalog
+{
   val catalogTable = "catalog"
     
   def create() {
@@ -65,10 +78,9 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
       SELECT tableName FROM $catalogTable
       WHERE columnPath = ?;
     """
-  
     
   /** store catalog entry in Cassandra */ // format: OFF
-  def writeCatalogEntry(entry: CatalogEntry)
+  def writeCatalogEntry(entry: CassandraCatalogEntry)
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
     val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef] }.toSeq
     val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)

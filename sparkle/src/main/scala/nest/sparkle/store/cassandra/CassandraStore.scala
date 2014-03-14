@@ -24,13 +24,13 @@ import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.store.Event
 import nest.sparkle.store.Storage
 import nest.sparkle.store.DataSet
-import nest.sparkle.store.DataSet
 import nest.sparkle.store.Column
 import com.typesafe.config.Config
 import scala.collection.JavaConverters._
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import spray.util._
 import nest.sparkle.store.WriteableStorage
+import nest.sparkle.store.CatalogStore
 import nest.sparkle.util.Log
 
 case class AsciiString(val string: String) extends AnyVal
@@ -75,8 +75,10 @@ class CassandraWithHost(contactHost: String) extends CassandraStore {
 }
 
 /** a Storage DAO for cassandra.  */
-trait CassandraStore extends Storage with WriteableStorage with Log {
-  lazy val catalog = ColumnCatalog(session)
+trait CassandraStore extends Storage with WriteableStorage /*with CatalogStore*/ with Log {
+  /*override*/ lazy val catalog = ColumnCatalog(session)
+  lazy val dataSetCatalog = DataSetCatalog(session)
+  
   def contactHosts: Seq[String]
   val defaultKeySpace = "events"    // TODO get rid of this and rely on the .conf default
   implicit def execution: ExecutionContext = ExecutionContext.global
@@ -103,6 +105,7 @@ trait CassandraStore extends Storage with WriteableStorage with Log {
     )
     createKeySpace(session, keySpace)
     catalog.create()
+    dataSetCatalog.create()
   }
 
   /** Use the specified C* keyspace for subsequent operations */
@@ -111,7 +114,10 @@ trait CassandraStore extends Storage with WriteableStorage with Log {
   }
 
   /** return the dataset for the provided dataSet  path (fooSet/barSet/mySet).  */
-  def dataSet(dataSetPath: String): Future[DataSet] = ???
+  def dataSet(dataSetPath: String): Future[DataSet] = {
+    val dataset = CassandraDataSet(this, dataSetPath)
+    Future.successful(dataset)
+  }
 
   /** return a column from a fooSet/barSet/columName path */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
@@ -123,7 +129,7 @@ trait CassandraStore extends Storage with WriteableStorage with Log {
   /** return a column from a fooSet/barSet/columName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]] = {
     val (dataSetName, columnName) = setAndColumn(columnPath)
-    val column = SparseColumnWriter[T, U](dataSetName, columnName, session, catalog)
+    val column = SparseColumnWriter[T, U](dataSetName, columnName, session, catalog, dataSetCatalog)
     Future.successful(column)
   }
   

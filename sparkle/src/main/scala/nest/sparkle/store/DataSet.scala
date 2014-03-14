@@ -16,6 +16,8 @@ package nest.sparkle.store
 
 import scala.concurrent.Future
 
+import rx.lang.scala.Observable
+
 /** a 'folder' that contains other datasets or columns */
 trait DataSet {
   /** name of the dataset: legal characters are [a-ZA-Z0-9_-. ]+ */
@@ -25,8 +27,8 @@ trait DataSet {
   def column[T, U](columnName: String): Future[Column[T, U]]
 
   /** return all child columns */
-  def childColumns: Future[Iterable[String]]
+  def childColumns: Observable[String]
 
   /** return all child datasets */
-  def childDataSets: Future[Iterable[DataSet]] = ??? // LATER
+  def childDataSets: Observable[DataSet]
 }

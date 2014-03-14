@@ -33,17 +33,17 @@ case class SparseWriterStatements(
   val deleteAll: PreparedStatement)
 
 object SparseColumnWriter {
-  /** constructor to create a SparseColumWriter */
-  def apply[T: CanSerialize, U: CanSerialize](dataSetName: String,
-                                              columnName: String, session: Session, catalog: ColumnCatalog) =
-    new SparseColumnWriter[T, U](dataSetName, columnName, session, catalog)
+  /** constructor to create a SparseColumnWriter */
+  def apply[T: CanSerialize, U: CanSerialize](dataSetName: String, columnName: String, session: Session,
+                                              catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog) =
+    new SparseColumnWriter[T, U](dataSetName, columnName, session, catalog, dataSetCatalog)
 
   /** create columns for default data types */
   def createColumnTables(session: Session)(implicit execution: ExecutionContext):Future[Unit] = {
     createEmptyColumn[Long, Double](session)
   }
 
-  /** create a column asynchronously (idempoentent) */
+  /** create a column asynchronously (idempotent) */
   protected def createEmptyColumn[T: CanSerialize, U: CanSerialize](session: Session) // format: OFF
       (implicit execution:ExecutionContext): Future[Unit] = { // format: ON
     val serials = serialInfo[T, U]()
@@ -88,7 +88,9 @@ object SparseColumnWriter {
   * a millisecond timestamp and a double value.
   */
 class SparseColumnWriter[T: CanSerialize, U: CanSerialize](
-    val dataSetName: String, val columnName: String, session: Session, catalog: ColumnCatalog) extends WriteableColumn[T, U] with PreparedStatements[SparseWriterStatements] with ColumnSupport {
+    val dataSetName: String, val columnName: String, session: Session,
+    catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog) 
+  extends WriteableColumn[T, U] with PreparedStatements[SparseWriterStatements] with ColumnSupport {
 
   val serials = serialInfo[T, U]()
 
@@ -96,12 +98,21 @@ class SparseColumnWriter[T: CanSerialize, U: CanSerialize](
   def create(description: String)(implicit executionContext: ExecutionContext): Future[Unit] = {
     // LATER check to see if table already exists first
 
-    val entry = CatalogEntry(columnPath = columnPath, tableName = serials.tableName, description = description,
+    val entry = CassandraCatalogEntry(columnPath = columnPath, tableName = serials.tableName, description = description,
       domainType = serials.domain.nativeType, rangeType = serials.range.nativeType)
 
     val created = createEmptyColumn[T, U](session)
     val catalogged: Future[Unit] = catalog.writeCatalogEntry(entry)
+    val dataSetCatalogged = dataSetCatalog.addColumnPath(entry.columnPath)
+   
     created.zip(catalogged).map{ _ => () }
+    
+    for {
+      _ <- createEmptyColumn[T, U](session)
+      _ <- catalog.writeCatalogEntry(entry)
+      _ <- dataSetCatalog.addColumnPath(entry.columnPath)
+    } yield { () }
+ 
   }
 
   // LATER generate the queries for the appropriate table types dynamically
