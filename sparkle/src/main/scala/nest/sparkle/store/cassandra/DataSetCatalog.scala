@@ -99,12 +99,12 @@ case class DataSetCatalog(session:Session)
    */
   def addColumnPath(columnPath: String)
       (implicit executionContext: ExecutionContext): Future[Unit] = {
-    
+
     val pairs = columnPath.split("/").scanLeft("") {
-      case ("",x) => x
-      case (last,x) => last + "/" + x
+      case ("", x)   => x
+      case (last, x) => last + "/" + x
     }.tail.sliding(2).toSeq
-    
+
     val futures = pairs.dropRight(1).map { pair =>
       addChildPath(pair(0), pair(1), false)
     }.toList
@@ -121,7 +121,7 @@ case class DataSetCatalog(session:Session)
    * @param parentPath Full path to parent
    * @param childPath Full path to child
    * @param isColumn True if the child is the path to a column. If false the child is a part of a dataSet.
-   * @param executionContext yeah
+   * @param executionContext 
    * @return Future to wait on for success or failure.
    */
   private def addChildPath(parentPath: String, childPath: String, isColumn: Boolean)
@@ -134,9 +134,12 @@ case class DataSetCatalog(session:Session)
    * Return all of children of a dataset path.
    * The children may be intermediate dataset levels or columnPaths.
    * 
+   * Note some DataSets may have a large number of children specifically
+   * multilevel datasets, e.g. sapphire with all devices under it.
+   * 
    * @param parentPath Path to get children for
-   * @param executionContext sure
-   * @return Future for a Seq of 
+   * @param executionContext 
+   * @return Observable of DataSetCatalogEntry item.
    */
   def childrenOfParentPath(parentPath: String) // format: OFF
       (implicit executionContext: ExecutionContext):Observable[DataSetCatalogEntry] = { // format: ON
@@ -157,7 +160,6 @@ case class DataSetCatalog(session:Session)
     val parentPath = row.getString(0)
     val childPath = row.getString(1)
     val isColumn = row.getBool(2)
-    val x = row.getBool("isColumn")
     DataSetCatalogEntry(parentPath, childPath, isColumn)
   }
 }

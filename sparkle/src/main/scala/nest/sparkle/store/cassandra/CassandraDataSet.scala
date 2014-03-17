@@ -29,17 +29,23 @@ case class CassandraDataSet(store: CassandraStore, name: String) extends DataSet
     ???
   }
 
-  /** return all child columns */
+  /** 
+   * return all child columns 
+   * 
+   * @return Observable of full path of any child columns of this DataSet.
+   */
   def childColumns: Observable[String] = {
-    val read = store.dataSetCatalog.childrenOfParentPath(name)
-    read.filter { _.isColumn }.
-      map { entry => entry.childPath }
+    val entries = store.dataSetCatalog.childrenOfParentPath(name)
+    entries.filter(_.isColumn).map(_.childPath)
   }
 
-  /** return all child datasets */
+  /** 
+   * return all child datasets 
+   * 
+   * @return Observable of any child DataSets of this DataSet.
+   */
   def childDataSets: Observable[DataSet] = {
-    val read = store.dataSetCatalog.childrenOfParentPath(name)
-    read.filter { ! _.isColumn }.
-      map { entry => CassandraDataSet(store, entry.childPath) }
+    val entries = store.dataSetCatalog.childrenOfParentPath(name)
+    entries.filter(! _.isColumn).map{entry => CassandraDataSet(store, entry.childPath)}
   }
 }

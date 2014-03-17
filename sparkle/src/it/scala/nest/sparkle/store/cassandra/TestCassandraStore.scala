@@ -114,27 +114,28 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
   test("multi-level dataset column") {
     withTestDb { store =>
       val parts = Array("a", "b", "c", "d", "e", "column")
-      val paths = parts.scanLeft(""){case ("",x) => x; case (last,x) => last + "/" + x}.tail
+      val paths = parts.scanLeft("") {
+        case ("",x) => x
+        case (last,x) => last + "/" + x
+      }.tail
       val writeColumn = store.writeableColumn[Long, Double](paths.last).await
       writeColumn.create("a column with multi-level datasets").await
       
       // Each part except for the last should have a single dataset child
-      paths.dropRight(1).sliding(2).forall { pair =>
-        val parent = pair(0)
-        val child = pair(1)
+      paths.dropRight(1).sliding(2).foreach { case Array(parent,child) =>
         val root = store.dataSet(parent).await
         val childDataSets = root.childDataSets.toBlockingObservable.toList
-        childDataSets.length == 1 && childDataSets(0).name == child
-      } shouldBe true
+        childDataSets.length shouldBe 1
+        childDataSets(0).name shouldBe child
+      }
       
       // The last dataset path should have one child that is a column
-      paths.takeRight(2).sliding(2).forall { pair =>
-        val parent = pair(0)
-        val child = pair(1)
+      paths.takeRight(2).sliding(2).foreach { case Array(parent,child) =>
         val root = store.dataSet(parent).await
         val columns = root.childColumns.toBlockingObservable.toList
-        columns.length == 1 && columns(0) == child
-      } shouldBe true
+        columns.length shouldBe 1
+        columns(0) shouldBe child
+      }
     }
   }
 
