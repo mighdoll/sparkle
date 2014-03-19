@@ -13,34 +13,55 @@
    limitations under the License.  */
 
 package nest.sparkle.loader
+
+import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration._
+import scala.util.Success
+import scala.collection.JavaConverters._
+
+import org.slf4j.LoggerFactory
+
 import org.scalatest.FunSuite
 import org.scalatest.Matchers
-import nest.sparkle.store.cassandra.CassandraStore
 import org.scalatest.BeforeAndAfterAll
+
+import com.typesafe.config.ConfigFactory
+
 import akka.actor.ActorSystem
-import spray.util._
 import akka.actor.Actor
 import akka.actor.Props
-import nest.sparkle.store.Storage
-import java.nio.file.Path
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.Success
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+
+import spray.util._
+
+import nest.sparkle.util.ConfigUtil
+import nest.sparkle.store.cassandra.CassandraStore
+import nest.sparkle.util.GuavaConverters._
 
 class TestFilesLoader extends FunSuite with Matchers with BeforeAndAfterAll {
   val log = LoggerFactory.getLogger(classOf[TestFilesLoader])
-  lazy val testDb = {
-    val store = CassandraStore("localhost")
-    store.format(Some("testFilesLoader"))
-    store
+  
+  val config = {
+    val source = ConfigFactory.load().getConfig("sparkle-time-server")
+    ConfigUtil.modifiedConfig(
+      source, 
+      Some("sparkle-store-cassandra.keySpace","testfileloader")
+    )
   }
+  val storeConfig = config.getConfig("sparkle-store-cassandra")
+  val contactHosts = storeConfig.getStringList("contactHosts").asScala.toSeq
+  val keySpace = storeConfig.getString("keySpace")
+  lazy val testDb = CassandraStore(config)
+  
   implicit val system = ActorSystem("test-FilesLoader")
   import system.dispatcher
-
+  
+  override def beforeAll() {
+    CassandraStore.dropKeySpace(contactHosts, keySpace)
+  }
+  
   override def afterAll() {
-    testDb.close()
+    testDb.close().toFuture.await(10.seconds)
+    CassandraStore.dropKeySpace(contactHosts, keySpace)
   }
 
   /** return a future that completes when the loader reports that loading is complete */

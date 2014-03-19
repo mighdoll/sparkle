@@ -21,11 +21,11 @@ import akka.util.Timeout
 import java.nio.file.Paths
 import java.nio.file.Files
 import akka.actor.ActorSystem
-import nest.sparkle.store.cassandra.FileSystemStorage
+import nest.sparkle.store.cassandra.FileSystemStore
 import nest.sparkle.legacy.FileLoadedDataSet
 import nest.sparkle.legacy.DirectoryDataRegistry
 import nest.sparkle.util.Opt._
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 import nest.sparkle.util.Exceptions._
 import nest.sparkle.loader.FilesLoader
 import nest.sparkle.legacy.PreloadedRegistry
@@ -57,11 +57,7 @@ object Main extends ArgotApp {
     val launch = new ServerLaunch(config)
     
     filesPath.value.foreach { pathString =>
-      FilesLoader(pathString, launch.writeableStorage)
-    }
-
-    erase.value.foreach { _ =>
-      launch.writeableStorage.format()
+      FilesLoader(pathString, launch.writeableStore)
     }
 
     display.value.foreach { _ => launch.launchDesktopBrowser() }

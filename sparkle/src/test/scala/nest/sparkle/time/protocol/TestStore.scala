@@ -23,8 +23,6 @@ import nest.sparkle.store.ram.WriteableRamStore
 import spray.util._
 import scala.concurrent.ExecutionContext
 import nest.sparkle.store.Event
-import nest.sparkle.store.Storage
-import nest.sparkle.store.WriteableStorage
 
 /** (for unit tests) a ram based Store with a sample column */
 trait TestStore extends FunSuite with Matchers with ScalatestRouteTest

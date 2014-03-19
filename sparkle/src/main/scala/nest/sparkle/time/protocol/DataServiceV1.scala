@@ -17,7 +17,7 @@ package nest.sparkle.time.protocol
 import scala.concurrent.ExecutionContext
 import spray.httpx.SprayJsonSupport._
 import spray.routing.Directives
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
 import spray.routing.Directives
@@ -37,7 +37,7 @@ import spray.routing.directives.LogEntry
 /** Provides the v1/data sparkle REST api */
 trait DataServiceV1 extends Directives with CorsDirective {
   implicit def executionContext: ExecutionContext
-  def store: Storage
+  def store: Store
 
   val api = DataRequestApi(store)
 

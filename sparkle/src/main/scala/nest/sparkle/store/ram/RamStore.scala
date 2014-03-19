@@ -14,20 +14,20 @@
 
 package nest.sparkle.store.ram
 
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 import scala.concurrent.Future
 import nest.sparkle.store.DataSet
 import nest.sparkle.store.Column
 import scala.collection.mutable
 import nest.sparkle.util.OptionConversion._
 import java.io.FileNotFoundException
-import nest.sparkle.store.WriteableStorage
+import nest.sparkle.store.WriteableStore
 import nest.sparkle.store.cassandra.CanSerialize
 import nest.sparkle.store.cassandra.WriteableColumn
 import scala.reflect.runtime.universe._
 
 /** A java heap resident database of Columns */
-class WriteableRamStore extends Storage {
+class WriteableRamStore extends Store {
   private val columns = mutable.Map[String, RamColumn[_, _]]()
 
   /** return the dataset for the provided dataSet name or path (fooSet/barSet/mySet).  */

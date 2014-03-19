@@ -17,13 +17,13 @@ package nest.sparkle.time.server
 import com.typesafe.config.Config
 import akka.actor.Actor
 import akka.actor.Actor
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 import nest.sparkle.legacy.DataRegistry
 
 /** An actor serving data DataRegistry data via a spray based REST api.  The
   * server is configured with user provided extensions extracted from the config file.
   */
-class ConfiguredDataServer(val registry: DataRegistry, val store: Storage, val config: Config) // format: OFF
+class ConfiguredDataServer(val registry: DataRegistry, val store: Store, val config: Config) // format: OFF
     extends Actor with ConfiguredDataService { // format: ON
   def actorRefFactory = context
   def receive = runRoute(route)

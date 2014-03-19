@@ -21,19 +21,19 @@ import spray.json.JsObject
 import nest.sparkle.util.Exceptions.NYI
 import scala.concurrent.ExecutionContext
 import nest.sparkle.store.Column
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 
 /** return a list of columns given a set of source selectors */
 object SourceSelector {
 
   /** return a collection of columns for the request*/
-  def sourceColumns(sources: Array[JsValue], storage: Storage) // Format: OFF
+  def sourceColumns(sources: Array[JsValue], store: Store) // Format: OFF
       (implicit execution:ExecutionContext): Future[Seq[Column[_, _]]] = {  // Format: ON
     val columnFutures:Array[Future[Column[_,_]]] =
       sources.map { jsValue =>
         def errorValue:String = s"source: ${jsValue.prettyPrint}"
         jsValue match {
-          case JsString(columnPath) => storage.column(columnPath)
+          case JsString(columnPath) => store.column(columnPath)
           case JsObject(fields)     => NYI("custom selector:  $errorValue")
           case _                    => throw new IllegalArgumentException(s"source: $errorValue")
         }

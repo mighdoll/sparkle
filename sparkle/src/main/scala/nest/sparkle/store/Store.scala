@@ -15,11 +15,13 @@
 package nest.sparkle.store
 
 import scala.concurrent.Future
+
 import com.typesafe.config.Config
+
 import nest.sparkle.util.Instance
 
 /** An abstraction for a datastore that holds readable columns */
-trait Storage {
+trait Store {
   /** return the dataset for the provided dataSet name or path (fooSet/barSet/mySet).  */
   def dataSet(name: String): Future[DataSet]
 
@@ -27,18 +29,18 @@ trait Storage {
   def column[T,U](columnPath: String): Future[Column[T,U]] 
 }
 
-object Storage {
-  /** return an instance of Storage, based on the storage class specified in the config file */
-  def instantiateStorage(config:Config):Storage = {
-    val storageClass = config.getString("storage")
-    val storage = Instance.byName[Storage](storageClass)(config)
-    storage
+object Store {
+  /** return an instance of Store, based on the store class specified in the config file */
+  def instantiateStore(config:Config):Store = {
+    val storeClass = config.getString("store")
+    val store = Instance.byName[Store](storeClass)(config)
+    store
   }
-  /** return an instance of Storage, based on the storage class specified in the config file */
-  def instantiateWritableStorage(config:Config):WriteableStorage = {
-    val storageClass = config.getString("writeable-storage")
-    val storage = Instance.byName[WriteableStorage](storageClass)(config)
-    storage
+  /** return an instance of Store, based on the store class specified in the config file */
+  def instantiateWritableStore(config:Config):WriteableStore = {
+    val storeClass = config.getString("writeable-store")
+    val store = Instance.byName[WriteableStore](storeClass)(config)
+    store
   }
 }
 

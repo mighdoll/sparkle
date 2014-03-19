@@ -14,16 +14,14 @@
 
 package nest.sparkle.store
 
-import nest.sparkle.store.cassandra.CanSerialize
 import scala.concurrent.Future
+
+import nest.sparkle.store.cassandra.CanSerialize
 import nest.sparkle.store.cassandra.WriteableColumn
 
 /** A writeable interface to a database of Columns */
-trait WriteableStorage {
+trait WriteableStore {
   /** Return an interface that supports writing to a column identified by columnPath. */
   // TODO generalize this to non cassandra typeclasses
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]]
-  
-  /** Erase and reformat the database */
-  def format(name:Option[String] = None)
 }

@@ -14,24 +14,26 @@
 
 package nest.sparkle.store.cassandra
 
-import scala.concurrent.{ ExecutionContext, Future }
 import scala.language._
-import com.datastax.driver.core.{ Cluster, Session }
-import nest.sparkle.util.RandomUtil
-import com.datastax.driver.core.PreparedStatement
-import rx.lang.scala.Observable
-import nest.sparkle.util.ObservableFuture._
-import nest.sparkle.store.Event
-import nest.sparkle.store.Storage
-import nest.sparkle.store.DataSet
-import nest.sparkle.store.Column
-import com.typesafe.config.Config
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.duration._
 import scala.collection.JavaConverters._
-import nest.sparkle.store.cassandra.ObservableResultSet._
+
+import com.datastax.driver.core.{ Cluster, Session }
+import com.datastax.driver.core.PreparedStatement
+
+import rx.lang.scala.Observable
+
+import com.typesafe.config.Config
+
 import spray.util._
-import nest.sparkle.store.WriteableStorage
-import nest.sparkle.store.CatalogStore
+
 import nest.sparkle.util.Log
+import nest.sparkle.util.RandomUtil
+import nest.sparkle.util.ObservableFuture._
+import nest.sparkle.util.GuavaConverters._
+import nest.sparkle.store.{Event, Store, DataSet, Column, WriteableStore}
+import nest.sparkle.store.cassandra.ObservableResultSet._
 
 case class AsciiString(val string: String) extends AnyVal
 case class NanoTime(val nanos: Long) extends AnyVal
@@ -39,7 +41,7 @@ case class MilliTime(val millis: Long) extends AnyVal
 
 object CassandraStore {
   /** return a Storage DAO for cassandra.  */
-  def apply(contactHost: String) = new CassandraWithHost(contactHost)
+  def apply(config: Config) = new ConfiguredCassandra(config)
 
   /** Convert a proposed name into a name that's safe to use as a cassandra table name (aka column family).
     * illegal characters are removed.  too long names are partially replaced with a random string
@@ -59,59 +61,83 @@ object CassandraStore {
       sanitized.take(16).mkString + RandomUtil.randomAlphaNum(16)
     }
   }
+
+  /**
+   * Drop the keyspace.
+   * This is mostly useful for testing.
+   * 
+   * @param contactHosts Cassandra host to create session for.
+   * @param keySpace keyspace to drop.
+   */
+  def dropKeySpace(contactHosts: Seq[String], keySpace: String) {
+    val session = getSession(contactHosts)
+    try session.execute(s"DROP KEYSPACE IF EXISTS $keySpace")
+    finally session.shutdown()  // We don't wait for shutdown since session is abandoned
+  }
+
+  /**
+   * Drop the keyspace.
+   * This is mostly useful for testing.
+   * 
+   * @param contactHosts Cassandra host to create session for.
+   * @param keySpace keyspace to drop.
+   */
+  def dropKeySpace(contactHost: String, keySpace: String) {
+    dropKeySpace(Seq(contactHost), keySpace)
+  }
+  
+  /** 
+   * Create a connection to the cassandra cluster 
+   * 
+   * @param contactHosts Hosts to connect to
+   * @return Cassandra session
+   */
+  def getSession(contactHosts: Seq[String]): Session = {
+    val builder = Cluster.builder()
+    contactHosts.foreach{ builder.addContactPoint(_) }
+    val cluster = builder.build()
+    val session = cluster.connect()
+    session
+  }
+
+  /**
+   * Create a connection to the cassandra cluster using the single host.
+   * 
+   * @param contactHost Host to connect to
+   * @return Cassandra session
+   */
+  def getSession(contactHost: String): Session = {
+    getSession(Seq(contactHost))
+  }
+
 }
 
 /** a cassandra store data access layer configured by a config file */
 class ConfiguredCassandra(config: Config) extends CassandraStore {
   val storeConfig = config.getConfig("sparkle-store-cassandra")
   override val contactHosts: Seq[String] = storeConfig.getStringList("contactHosts").asScala.toSeq
-  override val defaultKeySpace = storeConfig.getString("keySpace")
-}
-
-/** a cassandra store data access layer configured with a single contact host parameter
- *  // LATER consider getting rid of this, just always use configuration */
-class CassandraWithHost(contactHost: String) extends CassandraStore {
-  override val contactHosts = Seq(contactHost)
+  override val storeKeySpace = storeConfig.getString("keySpace")
 }
 
 /** a Storage DAO for cassandra.  */
-trait CassandraStore extends Storage with WriteableStorage /*with CatalogStore*/ with Log {
-  /*override*/ lazy val catalog = ColumnCatalog(session)
+trait CassandraStore extends Store with WriteableStore with Log {
+  lazy val columnCatalog  = ColumnCatalog(session)
   lazy val dataSetCatalog = DataSetCatalog(session)
   
   def contactHosts: Seq[String]
-  val defaultKeySpace = "events"    // TODO get rid of this and rely on the .conf default
+  val storeKeySpace: String 
   implicit def execution: ExecutionContext = ExecutionContext.global
 
   /** create a connection to the cassandra cluster */
   implicit lazy val session: Session = {
-    val builder = Cluster.builder()
     log.info(s"""starting session using contact hosts: ${contactHosts.mkString(",")}""")
-    contactHosts.foreach{ builder.addContactPoint(_) }
-    val cluster = builder.build()
-    val session = cluster.connect()
-    useDefaultKeySpace(session)
+    val session = CassandraStore.getSession(contactHosts)
+    useKeySpace(session)
     session
   }
 
   /** close the connection to cassandra.  */
   def close() = session.shutdown()
-
-  /** Erase the column store, and recreate the core tables (synchronously: does not return until complete) */
-  def format(name: Option[String]) {
-    val keySpace = name.getOrElse(defaultKeySpace)
-    session.execute(s"""
-        DROP KEYSPACE IF EXISTS $keySpace"""
-    )
-    createKeySpace(session, keySpace)
-    catalog.create()
-    dataSetCatalog.create()
-  }
-
-  /** Use the specified C* keyspace for subsequent operations */
-  def useKeySpace(keySpace: String = "events") {
-    session.execute(s"USE $keySpace")
-  }
 
   /** return the dataset for the provided dataSet  path (fooSet/barSet/mySet).  */
   def dataSet(dataSetPath: String): Future[DataSet] = {
@@ -122,29 +148,36 @@ trait CassandraStore extends Storage with WriteableStorage /*with CatalogStore*/
   /** return a column from a fooSet/barSet/columName path */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
     val (dataSetName, columnName) = setAndColumn(columnPath)
-    val column = SparseColumnReader[T, U](dataSetName, columnName, session, catalog)
+    val column = SparseColumnReader[T, U](dataSetName, columnName, session, columnCatalog)
     Future.successful(column)
   }
 
   /** return a column from a fooSet/barSet/columName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]] = {
     val (dataSetName, columnName) = setAndColumn(columnPath)
-    val column = SparseColumnWriter[T, U](dataSetName, columnName, session, catalog, dataSetCatalog)
+    val column = SparseColumnWriter[T, U](dataSetName, columnName, session, columnCatalog, dataSetCatalog)
     Future.successful(column)
   }
   
-  /** Make sure the default keyspace exists, creating it if necessary, and set the cassandra driver 
-   *  session to use the default keyspace.  */
-  private def useDefaultKeySpace(session: Session) {
+  /** 
+   * Make sure the keyspace exists, creating it if necessary, and set the cassandra driver 
+   * session to use the default keyspace.
+   * 
+   * @param session The session to use. This shadows the instance variable
+   *                because the instance variable may not be initialized yet.
+   */
+  private def useKeySpace(session: Session) {
     val keySpacesRows = session.executeAsync(s"""
         SELECT keyspace_name FROM system.schema_keyspaces""").observerableRows
 
     val keySpaces = keySpacesRows.toFutureSeq.await
-    val defaultFound = keySpaces.map { _.getString(0) }.find { keySpace =>
-      keySpace == defaultKeySpace
+    val keySpaceFound = keySpaces.map(_.getString(0)).contains(storeKeySpace)
+    
+    if (keySpaceFound) {
+      session.execute(s"USE $storeKeySpace")
+    } else {
+      createKeySpace(session, storeKeySpace)
     }
-    defaultFound.orElse { createKeySpace(session, defaultKeySpace); None }
-    val result = session.execute(s"USE $defaultKeySpace") // Consider, what if the db is new and the keyspace is not yet created?    
   }
 
 
@@ -155,7 +188,10 @@ trait CassandraStore extends Storage with WriteableStorage /*with CatalogStore*/
         with replication = {'class': 'SimpleStrategy', 'replication_factor': 1}"""
     )
     session.execute(s"USE $keySpace")
+    
     SparseColumnWriter.createColumnTables(session).await
+    ColumnCatalog.create(session)
+    DataSetCatalog.create(session)
   }
 
   /** split a columnPath into a dataSet and column components */

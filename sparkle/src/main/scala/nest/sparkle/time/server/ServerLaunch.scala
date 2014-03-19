@@ -19,7 +19,7 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import nest.sparkle.legacy.PreloadedRegistry
 import akka.actor.Props
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 import akka.io.IO
 import scala.concurrent.duration._
 import spray.can.Http
@@ -33,14 +33,14 @@ import java.awt.Desktop
 import java.net.URI
 
 class ServerLaunch(config: Config)(implicit system: ActorSystem) {
-  val storage = Storage.instantiateStorage(config)
+  val store = Store.instantiateStore(config)
   val webPort = config.getInt("port")
-  lazy val writeableStorage = Storage.instantiateWritableStorage(config)
+  lazy val writeableStore = Store.instantiateWritableStore(config)
 
   // TODO implement some kind of dataRegistry w/cassandra
   val fixmeRegistry = PreloadedRegistry(Nil)(system.dispatcher)
   val service = system.actorOf(Props(
-    new ConfiguredDataServer(fixmeRegistry, storage, config)),
+    new ConfiguredDataServer(fixmeRegistry, store, config)),
     "sparkle-server"
   )
   startServer(service, webPort)

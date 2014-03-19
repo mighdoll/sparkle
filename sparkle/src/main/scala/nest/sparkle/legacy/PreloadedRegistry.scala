@@ -19,7 +19,7 @@ import nest.sparkle.util.OptionConversion._
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import java.io.FileNotFoundException
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 import nest.sparkle.store.DataSet
 import nest.sparkle.store.Column
 
@@ -35,7 +35,7 @@ case class PreloadedRegistry(dataSetList:Iterable[DataSetOld])
     
 }
 
-case class PreloadedStore(dataSetList:Iterable[DataSetOld]) extends Storage {
+case class PreloadedStore(dataSetList:Iterable[DataSetOld]) extends Store {
   /** return the dataset for the provided dataSet name or path (fooSet/barSet/mySet).  */
   def dataSet(name: String): Future[DataSet] = ???
 

@@ -46,8 +46,8 @@ case class DataSetCatalogStatements(addChildPath: PreparedStatement,
  */
 case class DataSetCatalog(session:Session) 
   extends PreparedStatements[DataSetCatalogStatements]
-{
-  val tableName = "dataset_catalog"
+{  
+  val tableName = DataSetCatalog.tableName
   
   val addChildPathStatement = s"""
       INSERT INTO $tableName 
@@ -57,23 +57,8 @@ case class DataSetCatalog(session:Session)
 
   val childrenOfParentPathStatement = s"""
       SELECT parentPath, childPath, isColumn FROM $tableName
-      WHERE parentPath = ?;
+      WHERE parentPath = ? ORDER BY childPath ASC;
     """
-    
-  /**
-   * Create the DataSetCatalog table.
-   */
-  def create() {
-    session.execute(s"""
-      CREATE TABLE $tableName (
-        parentPath text,
-        childPath text,      // children
-        isColumn Boolean,
-        PRIMARY KEY(parentPath, childPath)
-      );"""
-    )
-    
-  }
 
   lazy val catalogStatements: DataSetCatalogStatements = {
     preparedStatements(makeStatements)
@@ -162,4 +147,27 @@ case class DataSetCatalog(session:Session)
     val isColumn = row.getBool(2)
     DataSetCatalogEntry(parentPath, childPath, isColumn)
   }
+}
+
+object DataSetCatalog {
+  
+  val tableName = "dataset_catalog"
+    
+  /**
+   * Create the DataSetCatalog table.
+   * 
+   * @param session Session to use.
+   */
+  def create(session:Session) {
+    session.execute(s"""
+      CREATE TABLE $tableName (
+        parentPath text,
+        childPath text,      // children
+        isColumn Boolean,
+        PRIMARY KEY(parentPath, childPath)
+      );"""
+    )
+    
+  }
+  
 }

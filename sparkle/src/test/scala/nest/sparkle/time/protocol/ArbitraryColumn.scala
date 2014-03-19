@@ -16,9 +16,9 @@ package nest.sparkle.time.protocol
 import org.scalacheck.Arbitrary.arbitrary
 import nest.sparkle.store.Event
 import org.scalacheck.Arbitrary
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 import nest.sparkle.store.ram.WriteableRamColumn
-import nest.sparkle.store.WriteableStorage
+import nest.sparkle.store.WriteableStore
 import scala.reflect.runtime.universe._
 import nest.sparkle.store.ram.WriteableRamStore
 import nest.sparkle.util.RandomUtil.randomAlphaNum

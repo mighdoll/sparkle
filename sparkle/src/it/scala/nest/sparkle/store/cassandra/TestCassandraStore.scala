@@ -14,46 +14,78 @@
 
 package nest.sparkle.store.cassandra
 
-import org.scalatest.Matchers
-import org.scalatest.FunSuite
-import nest.sparkle.store.cassandra.serializers._
-import com.datastax.driver.core.Session
-import scala.concurrent.ExecutionContext
-import spray.util._
 import scala.util.Failure
-import org.scalatest.prop.PropertyChecks
-import org.scalacheck.Gen
-import scala.concurrent.Future
-import org.scalatest.BeforeAndAfterAll
+import scala.concurrent.{ExecutionContext,Future}
 import scala.concurrent.duration._
-import nest.sparkle.store.Event
+import scala.collection.JavaConverters._
 
-class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with BeforeAndAfterAll {
+import com.datastax.driver.core.Session
+
+import spray.util._
+
+import org.scalatest.{Matchers,FunSuite,BeforeAndAfterEach}
+import org.scalatest.prop.PropertyChecks
+
+import org.scalacheck.Gen
+
+import com.typesafe.config.ConfigFactory
+
+import nest.sparkle.store.{Store, Event}
+import nest.sparkle.store.cassandra.serializers._
+import nest.sparkle.util.ConfigUtil
+import nest.sparkle.util.GuavaConverters._
+
+class TestCassandraStore extends FunSuite
+                                 with Matchers
+                                 with PropertyChecks
+                                 with BeforeAndAfterEach
+{
   import ExecutionContext.Implicits.global
 
+  val config = {
+    val source = ConfigFactory.load().getConfig("sparkle-time-server")
+    ConfigUtil.modifiedConfig(
+      source, 
+      Some("sparkle-store-cassandra.keySpace","testcassandrastore")
+    )
+  }
+  val storeConfig = config.getConfig("sparkle-store-cassandra")
+  val testContactHosts = storeConfig.getStringList("contactHosts").asScala.toSeq
+  val testKeySpace = storeConfig.getString("keySpace")
   val testColumn = "latency.p99"
   val testId = "server1"
   val columnPath = s"$testId/$testColumn"
 
-  lazy val testDb = {
-    val store = CassandraStore("localhost")
-    store.format(Some("testCassandraStoreEvents"))
+  var testDb: Option[CassandraStore] = None 
+  
+  override def beforeEach() = {
+    CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
+    val store = CassandraStore(config)
     val column = store.writeableColumn[NanoTime, Double](columnPath).await
     column.create("a test column").await
-    store
+    
+    testDb = Some(store)
+    
+    super.beforeEach()
   }
 
-  override def afterAll() {
-    testDb.close()
+  override def afterEach() = {
+    try {
+      super.afterEach()
+    } finally {
+      testDb.foreach(_.close().toFuture.await(10.seconds))
+      testDb = None
+      CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
+    }
   }
 
   /** recreate the database and a test column */
   def withTestDb[T](fn: CassandraStore => T): T = {
-    fn(testDb)
+    testDb.map(fn(_)).get
   }
 
   /**
-   * Sanity test to make validate store can be created w/o an exception.
+   * Sanity test to validate store can be created w/o an exception.
    */
   test("create event schema and catalog") {
     withTestDb { _ => }
@@ -62,7 +94,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
   test("missing column returns error") {
     val notColumn = "notAColumn"
     withTestDb { store =>
-      val table = store.catalog.tableForColumn(notColumn)
+      val table = store.columnCatalog.tableForColumn(notColumn)
       val result = table.failed.await
       result shouldBe ColumnNotFound(notColumn)
     }
@@ -135,6 +167,79 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
         val columns = root.childColumns.toBlockingObservable.toList
         columns.length shouldBe 1
         columns(0) shouldBe child
+      }
+    }
+  }
+
+  test("multi-level dataset with 2 columns") {
+    withTestDb { store =>
+      val parts1 = Array("a", "b", "c", "d", "e", "columnZ")
+      val paths1 = parts1.scanLeft("") {
+        case ("", x)   => x
+        case (last, x) => last + "/" + x
+      }.tail
+      val writeColumn1 = store.writeableColumn[Long, Double](paths1.last).await
+      writeColumn1.create("a column with multi-level datasets").await
+    
+      val parts2 = Array("a", "b", "c", "d", "e", "columnA")
+      val paths2 = parts2.scanLeft("") {
+        case ("", x)   => x
+        case (last, x) => last + "/" + x
+      }.tail
+      val writeColumn2 = store.writeableColumn[Long, Double](paths2.last).await
+      writeColumn2.create("a column with multi-level datasets").await
+      
+      // Each part except for the last should have a single dataset child
+      paths1.dropRight(1).sliding(2).foreach { case Array(parent,child) =>
+        val root = store.dataSet(parent).await
+        val childDataSets = root.childDataSets.toBlockingObservable.toList
+        childDataSets.length shouldBe 1
+        childDataSets(0).name shouldBe child
+      }
+      
+      // The last dataset path should have two children that are columns
+      paths1.takeRight(2).dropRight(1).foreach { parent =>
+        val root = store.dataSet(parent).await
+        val columns = root.childColumns.toBlockingObservable.toList
+        columns.length shouldBe 2
+        // Note that writeColumn1 should sort *after* writeColumn2.
+        columns(0) shouldBe paths2.last
+        columns(1) shouldBe paths1.last
+      }
+    }
+  }
+
+  test("multi-level dataset with 2 datasets at the second level") {
+    withTestDb { store =>
+      val parts1 = Array("a", "b", "c1", "column")
+      val paths1 = parts1.scanLeft("") {
+        case ("", x)   => x
+        case (last, x) => last + "/" + x
+      }.tail
+      val writeColumn1 = store.writeableColumn[Long, Double](paths1.last).await
+      writeColumn1.create("a column with multi-level datasets").await
+    
+      val parts2 = Array("a", "b", "c2", "column")
+      val paths2 = parts2.scanLeft("") {
+        case ("", x)   => x
+        case (last, x) => last + "/" + x
+      }.tail
+      val writeColumn2 = store.writeableColumn[Long, Double](paths2.last).await
+      writeColumn2.create("a column with multi-level datasets").await
+      
+      // "a/b" should have two children, "a/b/c1" and "a/b/c2"
+      val root = store.dataSet("a/b").await
+      val childDataSets = root.childDataSets.toBlockingObservable.toList
+      childDataSets.length shouldBe 2
+      childDataSets(0).name shouldBe "a/b/c1"
+      childDataSets(1).name shouldBe "a/b/c2"
+      
+      // Ensure c level datasets have one child column
+      Array("a/b/c1", "a/b/c2").foreach { parent =>
+        val root = store.dataSet(parent).await
+        val columns = root.childColumns.toBlockingObservable.toList
+        columns.length shouldBe 1
+        columns(0) shouldBe (parent+"/"+parts1.last)
       }
     }
   }

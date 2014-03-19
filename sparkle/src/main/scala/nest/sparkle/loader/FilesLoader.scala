@@ -19,7 +19,7 @@ import nest.sparkle.util.WatchPath._
 import akka.actor.ActorSystem
 import java.nio.file.Path
 import java.nio.file.Paths
-import nest.sparkle.store.WriteableStorage
+import nest.sparkle.store.WriteableStore
 import java.nio.file.Files
 import nest.sparkle.store.cassandra.serializers._
 import scala.concurrent.Future
@@ -35,35 +35,35 @@ import org.slf4j.LoggerFactory
 case class LoadComplete(filePath: String)
 
 object FilesLoader {
-  def apply(rootDirectory: String, storage: WriteableStorage) // format: OFF
+  def apply(rootDirectory: String, store: WriteableStore) // format: OFF
       (implicit system: ActorSystem): FilesLoader = { // format: ON
-    new FilesLoader(rootDirectory, storage)
+    new FilesLoader(rootDirectory, store)
   }
 }
 
 /** load all the events in the csv/tsv files in a directory. */
-class FilesLoader(rootDirectory: String, storage: WriteableStorage)(implicit system: ActorSystem) {
+class FilesLoader(rootDirectory: String, store: WriteableStore)(implicit system: ActorSystem) {
   val log = LoggerFactory.getLogger(classOf[FilesLoader])
   implicit val executor = system.dispatcher
   val root = Paths.get(rootDirectory)
 
   if (Files.isDirectory(root)) {
     val watcher = WatchPath(root)
-    val initialFiles = watcher.watch{ change => fileChange(change, storage) }
+    val initialFiles = watcher.watch{ change => fileChange(change, store) }
     initialFiles.foreach{ futureFiles =>
       futureFiles.foreach{ path =>
-        loadFile(root.resolve(path), storage)
+        loadFile(root.resolve(path), store)
       }
     }
   } else {
-    loadFile(root, storage)
+    loadFile(root, store)
   }
 
   /** called when a file is changed in the directory we're watching */
-  private def fileChange(change: Change, storage: WriteableStorage) {
+  private def fileChange(change: Change, store: WriteableStore) {
     change match {
       case Added(path) =>
-        loadFile(path, storage)
+        loadFile(path, store)
       case Removed(path) =>
         log.warn(s"removed $path.  ignoring for now")
       case Modified(path) =>
@@ -71,11 +71,11 @@ class FilesLoader(rootDirectory: String, storage: WriteableStorage)(implicit sys
     }
   }
 
-  private def loadFile(fullPath: Path, storage: WriteableStorage) {
+  private def loadFile(fullPath: Path, store: WriteableStore) {
     fullPath match {
       case ParseableFile(format) if Files.isRegularFile(fullPath) =>
         TabularFile.load(fullPath, format).map { rowInfo =>
-          loadRows(rowInfo, storage, fullPath).andThen {
+          loadRows(rowInfo, store, fullPath).andThen {
             case _ => rowInfo.close()
           } foreach { _ =>
             system.eventStream.publish(LoadComplete(fullPath.toString))
@@ -85,7 +85,7 @@ class FilesLoader(rootDirectory: String, storage: WriteableStorage)(implicit sys
     }
   }
 
-  private def loadRows(rowInfo: CloseableRowInfo, storage: WriteableStorage, path: Path): Future[Path] = {
+  private def loadRows(rowInfo: CloseableRowInfo, store: WriteableStore, path: Path): Future[Path] = {
     val finished = Promise[Path]
     val pathString = path.toString
 
@@ -102,7 +102,7 @@ class FilesLoader(rootDirectory: String, storage: WriteableStorage)(implicit sys
       valueColumnIndices.map { index =>
         val name = rowInfo.names(index)
         val columnPath = pathString + "/" + name
-        storage.writeableColumn[Long, Double](columnPath) map { futureColumn =>
+        store.writeableColumn[Long, Double](columnPath) map { futureColumn =>
           (index, futureColumn)
         }
       }

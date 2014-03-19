@@ -21,11 +21,11 @@ import scala.concurrent.ExecutionContext
 import nest.sparkle.util.ObservableFuture._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 import nest.sparkle.time.transform.Transform
 
 /** Handle transformation requests from a v1 protocol DataRequest. */
-case class DataRequestApi(storage: Storage) {
+case class DataRequestApi(store: Store) {
 
   /** Process a StreamRequest message from the client, and return a future that completes with a Streams json object */
   def handleStreamRequest(streamRequest: StreamRequest)(implicit context: ExecutionContext): Future[Streams] = {
@@ -50,7 +50,7 @@ case class DataRequestApi(storage: Storage) {
       )
     }
 
-    val futureColumns = SourceSelector.sourceColumns(streamRequest.sources, storage)
+    val futureColumns = SourceSelector.sourceColumns(streamRequest.sources, store)
     val futureOutputStreams = // completes with Observable output streams
       Transform.connectTransform(streamRequest.transform, streamRequest.transformParameters, futureColumns)
 

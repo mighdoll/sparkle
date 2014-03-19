@@ -23,7 +23,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.httpx.SprayJsonSupport._
 import spray.testkit.ScalatestRouteTest
 import nest.sparkle.store.Event
-import nest.sparkle.store.Storage
+import nest.sparkle.store.Store
 import nest.sparkle.time.protocol.RequestJson.{ StreamRequestMessageFormat }
 import nest.sparkle.time.protocol.ResponseJson.{ StreamFormat, StreamsFormat, StreamsMessageFormat }
 import nest.sparkle.time.protocol.EventJson.EventFormat

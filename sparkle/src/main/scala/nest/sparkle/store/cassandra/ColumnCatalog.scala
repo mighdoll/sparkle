@@ -22,8 +22,6 @@ import nest.sparkle.util.GuavaConverters._
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import nest.sparkle.util.OptionConversion._
 
-import nest.sparkle.store.{Catalog, CatalogEntry}
-
 /** 
  * metadata about a column of data 
  * 
@@ -34,12 +32,12 @@ import nest.sparkle.store.{Catalog, CatalogEntry}
  * @param rangeType type of range elements, e.g. "Double" for double event
  */
 case class CassandraCatalogEntry(
-  override val columnPath: String,
-  tableName: String,
-  override val description: String,
-  override val domainType: String,
-  override val rangeType: String
-  ) extends CatalogEntry(columnPath, description, domainType, rangeType) 
+                                  columnPath: String,
+                                  tableName: String,
+                                  description: String,
+                                  domainType: String,
+                                  rangeType: String
+                                )
 
 case class CatalogStatements(addCatalogEntry: PreparedStatement, tableForColumn: PreparedStatement)
 
@@ -50,23 +48,9 @@ case class ColumnNotFound(column:String) extends RuntimeException(column)
   * metadata about the column like the type of data that is stored in the column.
   */
 case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogStatements] 
-  //with Catalog
 {
-  val catalogTable = "catalog"
-    
-  def create() {
-    session.execute(s"""
-      CREATE TABLE $catalogTable (
-        columnPath text,
-        tableName text,
-        description text,
-        domainType text,
-        rangeType text,
-        PRIMARY KEY(columnPath)
-      );"""
-    )
-  }
-
+  val catalogTable = ColumnCatalog.catalogTable
+  
   /** insert or overwrite a catalog entry */
   val addCatalogEntryStatement = s"""
       INSERT INTO $catalogTable 
@@ -112,5 +96,29 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
       tableForColumn = session.prepare(tableForColumnStatement)
     )
   }
+}
+
+object ColumnCatalog {
+  
+  val catalogTable = "catalog"
+
+  /**
+   * Create the table using the session passed.
+   * 
+   * @param session Session to use. Shadows instance variable.
+   */
+  def create(session: Session) {
+    session.execute(s"""
+      CREATE TABLE $catalogTable (
+        columnPath text,
+        tableName text,
+        description text,
+        domainType text,
+        rangeType text,
+        PRIMARY KEY(columnPath)
+      );"""
+    )
+  }
+  
 }
 
