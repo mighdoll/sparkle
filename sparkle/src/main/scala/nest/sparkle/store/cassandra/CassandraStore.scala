@@ -71,15 +71,19 @@ object CassandraStore {
    */
   def dropKeySpace(contactHosts: Seq[String], keySpace: String) {
     val session = getSession(contactHosts)
-    try session.execute(s"DROP KEYSPACE IF EXISTS $keySpace")
-    finally session.shutdown()  // We don't wait for shutdown since session is abandoned
+    try {
+      session.execute(s"DROP KEYSPACE IF EXISTS $keySpace")
+    } finally {
+      session.shutdown()
+      // We don't wait for shutdown since session is abandoned
+    } 
   }
 
   /**
    * Drop the keyspace.
    * This is mostly useful for testing.
    * 
-   * @param contactHosts Cassandra host to create session for.
+   * @param contactHost Cassandra host to create session for.
    * @param keySpace keyspace to drop.
    */
   def dropKeySpace(contactHost: String, keySpace: String) {
@@ -92,7 +96,7 @@ object CassandraStore {
    * @param contactHosts Hosts to connect to
    * @return Cassandra session
    */
-  def getSession(contactHosts: Seq[String]): Session = {
+  protected def getSession(contactHosts: Seq[String]): Session = {
     val builder = Cluster.builder()
     contactHosts.foreach{ builder.addContactPoint(_) }
     val cluster = builder.build()
@@ -106,7 +110,7 @@ object CassandraStore {
    * @param contactHost Host to connect to
    * @return Cassandra session
    */
-  def getSession(contactHost: String): Session = {
+  protected def getSession(contactHost: String): Session = {
     getSession(Seq(contactHost))
   }
 
@@ -115,8 +119,8 @@ object CassandraStore {
 /** a cassandra store data access layer configured by a config file */
 class ConfiguredCassandra(config: Config) extends CassandraStore {
   val storeConfig = config.getConfig("sparkle-store-cassandra")
-  override val contactHosts: Seq[String] = storeConfig.getStringList("contactHosts").asScala.toSeq
-  override val storeKeySpace = storeConfig.getString("keySpace")
+  override val contactHosts: Seq[String] = storeConfig.getStringList("contact-hosts").asScala.toSeq
+  override val storeKeySpace = storeConfig.getString("key-space")
 }
 
 /** a Storage DAO for cassandra.  */

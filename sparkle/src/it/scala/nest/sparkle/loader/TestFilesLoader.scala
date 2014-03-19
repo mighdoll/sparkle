@@ -44,12 +44,12 @@ class TestFilesLoader extends FunSuite with Matchers with BeforeAndAfterAll {
     val source = ConfigFactory.load().getConfig("sparkle-time-server")
     ConfigUtil.modifiedConfig(
       source, 
-      Some("sparkle-store-cassandra.keySpace","testfileloader")
+      Some("sparkle-store-cassandra.key-space","testfileloader")
     )
   }
   val storeConfig = config.getConfig("sparkle-store-cassandra")
-  val contactHosts = storeConfig.getStringList("contactHosts").asScala.toSeq
-  val keySpace = storeConfig.getString("keySpace")
+  val contactHosts = storeConfig.getStringList("contact-hosts").asScala.toSeq
+  val keySpace = storeConfig.getString("key-space")
   lazy val testDb = CassandraStore(config)
   
   implicit val system = ActorSystem("test-FilesLoader")

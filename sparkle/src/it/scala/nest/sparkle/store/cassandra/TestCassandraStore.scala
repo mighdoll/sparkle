@@ -46,12 +46,12 @@ class TestCassandraStore extends FunSuite
     val source = ConfigFactory.load().getConfig("sparkle-time-server")
     ConfigUtil.modifiedConfig(
       source, 
-      Some("sparkle-store-cassandra.keySpace","testcassandrastore")
+      Some("sparkle-store-cassandra.key-space","testcassandrastore")
     )
   }
   val storeConfig = config.getConfig("sparkle-store-cassandra")
-  val testContactHosts = storeConfig.getStringList("contactHosts").asScala.toSeq
-  val testKeySpace = storeConfig.getString("keySpace")
+  val testContactHosts = storeConfig.getStringList("contact-hosts").asScala.toSeq
+  val testKeySpace = storeConfig.getString("key-space")
   val testColumn = "latency.p99"
   val testId = "server1"
   val columnPath = s"$testId/$testColumn"
@@ -81,7 +81,7 @@ class TestCassandraStore extends FunSuite
 
   /** recreate the database and a test column */
   def withTestDb[T](fn: CassandraStore => T): T = {
-    testDb.map(fn(_)).get
+    testDb.map(fn).get
   }
 
   /**
