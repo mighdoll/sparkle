@@ -67,7 +67,7 @@ object BuildSettings {
   )
   
   lazy val publishSettings = 
-    bintraySettings ++
+    // bintraySettings ++ // disabled pending https://github.com/softprops/bintray-sbt/issues/18
     sbtassembly.Plugin.assemblySettings ++
     ReleasePlugin.releaseSettings ++
     MavenPublish.settings ++
