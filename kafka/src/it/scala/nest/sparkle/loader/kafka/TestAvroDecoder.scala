@@ -19,6 +19,7 @@ import org.scalatest.Matchers
 import nest.sparkle.loader.kafka.AvroSupport._
 import org.apache.avro.generic.GenericData
 import java.util.ArrayList
+import nest.sparkle.loader.kafka.AvroRecordGenerators.makeLatencyRecord
 
 class TestAvroDecoder extends FunSuite with Matchers {
   test("round trip MillisDoubleAvro through the avro binary decoder") {
@@ -41,22 +42,7 @@ class TestAvroDecoder extends FunSuite with Matchers {
     val encoder = genericEncoder(schema)
     val decoder = genericDecoder(schema)
 
-    val elementArray = {
-      val collection = new ArrayList[GenericData.Record]()
-      val array = new GenericData.Array(MillisDoubleArrayAvro.arraySchema, collection)
-      val element = new GenericData.Record(MillisDoubleArrayAvro.elementSchema)
-      element.put("time", 1L)
-      element.put("value", 13.1)
-      array.add(element)
-      array
-    }
-
-    val latencyRecord = {
-      val record = new GenericData.Record(schema)
-      record.put("id", "abc123")
-      record.put("elements", elementArray)
-      record
-    }
+    val latencyRecord = makeLatencyRecord("abc123", Seq(1L -> 13.1))
 
     val bytes = encoder.toBytes(latencyRecord)
     val result = decoder.fromBytes(bytes)

@@ -24,28 +24,42 @@ import com.typesafe.config.ConfigValueFactory
 import scala.collection.JavaConverters._
 import nest.sparkle.util.ConfigUtil.modifiedConfig
 import nest.sparkle.store.cassandra.ConfiguredCassandra
+import nest.sparkle.util.Watch
+import nest.sparkle.util.PublishSubject
+import rx.lang.scala.Observer
+import nest.sparkle.util.WatchReport
 
 class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
-with KafkaTestConfig with CassandraTestConfig {
+    with KafkaTestConfig with CassandraTestConfig {
 
   val testStore = new ConfiguredCassandra(cassandraConfig)
-  ignore("stream load a few milliDouble samples") {
+  test("stream load a few milliDouble samples in an array") {
     import ExecutionContext.Implicits.global
-    import AvroRecordGenerators.Implicits.arbitraryMillisDoubleRecord
-    
+    import AvroRecordGenerators.Implicits.arbitraryMillisDoubleArrayRecord
+
     forAll(MinSuccessful(1)) { records: List[GenericData.Record] =>
       whenever(records.length > 0) {
-        KafkaTestUtil.withTestAvroTopic(loaderConfig) { kafka =>
+        KafkaTestUtil.withTestAvroTopic(loaderConfig, MillisDoubleArrayAvro.schema) { kafka =>
           val overrides =
             "topics" -> List(kafka.topic) ::
-              "schema-finder" -> "nest.sparkle.loader.kafka.MillisDoubleSchemaFinder" ::
+              "find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleArrayFinder" ::
               Nil
 
           val config = modifiedConfig(loaderConfig, overrides: _*)
 
           kafka.writer.write(records)
           val loader = new AvroKafkaLoader(config, testStore)
+          val report = PublishSubject[WatchReport[ColumnUpdate]]()
+//          loader.watch(report)
+          ???
 
+          loader.load()
+          report.subscribe { columnUpdate =>
+            println(columnUpdate)
+          }
+
+          Thread.sleep(2000)
+          // TODO wait on loader to load records
           // TODO read from cassandra and verify that they're there
         }
       }

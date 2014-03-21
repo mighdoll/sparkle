@@ -25,7 +25,6 @@ import nest.sparkle.util.ConfigUtil
 
 /** enables writing to a kafka topic */
 class KafkaWriter[T: Encoder](topic: String, config: Config) {
-
   val writer = implicitly[Encoder[T]]
 
   lazy val producer: Producer[String, Array[Byte]] = {

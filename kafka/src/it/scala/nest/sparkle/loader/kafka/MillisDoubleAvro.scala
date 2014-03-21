@@ -16,8 +16,8 @@ package nest.sparkle.loader.kafka
 import nest.sparkle.loader.kafka.AvroSupport.schemaFromString
 
 object MillisDoubleAvro {
-  val avroJson =
-    """{
+  val avroJson ="""
+    {
       "type": "record", 
       "name": "MillitimeDouble",
       "fields" : [
@@ -26,6 +26,7 @@ object MillisDoubleAvro {
         {"name": "value", "type": "double"}
       ]
     }"""
+    
   val schema = schemaFromString(avroJson)
 }
 
@@ -40,40 +41,39 @@ class MillisDoubleSchemaFinder extends FixedAvroSchema(MillisDoubleAvro.schema,
 
 object MillisDoubleArrayAvro {
   val elementJson = """
-        { "name":"element", 
-          "type":"record",
-          "fields":[ 
-            { "name":"time", "type":"long" }, 
-            { "name":"value", "type":"double" } 
-          ]
-        }"""
+      { "name":"element", 
+        "type":"record",
+        "fields":[ 
+          { "name":"time", "type":"long" }, 
+          { "name":"value", "type":"double" } 
+        ]
+      }"""
     
   val arrayJson = s"""
       { "type": "array",
         "items": $elementJson
       }"""
 
-  val avroJson =
-    s"""
-{ "type":"record",
-  "name":"Latency",
-  "fields":[
-    { "name":"id", "type":"string" },
-    { "name":"elements", "type": $arrayJson }
-  ]
-}"""
+  val avroJson = s"""
+      { "type":"record",
+        "name":"Latency",
+        "fields":[
+          { "name":"id", "type":"string" },
+          { "name":"elements", "type": $arrayJson }
+        ]
+      }"""
     
   val schema = schemaFromString(avroJson)
   val elementSchema = schemaFromString(elementJson)
   val arraySchema = schemaFromString(arrayJson)
 }
 
-class MillisDoubleArraySchemaFinder extends FixedAvroSchema(MillisDoubleArrayAvro.schema,
-  SchemaParseInfo(
-    name = "Latency",
-    idField = "id",
-    keyField = "data.element.time",
-    valueFields = Seq("data.element.value")
-  )
-)
+class MillisDoubleArrayFinder extends FindDecoder {
+  def decoderFor(topic:String):KafkaDecoder = {
+    val schema = MillisDoubleArrayAvro.schema
+    val extractor = AvroExtractors.arrayRecords(schema)
+    AvroExtractor(schema, extractor)
+  }  
+}
+
 

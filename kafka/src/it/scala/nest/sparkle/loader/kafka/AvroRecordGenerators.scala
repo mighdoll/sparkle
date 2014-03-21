@@ -16,6 +16,7 @@ package nest.sparkle.loader.kafka
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Arbitrary
 import org.apache.avro.generic.GenericData
+import java.util.ArrayList
 
 /** test generator support for making millis-double GenericRecord avro data */
 object AvroRecordGenerators {
@@ -30,8 +31,41 @@ object AvroRecordGenerators {
     record.put("value", value)
     record
   }
-  
+
+  private val genMillisDoubleArrayRecord = for {
+    id <- arbitrary[Int]
+    events <- arbitrary[List[(Long, Double)]]
+  } yield {
+    makeLatencyRecord(id.toString, events)
+  }
+
   object Implicits {
     implicit val arbitraryMillisDoubleRecord = Arbitrary(genMillisDoubleRecord)
+    implicit val arbitraryMillisDoubleArrayRecord = Arbitrary(genMillisDoubleArrayRecord)
   }
+
+  def makeLatencyRecord(id:String, events: Iterable[(Long, Double)]): GenericData.Record = {
+    val elementArray = {
+      val collection = new ArrayList[GenericData.Record]()
+      val array = new GenericData.Array(MillisDoubleArrayAvro.arraySchema, collection)
+      events.foreach{
+        case (time, value) =>
+          val element = new GenericData.Record(MillisDoubleArrayAvro.elementSchema)
+          element.put("time", 1L)
+          element.put("value", 13.1)
+          array.add(element)
+      }
+      array
+    }
+
+    val latencyRecord = {
+      val record = new GenericData.Record(MillisDoubleArrayAvro.schema)
+      record.put("id", id)
+      record.put("elements", elementArray)
+      record
+    }
+
+    latencyRecord
+  }
+
 }

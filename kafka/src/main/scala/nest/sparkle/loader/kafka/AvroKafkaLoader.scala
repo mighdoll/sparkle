@@ -24,39 +24,60 @@ import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.store.Event
 import org.apache.avro.generic.GenericRecord
 import nest.sparkle.store.WriteableStore
+import nest.sparkle.util.Exceptions.NYI
+import nest.sparkle.util.Watched
+
+case class ColumnUpdate(columnPath:String, latest:Long)
 
 /** Start a stream loader that will load data from kafka topics into cassandra */
-class AvroKafkaLoader(config: Config, storage: WriteableStore)(implicit execution: ExecutionContext) extends Log {
+class AvroKafkaLoader(config: Config, storage: WriteableStore)
+    (implicit execution: ExecutionContext) extends Watched[ColumnUpdate] with Log {
   val topics = config.getStringList("topics").asScala
-  val schemaFinderClassName = config.getString("schema-finder")
-  val schemaFinder = Instance.byName[SchemaFinder](schemaFinderClassName)()
+  
+  def load() {
+    val finder = {
+      val className = config.getString("find-decoder")
+      Instance.byName[FindDecoder](className)()
+    }
+    
+    val readers = topics.map { topic =>
+      val decoder = finder.decoderFor(topic)
+      val keyValueDecoder =
+        decoder match {
+          case kv: KafkaKeyValues => kv
+          case _                  => NYI("only KeyValueStreams implemented so far")
+        }
+      KafkaReader(topic, config, None)(keyValueDecoder)
+    }
 
-  case class ReaderWithParseInfo(reader: KafkaReader[GenericRecord], parseInfo: SchemaParseInfo)
-  val readers = topics.map { topic =>
-    val schemaAndInfo = schemaFinder.schemaFor(topic)
-    val decoder = AvroSupport.genericDecoder(schemaAndInfo.schema)
-    val reader = KafkaReader(topic, config, None)(decoder)
-    ReaderWithParseInfo(reader, schemaAndInfo.parseInfo)
-  }
-
-  readers.foreach {
-    case ReaderWithParseInfo(reader, parseInfo) =>
+    readers.foreach { reader =>
       val stream = reader.stream()
-      val columnName = parseInfo.name
+      val columnName = "name" // TODO fixme
       val columnPrefix = "servers/" // TODO parameterize me
       stream.subscribe { record =>
-        val id = record.get(parseInfo.idField)
+        val id = record.id
         val columnPath = s"$columnPrefix$id/$columnName"
-        // TODO handle array kafka records with contained arrays
         storage.writeableColumn[Long, Double](columnPath).foreach { column =>
-          val key = record.get(parseInfo.keyField).asInstanceOf[Long] // LATER make this type flexible
-          parseInfo.valueFields.foreach { valueField =>
-            val value = record.get(valueField).asInstanceOf[Double] // LATER make this type flexible.
-            val event = Event(key, value)
-            column.write(List(event))
+          val events =
+            record.keysValues.flatMap {
+              case (key, values) =>
+                val typedKey = key.asInstanceOf[Long] // LATER make this type flexible
+                values.map{ value =>
+                  val typedValue = value.asInstanceOf[Double] // LATER make this type flexible
+                  Event(typedKey, typedValue)
+                }
+            }
+          column.write(events).foreach { _ =>
+            reader.commit() // record the progress reading this kafka topic.
+            events.lastOption map { last =>
+              val update = ColumnUpdate(columnPath, last.argument)
+              data.onNext(update)
+            }
           }
         }
       }
+    }
+
   }
 
 }

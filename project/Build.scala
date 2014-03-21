@@ -46,10 +46,7 @@ object SparkleTimeBuild extends Build {
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= Seq(
-          kafka,
-          avro
-        ) ++ testAndLogging
+        libraryDependencies ++= kafka ++ testAndLogging ++ avro
       ).dependsOn(sparkleTime)
 
 }
