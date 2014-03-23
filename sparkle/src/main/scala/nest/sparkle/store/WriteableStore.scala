@@ -24,4 +24,12 @@ trait WriteableStore {
   /** Return an interface that supports writing to a column identified by columnPath. */
   // TODO generalize this to non cassandra typeclasses
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]]
+
+  /**
+   * Format the store.
+   * 
+   * This erases any existing data in the store. The store is in the same state
+   * as if it was just created.
+   */
+  def format()
 }

@@ -90,6 +90,15 @@ class TestCassandraStore extends FunSuite
   test("create event schema and catalog") {
     withTestDb { _ => }
   }
+  
+  test("erase works") {
+    testDb.map{ store => 
+      store.format()
+      // columnPath no longer in the store
+      val result = store.columnCatalog.tableForColumn(columnPath).failed.await
+      result shouldBe ColumnNotFound(columnPath)
+    }
+  }
 
   test("missing column returns error") {
     val notColumn = "notAColumn"

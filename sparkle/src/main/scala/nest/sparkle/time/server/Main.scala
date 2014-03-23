@@ -34,6 +34,8 @@ import com.typesafe.config.Config
 import nest.sparkle.util.ArgotApp
 import nest.sparkle.util.ConfigUtil.modifiedConfig
 
+import nest.sparkle.store.WriteableStore
+
 /** Main launcher for Sparkle application */
 object Main extends ArgotApp {
   val parser = new ArgotParser("sg", preUsage = Some("Version 0.4.4-SNAPSHOT")) // TODO get version from the build
@@ -56,10 +58,14 @@ object Main extends ArgotApp {
 
     val launch = new ServerLaunch(config)
     
+    erase.value.foreach { _ =>
+      launch.writeableStore.format()
+    }
+    
     filesPath.value.foreach { pathString =>
       FilesLoader(pathString, launch.writeableStore)
     }
-
+    
     display.value.foreach { _ => launch.launchDesktopBrowser() }
   } 
 }

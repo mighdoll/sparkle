@@ -140,7 +140,13 @@ trait CassandraStore extends Store with WriteableStore with Log {
     session
   }
 
-  /** close the connection to cassandra.  */
+  /** 
+   * Close the connection to Cassandra.
+   * 
+   * Note that close is asynchronous.
+   * 
+   * @return ShutdownFuture
+   */
   def close() = session.shutdown()
 
   /** return the dataset for the provided dataSet  path (fooSet/barSet/mySet).  */
@@ -161,6 +167,17 @@ trait CassandraStore extends Store with WriteableStore with Log {
     val (dataSetName, columnName) = setAndColumn(columnPath)
     val column = SparseColumnWriter[T, U](dataSetName, columnName, session, columnCatalog, dataSetCatalog)
     Future.successful(column)
+  }
+
+  /**
+   * Create the tables using the session passed.
+   * The session's keyspace itself must already exist.
+   * Any existing tables are deleted.
+   * 
+   * This call is synchronous.
+   */
+  def format() {
+    format(session)
   }
   
   /** 
@@ -192,10 +209,45 @@ trait CassandraStore extends Store with WriteableStore with Log {
         with replication = {'class': 'SimpleStrategy', 'replication_factor': 1}"""
     )
     session.execute(s"USE $keySpace")
+    format(session)
+  }
+
+  /**
+   * Create the tables using the session passed.
+   * The session's keyspace itself must already exist.
+   * Any existing tables are deleted.
+   */
+  protected def format(session: Session) {
+    dropTables(session)
     
     SparseColumnWriter.createColumnTables(session).await
     ColumnCatalog.create(session)
     DataSetCatalog.create(session)
+  }
+
+  /**
+   * Drop all tables in the keyspace.
+   */
+  private def dropTables(session: Session) = {
+    val query = s"""SELECT columnfamily_name FROM system.schema_columnfamilies
+      WHERE keyspace_name = '$storeKeySpace'"""
+    val rows = session.executeAsync(query).toFuture.await
+    val futures = rows.all.asScala.map { row => 
+      val tableName = row.getString(0)
+      dropTable(session, tableName)
+    }.toSeq
+    val all = Future.sequence(futures)
+    val names = all.await
+    names
+  }
+
+  /** 
+   * Drop a table.
+   */
+  private def dropTable(session: Session, tableName: String)
+       (implicit execution: ExecutionContext):Future[String] = {
+    val dropTable = s"DROP TABLE IF EXISTS $tableName"
+    session.executeAsync(dropTable).toFuture.map { _ => tableName }
   }
 
   /** split a columnPath into a dataSet and column components */
