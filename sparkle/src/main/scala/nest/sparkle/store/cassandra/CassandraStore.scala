@@ -32,7 +32,7 @@ import nest.sparkle.util.Log
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.store.{Event, Store, DataSet, Column, WriteableStore}
+import nest.sparkle.store.{Store, DataSet, Column, WriteableStore}
 import nest.sparkle.store.cassandra.ObservableResultSet._
 
 case class AsciiString(val string: String) extends AnyVal
@@ -231,23 +231,21 @@ trait CassandraStore extends Store with WriteableStore with Log {
   private def dropTables(session: Session) = {
     val query = s"""SELECT columnfamily_name FROM system.schema_columnfamilies
       WHERE keyspace_name = '$storeKeySpace'"""
-    val rows = session.executeAsync(query).toFuture.await
-    val futures = rows.all.asScala.map { row => 
+    val rows = session.executeAsync(query).observerableRows
+    val drops = rows.map { row => 
       val tableName = row.getString(0)
       dropTable(session, tableName)
-    }.toSeq
-    val all = Future.sequence(futures)
-    val names = all.await
-    names
+    }
+    drops.toBlockingObservable foreach { drop => drop.await }
   }
 
   /** 
-   * Drop a table.
+   * Delete a table (and all of the data in the table) from the session's current keyspace
    */
   private def dropTable(session: Session, tableName: String)
-       (implicit execution: ExecutionContext):Future[String] = {
+       (implicit execution: ExecutionContext):Future[Unit] = {
     val dropTable = s"DROP TABLE IF EXISTS $tableName"
-    session.executeAsync(dropTable).toFuture.map { _ => tableName }
+    session.executeAsync(dropTable).toFuture.map { _ => () }
   }
 
   /** split a columnPath into a dataSet and column components */
