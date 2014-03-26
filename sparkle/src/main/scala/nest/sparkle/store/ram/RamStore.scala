@@ -14,24 +14,28 @@
 
 package nest.sparkle.store.ram
 
-import nest.sparkle.store.Store
-import scala.concurrent.Future
-import nest.sparkle.store.DataSet
-import nest.sparkle.store.Column
-import scala.collection.mutable
-import nest.sparkle.util.OptionConversion._
 import java.io.FileNotFoundException
-import nest.sparkle.store.WriteableStore
-import nest.sparkle.store.cassandra.CanSerialize
-import nest.sparkle.store.cassandra.WriteableColumn
+
+import scala.collection.mutable
+import scala.concurrent.Future
 import scala.reflect.runtime.universe._
+
+import nest.sparkle.store.{DataSet, Column, Store, DataSetNotFound}
+import nest.sparkle.store.cassandra.WriteableColumn
+import nest.sparkle.util.OptionConversion._
 
 /** A java heap resident database of Columns */
 class WriteableRamStore extends Store {
   private val columns = mutable.Map[String, RamColumn[_, _]]()
 
-  /** return the dataset for the provided dataSet name or path (fooSet/barSet/mySet).  */
-  def dataSet(name: String): Future[DataSet] = ???
+  /** return the dataset for the provided name name or path (fooSet/barSet/mySet).  */
+  def dataSet(name: String): Future[DataSet] = {
+    if (dataSetColumnPaths(name).isEmpty) {
+      Future.failed(DataSetNotFound(name))
+    } else {
+      Future.successful(RamDataSet(this, name))
+    }
+  }
 
   /** return a column from a columnPath e.g. "fooSet/barSet/columName". */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
@@ -47,4 +51,18 @@ class WriteableRamStore extends Store {
     columns += columnPath -> ramColumn
     Future.successful(ramColumn)
   }
+
+  /**
+   * Return the columnPaths of the children of the DataSet
+   * @param name DataSet to return children for
+   * @return Seq of ColumnPaths of children.
+   */
+  private[ram] def dataSetColumnPaths(name: String): Seq[String] = {
+   columns.keys.filter {columnPath =>
+      val (dataSetName, _) = Store.setAndColumn(columnPath)
+      dataSetName == name
+    }.toSeq
+  }
+  
 }
+

@@ -14,30 +14,32 @@
 
 package nest.sparkle.time.protocol
 
+import scala.reflect.runtime.universe._
 import scala.concurrent.ExecutionContext
-import org.scalatest.{ BeforeAndAfterAll, FunSuite, Matchers }
-import org.scalatest.prop.PropertyChecks
+
+
 import spray.util._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
+import spray.http.HttpResponse
+import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
 import spray.testkit.ScalatestRouteTest
-import nest.sparkle.store.Event
-import nest.sparkle.store.Store
-import nest.sparkle.time.protocol.RequestJson.{ StreamRequestMessageFormat }
+
+import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.protocol.ResponseJson.{ StreamFormat, StreamsFormat, StreamsMessageFormat }
 import nest.sparkle.time.protocol.EventJson.EventFormat
-import nest.sparkle.store.ram.WriteableRamStore
-import scala.reflect.runtime.universe._
-import spray.http.HttpResponse
-import nest.sparkle.time.transform.DomainRangeLimits
-import nest.sparkle.time.transform.DomainRangeJson.DomainRangeReader
-import nest.sparkle.time.transform.MinMax
 import nest.sparkle.time.protocol.ArbitraryColumn.arbitraryColumn
 import nest.sparkle.time.protocol.TestDomainRange.minMaxEvents
-import nest.sparkle.util.RandomUtil.randomAlphaNum
 import nest.sparkle.time.protocol.ArbitraryColumn.arbitraryEvent
+import nest.sparkle.time.transform.DomainRangeJson.DomainRangeReader
+import nest.sparkle.time.transform.MinMax
+import nest.sparkle.time.transform.DomainRangeLimits
 import nest.sparkle.time.transform.DomainRangeJson
+import nest.sparkle.store.Event
+import nest.sparkle.store.Store
+import nest.sparkle.store.ram.WriteableRamStore
+import nest.sparkle.util.RandomUtil.randomAlphaNum
 
 class TestV1Api extends TestStore with StreamRequestor with TestDataService {
 
@@ -94,6 +96,31 @@ class TestV1Api extends TestStore with StreamRequestor with TestDataService {
           }
         }
       }
+    }
+  }
+
+  test("List columns for known dataset") {
+    val path = s"/v1/columns/$testId"
+    Get(path) ~> v1protocol ~> check {
+      val columns = responseAs[Seq[String]]
+      columns.length shouldBe 1
+      columns(0) shouldBe testColumnPath
+    }
+  }
+
+  test("Non existant dataset should get a 404") {
+    val path = s"/v1/columns/noexist"
+    Get(path) ~> v1protocol ~> check {
+      //handled shouldBe true
+      response.status shouldBe StatusCodes.NotFound
+    }
+  }
+
+  // cors is causing a 405 instead of a 404.
+  ignore("Missing dataset should get a 404") {
+    val path = s"/v1/columns"
+    Get(path) ~> sealRoute(v1protocol) ~> check {
+      response.status shouldBe StatusCodes.NotFound
     }
   }
 

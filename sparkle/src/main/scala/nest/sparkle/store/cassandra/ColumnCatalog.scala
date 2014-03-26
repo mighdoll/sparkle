@@ -14,12 +14,14 @@
 
 package nest.sparkle.store.cassandra
 
-import com.datastax.driver.core.Session
-import com.datastax.driver.core.PreparedStatement
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
+
+import com.datastax.driver.core.Session
+import com.datastax.driver.core.PreparedStatement
+
+import nest.sparkle.store.ColumnNotFound
 import nest.sparkle.util.GuavaConverters._
-import com.datastax.driver.core.querybuilder.QueryBuilder
 import nest.sparkle.util.OptionConversion._
 
 /** 
@@ -40,8 +42,6 @@ case class CassandraCatalogEntry(
                                 )
 
 case class CatalogStatements(addCatalogEntry: PreparedStatement, tableForColumn: PreparedStatement)
-
-case class ColumnNotFound(column:String) extends RuntimeException(column)
 
 /** Manages a table of CatalogEntry rows in cassandra.  Each CatalogEntry references
   * the cassandra table holding the column data, as well as other

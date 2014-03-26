@@ -14,10 +14,12 @@
 
 package nest.sparkle.time.protocol
 
+import org.scalatest.Suite
+
+import spray.testkit.ScalatestRouteTest
+
 import nest.sparkle.time.server.DataService
 import nest.sparkle.legacy.DataRegistry
-import spray.testkit.ScalatestRouteTest
-import org.scalatest.Suite
 
 trait TestDataService extends DataService with ScalatestRouteTest {
   self: Suite =>

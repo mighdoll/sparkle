@@ -15,56 +15,67 @@
 package nest.sparkle.time.protocol
 
 import scala.concurrent.ExecutionContext
+
+import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
+
+import spray.json.DefaultJsonProtocol._
+
 import spray.routing.Directives
+
 import nest.sparkle.store.Store
-import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
-import spray.routing.Directives
-import spray.http.HttpHeaders._
-import spray.http.AllOrigins
-import com.typesafe.config.Config
-import spray.http.SomeOrigins
-import spray.http.HttpOrigin
-import spray.http.HttpHeader
-import akka.event.Logging
-import spray.http.HttpRequest
-import spray.routing.directives.DebuggingDirectives
-import spray.http.HttpResponse
-import spray.routing.directives.LoggingMagnet
-import spray.routing.directives.LogEntry
+import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
+import nest.sparkle.time.server.RichComplete
+import nest.sparkle.util.ObservableFuture._
 
 /** Provides the v1/data sparkle REST api */
-trait DataServiceV1 extends Directives with CorsDirective {
+trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
   implicit def executionContext: ExecutionContext
   def store: Store
 
   val api = DataRequestApi(store)
 
   lazy val v1protocol = {
-    path("v1" / "data") {
-      cors {
-        postDataRequest
+    cors {
+      pathPrefix("v1") {
+        postDataRequest ~
+        dataSetInfoRequest
       }
     }
   }
 
   private lazy val postDataRequest = // format: OFF
-    post {
-      entity(as[StreamRequestMessage]) { request => 
-        val futureStreams = api.handleStreamRequest(request.message)
-        val futureMessage = futureStreams.map { streams =>
-          StreamsMessage(
-            requestId = request.requestId,
-            realm = request.realm,
-            traceId = request.traceId,
-            messageType = MessageType.Streams,
-            message = streams
-          )
+    path("data") {
+        post {
+          entity(as[StreamRequestMessage]) {
+            request =>
+              val futureStreams = api.handleStreamRequest(request.message)
+              val futureMessage = futureStreams.map {
+                streams =>
+                  StreamsMessage(
+                    requestId = request.requestId,
+                    realm = request.realm,
+                    traceId = request.traceId,
+                    messageType = MessageType.Streams,
+                    message = streams
+                  )
+              }
+              complete(futureMessage)
+          }
         }
-        complete(futureMessage)
-      }
     } // format: ON
-
+  
+  private lazy val dataSetInfoRequest =
+    path("columns" / Rest) { dataSetName =>
+        if (dataSetName.isEmpty) // This can never happen.
+          complete(StatusCodes.NotFound -> "DataSet not specified")
+        else {
+          val futureColumnNames = store.dataSet(dataSetName).flatMap { dataSet =>
+            dataSet.childColumns.toFutureSeq 
+          }
+          richComplete(futureColumnNames)
+        }
+    }
 }
 

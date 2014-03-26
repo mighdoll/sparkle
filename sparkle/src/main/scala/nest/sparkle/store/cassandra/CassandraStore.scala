@@ -157,14 +157,14 @@ trait CassandraStore extends Store with WriteableStore with Log {
 
   /** return a column from a fooSet/barSet/columName path */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
-    val (dataSetName, columnName) = setAndColumn(columnPath)
+    val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     val column = SparseColumnReader[T, U](dataSetName, columnName, session, columnCatalog)
     Future.successful(column)
   }
 
   /** return a column from a fooSet/barSet/columName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]] = {
-    val (dataSetName, columnName) = setAndColumn(columnPath)
+    val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     val column = SparseColumnWriter[T, U](dataSetName, columnName, session, columnCatalog, dataSetCatalog)
     Future.successful(column)
   }
@@ -246,16 +246,6 @@ trait CassandraStore extends Store with WriteableStore with Log {
        (implicit execution: ExecutionContext):Future[Unit] = {
     val dropTable = s"DROP TABLE IF EXISTS $tableName"
     session.executeAsync(dropTable).toFuture.map { _ => () }
-  }
-
-  /** split a columnPath into a dataSet and column components */
-  private def setAndColumn(columnPath: String): (String, String) = {
-    val separator = columnPath.lastIndexOf("/")
-    val dataSetName = columnPath.substring(0, separator)
-    val columnName = columnPath.substring(separator + 1)
-    assert (dataSetName.length > 0)
-    assert (columnName.length > 0)
-    (dataSetName, columnName)
   }
 
 }

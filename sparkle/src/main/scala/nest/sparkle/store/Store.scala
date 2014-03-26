@@ -42,5 +42,18 @@ object Store {
     val store = Instance.byName[WriteableStore](storeClass)(config)
     store
   }
+
+  /** split a columnPath into a dataSet and column components */
+  def setAndColumn(columnPath: String): (String, String) = {
+    val separator = columnPath.lastIndexOf("/")
+    val dataSetName = columnPath.substring(0, separator)
+    val columnName = columnPath.substring(separator + 1)
+    assert (dataSetName.length > 0)
+    assert (columnName.length > 0)
+    (dataSetName, columnName)
+  }
 }
 
+case class DataSetNotFound(name:String) extends RuntimeException(name)
+
+case class ColumnNotFound(column:String) extends RuntimeException(column)

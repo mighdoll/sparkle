@@ -16,6 +16,9 @@ package nest.sparkle.time.server
 
 import java.io.FileNotFoundException
 import java.nio.file.NoSuchFileException
+import java.nio.file.Path
+import java.nio.file.Files
+import java.nio.file.Paths
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success }
 import akka.event.Logging.InfoLevel
@@ -37,9 +40,7 @@ import spray.routing.directives.OnCompleteFutureMagnet.apply
 import nest.sparkle.legacy.DataServiceV0
 import nest.sparkle.time.protocol.DataServiceV1
 import nest.sparkle.util.Log
-import java.nio.file.Path
-import java.nio.file.Files
-import java.nio.file.Paths
+import nest.sparkle.store.DataSetNotFound
 
 /** http API for serving data and static web content */
 trait DataService extends HttpService with DataServiceV0 with DataServiceV1 with Log {
@@ -129,6 +130,8 @@ trait RichComplete extends Directives {
         case Failure(notFound: FileNotFoundException) =>
           complete(StatusCodes.NotFound -> notFound.getMessage)
         case Failure(notFound: ColumnNotFoundException) =>
+          complete(StatusCodes.NotFound -> notFound.getMessage)
+        case Failure(notFound: DataSetNotFound) =>
           complete(StatusCodes.NotFound -> notFound.getMessage)
         case Failure(x) =>
           complete(x)
