@@ -104,7 +104,7 @@ class TestV1Api extends TestStore with StreamRequestor with TestDataService {
     Get(path) ~> v1protocol ~> check {
       val columns = responseAs[Seq[String]]
       columns.length shouldBe 1
-      columns(0) shouldBe testColumnPath
+      columns(0) shouldBe testColumn
     }
   }
 

@@ -13,9 +13,9 @@ describe("DataApi Test Suite", function() {
             expect(data).toBeDefined();
             expect($.isArray(data)).toBeTruthy();
             expect(data.length).toEqual(3);
-            expect(data[0]).toEqual("src/test/resources/epochs.csv/count");
-            expect(data[1]).toEqual("src/test/resources/epochs.csv/p90");
-            expect(data[2]).toEqual("src/test/resources/epochs.csv/p99");
+            expect(data[0]).toEqual("count");
+            expect(data[1]).toEqual("p90");
+            expect(data[2]).toEqual("p99");
             done();
         });
         jqXHR.fail( function(jqXHR, textStatus, errorThrown) {

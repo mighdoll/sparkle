@@ -73,7 +73,10 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
           complete(StatusCodes.NotFound -> "DataSet not specified")
         } else {
           val futureColumnNames = store.dataSet(dataSetName).flatMap { dataSet =>
-            dataSet.childColumns.toFutureSeq 
+            dataSet.childColumns.map { columnPath =>
+              val (_, columnName) = Store.setAndColumn(columnPath)
+              columnName
+            }.toFutureSeq 
           }
           richComplete(futureColumnNames)
         }
