@@ -30,7 +30,7 @@ import org.scalacheck.Gen
 
 import com.typesafe.config.ConfigFactory
 
-import nest.sparkle.store.{Store, Event}
+import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.util.ConfigUtil
 import nest.sparkle.util.GuavaConverters._
@@ -108,6 +108,7 @@ class TestCassandraStore extends FunSuite
       result shouldBe ColumnNotFound(notColumn)
     }
   }
+  
   test("missing column !exists") {
     val notColumn = "foo/notAColumn"
     withTestDb { store =>
@@ -252,5 +253,12 @@ class TestCassandraStore extends FunSuite
       }
     }
   }
+
+  test("Non-existant dataset returns DateSetNotFound") {
+    withTestDb { store =>
+      val result = store.dataSet("foo")
+      result.failed.await shouldBe DataSetNotFound("foo does not exist")
+    }
+   }
 
 }

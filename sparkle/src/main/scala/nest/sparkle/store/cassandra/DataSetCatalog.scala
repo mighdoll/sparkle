@@ -78,7 +78,7 @@ case class DataSetCatalog(session:Session)
    * Add a columnPath to a parent DataSet in the DataSetCatalog.
    * Recursive entries for each of the components of the parent are created if needed.
    *
-   * @param childPath Full path to child
+   * @param columnPath Full path to child
    * @param executionContext yeah
    * @return Future to wait on for success or failure.
    */

@@ -16,25 +16,12 @@ package nest.sparkle.time.server
 
 import org.clapper.argot._
 import org.clapper.argot.ArgotConverters._
-import akka.actor.{ ActorRef, Props }
-import akka.util.Timeout
-import java.nio.file.Paths
-import java.nio.file.Files
+
 import akka.actor.ActorSystem
-import nest.sparkle.store.cassandra.FileSystemStore
-import nest.sparkle.legacy.FileLoadedDataSet
-import nest.sparkle.legacy.DirectoryDataRegistry
-import nest.sparkle.util.Opt._
-import nest.sparkle.store.Store
-import nest.sparkle.util.Exceptions._
-import nest.sparkle.loader.FilesLoader
-import nest.sparkle.legacy.PreloadedRegistry
-import com.typesafe.config.ConfigValueFactory
-import com.typesafe.config.Config
+
+import nest.sparkle.loader.{FilesLoader, LoadPathDoesNotExist}
 import nest.sparkle.util.ArgotApp
 import nest.sparkle.util.ConfigUtil.optionModifiedConfig
-
-import nest.sparkle.store.WriteableStore
 
 /** Main launcher for Sparkle application */
 object Main extends ArgotApp {
@@ -44,11 +31,12 @@ object Main extends ArgotApp {
   val help = parser.flag[Boolean](List("h", "help"), "show this help")
   val erase = parser.flag[Boolean](List("format"), "erase and format the database")
   val port = parser.option[Int](List("p", "port"), "port", "tcp port for web server")
+  val confFile = parser.option[String](List("conf"), "path", "path to an application.conf file")
   val root = parser.option[String](List("root"), "path", "directory containing custom web pages to serve")
   val display = parser.flag(List("display"), "navigate the desktop web browser to the current dashboard")
 
   app(parser, help) {
-    val loadedConfig = ConfigServer.loadConfig()
+    val loadedConfig = ConfigServer.loadConfigFromFile(confFile.value)
     implicit val system = ActorSystem("sparkle-graph", loadedConfig)
 
     val portMapping = port.value.map { ("port", _) }
@@ -63,7 +51,11 @@ object Main extends ArgotApp {
     }
     
     filesPath.value.foreach { pathString =>
-      FilesLoader(pathString, launch.writeableStore)
+      try {
+        FilesLoader(pathString, launch.writeableStore)
+      } catch {
+        case LoadPathDoesNotExist(path) => sys.exit(4)
+      }
     }
     
     display.value.foreach { _ => launch.launchDesktopBrowser() }

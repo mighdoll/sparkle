@@ -32,7 +32,7 @@ import nest.sparkle.util.Log
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.store.{Store, DataSet, Column, WriteableStore}
+import nest.sparkle.store.{Store, DataSet, Column, WriteableStore, DataSetNotFound}
 import nest.sparkle.store.cassandra.ObservableResultSet._
 
 case class AsciiString(val string: String) extends AnyVal
@@ -149,10 +149,21 @@ trait CassandraStore extends Store with WriteableStore with Log {
    */
   def close() = session.shutdown()
 
-  /** return the dataset for the provided dataSet  path (fooSet/barSet/mySet).  */
+  /** 
+   * Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
+   * 
+   * A check is made that the dataSet exists. If not the Future is failed with
+   * a DataSetNotFound returned.
+   */
   def dataSet(dataSetPath: String): Future[DataSet] = {
-    val dataset = CassandraDataSet(this, dataSetPath)
-    Future.successful(dataset)
+    // Check there are any entries with this path as the parent.
+    val future = dataSetCatalog.childrenOfParentPath(dataSetPath).toFutureSeq
+    future.flatMap { children =>
+      children.size match {
+        case n if n > 0 => Future.successful(CassandraDataSet(this, dataSetPath))
+        case _          => Future.failed(DataSetNotFound(s"$dataSetPath does not exist"))
+      }
+    }
   }
 
   /** return a column from a fooSet/barSet/columName path */

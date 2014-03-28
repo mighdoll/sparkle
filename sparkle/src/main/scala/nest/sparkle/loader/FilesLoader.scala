@@ -34,6 +34,8 @@ import org.slf4j.LoggerFactory
 /** emitted to the event stream when the file has been completely loaded */
 case class LoadComplete(filePath: String)
 
+case class LoadPathDoesNotExist(path: String) extends RuntimeException
+
 object FilesLoader {
   def apply(rootDirectory: String, store: WriteableStore) // format: OFF
       (implicit system: ActorSystem): FilesLoader = { // format: ON
@@ -41,13 +43,25 @@ object FilesLoader {
   }
 }
 
-/** load all the events in the csv/tsv files in a directory. */
-class FilesLoader(rootDirectory: String, store: WriteableStore)(implicit system: ActorSystem) {
+/** 
+ * Load all the events in the csv/tsv files in a directory or load a single file. 
+ * The directory or file must exist.
+ * 
+ * @param loadPath Path to directory to load from/watch or a single file to load.
+ * @param store Store to write data to.
+ */
+class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: ActorSystem) {
   val log = LoggerFactory.getLogger(classOf[FilesLoader])
   implicit val executor = system.dispatcher
-  val root = Paths.get(rootDirectory)
+  val root = Paths.get(loadPath)
+  
+  if (Files.notExists(root) ) {
+    log.error(s"$loadPath does not exist. Can not load data from this path")
+    throw LoadPathDoesNotExist(loadPath)
+  } 
 
   if (Files.isDirectory(root)) {
+    log.info(s"Watching $loadPath for files to load into store")
     val watcher = WatchPath(root)
     val initialFiles = watcher.watch{ change => fileChange(change, store) }
     initialFiles.foreach{ futureFiles =>
@@ -74,14 +88,16 @@ class FilesLoader(rootDirectory: String, store: WriteableStore)(implicit system:
   private def loadFile(fullPath: Path, store: WriteableStore) {
     fullPath match {
       case ParseableFile(format) if Files.isRegularFile(fullPath) =>
+        log.info(s"Started loading $fullPath into the sparkle store")
         TabularFile.load(fullPath, format).map { rowInfo =>
           loadRows(rowInfo, store, fullPath).andThen {
             case _ => rowInfo.close()
           } foreach { _ =>
+            log.info(s"Finished loading $fullPath into the sparkle store")
             system.eventStream.publish(LoadComplete(fullPath.toString))
           }
         }
-      case x => // ignore non-parseable files
+      case x => log.warn(s"$fullPath could not be parsed, ignoring")
     }
   }
 

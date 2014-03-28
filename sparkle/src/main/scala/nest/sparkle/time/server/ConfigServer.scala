@@ -33,7 +33,7 @@ object ConfigServer extends Log {
     */
   def loadConfigFromFile(configFileOpt: Option[String]): Config = {
     val baseConfig = ConfigFactory.load()
-    var root =
+    val root =
       configFileOpt.map { configFile =>
         log.info(s"using config file: $configFile")
         val file = new File(configFile)

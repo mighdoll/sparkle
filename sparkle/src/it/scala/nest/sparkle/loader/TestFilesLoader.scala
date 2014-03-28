@@ -61,7 +61,7 @@ class TestFilesLoader extends FunSuite with Matchers with BeforeAndAfterAll {
   
   override def afterAll() {
     testDb.close().toFuture.await(10.seconds)
-    CassandraStore.dropKeySpace(contactHosts, keySpace)
+    //CassandraStore.dropKeySpace(contactHosts, keySpace)
   }
 
   /** return a future that completes when the loader reports that loading is complete */

@@ -68,9 +68,10 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
   
   private lazy val dataSetInfoRequest =
     path("columns" / Rest) { dataSetName =>
-        if (dataSetName.isEmpty) // This can never happen.
+        if (dataSetName.isEmpty) {
+          // This will happen if the url has just a slash after 'columns'
           complete(StatusCodes.NotFound -> "DataSet not specified")
-        else {
+        } else {
           val futureColumnNames = store.dataSet(dataSetName).flatMap { dataSet =>
             dataSet.childColumns.toFutureSeq 
           }

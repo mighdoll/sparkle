@@ -111,7 +111,6 @@ class TestV1Api extends TestStore with StreamRequestor with TestDataService {
   test("Non existant dataset should get a 404") {
     val path = s"/v1/columns/noexist"
     Get(path) ~> v1protocol ~> check {
-      //handled shouldBe true
       response.status shouldBe StatusCodes.NotFound
     }
   }
