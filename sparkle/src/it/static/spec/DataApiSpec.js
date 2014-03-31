@@ -1,54 +1,47 @@
-describe("DataApi Test Suite", function() {
-    beforeEach(function() {
-        console.log("in beforeEach");
-    });
-    
-    afterEach(function() {
-        console.log("in afterEach");
-    });
+define(["jquery","sg/data"], function($, DataApi) {
+    'use strict';
 
-    it("should get columns", function(done) {
-        var jqXHR = Sparkle.Data.getDataSetColumns("src/test/resources/epochs.csv");
-        jqXHR.done( function(data, textStatus) {
-            expect(data).toBeDefined();
-            expect($.isArray(data)).toBeTruthy();
-            expect(data.length).toEqual(3);
-            expect(data[0]).toEqual("count");
-            expect(data[1]).toEqual("p90");
-            expect(data[2]).toEqual("p99");
-            done();
+    describe("DataApi Test Suite", function () {
+        it("should get columns", function (done) {
+            var promise = DataApi.getDataSetColumns("src/test/resources/epochs.csv");
+            promise.then(function (data) {
+                expect(data).toBeDefined();
+                expect($.isArray(data)).toBeTruthy();
+                expect(data.length).toEqual(3);
+                expect(data[0]).toEqual("count");
+                expect(data[1]).toEqual("p90");
+                expect(data[2]).toEqual("p99");
+                done();
+            },
+            function (err) {
+                expect(err.status).toEqual(200);
+                done();
+            });
         });
-        jqXHR.fail( function(jqXHR, textStatus, errorThrown) {
-            expect(textStatus).toEqual("success");
-            done();
-        });
-    });
 
-    it("should get 404 for an unknown dataset", function(done) {
-        var jqXHR = Sparkle.Data.getDataSetColumns("does/not/exist");
-        jqXHR.done( function(data, textStatus) {
-            expect(textStatus).toEqual("error");
-            done();
+        it("should get 404 for an unknown dataset", function (done) {
+            var promise = DataApi.getDataSetColumns("does/not/exist");
+            promise.then(function (data) {
+                expect(data).toBeUndefined();
+                done();
+            },
+            function (err) {
+                expect(err.status).toEqual(404);
+                done();
+            });
         });
-        jqXHR.fail( function(jqXHR, textStatus, errorThrown) {
-            expect(textStatus).toEqual("error");
-            expect(errorThrown).toEqual("Not Found");
-            expect(jqXHR.status).toEqual(404);
-            done();
-        });
-    });
 
-    it("should get 404 for no dataset specified", function(done) {
-        var jqXHR = Sparkle.Data.getDataSetColumns("");
-        jqXHR.done( function(data, textStatus) {
-            expect(true).toBeFalsy();
-            done();
-        });
-        jqXHR.fail( function(jqXHR, textStatus, errorThrown) {
-            expect(textStatus).toEqual("error");
-            expect(errorThrown).toEqual("Not Found");
-            expect(jqXHR.status).toEqual(404);
-            done();
+        it("should get 404 for no dataset specified", function (done) {
+            var promise = DataApi.getDataSetColumns("");
+            promise.then(function (data) {
+                expect(data).toBeUndefined();
+                expect(true).toBeFalsy();
+                done();
+            },
+            function (err) {
+                expect(err.status).toEqual(404);
+                done();
+            });
         });
     });
 });

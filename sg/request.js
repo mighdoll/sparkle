@@ -12,7 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/when/monitor/console", "jslib/when/when"], function(_console, when) {
+define(["jslib/when/monitor/console", "jslib/when/when", "jslib/d3"], 
+    function(_console, when, _d3) {
 
 
 /** wrapper around d3.json that returns a when.js promise */

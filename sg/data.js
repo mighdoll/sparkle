@@ -91,10 +91,20 @@ define(["jslib/when/monitor/console", "sg/request"],
     });
     return result;
   }
+        
+  /**
+   * Get the full columnPaths for named DataSet 
+   * @param dataSetName
+   */
+  function getDataSetColumns(dataSetName) {
+      var url = "/v1/columns/" + dataSetName;
+      return request.jsonWhen(url);
+  }
 
   returnFn.millisToDates = millisToDates;
   returnFn.toObject = toObject;
-
+  returnFn.getDataSetColumns = getDataSetColumns;
+      
   return returnFn;
 
 });
