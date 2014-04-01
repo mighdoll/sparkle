@@ -1,9 +1,9 @@
-define(["jquery","sg/data"], function($, DataApi) {
+define(["jquery","sg/data"], function($, dataApi) {
     'use strict';
 
     describe("DataApi Test Suite", function () {
         it("should get columns", function (done) {
-            var promise = DataApi.getDataSetColumns("src/test/resources/epochs.csv");
+            var promise = dataApi.getDataSetColumns("src/test/resources/epochs.csv");
             promise.then(function (data) {
                 expect(data).toBeDefined();
                 expect($.isArray(data)).toBeTruthy();
@@ -20,7 +20,7 @@ define(["jquery","sg/data"], function($, DataApi) {
         });
 
         it("should get 404 for an unknown dataset", function (done) {
-            var promise = DataApi.getDataSetColumns("does/not/exist");
+            var promise = dataApi.getDataSetColumns("does/not/exist");
             promise.then(function (data) {
                 expect(data).toBeUndefined();
                 done();
@@ -32,7 +32,7 @@ define(["jquery","sg/data"], function($, DataApi) {
         });
 
         it("should get 404 for no dataset specified", function (done) {
-            var promise = DataApi.getDataSetColumns("");
+            var promise = dataApi.getDataSetColumns("");
             promise.then(function (data) {
                 expect(data).toBeUndefined();
                 expect(true).toBeFalsy();
