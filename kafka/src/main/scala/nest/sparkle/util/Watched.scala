@@ -21,11 +21,9 @@ import rx.lang.scala.schedulers.TrampolineScheduler
 import rx.lang.scala.Subject
 import rx.lang.scala.Observable
 
-/** Manages a set of filters watching a stream of data. Clients register a filter by calling
-  * watch() on a Watch object. Results matching the filter are reported to an Observable 
-  * in the Watch object.
-  * 
-  * 
+/** Manages a set of filters watching an Observable stream of source data. Clients register
+  * a filter by calling watch() on a Watch object. Results matching the filter are reported 
+  * to an Observable in the Watch object.
   */
 trait Watched[T] {
   // raw data stream that we for watchers 
@@ -41,6 +39,10 @@ trait Watched[T] {
   // pipeline to provide mutual exclusion. It doesn't work though..
   private val trampolineScheduler = TrampolineScheduler()
 
+
+  publishedData.subscribeOn(trampolineScheduler).subscribe(processEvent _, handleError _, complete _)
+
+  
   /** Events sent over the data stream and matching the watch's filter will
     * be sent to the watch's Observerable report stream.  */
   def watch(watch: Watch[T]): Unit = {
@@ -50,9 +52,8 @@ trait Watched[T] {
     //    }
     processWatch(watch)
   }
-
-  publishedData.subscribeOn(trampolineScheduler).subscribe(processEvent _, handleError _, complete _)
-
+  
+  
   /** client filtering request */
   private def processWatch(watch: Watch[T]) {
     watches += watch
