@@ -25,6 +25,7 @@ import com.datastax.driver.core.Row
 import nest.sparkle.util.GuavaConverters._
 import scala.annotation.tailrec
 import com.datastax.driver.core.ResultSetFuture
+import rx.lang.scala.Subscriber
 
 object ObservableResultSet {
   /** a ResultSetFuture that can be converted into an Observable for asynchronously 
@@ -40,9 +41,7 @@ object ObservableResultSet {
         * feeds rows as they arrive.  It returns a Subscription so that the Observer can can abort the stream
         * early if necessary.
         */
-      val subscribed: Observer[Row] => Subscription = { observer =>
-        var cancelled = false
-
+     Observable {subscriber:Subscriber[Row] => 
         asScalaFuture.foreach { resultSet =>
           /** Iterate through the rows as they arrive from the network, calling observer.onNext for each row.
             *
@@ -50,20 +49,20 @@ object ObservableResultSet {
             * recursively calls itself to process the next fetched set of rows until there are now more rows left.
             */
           def rowChunk() {
-            if (!cancelled) {
+            if (!subscriber.isUnsubscribed) {
               val iterator = resultSet.iterator().asScala
               val availableNow = resultSet.getAvailableWithoutFetching()
               
               iterator.take(availableNow).foreach { row => 
-                observer.onNext(row) 
+                subscriber.onNext(row) // TODO RX consider is it ok to block a thread if the consumer is busy here
               }
 
               if (!resultSet.isFullyFetched()) {    // CONSIDER - is this a race with availableNow?
                 resultSet.fetchMoreResults().toFuture.foreach { _ => rowChunk() }
               } else {
-                observer.onCompleted()
+                subscriber.onCompleted()
               }
-            }
+            } 
           }
 
           rowChunk()
@@ -71,15 +70,9 @@ object ObservableResultSet {
 
         asScalaFuture.onFailure {
           case error: Throwable =>
-            observer.onError(error)
+            subscriber.onError(error)
         }
-
-        Subscription {
-          cancelled = true
-        }        
       }
-      
-      Observable.create(subscribed)
     }
 
   }

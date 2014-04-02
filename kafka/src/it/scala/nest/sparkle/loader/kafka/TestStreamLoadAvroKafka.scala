@@ -24,29 +24,59 @@ import com.typesafe.config.ConfigValueFactory
 import scala.collection.JavaConverters._
 import nest.sparkle.util.ConfigUtil.modifiedConfig
 import nest.sparkle.store.cassandra.ConfiguredCassandra
+import nest.sparkle.util.Watch
+import nest.sparkle.util.PublishSubject
+import rx.lang.scala.Observer
+import nest.sparkle.util.WatchReport
+import spray.util._
+import nest.sparkle.loader.kafka.AvroRecordGenerators.genArrayRecords
 
 class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
-with KafkaTestConfig with CassandraTestConfig {
-
+    with KafkaTestConfig with CassandraTestConfig {
+  
   val testStore = new ConfiguredCassandra(cassandraConfig)
-  ignore("stream load a few milliDouble samples") {
+
+  def expectedPath(id: String): String = s"sample-data/path/$id/Latency"
+
+  test("load a stream contains a few milliDouble arrays into cassandra") {
     import ExecutionContext.Implicits.global
-    import AvroRecordGenerators.Implicits.arbitraryMillisDoubleRecord
-    
-    forAll(MinSuccessful(1)) { records: List[GenericData.Record] =>
-      whenever(records.length > 0) {
-        KafkaTestUtil.withTestAvroTopic(loaderConfig) { kafka =>
-          val overrides =
-            "topics" -> List(kafka.topic) ::
-              "schema-finder" -> "nest.sparkle.loader.kafka.MillisDoubleSchemaFinder" ::
-              Nil
 
-          val config = modifiedConfig(loaderConfig, overrides: _*)
+    forAll(genArrayRecords(3), MinSuccessful(1)) { generatedRecords =>
+      KafkaTestUtil.withTestAvroTopic(loaderConfig, MillisDoubleArrayAvro.schema) { kafka =>
+        
+        // prefill kafka queue
+        kafka.writer.write(generatedRecords.map { _.record })
 
-          kafka.writer.write(records)
-          val loader = new AvroKafkaLoader(config, testStore)
+        // run loader
+        val overrides =
+          "topics" -> List(kafka.topic) ::
+            "find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleArrayFinder" ::
+            Nil
+            
+        val config = modifiedConfig(loaderConfig, overrides: _*)
+        val loader = new AvroKafkaLoader(config, testStore)
+        val watch = Watch[ColumnUpdate]()
+        loader.watch(watch) // watch loading progress
+        loader.load()
 
-          // TODO read from cassandra and verify that they're there
+        val updates = watch.report.take(generatedRecords.length).toBlockingObservable.toList
+
+        // verify update reports
+        val generatedPaths = generatedRecords.map{ record => expectedPath(record.id) }
+        updates.foreach { update =>
+          generatedPaths.contains(update.columnPath) shouldBe true
+        }
+
+        // verify matching data in cassandra 
+        generatedRecords.foreach { generated =>
+          val column = testStore.column[Long, Double](expectedPath(generated.id)).await
+          val results = column.readRange(None, None).toBlockingObservable.toList
+          generated.events.size shouldBe results.length
+          generated.events zip results map {
+            case ((time, value), event) =>
+              time shouldBe event.argument
+              value shouldBe event.value
+          }
         }
       }
     }

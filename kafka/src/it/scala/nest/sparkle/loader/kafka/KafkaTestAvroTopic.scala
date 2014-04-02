@@ -16,25 +16,38 @@ package nest.sparkle.loader.kafka
 
 import com.typesafe.config.Config
 import nest.sparkle.util.RandomUtil.randomAlphaNum
+import org.apache.avro.Schema
+import kafka.serializer.Decoder
+import org.apache.avro.generic.GenericRecord
 
-class KafkaTestAvroTopic(loaderConfig: Config, id: String = randomAlphaNum(3)) {
-  val topic = s"testTopic-$id"
-  val clientGroup = s"testClient-$id"
-  val schema = AvroSupport.schemaFromString(MillisDoubleAvro.avroJson)
+class KafkaTestAvroTopic(val loaderConfig: Config, val schema: Schema, val testId: String) {
+  val topic = s"testTopic-$testId"
 
-  val decoder = AvroSupport.genericDecoder(schema)
   val encoder = AvroSupport.genericEncoder(schema)
   val writer = KafkaWriter(topic, loaderConfig)(encoder)
-  val reader = KafkaReader(topic, loaderConfig, clientGroup = Some(clientGroup))(decoder)
 }
 
 object KafkaTestUtil {
-  def withTestAvroTopic[T](loaderConfig: Config, id: String = randomAlphaNum(3))(fn: KafkaTestAvroTopic => T): T = {
-    val kafka = new KafkaTestAvroTopic(loaderConfig, id)
+  def withTestAvroTopic[T](loaderConfig: Config,
+                           schema: Schema,
+                           id: String = randomAlphaNum(3))(fn: KafkaTestAvroTopic => T): T = {
+    val kafka = new KafkaTestAvroTopic(loaderConfig, schema, id)
     try {
       fn(kafka)
     } finally {
       // TODO delete topic when we switch to KAFKA 0.8.1+ 
     }
   }
+
+  def withTestReader[T](testTopic: KafkaTestAvroTopic)(fn: KafkaReader[GenericRecord] => T): T = {
+    val clientGroup = s"testClient-${testTopic.testId}"
+    val decoder = AvroSupport.genericDecoder(testTopic.schema)
+    val reader = KafkaReader(testTopic.topic, testTopic.loaderConfig, clientGroup = Some(clientGroup))(decoder)
+    try {
+      fn(reader)
+    } finally {
+      reader.close()
+    }
+  }
+
 }

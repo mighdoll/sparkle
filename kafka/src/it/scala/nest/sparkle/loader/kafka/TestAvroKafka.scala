@@ -22,22 +22,27 @@ import org.apache.avro.generic.GenericData
 import scala.concurrent.ExecutionContext
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.prop.Configuration.MinSuccessful
+import nest.sparkle.loader.kafka.KafkaTestUtil.{ withTestAvroTopic, withTestReader }
 
 class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with KafkaTestConfig {
   import ExecutionContext.Implicits.global
   import AvroRecordGenerators.Implicits.arbitraryMillisDoubleRecord
-  
   test("read/write a few avro encoded elements from the kafka queue") {
     forAll(MinSuccessful(5)){ records: List[GenericData.Record] =>
-      val kafka = new KafkaTestAvroTopic(loaderConfig)
-      kafka.writer.write(records)
-      val stream = kafka.reader.stream()
-      val results = stream.take(records.length).toBlockingObservable.toList
-      results.length shouldBe records.length
-      records zip results foreach {
-        case (record, result) =>
-          record.get("time") shouldBe result.get("time")
-          record.get("value") shouldBe result.get("value")
+      whenever(records.length > 0) {
+        withTestAvroTopic(loaderConfig, MillisDoubleAvro.schema) { testTopic =>
+          testTopic.writer.write(records)
+          withTestReader(testTopic){ reader =>
+            val stream = reader.stream()
+            val results = stream.take(records.length).toBlockingObservable.toList
+            results.length shouldBe records.length
+            records zip results foreach {
+              case (record, result) =>
+                record.get("time") shouldBe result.get("time")
+                record.get("value") shouldBe result.get("value")
+            }
+          }
+        }
       }
     }
 

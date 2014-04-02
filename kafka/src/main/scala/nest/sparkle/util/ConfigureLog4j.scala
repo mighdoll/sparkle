@@ -19,6 +19,8 @@ import org.apache.log4j.FileAppender
 import org.apache.log4j.PatternLayout
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
+import org.apache.log4j.ConsoleAppender
+import scala.collection.JavaConverters._
 
 /** configure log4j logging based on a .conf file */
 object ConfigureLog4j {
@@ -29,16 +31,31 @@ object ConfigureLog4j {
     val file = log4jConfig.getString("file")
     val append = log4jConfig.getBoolean("append")
     val pattern = log4jConfig.getString("pattern")
+    val consoleLevels = log4jConfig.getConfig("console-levels")
+    
+    val patternLayout = new PatternLayout(pattern)
     
     val fileAppender = new FileAppender()    
     fileAppender.setName("FileLogger")
     fileAppender.setFile(file)
-    fileAppender.setLayout(new PatternLayout(pattern))
+    fileAppender.setLayout(patternLayout)
     fileAppender.setThreshold(Level.DEBUG)
     fileAppender.setAppend(append)
     fileAppender.activateOptions()
+    
+    val consoleAppender = new ConsoleAppender()
+    consoleAppender.setName("Console")
+    consoleAppender.setLayout(patternLayout)
+    consoleAppender.setThreshold(Level.WARN)
+    consoleAppender.activateOptions()
+    consoleLevels.entrySet().asScala.map { entry =>
+      val logger = Logger.getLogger(entry.getKey)
+      val level = entry.getValue.unwrapped.toString
+      logger.setLevel(Level.toLevel(level))
+    }
 
     Logger.getRootLogger().addAppender(fileAppender)
+    Logger.getRootLogger().addAppender(consoleAppender)
   }
 
 }

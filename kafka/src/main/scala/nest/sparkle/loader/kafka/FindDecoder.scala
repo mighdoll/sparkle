@@ -15,17 +15,15 @@
 package nest.sparkle.loader.kafka
 
 import org.apache.avro.Schema
+import kafka.serializer.Decoder
 
-trait SchemaFinder {
-  def schemaFor(topic:String):SchemaWithParseInfo
+/** Subclasses implement the FindDecoder trait to identify the KafkaColumnDecoder for each
+ *  kafka topic.  The implementing subclass must have a zero argument constructor. The
+ *  fully qualified class name of the subclass goes should be added to the .conf file 
+ *  at the key `kafka-loader.find-decoder`. */
+trait FindDecoder {
+  def decoderFor(topic: String): KafkaColumnDecoder[_]
 }
 
-case class SchemaWithParseInfo(schema:Schema, parseInfo:SchemaParseInfo)    
-case class SchemaParseInfo(name:String, idField:String, keyField:String, valueFields:Seq[String])    // consider keyFields as a Seq
-
-class FixedAvroSchema(schema:Schema, parseInfo:SchemaParseInfo) extends SchemaFinder {
-  def schemaFor(topic:String):SchemaWithParseInfo = 
-    SchemaWithParseInfo(schema, parseInfo)
-}
 
 

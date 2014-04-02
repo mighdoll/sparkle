@@ -16,10 +16,10 @@ import sbt._
 
 object Dependencies {
   object V {
-    val scalaTest = "2.0"
+    val scalaTest = "2.1.0"
     val akka = "2.2.3"
     val spray = "1.2.0"
-    val rxJava = "0.16.1"
+    val rxJava = "0.17.2"
   }
 
   // Spray + Akka
@@ -45,8 +45,8 @@ object Dependencies {
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
   val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.0.1"
-  val avro                  = "org.apache.avro"           % "avro"                    % "1.7.6"
-  val kafka                 = ("org.apache.kafka"         %% "kafka"                  % "0.8.0" 
+  val apacheAvro            = "org.apache.avro"           % "avro"                    % "1.7.6"  
+  val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.0" 
                                   exclude("javax.jms", "jms") 
                                   exclude("com.sun.jdmk", "jmxtools") 
                                   exclude("com.sun.jmx", "jmxri")
@@ -59,14 +59,14 @@ object Dependencies {
 
   object Test {
     val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest % "test"
-    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % "1.10.0"    % "test"
+    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % "1.11.3"    % "test"
     val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray     % "test"
     val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka      % "test"
   }
 
   object IT {
     val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest % "it"
-    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % "1.10.0"    % "it"
+    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % "1.11.3"    % "it"
     val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray     % "it"
     val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka      % "it"
   }
@@ -97,7 +97,11 @@ object Dependencies {
     IT.sprayTestKit,
     IT.akkaTestKit // delete this after spray #446 is resolved 
   )
+  
+  val kafka = Seq(apacheKafka)
 
+  val avro = Seq(apacheAvro)
+  
   val akka = Seq(
     akkaActor,
     akkaRemoting,

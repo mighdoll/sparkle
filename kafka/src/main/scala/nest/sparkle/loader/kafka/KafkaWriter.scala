@@ -25,19 +25,18 @@ import nest.sparkle.util.ConfigUtil
 
 /** enables writing to a kafka topic */
 class KafkaWriter[T: Encoder](topic: String, config: Config) {
+  private val writer = implicitly[Encoder[T]]
 
-  val writer = implicitly[Encoder[T]]
-
-  lazy val producer: Producer[String, Array[Byte]] = {
+  private lazy val producer: Producer[String, Array[Byte]] = {
     val properties = ConfigUtil.properties(config.getConfig("kafka-writer"))
     new Producer[String, Array[Byte]](new ProducerConfig(properties))
   }
 
   /** write an Observable stream to kafka. Note that this blocks the calling thread until it is done. */
   def writeStream(stream: Observable[T]) {
-    stream.toBlockingObservable.foreach{ datum =>
+    stream.subscribe { datum =>
       writeElement(datum)
-    } // SCALA RX is this right - consider subscribe instead
+    } 
   }
 
   /** write a collection of items to kafka. Note that this blocks the calling thread until it is done. */

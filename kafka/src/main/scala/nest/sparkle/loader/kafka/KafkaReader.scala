@@ -39,7 +39,7 @@ import nest.sparkle.util.ConfigUtil
   */
 class KafkaReader[T: Decoder](topic: String, config: Config = ConfigFactory.load(), consumerGroup: Option[String]) {
   private lazy val connection = connect()
-  
+
   /** return a stream for a kafka topic */
   def stream()(implicit execution: ExecutionContext): Observable[T] = {
     val decoder = implicitly[Decoder[T]]
@@ -48,7 +48,9 @@ class KafkaReader[T: Decoder](topic: String, config: Config = ConfigFactory.load
     val streams = streamMap(topic)
     val stream: KafkaStream[String, T] = streams.head
 
-    val messages = stream.iterator().map { _.message }
+    val messages = stream.iterator().map { messageAndMetadata =>
+      messageAndMetadata.message
+    }
     messages.toObservable
   }
 
@@ -56,11 +58,12 @@ class KafkaReader[T: Decoder](topic: String, config: Config = ConfigFactory.load
     * the reader will begin at the stored position for this topic and consumerGroup.
     */
   def commit() {
-    connection.commitOffsets  // KAFKA should have () on this side-effecting function
+    connection.commitOffsets // KAFKA should have () on this side-effecting function
   }
 
-  /** Close the connection, allowing another reader in the same consumerGroup to take 
-   *  over reading from this topic/partition.  */
+  /** Close the connection, allowing another reader in the same consumerGroup to take
+    * over reading from this topic/partition.
+    */
   def close() {
     connection.shutdown()
   }
@@ -71,7 +74,7 @@ class KafkaReader[T: Decoder](topic: String, config: Config = ConfigFactory.load
       val readerConfig = config.getConfig("kafka-reader")
       /** extract the kafka-client settings verbatim, send directly to kafka */
       val props = ConfigUtil.properties(readerConfig)
-      val group = consumerGroup.getOrElse { readerConfig.getString("consumer-group") }
+      val group = consumerGroup.getOrElse { config.getString("reader.consumer-group") }
       props.put("group.id", group)
       props
     }

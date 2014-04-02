@@ -22,7 +22,7 @@ abstract class TypedColumn[T: TypeTag, U: TypeTag] {
     val valueTag = typeTag[U]
 
     (column.keyType.tpe, column.valueType.tpe) match {
-      case (argumentTag, valueTag) =>
+      case (argumentTag, valueTag) =>   // SCALA, is this right? I think probably needs to <:< or =:=
         val castColumn = column.asInstanceOf[Column[T, U]]
         Some(castColumn)
       case _ => None
