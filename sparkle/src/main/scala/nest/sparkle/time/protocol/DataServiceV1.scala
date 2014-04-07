@@ -29,7 +29,9 @@ import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.server.RichComplete
 import nest.sparkle.util.ObservableFuture._
 
-/** Provides the v1/data sparkle REST api */
+/** 
+ * Provides the v1 sparkle data api 
+ */
 trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
   implicit def executionContext: ExecutionContext
   def store: Store
@@ -40,7 +42,8 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
     cors {
       pathPrefix("v1") {
         postDataRequest ~
-        dataSetInfoRequest
+        columnsRequest  ~
+        dataSetsRequest
       }
     }
   }
@@ -66,7 +69,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
         }
     } // format: ON
   
-  private lazy val dataSetInfoRequest =
+  private lazy val columnsRequest =
     path("columns" / Rest) { dataSetName =>
         if (dataSetName.isEmpty) {
           // This will happen if the url has just a slash after 'columns'
@@ -79,6 +82,22 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
             }.toFutureSeq 
           }
           richComplete(futureColumnNames)
+        }
+    }
+  
+  private lazy val dataSetsRequest =
+    path("datasets" / Rest) { dataSetName =>
+        if (dataSetName.isEmpty) {
+          // This will happen if the url has just a slash after 'columns'
+          complete(StatusCodes.NotFound -> "DataSet not specified")
+        } else {
+          val futureNames = store.dataSet(dataSetName).flatMap { dataSet =>
+            dataSet.childDataSets.map { dataSet =>
+              val (_, childName) = Store.setAndColumn(dataSet.name)
+              childName
+            }.toFutureSeq 
+          }
+          richComplete(futureNames)
         }
     }
 }

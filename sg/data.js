@@ -93,17 +93,27 @@ define(["jslib/when/monitor/console", "sg/request"],
   }
         
   /**
-   * Get the full columnPaths for named DataSet 
+   * Get the columnPath names for named DataSet 
    * @param dataSetName
    */
   function getDataSetColumns(dataSetName) {
       var url = "/v1/columns/" + dataSetName;
       return request.jsonWhen(url);
   }
+        
+  /**
+   * Get the child dataset names for named DataSet 
+   * @param dataSetName
+   */
+  function getDataSetChildren(dataSetName) {
+      var url = "/v1/datasets/" + dataSetName;
+      return request.jsonWhen(url);
+  }
 
   returnFn.millisToDates = millisToDates;
   returnFn.toObject = toObject;
   returnFn.getDataSetColumns = getDataSetColumns;
+  returnFn.getDataSetChildren = getDataSetChildren;
       
   return returnFn;
 
