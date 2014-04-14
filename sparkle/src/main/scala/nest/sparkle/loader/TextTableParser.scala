@@ -31,7 +31,6 @@ object TextTableParser {
     * as double precision numbers.  Non-numeric columns are discarded.
     */
   def parseRows(rows: Iterator[Array[String]], columnMap: ColumnMap): Try[RowInfo] = {
-
     def sortAndDiscardIndex[T, U: Ordering](seq: Seq[(T, U)]): Seq[T] = {
       val sorted = seq.sortBy{ case (value, index) => index }
       sorted.map { case (value, index) => value }
@@ -49,9 +48,7 @@ object TextTableParser {
       sortAndDiscardIndex(indexTag :: doubleTags)
     }
 
-    val rowIterator: Iterator[RowData] = {
-      makeRowIterator(rows, columnMap)
-    }
+    val rowIterator: Iterator[RowData] = makeRowIterator(rows, columnMap)
 
     Try {
       ConcreteRowInfo(names = rowNames,
@@ -78,6 +75,7 @@ object TextTableParser {
         val values:Seq[Option[Any]] = valueIndices.map {index => 
           val valueString = row(index)
           val doubleValue = parseDouble(valueString) // LATER parse based on the type
+                                                     // TODO handle string values and log unhandled types 
           doubleValue
         }
         RowData(Some(key) +: values)

@@ -26,13 +26,17 @@ import scala.collection.JavaConverters._
 import nest.sparkle.store.Event
 import nest.sparkle.store.Column
 import nest.sparkle.store.cassandra.serializers._
+import nest.sparkle.util.Log
 import SparseColumnWriter._
+import com.typesafe.scalalogging.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 case class SparseWriterStatements(
   val insertOne: PreparedStatement,
   val deleteAll: PreparedStatement)
 
 object SparseColumnWriter {
+  val log = Logger(LoggerFactory.getLogger(getClass.getName))
   /** constructor to create a SparseColumnWriter */
   def apply[T: CanSerialize, U: CanSerialize](dataSetName: String, columnName: String, session: Session,
                                               catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog) =
@@ -64,6 +68,7 @@ object SparseColumnWriter {
       ) WITH COMPACT STORAGE
       """
     val created = session.executeAsync(createTable).toFuture.map { _ => () }
+    created.onFailure{ case error => log.error("createEmpty failed", error)}
     created
   }
 
@@ -87,10 +92,11 @@ object SparseColumnWriter {
 /** Manages a column of (argument,value) data pairs.  The pair is typically
   * a millisecond timestamp and a double value.
   */
-class SparseColumnWriter[T: CanSerialize, U: CanSerialize](
+class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
     val dataSetName: String, val columnName: String, session: Session,
     catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog) 
-  extends WriteableColumn[T, U] with PreparedStatements[SparseWriterStatements] with ColumnSupport {
+  extends WriteableColumn[T, U] with PreparedStatements[SparseWriterStatements] 
+      with ColumnSupport with Log {
 
   val serials = serialInfo[T, U]()
 
@@ -100,19 +106,16 @@ class SparseColumnWriter[T: CanSerialize, U: CanSerialize](
 
     val entry = CassandraCatalogEntry(columnPath = columnPath, tableName = serials.tableName, description = description,
       domainType = serials.domain.nativeType, rangeType = serials.range.nativeType)
-
-    val created = createEmptyColumn[T, U](session)
-    val catalogged: Future[Unit] = catalog.writeCatalogEntry(entry)
-    val dataSetCatalogged = dataSetCatalog.addColumnPath(entry.columnPath)
-   
-    created.zip(catalogged).map{ _ => () }
     
-    for {
-      _ <- createEmptyColumn[T, U](session)
-      _ <- catalog.writeCatalogEntry(entry)
-      _ <- dataSetCatalog.addColumnPath(entry.columnPath)
-    } yield { () }
- 
+    val result = 
+      for {
+        _ <- createEmptyColumn[T, U](session)
+        _ <- catalog.writeCatalogEntry(entry)
+        _ <- dataSetCatalog.addColumnPath(entry.columnPath)
+      } yield { () }
+
+    result.onFailure {case error => log.error("create column failed", error)}
+    result
   }
 
   // LATER generate the queries for the appropriate table types dynamically

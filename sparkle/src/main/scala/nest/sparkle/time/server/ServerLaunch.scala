@@ -31,8 +31,9 @@ import scala.util.Success
 import scala.util.Failure
 import java.awt.Desktop
 import java.net.URI
+import nest.sparkle.util.Log
 
-class ServerLaunch(config: Config)(implicit system: ActorSystem) {
+class ServerLaunch(config: Config)(implicit system: ActorSystem) extends Log{
   val store = Store.instantiateStore(config)
   val webPort = config.getInt("port")
   lazy val writeableStore = Store.instantiateWritableStore(config)

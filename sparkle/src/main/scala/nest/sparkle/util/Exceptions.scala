@@ -17,4 +17,5 @@ package nest.sparkle.util
 object Exceptions {
   case class NotYetImplemented(msg:String) extends RuntimeException(msg)
   def NYI(msg:String) = throw new NotYetImplemented(msg) 
+  
 }
