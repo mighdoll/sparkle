@@ -41,10 +41,10 @@ object BuildSettings {
   )
 
   lazy val compileSettings = Seq(
-    scalaVersion := "2.10.4-RC2",
+    scalaVersion := "2.10.4",
     scalaBinaryVersion := "2.10",
     testOptions += Tests.Argument("-oF"),    // show full stack traces during test failures
-    scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps")
+    scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps", "-target:jvm-1.7")
   )
     
   lazy val eclipseSettings = Seq(

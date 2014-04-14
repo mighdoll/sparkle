@@ -82,6 +82,26 @@ class TestFilesLoader extends FunSuite with Matchers with BeforeAndAfterAll {
     val results = read.toBlockingObservable.toList
     results.length shouldBe 2751
   }
+
+  test("load csv file with leading underscore in filename") {
+    val filePath = "sparkle/src/test/resources/_epochs.csv"
+    FilesLoader(filePath, testDb)
+    onLoadComplete(filePath).await
+    val column = testDb.column[Long, Double]("sparkle/src/test/resources/count").await
+    val read = column.readRange(None, None)
+    val results = read.toBlockingObservable.toList
+    results.length shouldBe 2751
+  }
+
+  test("load csv file with leading underscore in directory path element") {
+    val filePath = "sparkle/src/test/resources/_ignore/epochs2.csv"
+    FilesLoader(filePath, testDb)
+    onLoadComplete(filePath).await
+    val column = testDb.column[Long, Double]("sparkle/src/test/resources/epochs2.csv/count").await
+    val read = column.readRange(None, None)
+    val results = read.toBlockingObservable.toList
+    results.length shouldBe 2751
+  }
 }
 
 /** Constructor for a ReceiveLoaded actor */

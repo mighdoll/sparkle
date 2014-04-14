@@ -19,17 +19,19 @@ import nest.sparkle.util.WatchPath._
 import akka.actor.ActorSystem
 import java.nio.file.Path
 import java.nio.file.Paths
-import nest.sparkle.store.WriteableStore
 import java.nio.file.Files
 import nest.sparkle.store.cassandra.serializers._
 import scala.concurrent.Future
 import nest.sparkle.store.cassandra.WriteableColumn
 import scala.collection.immutable.Range
+import nest.sparkle.store.WriteableStore
 import nest.sparkle.store.Event
 import nest.sparkle.util.Exceptions.NYI
 import scala.concurrent.Promise
 import scala.util.Success
 import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConversions._
 
 /** emitted to the event stream when the file has been completely loaded */
 case class LoadComplete(filePath: String)
@@ -104,6 +106,7 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
   private def loadRows(rowInfo: CloseableRowInfo, store: WriteableStore, path: Path): Future[Path] = {
     val finished = Promise[Path]
     val pathString = path.toString
+    val dataSetString = mkDataSetString(path)
 
     /** indices of RowData columns that we'll store (i.e. not the time column) */
     val valueColumnIndices = {
@@ -117,7 +120,7 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
     val futureColumnsWithIndex: Seq[Future[(Int, WriteableColumn[Long, Double])]] =
       valueColumnIndices.map { index =>
         val name = rowInfo.names(index)
-        val columnPath = pathString + "/" + name
+        val columnPath = dataSetString + "/" + name
         store.writeableColumn[Long, Double](columnPath) map { futureColumn =>
           (index, futureColumn)
         }
@@ -158,6 +161,32 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
     }
 
     finished.future
+  }
+
+  /**
+   * Make the DataSet string from the file's path.
+   *
+   * The dataset string is the file's path minus any parts beginning with an 
+   * underscore.
+   *
+   * @param path Path of the tsv/csv file
+   * @return The DataSet as a string.
+   */
+  private def mkDataSetString(path: Path): String = {
+    val parent =
+      path.getParent.iterator
+        .filterNot(p => p.toString.startsWith("_"))
+        .mkString("/")
+    val fileName = path.getFileName.toString match {
+        //case s if s.endsWith(".tsv") => s.stripSuffix(".tsv")
+        //case s if s.endsWith(".csv") => s.stripSuffix(".csv")
+        case s                       => s
+      }
+
+    parent + (fileName match {
+      case s if s.startsWith("_") => ""
+      case _                      => "/" + fileName
+    })
   }
 
 }
