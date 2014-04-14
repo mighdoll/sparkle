@@ -36,7 +36,7 @@ case class SparseWriterStatements(
   val deleteAll: PreparedStatement)
 
 object SparseColumnWriter {
-  val log = Logger(LoggerFactory.getLogger(getClass.getName))
+  val log = Logger(LoggerFactory.getLogger(getClass.getName))   // SCALA how to extend Log in both class and companion?
   /** constructor to create a SparseColumnWriter */
   def apply[T: CanSerialize, U: CanSerialize](dataSetName: String, columnName: String, session: Session,
                                               catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog) =
