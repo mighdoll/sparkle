@@ -19,7 +19,6 @@ import org.clapper.argot.ArgotConverters._
 
 import akka.actor.ActorSystem
 
-import nest.sparkle.loader.{FilesLoader, LoadPathDoesNotExist}
 import nest.sparkle.util.ArgotApp
 import nest.sparkle.util.ConfigUtil.optionModifiedConfig
 
@@ -36,27 +35,16 @@ object Main extends ArgotApp {
   val display = parser.flag(List("display"), "navigate the desktop web browser to the current dashboard")
 
   app(parser, help) {
-    val loadedConfig = ConfigServer.loadConfigFromFile(confFile.value)
-    implicit val system = ActorSystem("sparkle-graph", loadedConfig)
-
-    val portMapping = port.value.map { ("port", _) }
-    val rootMapping = root.value.map { ("web-root", _) }
-    val mappings = portMapping :: rootMapping :: Nil
-    val config = optionModifiedConfig(loadedConfig, mappings: _*)
-
-    val launch = new ServerLaunch(config)
-    
-    erase.value.foreach { _ =>
-      launch.writeableStore.format()
+    val portMapping = port.value.toList.map { ("port", _) }
+    val rootMapping = root.value.toList.map { ("web-root", _) }
+    val eraseOverride = erase.value.toList.map { ("erase-store", _) }
+    val filesOverride = filesPath.value.toList.flatMap { path =>
+      ("files-loader.directories", List(s"$path")) :: 
+      ("files-loader.auto-start", "true") :: Nil
     }
-    
-    filesPath.value.foreach { pathString =>
-      try {
-        FilesLoader(pathString, launch.writeableStore)
-      } catch {
-        case LoadPathDoesNotExist(path) => sys.exit(4)
-      }
-    }
+    val configOverrides = portMapping ::: rootMapping ::: eraseOverride ::: filesOverride
+
+    val launch = ServerLaunch(confFile.value, configOverrides:_*)  
     
     display.value.foreach { _ => launch.launchDesktopBrowser() }
   } 

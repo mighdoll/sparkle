@@ -19,6 +19,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import nest.sparkle.util.Log
 import nest.sparkle.util.LogConfiguration.configureLogging
 
+/** utilities for setting up configuration for a sparkle server */
 object ConfigServer extends Log {
   /** Load the configuration from the application.conf and reference.conf resources.
     */
@@ -45,7 +46,8 @@ object ConfigServer extends Log {
     localConfig(root)
   }
 
-  /** point at the sparkle-time-server section of the config file, and optionally override debug settings */
+  /** point at the sparkle-time-server section of the config file. As a side effect,
+   *  also setup logging based on config file settings. */
   private def localConfig(root: Config): Config = {
     val local = root.getConfig("sparkle-time-server")
     configureLogging(local)
