@@ -4,6 +4,7 @@ import java.io.File
 import java.nio.file.{Paths, Files}
 import java.nio.file.StandardOpenOption._
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.TimeUnit
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
@@ -11,7 +12,7 @@ import scala.concurrent.duration._
 import org.clapper.argot._
 import org.clapper.argot.ArgotConverters._
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 
 import spray.util._
 
@@ -22,28 +23,51 @@ import nest.sparkle.util.{ArgotApp, Log}
 import nest.sparkle.util.ObservableFuture._
 
 /**
- * Tool to export a store to CSV files.
+ * Main program to run Exporter.
  */
-object Exporter extends ArgotApp with Log {
-  implicit val executor = ExecutionContext.global
+object ExporterMain extends ArgotApp with Log {
   
   val parser = new ArgotParser("exporter", preUsage = Some("Version 0.1"))
-
-  val output = parser.option[String](List("o", "output"), "output", "directory to save the .csv or .tsv files")
   val help = parser.flag[Boolean](List("h", "help"), "show this help")
   val confFile = parser.option[String](List("conf"), "conf", "path to an application.conf file")
-  
-  lazy val config = {
-      val base = ConfigFactory.load()
-      confFile.value.map {
-        path =>
-          val file = new File(path)
-          ConfigFactory.parseFile(file).resolve().withFallback(base)
-      } getOrElse {
-        base
+  val dataSet = parser.option[String](List("d", "dataset"), "dataset", "DataSet to export")
+
+  try {
+    app(parser, help) {
+    
+      val config = {
+        val base = ConfigFactory.load()
+        confFile.value.map {
+          path =>
+            val file = new File(path)
+            ConfigFactory.parseFile(file).resolve().withFallback(base)
+        } getOrElse {
+          base
+        }
       }
+      val timeout = config.getDuration("exporter.timeout", TimeUnit.MILLISECONDS)
+      
+      val t0 = System.currentTimeMillis()
+      Exporter(config).processDataSet(dataSet.value.getOrElse("")).await(timeout)
+      val t1 = System.currentTimeMillis()
+      log.info("Exporter finished in %d seconds" format (t1 - t0) / 1000L)
     }
-  lazy val timeout = config.getDuration("exporter.timeout")
+  } catch {
+    case e: Exception => e.printStackTrace()
+  } finally {
+    sys.exit()
+  }
+  
+}
+
+/**
+ * Tool to export a store to CSV files.
+ */
+case class Exporter(config: Config) 
+  extends Log 
+{
+  implicit val executor = ExecutionContext.global
+  
   lazy val store = Store.instantiateStore(config.getConfig("sparkle-time-server"))
   lazy val outputPath = {
     val output = config.getString("exporter.output")
@@ -57,28 +81,25 @@ object Exporter extends ArgotApp with Log {
     path
   }
 
-  try {
-    app(parser, help) {
-      val t0 = System.currentTimeMillis()
-      val dataSet = store.dataSet("sapphire").await(20.seconds)
-      processDataSet(dataSet).await(timeout.toSeconds)
-      val t1 = System.currentTimeMillis()
-      log.info("Exporter finished in %d seconds" format (t1 - t0) / 1000L)
-    }
-  } catch {
-    case e: Exception => e.printStackTrace()
-  } finally {
-    sys.exit()
+  /**
+   * Write the columns in this dataSet and child dataSets.
+   * 
+   * @param dataSetString DataSet name to process
+   * @return Future complete when columns are exported.
+   */
+  def processDataSet(dataSetString: String): Future[Unit] = {
+    val dataSet = store.dataSet(dataSetString).await(20.seconds)
+    processDataSet(dataSet)
   }
 
   /**
    * Write the columns in this dataSet and child dataSets.
    * 
-   * @param dataSet
-   * @return
+   * @param dataSet DataSet to process
+   * @return Future when all columns are exported.
    */
   private def processDataSet(dataSet: DataSet): Future[Unit] = {
-    log.info(s"processing ${dataSet.name}")
+    log.debug(s"processing ${dataSet.name}")
     val columns = dataSet.childColumns.map { 
         columnPath => exportColumn(columnPath)
       }
@@ -92,7 +113,6 @@ object Exporter extends ArgotApp with Log {
   }
   
   private def exportColumn(columnPath: String): Future[Unit] = {
-    println(s"exportColumn $columnPath")
     val future = store.column[Long,Double](columnPath) flatMap { column => {
       writeColumn(columnPath, column)
     } }
@@ -120,12 +140,11 @@ object Exporter extends ArgotApp with Log {
       filePath, StandardCharsets.UTF_8, 
       CREATE, TRUNCATE_EXISTING, WRITE
     )
-    writer.write(s"time,\t$columnName\n")
+    writer.write(s"time\t$columnName\n")
     
     val promise = Promise[Unit]()
     
     val rows = column.readRange() doOnEach { event => {
-      println(s"$columnPath\t${event.argument}\t${event.value}")
       val line = s"${event.argument}\t${event.value}\n"
       writer.write(line, 0, line.length)
     }} finallyDo {() => 
