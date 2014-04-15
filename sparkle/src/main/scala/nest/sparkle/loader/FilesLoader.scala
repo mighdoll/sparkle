@@ -117,6 +117,7 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
       }
     }
 
+    /** collect up futures that complete with column write interface objects */
     val futureColumnsWithIndex: Seq[Future[(Int, WriteableColumn[Long, Double])]] =
       valueColumnIndices.map { index =>
         val name = rowInfo.names(index)
@@ -128,13 +129,12 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
 
     /** create the columns in Storage, in case they don't exist already */
     def createColumns[T, U](columns: Seq[WriteableColumn[T, U]]): Future[Unit] = {
-      val created =
-        columns.map { column =>
-          column.create(s"loaded from file: $pathString")
-        }
-      Future.sequence(created).map { _ => () }
+      val createdAll = columns.map { _.create(s"loaded from file: $pathString") }
+      
+      Future.sequence(createdAll).map { _ => () }
     }
 
+    /** write all the row data into storage columns */
     def writeColumns[T, U](rowInfo: RowInfo, columnsWithIndex: Seq[(Int, WriteableColumn[T, U])]) {
       rowInfo.keyColumn.isDefined || NYI("tables without key column")
 
@@ -145,10 +145,9 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
           key <- row.key(rowInfo)
         } {
           val event = Event(key.asInstanceOf[T], value.asInstanceOf[U])
-          column.write(Seq(event))
+          column.write(Seq(event))  // TODO should return these futures, so our caller knows when we're done
         }
       }
-
     }
 
     for {
@@ -156,8 +155,8 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
       columns = columnsWithIndex map { case (index, column) => column }
       created <- createColumns(columns)
     } {
-      writeColumns(rowInfo, columnsWithIndex)
-      finished.complete(Success(path))
+      writeColumns(rowInfo, columnsWithIndex)   
+      finished.complete(Success(path))  // TODO our future should depend on writeColumns finishing first
     }
 
     finished.future

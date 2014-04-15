@@ -16,13 +16,12 @@ package nest.sparkle.store.cassandra
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-
 import com.datastax.driver.core.Session
 import com.datastax.driver.core.PreparedStatement
-
 import nest.sparkle.store.ColumnNotFound
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.OptionConversion._
+import nest.sparkle.util.Log
 
 /** 
  * metadata about a column of data 
@@ -48,7 +47,7 @@ case class CatalogStatements(addCatalogEntry: PreparedStatement, tableForColumn:
   * metadata about the column like the type of data that is stored in the column.
   */
 case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogStatements] 
-{
+    with Log {
   val catalogTable = ColumnCatalog.catalogTable
   
   /** insert or overwrite a catalog entry */
@@ -68,7 +67,9 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
     val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef] }.toSeq
     val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
-    session.executeAsync(statement).toFuture.map{ _ => }
+    val result = session.executeAsync(statement).toFuture.map{ _ => }
+    result.onFailure { case error => log.error("writing catalog entry failed", error)}
+    result
   }
 
   /** return the cassandra table name for a given column */

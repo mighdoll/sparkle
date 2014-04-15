@@ -2,17 +2,15 @@ package nest.sparkle.store.cassandra
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-
 import rx.lang.scala.Observable
-
 import com.datastax.driver.core.Session
 import com.datastax.driver.core.PreparedStatement
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import com.datastax.driver.core.Row
-
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.OptionConversion._
 import nest.sparkle.store.cassandra.ObservableResultSet._
+import nest.sparkle.util.Log
 
 /**
  * An entry in the DataSetCatalog table is a 'sub-folder' or column for a path.
@@ -45,7 +43,7 @@ case class DataSetCatalogStatements(addChildPath: PreparedStatement,
  *   a/b2 -> a/b2/col1:true, a/b2/col2:true
  */
 case class DataSetCatalog(session:Session) 
-  extends PreparedStatements[DataSetCatalogStatements]
+  extends PreparedStatements[DataSetCatalogStatements] with Log
 {  
   val tableName = DataSetCatalog.tableName
   
@@ -85,7 +83,8 @@ case class DataSetCatalog(session:Session)
   def addColumnPath(columnPath: String)
       (implicit executionContext: ExecutionContext): Future[Unit] = {
 
-    val pairs = columnPath.split("/").scanLeft("") {
+    // @dkorz what do you think we ought do with leading slashes?  (null key on insert if allowed)
+    val pairs = columnPath.stripPrefix("/").split("/").scanLeft("") {
       case ("", x)   => x
       case (last, x) => last + "/" + x
     }.tail.sliding(2).toSeq
@@ -96,7 +95,9 @@ case class DataSetCatalog(session:Session)
     
     val last = addChildPath(pairs.last(0), pairs.last(1), true)
     
-    Future.sequence(last :: futures).map {_ => ()}
+    val result = Future.sequence(last :: futures).map {_ => ()}
+    result.onFailure{ case error => log.error("add ColumnPath failed", error)}
+    result
   }
 
   /**

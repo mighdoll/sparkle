@@ -14,43 +14,47 @@
 
 package nest.sparkle.time.server
 
-import akka.actor.ActorSystem
-import akka.util.Timeout
-import com.typesafe.config.Config
-import nest.sparkle.legacy.PreloadedRegistry
-import akka.actor.Props
-import nest.sparkle.store.Store
-import akka.io.IO
-import scala.concurrent.duration._
-import spray.can.Http
-import akka.pattern.ask
-import akka.actor.ActorRef
-import spray.util._
-import nest.sparkle.util.RepeatingRequest
-import scala.util.Success
-import scala.util.Failure
 import java.awt.Desktop
 import java.net.URI
 
-class ServerLaunch(config: Config)(implicit system: ActorSystem) {
+import scala.collection.JavaConverters._
+import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
+
+import com.typesafe.config.Config
+
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.io.IO
+import akka.pattern.ask
+import akka.util.Timeout
+
+import spray.can.Http
+import spray.util._
+
+import nest.sparkle.legacy.PreloadedRegistry
+import nest.sparkle.loader.{FilesLoader, LoadPathDoesNotExist}
+import nest.sparkle.store.Store
+import nest.sparkle.util.{Log, RepeatingRequest}
+import nest.sparkle.util.ConfigUtil.modifiedConfig
+
+class ServerLaunch(config: Config)(implicit val system: ActorSystem) extends Log{
   val store = Store.instantiateStore(config)
-  val webPort = config.getInt("port")
+  lazy val webPort = config.getInt("port")
   lazy val writeableStore = Store.instantiateWritableStore(config)
 
-  // TODO implement some kind of dataRegistry w/cassandra
-  val fixmeRegistry = PreloadedRegistry(Nil)(system.dispatcher)
+  val fixmeRegistry = PreloadedRegistry(Nil)(system.dispatcher)   // TODO delete this once we drop v0 protocol
   val service = system.actorOf(Props(
     new ConfiguredDataServer(fixmeRegistry, store, config)),
     "sparkle-server"
   )
+  
+  possiblyErase()
+  startFilesLoader()
   startServer(service, webPort)
 
-  def startServer(serviceActor: ActorRef, port: Int)(implicit system: ActorSystem) {
-    implicit val timeout = Timeout(10.seconds)
-    val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = port)
-    started.await // wait until server is started
-  }
-
+  /** (for desktop use) Open the web browser to the root page of the sparkle http server.
+   *  Normally, there'll be dashboard at this page.  (either the default sparkle dashboard,
+   *  or one provided by the user with the --root command line option.)  */
   def launchDesktopBrowser() {
     val uri = new URI(s"http://localhost:$webPort/")
     import system.dispatcher
@@ -63,5 +67,47 @@ class ServerLaunch(config: Config)(implicit system: ActorSystem) {
         sys.exit(1)
     }
   }
+    
+  /** Launch the http server for sparkle api requests.
+   *   
+   *  This call will block until the server is ready to accept incoming requests. */
+  private def startServer(serviceActor: ActorRef, port: Int)(implicit system: ActorSystem) {
+    // LATER start only if api-server.auto-start is true
+    implicit val timeout = Timeout(10.seconds)
+    val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = port)
+    started.await // wait until server is started
+  }
+  
+  /** Erase and reformat the storage system if requested */
+  private def possiblyErase() {
+    if (config.getBoolean("erase-store")) {
+      writeableStore.format()
+    }
+  }
 
+  /** launch a FilesLoader for each configured directory */
+  private def startFilesLoader() {
+    if (config.getBoolean("files-loader.auto-start")) {
+      config.getStringList("files-loader.directories").asScala.foreach { pathString =>
+        try {
+          FilesLoader(pathString, writeableStore)
+        } catch {
+          case LoadPathDoesNotExist(path) => sys.exit(4)
+        }
+      }
+    }
+  }  
+}
+
+
+object ServerLaunch {
+  /** convenience wrapper for creating a ServerLaunch object from command line arguments
+   *  optionally specifying a .conf file and optionally specifying overrides to the configuration */
+  def apply(configFile:Option[String], configOverrides:(String,Any)*):ServerLaunch = {
+    val loadedConfig = ConfigServer.loadConfigFromFile(configFile)
+    implicit val system = ActorSystem("sparkle", loadedConfig)
+    val overriddenConfig = modifiedConfig(loadedConfig, configOverrides: _*)
+
+    new ServerLaunch(overriddenConfig)
+  }
 }

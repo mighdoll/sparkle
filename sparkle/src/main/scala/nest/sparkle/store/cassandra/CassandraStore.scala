@@ -32,7 +32,7 @@ import nest.sparkle.util.Log
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.store.{Store, DataSet, Column, WriteableStore, DataSetNotFound}
+import nest.sparkle.store.{ Store, DataSet, Column, WriteableStore, DataSetNotFound }
 import nest.sparkle.store.cassandra.ObservableResultSet._
 
 case class AsciiString(val string: String) extends AnyVal
@@ -62,13 +62,12 @@ object CassandraStore {
     }
   }
 
-  /**
-   * Drop the keyspace.
-   * This is mostly useful for testing.
-   * 
-   * @param contactHosts Cassandra host to create session for.
-   * @param keySpace keyspace to drop.
-   */
+  /** Drop the keyspace.
+    * This is mostly useful for testing.
+    *
+    * @param contactHosts Cassandra host to create session for.
+    * @param keySpace keyspace to drop.
+    */
   def dropKeySpace(contactHosts: Seq[String], keySpace: String) {
     val session = getSession(contactHosts)
     try {
@@ -76,26 +75,24 @@ object CassandraStore {
     } finally {
       session.shutdown()
       // We don't wait for shutdown since session is abandoned
-    } 
+    }
   }
 
-  /**
-   * Drop the keyspace.
-   * This is mostly useful for testing.
-   * 
-   * @param contactHost Cassandra host to create session for.
-   * @param keySpace keyspace to drop.
-   */
+  /** Drop the keyspace.
+    * This is mostly useful for testing.
+    *
+    * @param contactHost Cassandra host to create session for.
+    * @param keySpace keyspace to drop.
+    */
   def dropKeySpace(contactHost: String, keySpace: String) {
     dropKeySpace(Seq(contactHost), keySpace)
   }
-  
-  /** 
-   * Create a connection to the cassandra cluster 
-   * 
-   * @param contactHosts Hosts to connect to
-   * @return Cassandra session
-   */
+
+  /** Create a connection to the cassandra cluster
+    *
+    * @param contactHosts Hosts to connect to
+    * @return Cassandra session
+    */
   protected def getSession(contactHosts: Seq[String]): Session = {
     val builder = Cluster.builder()
     contactHosts.foreach{ builder.addContactPoint(_) }
@@ -104,12 +101,11 @@ object CassandraStore {
     session
   }
 
-  /**
-   * Create a connection to the cassandra cluster using the single host.
-   * 
-   * @param contactHost Host to connect to
-   * @return Cassandra session
-   */
+  /** Create a connection to the cassandra cluster using the single host.
+    *
+    * @param contactHost Host to connect to
+    * @return Cassandra session
+    */
   protected def getSession(contactHost: String): Session = {
     getSession(Seq(contactHost))
   }
@@ -125,36 +121,38 @@ class ConfiguredCassandra(config: Config) extends CassandraStore {
 
 /** a Storage DAO for cassandra.  */
 trait CassandraStore extends Store with WriteableStore with Log {
-  lazy val columnCatalog  = ColumnCatalog(session)
+  lazy val columnCatalog = ColumnCatalog(session)
   lazy val dataSetCatalog = DataSetCatalog(session)
-  
+
   def contactHosts: Seq[String]
-  val storeKeySpace: String 
+  val storeKeySpace: String
   implicit def execution: ExecutionContext = ExecutionContext.global
 
   /** create a connection to the cassandra cluster */
   implicit lazy val session: Session = {
-    log.info(s"""starting session using contact hosts: ${contactHosts.mkString(",")}""")
-    val session = CassandraStore.getSession(contactHosts)
-    useKeySpace(session)
-    session
+    try {
+      log.info(s"""starting session using contact hosts on ${contactHosts.mkString(",")}""")
+      val session = CassandraStore.getSession(contactHosts)
+      useKeySpace(session)
+      session
+    } catch {
+      case e: Exception => log.error("session creation failed", e); throw e
+    }
   }
 
-  /** 
-   * Close the connection to Cassandra.
-   * 
-   * Note that close is asynchronous.
-   * 
-   * @return ShutdownFuture
-   */
+  /** Close the connection to Cassandra.
+    *
+    * Note that close is asynchronous.
+    *
+    * @return ShutdownFuture
+    */
   def close() = session.shutdown()
 
-  /** 
-   * Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
-   * 
-   * A check is made that the dataSet exists. If not the Future is failed with
-   * a DataSetNotFound returned.
-   */
+  /** Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
+    *
+    * A check is made that the dataSet exists. If not the Future is failed with
+    * a DataSetNotFound returned.
+    */
   def dataSet(dataSetPath: String): Future[DataSet] = {
     // Check there are any entries with this path as the parent.
     val future = dataSetCatalog.childrenOfParentPath(dataSetPath).toFutureSeq
@@ -180,38 +178,35 @@ trait CassandraStore extends Store with WriteableStore with Log {
     Future.successful(column)
   }
 
-  /**
-   * Create the tables using the session passed.
-   * The session's keyspace itself must already exist.
-   * Any existing tables are deleted.
-   * 
-   * This call is synchronous.
-   */
+  /** Create the tables using the session passed.
+    * The session's keyspace itself must already exist.
+    * Any existing tables are deleted.
+    *
+    * This call is synchronous.
+    */
   def format() {
     format(session)
   }
-  
-  /** 
-   * Make sure the keyspace exists, creating it if necessary, and set the cassandra driver 
-   * session to use the default keyspace.
-   * 
-   * @param session The session to use. This shadows the instance variable
-   *                because the instance variable may not be initialized yet.
-   */
+
+  /** Make sure the keyspace exists, creating it if necessary, and set the cassandra driver
+    * session to use the default keyspace.
+    *
+    * @param session The session to use. This shadows the instance variable
+    *               because the instance variable may not be initialized yet.
+    */
   private def useKeySpace(session: Session) {
     val keySpacesRows = session.executeAsync(s"""
         SELECT keyspace_name FROM system.schema_keyspaces""").observerableRows
 
     val keySpaces = keySpacesRows.toFutureSeq.await
     val keySpaceFound = keySpaces.map(_.getString(0)).contains(storeKeySpace)
-    
+
     if (keySpaceFound) {
       session.execute(s"USE $storeKeySpace")
     } else {
       createKeySpace(session, storeKeySpace)
     }
   }
-
 
   /** create a keyspace (db) in cassandra */
   private def createKeySpace(session: Session, keySpace: String) {
@@ -223,38 +218,35 @@ trait CassandraStore extends Store with WriteableStore with Log {
     format(session)
   }
 
-  /**
-   * Create the tables using the session passed.
-   * The session's keyspace itself must already exist.
-   * Any existing tables are deleted.
-   */
+  /** Create the tables using the session passed.
+    * The session's keyspace itself must already exist.
+    * Any existing tables are deleted.
+    */
   protected def format(session: Session) {
     dropTables(session)
-    
+
     SparseColumnWriter.createColumnTables(session).await
     ColumnCatalog.create(session)
     DataSetCatalog.create(session)
   }
 
-  /**
-   * Drop all tables in the keyspace.
-   */
+  /** Drop all tables in the keyspace.
+    */
   private def dropTables(session: Session) = {
     val query = s"""SELECT columnfamily_name FROM system.schema_columnfamilies
       WHERE keyspace_name = '$storeKeySpace'"""
     val rows = session.executeAsync(query).observerableRows
-    val drops = rows.map { row => 
+    val drops = rows.map { row =>
       val tableName = row.getString(0)
       dropTable(session, tableName)
     }
     drops.toBlockingObservable foreach { drop => drop.await }
   }
 
-  /** 
-   * Delete a table (and all of the data in the table) from the session's current keyspace
-   */
-  private def dropTable(session: Session, tableName: String)
-       (implicit execution: ExecutionContext):Future[Unit] = {
+  /** Delete a table (and all of the data in the table) from the session's current keyspace
+    */
+  private def dropTable(session: Session, tableName: String) // format: OFF
+      (implicit execution: ExecutionContext): Future[Unit] = { // format: ON
     val dropTable = s"DROP TABLE IF EXISTS $tableName"
     session.executeAsync(dropTable).toFuture.map { _ => () }
   }
