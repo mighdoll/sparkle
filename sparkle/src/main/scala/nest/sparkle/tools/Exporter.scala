@@ -43,7 +43,7 @@ object Exporter extends ArgotApp with Log {
         base
       }
     }
-  lazy val timeout = config.getInt("exporter.timeout").minutes
+  lazy val timeout = config.getDuration("exporter.timeout")
   lazy val store = Store.instantiateStore(config.getConfig("sparkle-time-server"))
   lazy val outputPath = {
     val output = config.getString("exporter.output")
@@ -61,7 +61,7 @@ object Exporter extends ArgotApp with Log {
     app(parser, help) {
       val t0 = System.currentTimeMillis()
       val dataSet = store.dataSet("sapphire").await(20.seconds)
-      processDataSet(dataSet).await(timeout)
+      processDataSet(dataSet).await(timeout.toSeconds)
       val t1 = System.currentTimeMillis()
       log.info("Exporter finished in %d seconds" format (t1 - t0) / 1000L)
     }
@@ -72,7 +72,8 @@ object Exporter extends ArgotApp with Log {
   }
 
   /**
-   * This doesn't work... :(
+   * Write the columns in this dataSet and child dataSets.
+   * 
    * @param dataSet
    * @return
    */
@@ -119,7 +120,7 @@ object Exporter extends ArgotApp with Log {
       filePath, StandardCharsets.UTF_8, 
       CREATE, TRUNCATE_EXISTING, WRITE
     )
-    writer.write(s"time,$columnName\n")
+    writer.write(s"time,\t$columnName\n")
     
     val promise = Promise[Unit]()
     

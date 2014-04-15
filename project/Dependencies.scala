@@ -17,8 +17,8 @@ import sbt._
 object Dependencies {
   object V {
     val scalaTest = "2.1.0"
-    val akka = "2.2.4"
-    val spray = "1.2.1"
+    val akka = "2.3.0"
+    val spray = "1.3.1"
     val rxJava = "0.17.2"
   }
 

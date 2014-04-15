@@ -106,7 +106,7 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
   private def loadRows(rowInfo: CloseableRowInfo, store: WriteableStore, path: Path): Future[Path] = {
     val finished = Promise[Path]
     val pathString = path.toString
-    val dataSetString = mkDataSetString(path)
+    val dsString = dataSetString(path)
 
     /** indices of RowData columns that we'll store (i.e. not the time column) */
     val valueColumnIndices = {
@@ -120,7 +120,7 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
     val futureColumnsWithIndex: Seq[Future[(Int, WriteableColumn[Long, Double])]] =
       valueColumnIndices.map { index =>
         val name = rowInfo.names(index)
-        val columnPath = dataSetString + "/" + name
+        val columnPath = dsString + "/" + name
         store.writeableColumn[Long, Double](columnPath) map { futureColumn =>
           (index, futureColumn)
         }
@@ -172,7 +172,7 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
    * @param path Path of the tsv/csv file
    * @return The DataSet as a string.
    */
-  private def mkDataSetString(path: Path): String = {
+  private def dataSetString(path: Path): String = {
     val parent =
       path.getParent.iterator
         .filterNot(p => p.toString.startsWith("_"))
