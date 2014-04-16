@@ -95,9 +95,9 @@ class TestExporter extends FunSuite with Matchers with BeforeAndAfterAll {
     Exporter(config).processDataSet(filePath).await(timeout)
     
     val dataset = output.resolve(filePath)
-    Files.exists(dataset.resolve("_count.tsv")) should be (true)
-    Files.exists(dataset.resolve("_p90.tsv")) should be (true)
-    Files.exists(dataset.resolve("_p99.tsv")) should be (true)
+    Files.exists(dataset.resolve("_count.tsv")) shouldBe true
+    Files.exists(dataset.resolve("_p90.tsv")) shouldBe true
+    Files.exists(dataset.resolve("_p99.tsv")) shouldBe true
     
     val lines = Files.readAllLines(dataset.resolve("_count.tsv"), StandardCharsets.UTF_8)
     lines.size shouldBe 2752
@@ -119,10 +119,9 @@ class TestExporter extends FunSuite with Matchers with BeforeAndAfterAll {
         override def postVisitDirectory(dir: Path, e: IOException): FileVisitResult = {
           e match {
             case _:IOException => throw e
-            case _             => {
+            case _             => 
               Files.delete(dir)
               FileVisitResult.CONTINUE
-            }
           }
         }
       })
