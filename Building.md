@@ -8,7 +8,7 @@ Directories
   
 - *dashboard* - Example sparkle-graph dashboards.
   
-- *jslib* - Javascript libraries used by sg.js  (primarily: require.js, when.js, d3.js) 
+- *lib* - Javascript libraries used by sg.js  (primarily: require.js, when.js, d3.js) 
 
 ##### sg.js tests
 - *test/web/spec* - unit tests (using jasmine 2)
@@ -60,5 +60,5 @@ integration tests (requires that cassandra is running locally)
 
 javascript tests in e.g. chrome, browse to: 
 
-    file:///Users/MyAccountNameHere/sparkle-graph/src/test/web/SpecRunner.html
+    file:///Users/MyAccountNameHere/sparkle-graph/src/test/web/index.html
 

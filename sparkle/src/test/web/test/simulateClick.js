@@ -1,4 +1,4 @@
-define(["test-jslib/jquery.simulate"], 
+define([], 
 function(_simulate) {
   /** generate DOM events as if the mouse was clicked 
    *

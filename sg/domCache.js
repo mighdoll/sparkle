@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3"], 
+define(["lib/d3"], 
   function(_) {
   
   /** Cache some private data in a javascript object e.g. a DOM node.  

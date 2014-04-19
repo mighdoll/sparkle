@@ -12,21 +12,35 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/when/when"], function(when) {
+define(["lib/when/when"], function(when) {
 
   /** returns an object that supports the async data() api
    *
    * Call with a local array of data: [Date, Number] */
   return function(dataArray) {
+    
+    returnFn.millisToDates = millisToDates;
+    returnFn.toObject = toObject;
+    return returnFn;
 
     /* return data points within the domain from a local RAM array.
      * (see data.js data api)
      */
-    return function(setName, column, params) {
+    function returnFn(setName, column, params) {
       var domain = params.domain,
           first,
           extra = params.edgeExtra;
 
+      // Simulate DomainRange transform if requested
+      if (params.transform == "DomainRange") {
+        var d = minMax(dataArray, 0);
+        var r = minMax(dataArray, 1);
+        
+        return when.resolve(
+            [ [["domain",d],["range",r]] ]
+        );
+      } 
+      
       dataArray.every( function(datum, index) {
         var dataTime = datum[0];
         if (dataTime < domain[0]) {
@@ -50,6 +64,43 @@ define(["jslib/when/when"], function(when) {
 
       var result = dataArray.slice(start, endDex + 1);
       return when.resolve(result);
+    }
+  
+    /** convert [Millis,Number] to [Date, Number] format */
+    function millisToDates(jsonArray) {
+      var data = jsonArray.map( function (row) { 
+        var time = new Date(row[0]);
+        return [time, row[1]]; 
+      });
+      return data;
+    }
+  
+    /** convert [String,Value] to {name1: value1, name2: value2}.  */
+    function toObject(jsonArray) {
+      var result = {};
+      jsonArray[0].forEach( function(element) {
+        result[element[0]] = element[1];
+      });
+      return result;
+    }
+
+    /**
+     * Return a 2 value array of the min & max of a column from a 2D array.
+     * @param array An array of 2 arrays
+     * @param index The 'column' of the array to find the min & max for.
+     * @returns {*[]}
+     */
+    function minMax(array, index) {
+      return [
+        reduce(array, Math.min, index),
+        reduce(array, Math.max, index)
+      ];
+    }
+
+    function reduce(array, reducer, index) {
+      return array.reduce(function(prev, current) {
+        return reducer(prev, current[index]);
+      }, array[0][index]);
     }
 
   };

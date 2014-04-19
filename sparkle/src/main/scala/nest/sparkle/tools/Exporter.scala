@@ -45,10 +45,10 @@ object ExporterMain extends ArgotApp with Log {
           base
         }
       }
-      val timeout = config.getDuration("exporter.timeout", TimeUnit.MILLISECONDS)
+      val timeout = config.getDuration("exporter.timeout")
       
       val t0 = System.currentTimeMillis()
-      Exporter(config).processDataSet(dataSet.value.getOrElse("")).await(timeout)
+      Exporter(config).processDataSet(dataSet.value.getOrElse("")).await(timeout.toMillis)
       val t1 = System.currentTimeMillis()
       log.info("Exporter finished in %d seconds" format (t1 - t0) / 1000L)
     }

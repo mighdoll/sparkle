@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define (["jslib/when/when", "jslib/d3", 
+define (["lib/when/when", "lib/d3", 
          "sg/util", "sg/richAxis", "sg/maxLock", "sg/data", 
          "sg/zoom", "sg/chart", "sg/domCache"], 
         function(when, _d3, util, _richAxis, _maxLock, networkDataApi, 

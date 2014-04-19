@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define (["jslib/d3", "sg/util"], function(_d3, _util) {
+define (["lib/d3", "sg/util"], function(_d3, _util) {
 
 /** Make an svg box resizable by dragging on a resize widget.  
   *

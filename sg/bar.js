@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3", "sg/domCache"], 
+define(["lib/d3", "sg/domCache"], 
   function(_, domCache) {
 
 return function() {

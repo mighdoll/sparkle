@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3", "sg/util", "sg/maxLock"], function(_d3, _util, maxLock) {
+define(["lib/d3", "sg/util", "sg/maxLock"], function(_d3, _util, maxLock) {
 
 /** A display d3.axis with a few extensions:
   *  label - a code or css styled text label

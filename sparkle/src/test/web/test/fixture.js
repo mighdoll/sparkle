@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3", "jslib/when/when"], function(_d3, when) {
+define(["lib/d3", "lib/when/when"], function(_d3, when) {
 
   function svg(_size) {
     var size = _size || [200, 50];

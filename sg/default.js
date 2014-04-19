@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-require(["jslib/d3", "sg/serverDescribedGraph"], function (_, serverDescribedChart) {
+require(["lib/d3", "sg/serverDescribedGraph"], function (_, serverDescribedChart) {
 
 /** Create a simple xy chart.  The server specifies the chart title and which data series to plot.  
  * This is intended to be a basic default plot of time series data, e.g. when launching the sg tool

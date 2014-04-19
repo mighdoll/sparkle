@@ -14,7 +14,7 @@
 
 define(["sg/chart", "sg/localData", 
         "test/simulateDrag", "test/simulateClick", "test/chartUtil",
-        "test/fixture", "test/chartData", "jslib/when/when"], 
+        "test/fixture", "test/chartData", "lib/when/when"], 
   function(chart, localData, simulateDrag, simulateClick, chartUtil, fixture, chartDataMaker, when) {
 
 describe("chart", function() {

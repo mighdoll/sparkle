@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/when/monitor/console", "sg/request"], function(_console, request) {
+define(["lib/when/monitor/console", "sg/request"], function(_console, request) {
 
 /** Fetch list of all data sets from the server.  
   * Returns a When that contains an array of strings e.g. ["foo/b.csv", "bar/c.csv"] */

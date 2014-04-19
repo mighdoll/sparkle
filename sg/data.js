@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/when/monitor/console", "sg/request"], 
+define(["lib/when/monitor/console", "sg/request"], 
     function(_console, request) {
 
 /** Fetch data points from the server.  Return a When that completes with the raw data 
@@ -37,6 +37,7 @@ define(["jslib/when/monitor/console", "sg/request"],
     function streamsResponse(message) {
       var streamsMessage = JSON.parse(message);
       return streamsMessage.message.streams[0].data;
+      // TODO: Handle more than one stream
     }
 
     /** Construct a StreamRequest to request a transform from the server */

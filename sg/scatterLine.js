@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3", "sg/symbolMark", "sg/util"], function(_d3, symbolMark, _util) {
+define(["lib/d3", "sg/symbolMark", "sg/util"], function(_d3, symbolMark, _util) {
 
 /** Plot of scatter of marks on a horizontal line 
  * Bind to an array containing a single Categorized object */

@@ -1,4 +1,4 @@
-define(["test-jslib/jquery.simulate"], 
+define([], 
 function(_simulate) {
   /** simulate the mousedown,mousemove,mouseup and click events of a drag operation.
    * selection: [Selection] - single node d3 selection 

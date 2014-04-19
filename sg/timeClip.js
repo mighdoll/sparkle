@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3", "sg/domCache"], function(_d3, domCache) {
+define(["lib/d3", "sg/domCache"], function(_d3, domCache) {
 
 /** Add an svg clipping rectangle to a selection.   If called within a transition, animate the 
   * clip rectangle to the it's new size. */

@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/when/monitor/console", "jslib/when/when", "jslib/d3"], 
+define(["lib/when/monitor/console", "lib/when/when", "lib/d3"], 
     function(_console, when, _d3) {
 
 

@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3"], function(_) {
+define(["lib/d3"], function(_) {
 /** Display a visual 'key' - named color swatches.
  *
  * Bind to LegendData 

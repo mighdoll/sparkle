@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/when/when"], function(when) {
+define(["lib/when/when"], function(when) {
 
 /** Return an object that supports the metadata api 
  * metaData is an object of the form {

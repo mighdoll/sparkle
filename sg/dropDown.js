@@ -15,7 +15,7 @@
 requirejs.config({
   paths:{
     'select2': 'http://ivaynberg.github.com/select2/select2-3.2/select2',
-    'jquery': 'jslib/jquery'
+    'jquery': 'lib/jquery'
   },
   shim: {
     'select2': ['jquery']
@@ -23,7 +23,7 @@ requirejs.config({
 });
 
 //define(["jquery", "select2", "sg/util"],  // TODO we saw some problems loading select2, temporarily disabled
-define(["jslib/jquery", "sg/util"], 
+define(["lib/jquery", "sg/util"], 
        function (_jquery, _util, _select2) {
 
 /** create a select2 based dropdown menu */

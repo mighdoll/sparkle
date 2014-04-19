@@ -1,4 +1,4 @@
-require( ["jslib/d3", "sg/dashboard", "sg/sideAxis", "sg/palette", "sg/linePlot" ], 
+require( ["lib/d3", "sg/dashboard", "sg/sideAxis", "sg/palette", "sg/linePlot" ], 
     function(_d3, dashboard, sideAxis, palette, linePlot) {
 
   var greyish = d3.scale.ordinal().range(["#BFB9A2"]), 

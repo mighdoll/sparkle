@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3", "sg/util", "sg/richAxis", "sg/palette"], 
+define(["lib/d3", "sg/util", "sg/richAxis", "sg/palette"], 
        function(_d3, _util, richAxis, palette) {
 
 /** Attach a lockable axis to one side of the chart.

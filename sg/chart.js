@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3", "jslib/when/monitor/console", "jslib/when/when", 
+define(["lib/d3", "lib/when/monitor/console", "lib/when/when", 
         "sg/data", "sg/util", "sg/zoom", "sg/resizable", "sg/linePlot", "sg/richAxis", 
         "sg/legend", "sg/timeClip", "sg/domCache"], 
    function(_d3, _console, when, dataApi, _util, zoomBrush, resizable, linePlot, richAxis, 

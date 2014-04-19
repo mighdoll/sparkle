@@ -12,8 +12,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3", "test/simulateDrag", "test/simulateClick", 
-        "jslib/when/when"], 
+define(["lib/d3", "test/simulateDrag", "test/simulateClick", 
+        "lib/when/when"], 
 function(_d3, simulateDrag, simulateClick, when) {
 
   /** return a function that will: 

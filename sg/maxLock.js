@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["jslib/d3", "sg/maxLock"], function(_, maxLock) {
+define(["lib/d3", "sg/maxLock"], function(_, maxLock) {
 /** Display a lockable maximum value indicator for a Y axis.
  *
  * When the lock/unlock button is clicked, a custom event 'toggleMaxLock' is fired.
