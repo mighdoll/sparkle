@@ -22,10 +22,10 @@ import com.typesafe.config.Config
 
 /** create a kafka reader/writer pair for a new test topic.  
  *  Topics are not cleaned up after completion.  */
-class KafkaTestTopic(loaderConfig:Config, id:String = randomAlphaNum(3)) {
+class KafkaTestTopic(rootConfig:Config, id:String = randomAlphaNum(3)) {
   val topic = s"testTopic-$id"
   val clientGroup = s"testClient-$id"
 
-  val writer = KafkaWriter[String](topic, loaderConfig)
-  val reader = KafkaReader[String](topic, loaderConfig, clientGroup = Some(clientGroup))
+  val writer = KafkaWriter[String](topic, rootConfig)
+  val reader = KafkaReader[String](topic, rootConfig, clientGroup = Some(clientGroup))
 }

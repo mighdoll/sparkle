@@ -11,9 +11,6 @@
         </filter>
     </appender>
 
-    <logger name="akka.event.slf4j.Slf4jLogger" level="WARN" />
-    <logger name="com.codahale.metrics.JmxReporter" level="WARN" />
-    <logger name="com.datastax.driver" level="WARN" />
 
     <root level="DEBUG">
       <appender-ref ref="CONSOLE"/>

@@ -20,13 +20,13 @@ import spray.testkit.ScalatestRouteTest
 import akka.actor.ActorRefFactory
 import spray.routing.HttpService
 import nest.sparkle.time.server.ApiExtension
-import nest.sparkle.time.server.ConfigServer
+import nest.sparkle.time.server.ConfigureSparkle
 import nest.sparkle.time.server.ConfiguredDataService
 import spray.httpx.marshalling.ToResponseMarshallable.isMarshallable
 import spray.routing.Directive.pimpApply
 
 class TestCustomApi extends FunSuite with Matchers with ScalatestRouteTest with ConfiguredDataService {
-  override def testConfig = ConfigServer.loadConfig(configResource = "testCustomApi.conf")
+  override def testConfig = ConfigureSparkle.loadConfig(configResource = "testCustomApi.conf")
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   val executionContext = system.dispatcher
   val registry = new PreloadedRegistry(List(SampleData))(system.dispatcher)

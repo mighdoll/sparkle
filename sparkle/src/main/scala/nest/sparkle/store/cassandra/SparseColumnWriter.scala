@@ -109,7 +109,7 @@ class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
     
     val result = 
       for {
-        _ <- createEmptyColumn[T, U](session)
+        _ <- createEmptyColumn[T, U](session) // TODO can we remove this given the createColumnTables?
         _ <- catalog.writeCatalogEntry(entry)
         _ <- dataSetCatalog.addColumnPath(entry.columnPath)
       } yield { () }
@@ -143,6 +143,7 @@ class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
   def write(items:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
     val events = items.toSeq
+    log.trace(s"write() events: $events")
     if (events.length == 1) {
       writeOne(events.head)
     } else {

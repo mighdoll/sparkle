@@ -17,10 +17,12 @@ package nest.sparkle.time.server
 import java.io.File
 import com.typesafe.config.{Config, ConfigFactory}
 import nest.sparkle.util.Log
-import nest.sparkle.util.LogConfiguration.configureLogging
+import nest.sparkle.util.ConfigureLogback.configureLogging
+
+case class RootAndSparkleConfig(val root:Config, val sparkle:Config)
 
 /** utilities for setting up configuration for a sparkle server */
-object ConfigServer extends Log {
+object ConfigureSparkle extends Log {
   /** Load the configuration from the application.conf and reference.conf resources.
     */
   def loadConfig(configResource: String = "application.conf"): Config = {
@@ -29,25 +31,8 @@ object ConfigServer extends Log {
     localConfig(root)
   }
 
-  /** Load the configuration from a .conf file in the filesystem, falling back to
-    * the built in reference.conf.
-    */
-  def loadConfigFromFile(configFileOpt: Option[String]): Config = {
-    val baseConfig = ConfigFactory.load()
-    val root =
-      configFileOpt.map { configFile =>
-        log.info(s"using config file: $configFile")
-        val file = new File(configFile)
-        val config = ConfigFactory.parseFile(file).resolve()
-        config.withFallback(baseConfig)
-      } getOrElse {
-        baseConfig
-      }
-    localConfig(root)
-  }
-
-  /** point at the sparkle-time-server section of the config file. As a side effect,
-   *  also setup logging based on config file settings. */
+  /** point at the sparkle-time-server section of the config file. And
+   *  take advantage of the now-known config settings to setup logging. */
   private def localConfig(root: Config): Config = {
     val local = root.getConfig("sparkle-time-server")
     configureLogging(local)

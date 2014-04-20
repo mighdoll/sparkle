@@ -37,11 +37,16 @@ import nest.sparkle.util.ConfigUtil
   * @param consumerGroup - allows setting kafka consumerGroup per KafkaReader
   * @param config contains settings for the kafka client library. must contain a "kafka-reader" key.
   */
-class KafkaReader[T: Decoder](topic: String, config: Config = ConfigFactory.load(), consumerGroup: Option[String]) {
+class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.load(), consumerGroupPrefix: Option[String]) {
   private lazy val connection = connect()
 
-  /** return a stream for a kafka topic */
+  /** return an observable stream of decoded data from the kafka topic */
   def stream()(implicit execution: ExecutionContext): Observable[T] = {
+    iterableStream().toObservable
+  }
+  
+  /** return an iterator of decoded data from the kafka topic */
+  def iterableStream():Iterator[T] = {
     val decoder = implicitly[Decoder[T]]
     val topicCountMap = Map(topic -> 1)
     val streamMap = connection.createMessageStreams[String, T](topicCountMap, StringDecoder, decoder)
@@ -51,7 +56,10 @@ class KafkaReader[T: Decoder](topic: String, config: Config = ConfigFactory.load
     val messages = stream.iterator().map { messageAndMetadata =>
       messageAndMetadata.message
     }
-    messages.toObservable
+    
+    // TODO handle reconnecting after kafka consumer timeouts
+    
+    messages
   }
 
   /** Store the current reader position in zookeeper.  On restart (e.g. after a crash),
@@ -71,10 +79,13 @@ class KafkaReader[T: Decoder](topic: String, config: Config = ConfigFactory.load
   /** open a connection to kafka */
   private def connect(): ConsumerConnector = {
     val properties = {
-      val readerConfig = config.getConfig("kafka-reader")
-      /** extract the kafka-client settings verbatim, send directly to kafka */
-      val props = ConfigUtil.properties(readerConfig)
-      val group = consumerGroup.getOrElse { config.getString("reader.consumer-group") }
+      val loaderConfig = rootConfig.getConfig("sparkle-time-server.kafka-loader")
+      
+      // extract the kafka-client settings verbatim, send directly to kafka 
+      val props = ConfigUtil.properties(loaderConfig.getConfig("kafka-reader"))
+      
+      val groupPrefix = consumerGroupPrefix.getOrElse { loaderConfig.getString("reader.consumer-group-prefix") }
+      val group = groupPrefix + "." + topic
       props.put("group.id", group)
       props
     }

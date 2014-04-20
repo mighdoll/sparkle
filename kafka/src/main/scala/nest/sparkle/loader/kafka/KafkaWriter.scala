@@ -22,17 +22,18 @@ import rx.lang.scala.Observable
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import nest.sparkle.util.ConfigUtil
+import nest.sparkle.util.Log
 
 /** enables writing to a kafka topic */
-class KafkaWriter[T: Encoder](topic: String, config: Config) {
+class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log{
   private val writer = implicitly[Encoder[T]]
 
   private lazy val producer: Producer[String, Array[Byte]] = {
-    val properties = ConfigUtil.properties(config.getConfig("kafka-writer"))
+    val properties = ConfigUtil.properties(rootConfig.getConfig("sparkle-time-server.kafka-loader.kafka-writer"))
     new Producer[String, Array[Byte]](new ProducerConfig(properties))
   }
 
-  /** write an Observable stream to kafka. Note that this blocks the calling thread until it is done. */
+  /** write an Observable stream to kafka.  */
   def writeStream(stream: Observable[T]) {
     stream.subscribe { datum =>
       writeElement(datum)
@@ -46,6 +47,7 @@ class KafkaWriter[T: Encoder](topic: String, config: Config) {
 
   /** write a single item to a kafka topic. */
   private def writeElement(item: T) {
+    log.trace(s"writing $item")
     val encoded = writer.toBytes(item)
     val message = new KeyedMessage[String, Array[Byte]](topic, encoded)
     producer.send(message)

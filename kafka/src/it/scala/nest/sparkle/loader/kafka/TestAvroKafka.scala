@@ -30,7 +30,7 @@ class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with Kafk
   test("read/write a few avro encoded elements from the kafka queue") {
     forAll(MinSuccessful(5)){ records: List[GenericData.Record] =>
       whenever(records.length > 0) {
-        withTestAvroTopic(loaderConfig, MillisDoubleAvro.schema) { testTopic =>
+        withTestAvroTopic(rootConfig, MillisDoubleAvro.schema) { testTopic =>
           testTopic.writer.write(records)
           withTestReader(testTopic){ reader =>
             val stream = reader.stream()

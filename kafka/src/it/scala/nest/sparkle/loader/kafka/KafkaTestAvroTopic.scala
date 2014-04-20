@@ -20,18 +20,18 @@ import org.apache.avro.Schema
 import kafka.serializer.Decoder
 import org.apache.avro.generic.GenericRecord
 
-class KafkaTestAvroTopic(val loaderConfig: Config, val schema: Schema, val testId: String) {
+class KafkaTestAvroTopic(val rootConfig: Config, val schema: Schema, val testId: String) {
   val topic = s"testTopic-$testId"
 
   val encoder = AvroSupport.genericEncoder(schema)
-  val writer = KafkaWriter(topic, loaderConfig)(encoder)
+  val writer = KafkaWriter(topic, rootConfig)(encoder)
 }
 
 object KafkaTestUtil {
-  def withTestAvroTopic[T](loaderConfig: Config,
+  def withTestAvroTopic[T](rootConfig: Config,
                            schema: Schema,
                            id: String = randomAlphaNum(3))(fn: KafkaTestAvroTopic => T): T = {
-    val kafka = new KafkaTestAvroTopic(loaderConfig, schema, id)
+    val kafka = new KafkaTestAvroTopic(rootConfig, schema, id)
     try {
       fn(kafka)
     } finally {
@@ -42,7 +42,7 @@ object KafkaTestUtil {
   def withTestReader[T](testTopic: KafkaTestAvroTopic)(fn: KafkaReader[GenericRecord] => T): T = {
     val clientGroup = s"testClient-${testTopic.testId}"
     val decoder = AvroSupport.genericDecoder(testTopic.schema)
-    val reader = KafkaReader(testTopic.topic, testTopic.loaderConfig, clientGroup = Some(clientGroup))(decoder)
+    val reader = KafkaReader(testTopic.topic, testTopic.rootConfig, clientGroup = Some(clientGroup))(decoder)
     try {
       fn(reader)
     } finally {

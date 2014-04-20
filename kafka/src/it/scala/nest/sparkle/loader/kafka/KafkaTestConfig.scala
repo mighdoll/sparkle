@@ -17,13 +17,14 @@ package nest.sparkle.loader.kafka
 import com.typesafe.config.ConfigFactory
 import nest.sparkle.util.ConfigureLog4j
 
-/** (for tests) load the config file and initialize. 
- *  expose a loaderConfig value so that tests can use the config.  */
-trait KafkaTestConfig { 
-  private lazy val baseConfig = ConfigFactory.load()
-  lazy val loaderConfig = {
-    val config = baseConfig.getConfig("kafka-loader")
-    ConfigureLog4j.configure(config)
-    config
+/** (for tests) load the config file and initialize.
+  * expose a loaderConfig value so that tests can use the config.
+  */
+trait KafkaTestConfig {
+  lazy val rootConfig = {
+    val root = ConfigFactory.load()
+    val kafkaLoaderConfig = root.getConfig("sparkle-time-server.kafka-loader")
+    ConfigureLog4j.configure(kafkaLoaderConfig)
+    root
   }
 }

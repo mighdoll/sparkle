@@ -35,12 +35,12 @@ object Main extends ArgotApp {
   val display = parser.flag(List("display"), "navigate the desktop web browser to the current dashboard")
 
   app(parser, help) {
-    val portMapping = port.value.toList.map { ("port", _) }
-    val rootMapping = root.value.toList.map { ("web-root", _) }
-    val eraseOverride = erase.value.toList.map { ("erase-store", _) }
+    val portMapping = port.value.toList.map { ("sparke-time-server.port", _) }
+    val rootMapping = root.value.toList.map { ("sparkle-time-server.web-root", _) }
+    val eraseOverride = erase.value.toList.map { ("sparkle-time-server.erase-store", _) }
     val filesOverride = filesPath.value.toList.flatMap { path =>
-      ("files-loader.directories", List(s"$path")) :: 
-      ("files-loader.auto-start", "true") :: Nil
+      ("sparkle-time-server.files-loader.directories", List(s"$path")) :: 
+      ("sparkle-time-server.files-loader.auto-start", "true") :: Nil
     }
     val configOverrides = portMapping ::: rootMapping ::: eraseOverride ::: filesOverride
 

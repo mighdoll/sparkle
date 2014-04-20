@@ -15,7 +15,7 @@
 package nest.sparkle.loader.kafka
 
 import com.typesafe.config.ConfigFactory
-import nest.sparkle.util.LogConfiguration.configureLogging
+import nest.sparkle.util.ConfigureLogback.configureLogging
 
 trait CassandraTestConfig {
   private lazy val baseConfig = ConfigFactory.load()

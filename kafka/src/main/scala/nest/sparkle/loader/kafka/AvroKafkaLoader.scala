@@ -14,99 +14,117 @@
 
 package nest.sparkle.loader.kafka
 
-import com.typesafe.config.Config
 import scala.collection.JavaConverters._
-import kafka.consumer.Whitelist
-import nest.sparkle.util.Instance
-import scala.concurrent.ExecutionContext
-import nest.sparkle.util.Log
-import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.store.Event
-import org.apache.avro.generic.GenericRecord
-import nest.sparkle.store.WriteableStore
-import nest.sparkle.util.Exceptions.NYI
-import nest.sparkle.util.Watched
-import kafka.serializer.Decoder
-import scala.reflect.runtime.universe._
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.language.existentials
-import scala.concurrent.Future
-import nest.sparkle.store.cassandra.WriteableColumn
-import nest.sparkle.store.cassandra.CanSerialize
+
+import com.typesafe.config.Config
+
 import nest.sparkle.loader.kafka.TypeTagUtil.typeTaggedToString
+import nest.sparkle.store.{ Event, WriteableStore }
+import nest.sparkle.store.cassandra.CanSerialize
+import nest.sparkle.store.cassandra.serializers._
+import nest.sparkle.util.{ Instance, Log, Watched }
+import nest.sparkle.util.ConfigureLog4j
+import nest.sparkle.util.Exceptions.NYI
 
 /** an update to a watcher about the latest value loaded */
-case class ColumnUpdate(columnPath: String, latest: Long)   // LATER make 'latest' type parametric
+case class ColumnUpdate[T](columnPath: String, latest: T)
 
 /** Start a stream loader that will load data from kafka topics into cassandra */
-class AvroKafkaLoader(config: Config, storage: WriteableStore) // format: OFF
-    (implicit execution: ExecutionContext) extends Watched[ColumnUpdate] with Log { // format: ON
+class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format: OFF
+    (implicit execution: ExecutionContext) extends Watched[ColumnUpdate[K]] with Log { // format: ON
+
+  val config = rootConfig.getConfig("sparkle-time-server.kafka-loader")
+  ConfigureLog4j.configure(config)
+
   val topics = config.getStringList("topics").asScala.toSeq
+
+  if (config.getBoolean("auto-start")) {
+    load()
+  }
 
   /** Start the loader reading from the configured kafka topics
     *
-    * Note that load() will consume a thread for each kafka
-    * topic (there is no async api in kafka 0.8.1).
+    * Note that load() will consume a thread for each kafka topic
+    * (there is no async api in kafka 0.8.1).
     */
   def load() {
     val finder = decoderFinder()
 
     topics.foreach { topic =>
       val decoder = columnDecoder(finder, topic)
-      val reader = KafkaReader(topic, config, None)(decoder)
+      val reader = KafkaReader(topic, rootConfig, None)(decoder)
       loadKeyValues(reader, decoder)
     }
   }
 
+  /** thrown if the avro schema specifies an unimplemented key or value type */
+  case class UnsupportedColumnType(msg: String) extends RuntimeException(msg)
+
   /** Load from a single topic via a KafkaReader. Extract Events from each kafka record, and
     * write the events to storage.
     */
-  private def loadKeyValues(reader: KafkaReader[IdKeyAndValues],
+  private def loadKeyValues(reader: KafkaReader[ArrayRecordColumns],
                             decoder: KafkaKeyValues) {
     val stream = reader.stream()
-    val columnName = decoder.columnName
-    val columnPrefix = decoder.dataSetPath
     stream.subscribe { record =>
-      val id = typeTaggedToString(record.id, decoder.types.idType)
-      val columnPath = s"$columnPrefix$id/$columnName"
-      val events = recordToEvents(record, decoder.types)
+      val id = typeTaggedToString(record.id, decoder.metaData.idType)
 
-      val longDoubleEvents = events.collect { case LongDoubleTaggedEvent(event) => event }
-      val longLongEvents = events.collect { case LongLongTaggedEvent(event) => event }
+      val writeFutures =
+        record.typedColumns(decoder.metaData).map { taggedColumn =>
+          val columnPath = decoder.columnPath(id, taggedColumn.name)
 
-      val wroteLongDoubles = writeEvents(longDoubleEvents, columnPath) // SCALA hlist me
-      val wroteLongLongs = writeEvents(longLongEvents, columnPath)
+          log.info(s"loading ${taggedColumn.events.length} events to column: $columnPath "
+            + s"keyType: ${taggedColumn.keyType}  valueType: ${taggedColumn.valueType}")
 
-      wroteLongDoubles.zip(wroteLongLongs).foreach { _ =>
-        reader.commit() // record the progress reading this kafka topic into zookeeper
-        notifyWatchers(columnPath, events)
+          taggedColumn match {
+            case LongDoubleEvents(events) => writeEvents(events, columnPath)
+            case LongLongEvents(events)   => writeEvents(events, columnPath)
+            case LongIntEvents(events)    => writeEvents(events, columnPath)
+            case LongStringEvents(events) => writeEvents(events, columnPath)
+            case _ =>
+              val error = s"keyType: ${taggedColumn.keyType}  valueType: ${taggedColumn.valueType}"
+              throw UnsupportedColumnType(error)
+          }
+        }
+
+      // The type parameterization of K is incomplete. we'd need to add a typeclass to 
+      // abstract out the LongDouble stuff above.  For now we just cast to the expected type
+      val castFutures = writeFutures.asInstanceOf[Seq[Future[Option[ColumnUpdate[K]]]]]
+
+      Future.sequence(castFutures).foreach { updates =>
+        val flattened = updates.flatten // remove Nones
+        recordComplete(reader, flattened)
       }
     }
   }
 
-  /** notify anyone subscribed to the Watched stream that we've writtens some data */
-  private def notifyWatchers(columnPath: String, events: Iterable[TaggedEvent]) {
-    events.lastOption map { last =>
-      val update = ColumnUpdate(columnPath, last.event.argument.asInstanceOf[Long])
+  /** We have written one record's worth of data to storage. Per the batch policy, commit our
+    * position in kafka and notify any watchers.
+    */
+  private def recordComplete(reader: KafkaReader[_], updates: Seq[ColumnUpdate[K]]) {
+    // TODO, commit is relatively slow. let's commit/notify only every N items and/or after a timeout
+    reader.commit() // record the progress reading this kafka topic into zookeeper
+
+    // notify anyone subscribed to the Watched stream that we've written some data 
+    updates.foreach { update =>
       watchedData.onNext(update)
     }
   }
 
   /** write some typed Events to storage. return a future when that completes when the writing is done*/
-  private def writeEvents[T: CanSerialize, U: CanSerialize](events: Iterable[Event[T, U]], columnPath: String): Future[Unit] = {
-    storage.writeableColumn[T, U](columnPath).flatMap { column =>
-      column.write(events)
-    }
-  }
-
-  /** parse a record into a series of TaggedEvents */
-  private def recordToEvents(record: IdKeyAndValues, types: IdKeyAndValuesTypes): Seq[TaggedEvent] = {
-    record.keysValues.flatMap {
-      case (key, values) =>
-        values.zip(types.valueTypes).map{
-          case (value, valueType) =>
-            val event = Event(key, value)
-            TaggedEvent(event, types.keyType, valueType)
-        }
+  private def writeEvents[T: CanSerialize, U: CanSerialize](events: Iterable[Event[T, U]],
+                                                            columnPath: String): Future[Option[ColumnUpdate[T]]] = {
+    storage.writeableColumn[T, U](columnPath) flatMap { column =>
+      events.lastOption.map{ _.argument } match {
+        case Some(lastKey) =>
+          column.write(events).map { _ =>
+            Some(ColumnUpdate[T](columnPath, lastKey))
+          }
+        case None =>
+          Future.successful(None)
+      }
     }
   }
 
@@ -115,7 +133,7 @@ class AvroKafkaLoader(config: Config, storage: WriteableStore) // format: OFF
     */
   private def decoderFinder(): FindDecoder = {
     val className = config.getString("find-decoder")
-    Instance.byName[FindDecoder](className)()
+    Instance.byName[FindDecoder](className)(rootConfig)
   }
 
   /** return a kafka topic reader and a kafka decoder based on a given topic */
@@ -125,7 +143,6 @@ class AvroKafkaLoader(config: Config, storage: WriteableStore) // format: OFF
       case _                               => NYI("only KeyValueStreams implemented so far")
     }
   }
-
 }
 
 

@@ -15,17 +15,16 @@
 package nest.sparkle.util
 
 import org.slf4j
-
 import com.typesafe.config.Config
-
-import ch.qos.logback.classic.{Logger, LoggerContext}
+import ch.qos.logback.classic.{Level, Logger, LoggerContext}
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder
 import ch.qos.logback.classic.spi.{ILoggingEvent, LoggingEvent}
 import ch.qos.logback.core.{Appender, FileAppender}
 import ch.qos.logback.core.encoder.Encoder
+import scala.collection.JavaConverters._
 
 /** configure a logback logger based on the config file */
-object LogConfiguration extends Log { // TODO rename to ConfigureLogback
+object ConfigureLogback extends Log { 
 
   /** configure logging based on the .conf file */
   def configureLogging(config: Config) {
@@ -43,6 +42,18 @@ object LogConfiguration extends Log { // TODO rename to ConfigureLogback
     val pattern = logConfig.getString("pattern")
     val append = logConfig.getBoolean("append")
 
+    val levels = logConfig.getConfig("levels")
+    levels.entrySet().asScala.foreach { entry =>
+      val logger = if (entry.getKey == "root") {
+        rootLogger
+      } else {
+        slf4j.LoggerFactory.getLogger(entry.getKey).asInstanceOf[Logger]
+        
+      }
+      val level = entry.getValue.unwrapped.toString
+      logger.setLevel(Level.toLevel(level))
+    }
+
     // attach new file appender 
     val fileAppender = new FileAppender[LoggingEvent]
     fileAppender.setFile(file)
@@ -54,6 +65,7 @@ object LogConfiguration extends Log { // TODO rename to ConfigureLogback
     fileAppender.setContext(context)
     fileAppender.start()
     rootLogger.addAppender(fileAppender.asInstanceOf[Appender[ILoggingEvent]])
+    
   }
   
 }

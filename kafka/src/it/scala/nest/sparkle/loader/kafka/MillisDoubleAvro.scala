@@ -14,6 +14,7 @@
 
 package nest.sparkle.loader.kafka
 import nest.sparkle.loader.kafka.AvroSupport.schemaFromString
+import com.typesafe.config.Config
 
 object MillisDoubleAvro {
   val avroJson ="""
@@ -59,11 +60,11 @@ object MillisDoubleArrayAvro {
   val arraySchema = schemaFromString(arrayJson)
 }
 
-class MillisDoubleArrayFinder extends FindDecoder {
-  def decoderFor(topic:String):KafkaColumnDecoder[IdKeyAndValues] = {
+class MillisDoubleArrayFinder(rootConfig:Config) extends FindDecoder {
+  def decoderFor(topic:String):KafkaColumnDecoder[ArrayRecordColumns] = {
     val schema = MillisDoubleArrayAvro.schema
     val decoder = AvroArrayDecoder.decoder(schema)
-    AvroColumnDecoder("sample-data/path/", schema, decoder)
+    AvroColumnDecoder(schema, decoder, prefix = "sample-data/path")
   }  
 }
 

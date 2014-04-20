@@ -31,7 +31,7 @@ object ConfigureLog4j {
     val file = log4jConfig.getString("file")
     val append = log4jConfig.getBoolean("append")
     val pattern = log4jConfig.getString("pattern")
-    val consoleLevels = log4jConfig.getConfig("console-levels")
+    val levels = log4jConfig.getConfig("levels")
     
     val patternLayout = new PatternLayout(pattern)
     
@@ -48,7 +48,7 @@ object ConfigureLog4j {
     consoleAppender.setLayout(patternLayout)
     consoleAppender.setThreshold(Level.WARN)
     consoleAppender.activateOptions()
-    consoleLevels.entrySet().asScala.map { entry =>
+    levels.entrySet().asScala.map { entry =>
       val logger = Logger.getLogger(entry.getKey)
       val level = entry.getValue.unwrapped.toString
       logger.setLevel(Level.toLevel(level))

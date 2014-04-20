@@ -40,6 +40,7 @@ trait Watched[T] {
   private val trampolineScheduler = TrampolineScheduler()
 
 
+  // TODO fix me based on reviewer feedback
   publishedData.subscribeOn(trampolineScheduler).subscribe(processEvent _, handleError _, complete _)
 
   
@@ -110,7 +111,7 @@ case class Watch[T](
     val duration: Duration = 5.minutes,
 
     /** match only filtered events. match all events */
-    val filter: Option[T => Boolean] = None) {
+    val filter: Option[T => Boolean] = None) extends Log {
 
   /** expiration of this subscription in epoch milliseconds */
   val expires: Long = System.currentTimeMillis() + duration.toMillis
@@ -121,8 +122,9 @@ case class Watch[T](
   /** just the data, w/o Report[] wrapper */
   lazy val report: Observable[T] = {
     // RX Observable.collect would be handy here
-    fullReport.flatMap { report =>
-      report match {
+    fullReport.flatMap { watchReport =>
+      log.trace(s"report: $watchReport")
+      watchReport match {
         case WatchData(data)          => Observable.from(List(data))
         case started: WatchStarted[T] => Observable.empty
       }

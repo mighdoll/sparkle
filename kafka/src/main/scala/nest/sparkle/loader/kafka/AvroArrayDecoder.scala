@@ -21,24 +21,27 @@ import scala.language.existentials
 import nest.sparkle.loader.kafka.SchemaDecodeException.schemaDecodeException
 import org.apache.avro.generic.GenericData
 import scala.collection.JavaConverters._
+import nest.sparkle.store.Event
+import nest.sparkle.util.Log
 
 /** Utility for making the Decoder part of an AvroColumnDecoder from an avro schema when
- *  the avro schema contains an array of key,values fields. */
-object AvroArrayDecoder {
+  * the avro schema contains an array of key,values fields.
+  */
+object AvroArrayDecoder extends Log {
 
   /** return a decoder for an avro schema containing an id, and an array of key,[value,..] records.
-   *  There can be more than one value in each row of the array.  The value fields are copied
-   *  from the avro schema field names.  
-   *  
-   *  See `MillisDoubleArrayAvro` in the tests for an example avro schema in the expected structure.
-   *   
-   *  @skipValueFields a blacklist of values fields in each array row to ignore
-   */
+    * There can be more than one value in each row of the array.  The value fields are copied
+    * from the avro schema field names.
+    *
+    * See `MillisDoubleArrayAvro` in the tests for an example avro schema in the expected structure.
+    *
+    * @skipValueFields a blacklist of values fields in each array row to ignore
+    */
   def decoder(schema: Schema,
               arrayField: String = "elements",
               idField: String = "id",
               keyField: String = "time",
-              skipValueFields: Set[String] = Set()): IdKeyAndValuesDecoder = {
+              skipValueFields: Set[String] = Set()): ArrayRecordDecoder = {
 
     val name = schema.getName
 
@@ -55,20 +58,22 @@ object AvroArrayDecoder {
       schemaDecodeException(s"$arrayField is not extractable from schema $name")
     }
 
-    val idType = typeTagField(schema, idField)
-    val keyType = typeTagField(elementSchema, keyField)
-    val captureValueFields = fieldsExcept(elementSchema, skipValueFields + keyField)
-    val valueTypes = typeTagFields(elementSchema, captureValueFields)
+    val metaData = {
+      val idType = typeTagField(schema, idField)
+      val keyType = typeTagField(elementSchema, keyField)
+      val key = NameAndType(keyField, keyType)
+      val valueFields = fieldsExcept(elementSchema, skipValueFields + keyField)
+      val valueTypes = typeTagFields(elementSchema, valueFields)
+      val values: Seq[NameAndType] = valueFields zip valueTypes map {
+        case (name, typed) =>
+          NameAndType(name, typed)
+      }
+      ArrayRecordMeta(values = values, key = key, idType = idType)
+    }
 
-    val types = IdKeyAndValuesTypes(idType, keyType, valueTypes)
+    val decoder = recordWithArrayDecoder(idField, arrayField, metaData)
 
-    val idDecoder = fieldReader(idField)
-    val keyDecoder = fieldReader(keyField)
-    val valuesDecoder = multiFieldReader(captureValueFields)
-
-    val decoder = recordWithArrayDecoder(arrayField, idDecoder, keyDecoder, valuesDecoder)
-
-    IdKeyAndValuesDecoder(decoder, types)
+    ArrayRecordDecoder(decoder, metaData)
   }
 
   private def typeTagField(schema: Schema, fieldName: String): TypeTag[_] = {
@@ -100,29 +105,51 @@ object AvroArrayDecoder {
     }
   }
 
-  private def fieldReader(fieldName: String): GenericRecord => Any = { record: GenericRecord =>
-    record.get(fieldName)
-  }
+  /** return a function that reads a Generic record into the ArrayRecordColumns format */
+  private def recordWithArrayDecoder(idField: String,
+                                     arrayField: String,
+                                     metaData: ArrayRecordMeta): GenericRecord => ArrayRecordColumns = {
 
-  private def multiFieldReader(fieldNames: Seq[String]): GenericRecord => Seq[Any] = {
-    record: GenericRecord =>
-      fieldNames.map{ name => record.get(name) }
-  }
-
-  private def recordWithArrayDecoder(arrayField: String, idDecodeor: GenericRecord => Any, keyDecodeor: GenericRecord => Any,
-                                       valuesDecodeor: GenericRecord => Seq[Any]): GenericRecord => IdKeyAndValues = {
     (record: GenericRecord) =>
-      val id = idDecodeor(record)
+      val id = record.get(idField)
       val array = record.get(arrayField).asInstanceOf[GenericData.Array[GenericData.Record]]
-      val keysValues = {
-        (0 until array.size).map { index =>
-          val element = array.get(index)
-          val key = keyDecodeor(element)
-          val values = valuesDecodeor(element)
-          (key, values)
+      log.info(s"reading record for id: $id containing ${array.size} elements")
+
+      /** map over all the rows in the array embedded in the record */
+      def mapRows[T](fn: GenericData.Record => T): Seq[T] = {
+        (0 until array.size).map { rowDex =>
+          fn(array.get(rowDex))
         }
       }
-      IdKeyAndValues(id, keysValues)
+
+      // collect all values in column format 
+      val valueColumns: Seq[Seq[Any]] = {
+        val valueNames = metaData.values.map{ _.name }
+        valueNames.map{ name =>
+          mapRows{ row =>
+            row.get(name)
+          }
+        }
+      }
+
+      // single column of just the keys
+      val keys: Seq[Any] = {
+        mapRows { row =>
+          row.get(metaData.key.name)
+        }
+      }
+
+      // convert to event column format
+      val columns: Seq[Seq[Event[_, _]]] = {
+        valueColumns.map { values =>
+          keys zip values map {
+            case (key, value) =>
+              Event(key, value)
+          }
+        }
+      }
+
+      ArrayRecordColumns(id, columns)
   }
 }
 
@@ -131,10 +158,3 @@ case class SchemaDecodeException(msg: String) extends RuntimeException(msg)
 object SchemaDecodeException {
   def schemaDecodeException(msg: String) = throw SchemaDecodeException(msg)
 }
-
-case class IdKeyAndValuesDecoder(val decodeRecord: GenericRecord => IdKeyAndValues,
-                                 val types: IdKeyAndValuesTypes)
-
-case class IdKeyAndValues(id: Any, keysValues: Seq[(Any, Seq[Any])])
-
-case class IdKeyAndValuesTypes(idType: TypeTag[_], keyType: TypeTag[_], valueTypes: Iterable[TypeTag[_]])

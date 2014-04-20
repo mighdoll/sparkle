@@ -30,55 +30,71 @@ import rx.lang.scala.Observer
 import nest.sparkle.util.WatchReport
 import spray.util._
 import nest.sparkle.loader.kafka.AvroRecordGenerators.genArrayRecords
+import nest.sparkle.util.Log
+import nest.sparkle.loader.kafka.AvroRecordGenerators.GeneratedRecord
+import nest.sparkle.util.ObservableFuture._
 
 class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
-    with KafkaTestConfig with CassandraTestConfig {
-  
+    with KafkaTestConfig with CassandraTestConfig with Log {
+
   val testStore = new ConfiguredCassandra(cassandraConfig)
 
-  def expectedPath(id: String): String = s"sample-data/path/$id/Latency"
+  def expectedPath(id: String): String = s"sample-data/path/$id/Latency/value"
 
   test("load a stream contains a few milliDouble arrays into cassandra") {
     import ExecutionContext.Implicits.global
 
     forAll(genArrayRecords(3), MinSuccessful(1)) { generatedRecords =>
-      KafkaTestUtil.withTestAvroTopic(loaderConfig, MillisDoubleArrayAvro.schema) { kafka =>
-        
+      KafkaTestUtil.withTestAvroTopic(rootConfig, MillisDoubleArrayAvro.schema) { kafka =>
+
         // prefill kafka queue
         kafka.writer.write(generatedRecords.map { _.record })
 
         // run loader
         val overrides =
-          "topics" -> List(kafka.topic) ::
-            "find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleArrayFinder" ::
+          "sparkle-time-server.kafka-loader.topics" -> List(kafka.topic) ::
+            "sparkle-time-server.kafka-loader.auto-start" -> "false" ::
+            "sparkle-time-server.kafka-loader.find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleArrayFinder" ::
             Nil
-            
-        val config = modifiedConfig(loaderConfig, overrides: _*)
-        val loader = new AvroKafkaLoader(config, testStore)
-        val watch = Watch[ColumnUpdate]()
+
+        val modifiedRoot = modifiedConfig(rootConfig, overrides: _*)
+        val loader = new AvroKafkaLoader[Long](modifiedRoot, testStore)
+        val watch = Watch[ColumnUpdate[Long]]()
         loader.watch(watch) // watch loading progress
+        val watchBuffer = watch.report.buffer(generatedRecords.length)
+        watchBuffer.subscribe() // RX is this necessary?
+        
         loader.load()
+        val futureUpdates = watchBuffer.take(1).map(_.head).toFutureSeq
+        futureUpdates.await()
+        futureUpdates.foreach { updates => checkWatch(updates, generatedRecords) }
+        checkCassandra(generatedRecords)
+      }
+    }
 
-        val updates = watch.report.take(generatedRecords.length).toBlockingObservable.toList
+    /** verify that the watch() notifications are correct */
+    def checkWatch(updates: Seq[ColumnUpdate[Long]], generatedRecords: List[GeneratedRecord[Long, Double]]) {
+      // verify update reports
+      val generatedPaths = generatedRecords.map{ record => expectedPath(record.id) }
+      updates.foreach { update =>        
+        generatedPaths.contains(update.columnPath) shouldBe true
+      }
+    }
 
-        // verify update reports
-        val generatedPaths = generatedRecords.map{ record => expectedPath(record.id) }
-        updates.foreach { update =>
-          generatedPaths.contains(update.columnPath) shouldBe true
-        }
-
-        // verify matching data in cassandra 
-        generatedRecords.foreach { generated =>
-          val column = testStore.column[Long, Double](expectedPath(generated.id)).await
-          val results = column.readRange(None, None).toBlockingObservable.toList
-          generated.events.size shouldBe results.length
-          generated.events zip results map {
-            case ((time, value), event) =>
-              time shouldBe event.argument
-              value shouldBe event.value
-          }
+    /** verify that the correct data is in cassandra */
+    def checkCassandra(generatedRecords: List[GeneratedRecord[Long, Double]]) {
+      // verify matching data in cassandra 
+      generatedRecords.foreach { generated =>
+        val column = testStore.column[Long, Double](expectedPath(generated.id)).await
+        val results = column.readRange(None, None).toBlockingObservable.toList
+        generated.events.size shouldBe results.length
+        generated.events zip results map {
+          case ((time, value), event) =>
+            time shouldBe event.argument
+            value shouldBe event.value
         }
       }
     }
+
   }
 }

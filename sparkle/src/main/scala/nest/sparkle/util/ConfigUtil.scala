@@ -17,9 +17,28 @@ package nest.sparkle.util
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigValueFactory
 import scala.collection.JavaConverters._
+import java.io.File
+import com.typesafe.config.ConfigFactory
 
 /** utility functions for working with the typesafe Config library */
 object ConfigUtil {
+  
+  /** Load the configuration from a .conf file in the filesystem, falling back to
+    * the built in reference.conf.
+    */
+  def configFromFile(configFileOpt: Option[String]): Config = {
+    val baseConfig = ConfigFactory.load()
+    val root =
+      configFileOpt.map { configFile =>
+        val file = new File(configFile)
+        val config = ConfigFactory.parseFile(file).resolve()
+        config.withFallback(baseConfig)
+      } getOrElse {
+        baseConfig
+      }
+    root
+  }
+
   /** apply some new key,value settings to a Config, returning the modified config */
   def optionModifiedConfig(config: Config, overrides: Option[(String, Any)]*): Config = {
     overrides.foldLeft(config){ (conf, keyValueOpt) =>
@@ -36,7 +55,7 @@ object ConfigUtil {
 
   /** return a partial function that modifies a Config with a key, value pair */
   private def modify(config: Config): PartialFunction[(String, Any), Config] = {
-    case (key:String, values: Iterable[_]) =>
+    case (key: String, values: Iterable[_]) =>
       config.withValue(key, ConfigValueFactory.fromIterable(values.asJava))
     case (key: String, value: Any) =>
       config.withValue(key, ConfigValueFactory.fromAnyRef(value))

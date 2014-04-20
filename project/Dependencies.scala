@@ -19,7 +19,7 @@ object Dependencies {
     val scalaTest = "2.1.0"
     val akka = "2.3.0"
     val spray = "1.3.1"
-    val rxJava = "0.17.2"
+    val rxJava = "0.17.6"
   }
 
   // Spray + Akka

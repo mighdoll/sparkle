@@ -24,13 +24,13 @@ import spray.json._
 import spray.httpx.SprayJsonSupport._
 import scala.concurrent.duration._
 import nest.sparkle.util.Repeating.repeatWithDelay
-import nest.sparkle.time.server.ConfigServer
+import nest.sparkle.time.server.ConfigureSparkle
 import nest.sparkle.time.server.DataService
 import nest.sparkle.time.protocol.TestDataService
 
 trait DirectoryRegistryFixture extends FunSuite 
   with ScalatestRouteTest with TestDataService with BeforeAndAfterAll {
-  override def testConfig = ConfigServer.loadConfig() 
+  override def testConfig = ConfigureSparkle.loadConfig() 
   val dir = Files.createTempDirectory("testDirectoryRegistry")
   override val registry = DirectoryDataRegistry(dir)
   val store = PreloadedStore(List(SampleData))
