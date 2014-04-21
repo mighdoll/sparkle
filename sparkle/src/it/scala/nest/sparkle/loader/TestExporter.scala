@@ -14,63 +14,36 @@
 
 package nest.sparkle.loader
 
-import java.util.concurrent.TimeUnit
 import java.io.IOException
-import java.nio.file.{Path, Paths, Files, FileVisitResult, SimpleFileVisitor}
-import java.nio.file.attribute.BasicFileAttributes
 import java.nio.charset.StandardCharsets
+import java.nio.file.{FileVisitResult, Files, Path, Paths, SimpleFileVisitor}
+import java.nio.file.attribute.BasicFileAttributes
+import java.util.concurrent.TimeUnit
 
 import scala.concurrent.{Future, Promise}
-import scala.concurrent.duration._
-import scala.collection.JavaConverters._
 
+import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
 import org.slf4j.LoggerFactory
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import org.scalatest.BeforeAndAfterAll
-
-import com.typesafe.config.ConfigFactory
-
-import akka.actor.ActorSystem
-
+import akka.actor._
+import akka.util.Timeout.longToTimeout
 import spray.util._
 
-import nest.sparkle.util.ConfigUtil
-import nest.sparkle.store.cassandra.CassandraStore
-import nest.sparkle.util.GuavaConverters._
+import nest.sparkle.store.cassandra.CassandraTestConfig
 import nest.sparkle.tools.Exporter
 
-class TestExporter extends FunSuite with Matchers with BeforeAndAfterAll {
+class TestExporter extends FunSuite with CassandraTestConfig with Matchers with BeforeAndAfterAll {
   val log = LoggerFactory.getLogger(classOf[TestExporter])
-  
-  val config = {
-    ConfigUtil.modifiedConfig(
-      ConfigFactory.load(), 
-      "exporter.timeout" -> "10s", "exporter.output" -> "/tmp/testexporter",
-      "sparkle-time-server.sparkle-store-cassandra.key-space" -> "testexporter"
-    )
-  }
-  val sparkleConfig =  config.getConfig("sparkle-time-server")
-  val storeConfig = sparkleConfig.getConfig("sparkle-store-cassandra")
-  val contactHosts = storeConfig.getStringList("contact-hosts").asScala.toSeq
-  val keySpace = storeConfig.getString("key-space")
-  lazy val testDb = CassandraStore(sparkleConfig)
-  
-  implicit val system = ActorSystem("test-exporter")
-  import system.dispatcher
-  
-  override def beforeAll() {
-    CassandraStore.dropKeySpace(contactHosts, keySpace)
-  }
-  
-  override def afterAll() {
-    testDb.close().toFuture.await(10.seconds)
-    CassandraStore.dropKeySpace(contactHosts, keySpace)
-  }
+
+  def testKeySpace = "testexporter"
+
+  override lazy val configOverrides = List(
+    ("exporter.timeout" -> "10s"),
+    ("exporter.output" -> "/tmp/testexporter")
+  )
 
   /** return a future that completes when the loader reports that loading is complete */
-  def onLoadComplete(path: String): Future[Unit] = {
+  def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
     val promise = Promise[Unit]()
     system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
       classOf[LoadComplete])
@@ -79,34 +52,42 @@ class TestExporter extends FunSuite with Matchers with BeforeAndAfterAll {
   }
 
   test("export tsv file") {
-    // First load some data
-    val filePath = "sparkle/src/test/resources/epochs.csv"
-    FilesLoader(filePath, testDb)
-    onLoadComplete(filePath).await
-    
-    val output = Paths.get(config.getString("exporter.output"))
-    output match {
-      case p if Files.isDirectory(p) => cleanDirectory(p)
-      case f if Files.exists(f)      => throw new RuntimeException(s"${output.toString} is a file")
-      case _                         => Files.createDirectory(output)
+    withTestDb { testDb =>
+      withTestActors { implicit system =>
+        // First load some data
+        val filePath = "sparkle/src/test/resources/epochs.csv"
+        FilesLoader(filePath, testDb)
+        onLoadComplete(system, filePath).await
+
+        val output = Paths.get(rootConfig.getString("exporter.output"))
+        output match {
+          case p if Files.isDirectory(p) => cleanDirectory(p)
+          case f if Files.exists(f)      => throw new RuntimeException(s"${output.toString} is a file")
+          case _                         => Files.createDirectory(output)
+        }
+
+        val timeout = rootConfig.getDuration("exporter.timeout", TimeUnit.MILLISECONDS)
+        val exporter = Exporter(rootConfig)
+        try {
+          exporter.processDataSet(filePath).await(timeout)
+
+          val dataset = output.resolve(filePath)
+          Files.exists(dataset.resolve("_count.tsv")) shouldBe true
+          Files.exists(dataset.resolve("_p90.tsv")) shouldBe true
+          Files.exists(dataset.resolve("_p99.tsv")) shouldBe true
+
+          val lines = Files.readAllLines(dataset.resolve("_count.tsv"), StandardCharsets.UTF_8)
+          lines.size shouldBe 2752
+          lines.get(0) shouldBe "time\tcount"
+          lines.get(2751) shouldBe "1357713357000\t570.0"
+        } finally {
+          exporter.close()
+        }
+      }
     }
-    
-    val timeout = config.getDuration("exporter.timeout", TimeUnit.MILLISECONDS)
-    Exporter(config).processDataSet(filePath).await(timeout)
-    
-    val dataset = output.resolve(filePath)
-    Files.exists(dataset.resolve("_count.tsv")) shouldBe true
-    Files.exists(dataset.resolve("_p90.tsv")) shouldBe true
-    Files.exists(dataset.resolve("_p99.tsv")) shouldBe true
-    
-    val lines = Files.readAllLines(dataset.resolve("_count.tsv"), StandardCharsets.UTF_8)
-    lines.size shouldBe 2752
-    lines.get(0) shouldBe "time\tcount"
-    lines.get(2751) shouldBe "1357713357000\t570.0"
   }
 
-  /**
-    * Remove all the files in a directory recursively.
+  /** Remove all the files in a directory recursively.
     * @param path Directory to clean.
     */
   private def cleanDirectory(path: Path) {
@@ -118,8 +99,8 @@ class TestExporter extends FunSuite with Matchers with BeforeAndAfterAll {
         }
         override def postVisitDirectory(dir: Path, e: IOException): FileVisitResult = {
           e match {
-            case _:IOException => throw e
-            case _             => 
+            case _: IOException => throw e
+            case _ =>
               Files.delete(dir)
               FileVisitResult.CONTINUE
           }

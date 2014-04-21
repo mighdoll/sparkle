@@ -15,9 +15,7 @@
 package nest.sparkle.store
 
 import scala.concurrent.Future
-
 import com.typesafe.config.Config
-
 import nest.sparkle.util.Instance
 
 /** An abstraction for a datastore that holds readable columns */
@@ -26,18 +24,20 @@ trait Store {
   def dataSet(name: String): Future[DataSet]
 
   /** return a column from a columnPath e.g. "fooSet/barSet/columName". */
-  def column[T,U](columnPath: String): Future[Column[T,U]] 
+  def column[T,U](columnPath: String): Future[Column[T, U]]
+  
+  def close()
 }
 
 object Store {
   /** return an instance of Store, based on the store class specified in the config file */
-  def instantiateStore(config:Config):Store = {
+  def instantiateStore(config: Config): Store = {
     val storeClass = config.getString("store")
     val store = Instance.byName[Store](storeClass)(config)
     store
   }
   /** return an instance of Store, based on the store class specified in the config file */
-  def instantiateWritableStore(config:Config):WriteableStore = {
+  def instantiateWritableStore(config: Config): WriteableStore = {
     val storeClass = config.getString("writeable-store")
     val store = Instance.byName[WriteableStore](storeClass)(config)
     store
@@ -54,6 +54,6 @@ object Store {
   }
 }
 
-case class DataSetNotFound(name:String) extends RuntimeException(name)
+case class DataSetNotFound(name: String) extends RuntimeException(name)
 
-case class ColumnNotFound(column:String) extends RuntimeException(column)
+case class ColumnNotFound(column: String) extends RuntimeException(column)

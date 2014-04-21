@@ -44,6 +44,8 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
     load()
   }
 
+  var readers:Seq[KafkaReader[_]] = Seq()
+  
   /** Start the loader reading from the configured kafka topics
     *
     * Note that load() will consume a thread for each kafka topic
@@ -52,11 +54,18 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
   def load() {
     val finder = decoderFinder()
 
-    topics.foreach { topic =>
-      val decoder = columnDecoder(finder, topic)
-      val reader = KafkaReader(topic, rootConfig, None)(decoder)
-      loadKeyValues(reader, decoder)
-    }
+    readers = 
+      topics.map { topic =>
+        val decoder = columnDecoder(finder, topic)
+        val reader = KafkaReader(topic, rootConfig, None)(decoder)
+        loadKeyValues(reader, decoder)
+        reader
+      }
+  }
+  
+  /** terminate all readers */
+  def close() {
+    readers.foreach{_.close()}
   }
 
   /** thrown if the avro schema specifies an unimplemented key or value type */
@@ -109,6 +118,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
 
     // notify anyone subscribed to the Watched stream that we've written some data 
     updates.foreach { update =>
+      log.trace(s"recordComplete: $update")
       watchedData.onNext(update)
     }
   }

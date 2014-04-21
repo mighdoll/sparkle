@@ -64,5 +64,10 @@ class WriteableRamStore extends Store {
     }.toSeq
   }
   
+  /** free memory we might have been hanging on to */
+  def close() {
+    columns.clear()
+  }
+  
 }
 

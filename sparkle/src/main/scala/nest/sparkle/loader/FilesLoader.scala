@@ -45,22 +45,21 @@ object FilesLoader {
   }
 }
 
-/** 
- * Load all the events in the csv/tsv files in a directory or load a single file. 
- * The directory or file must exist.
- * 
- * @param loadPath Path to directory to load from/watch or a single file to load.
- * @param store Store to write data to.
- */
+/** Load all the events in the csv/tsv files in a directory or load a single file.
+  * The directory or file must exist.
+  *
+  * @param loadPath Path to directory to load from/watch or a single file to load.
+  * @param store Store to write data to.
+  */
 class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: ActorSystem) {
   val log = LoggerFactory.getLogger(classOf[FilesLoader])
   implicit val executor = system.dispatcher
   val root = Paths.get(loadPath)
-  
-  if (Files.notExists(root) ) {
+
+  if (Files.notExists(root)) {
     log.error(s"$loadPath does not exist. Can not load data from this path")
     throw LoadPathDoesNotExist(loadPath)
-  } 
+  }
 
   if (Files.isDirectory(root)) {
     log.info(s"Watching $loadPath for files to load into store")
@@ -104,7 +103,6 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
   }
 
   private def loadRows(rowInfo: CloseableRowInfo, store: WriteableStore, path: Path): Future[Path] = {
-    val finished = Promise[Path]
     val pathString = path.toString
     val dsString = dataSetString(path)
 
@@ -127,60 +125,56 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
         }
       }
 
-    /** create the columns in Storage, in case they don't exist already */
-    def createColumns[T, U](columns: Seq[WriteableColumn[T, U]]): Future[Unit] = {
-      val createdAll = columns.map { _.create(s"loaded from file: $pathString") }
-      
-      Future.sequence(createdAll).map { _ => () }
-    }
-
     /** write all the row data into storage columns */
-    def writeColumns[T, U](rowInfo: RowInfo, columnsWithIndex: Seq[(Int, WriteableColumn[T, U])]) {
+    def writeColumns[T, U](rowInfo: RowInfo,
+                           columnsWithIndex: Seq[(Int, WriteableColumn[T, U])]): Future[Unit] = {
       rowInfo.keyColumn.isDefined || NYI("tables without key column")
 
-      rowInfo.rows.foreach { row =>
-        for {
-          (index, column) <- columnsWithIndex
-          value <- row.values(index)
-          key <- row.key(rowInfo)
-        } {
-          val event = Event(key.asInstanceOf[T], value.asInstanceOf[U])
-          column.write(Seq(event))  // TODO should return these futures, so our caller knows when we're done
+      val rowFutures =
+        rowInfo.rows.flatMap { row =>
+          for {
+            (index, column) <- columnsWithIndex
+            value <- row.values(index)
+            key <- row.key(rowInfo)
+          } yield {
+            val event = Event(key.asInstanceOf[T], value.asInstanceOf[U])
+            column.write(Seq(event))
+          }
         }
+
+      Future.sequence(rowFutures).map { _ => () }
+    }
+
+    val pathWritten:Future[Path] =
+      for {
+        columnsWithIndex <- Future.sequence(futureColumnsWithIndex)
+        columns = columnsWithIndex map { case (index, column) => column }
+        written <- writeColumns(rowInfo, columnsWithIndex)
+      } yield {
+        path
       }
-    }
 
-    for {
-      columnsWithIndex <- Future.sequence(futureColumnsWithIndex)
-      columns = columnsWithIndex map { case (index, column) => column }
-      created <- createColumns(columns)
-    } {
-      writeColumns(rowInfo, columnsWithIndex)   
-      finished.complete(Success(path))  // TODO our future should depend on writeColumns finishing first
-    }
-
-    finished.future
+    pathWritten
   }
 
-  /**
-   * Make the DataSet string from the file's path.
-   *
-   * The dataset string is the file's path minus any parts beginning with an 
-   * underscore.
-   *
-   * @param path Path of the tsv/csv file
-   * @return The DataSet as a string.
-   */
+  /** Make the DataSet string from the file's path.
+    *
+    * The dataset string is the file's path minus any parts beginning with an
+    * underscore.
+    *
+    * @param path Path of the tsv/csv file
+    * @return The DataSet as a string.
+    */
   private def dataSetString(path: Path): String = {
     val parent =
       path.getParent.iterator
         .filterNot(p => p.toString.startsWith("_"))
         .mkString("/")
     val fileName = path.getFileName.toString match {
-        //case s if s.endsWith(".tsv") => s.stripSuffix(".tsv")
-        //case s if s.endsWith(".csv") => s.stripSuffix(".csv")
-        case s                       => s
-      }
+      //case s if s.endsWith(".tsv") => s.stripSuffix(".tsv")
+      //case s if s.endsWith(".csv") => s.stripSuffix(".csv")
+      case s => s
+    }
 
     parent + (fileName match {
       case s if s.startsWith("_") => ""

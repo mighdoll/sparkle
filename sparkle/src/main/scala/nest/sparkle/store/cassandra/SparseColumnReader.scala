@@ -24,24 +24,69 @@ import com.datastax.driver.core.Row
 import com.datastax.driver.core.PreparedStatement
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import scala.reflect.runtime.universe._
+import nest.sparkle.util._
 
-case class SparseReaderStatements(val readAll: PreparedStatement)
+import nest.sparkle.util.Log
+
+object SparseColumnReader extends PrepareTableOperations with Log {
+  case class ReadAll(override val tableName: String) extends TableOperation
+
+  def instance[T, U](dataSetName: String, columnName: String, catalog: ColumnCatalog) // format: OFF
+      (implicit session: Session, execution: ExecutionContext): Future[SparseColumnReader[T,U]] = { // format: ON
+
+    val columnPath = ColumnSupport.constructColumnPath(dataSetName, columnName)
+
+    /** create a SparseColumnReader of the supplied X,Y type. The cast it to the
+      * (presumably wildcard) type of create's T,U parameters.
+      */
+    def makeReader[X, Y](key: CanSerialize[X], value: CanSerialize[Y]): SparseColumnReader[T, U] = {
+      val typed = new SparseColumnReader(dataSetName, columnName, catalog)(key, value, session)
+      typed.asInstanceOf[SparseColumnReader[T, U]]
+    }
+
+    /** create a reader of the appropriate type */
+    def reader(catalogInfo: CatalogInfo): SparseColumnReader[T, U] = {
+      catalogInfo match {
+        case LongDoubleSerializers(KeyValueSerializers(key, value))  => makeReader(key, value)
+        case LongLongSerializers(KeyValueSerializers(key, value))    => makeReader(key, value)
+        case LongIntSerializers(KeyValueSerializers(key, value))     => makeReader(key, value)
+        case LongBooleanSerializers(KeyValueSerializers(key, value)) => makeReader(key, value)
+        case LongStringSerializers(KeyValueSerializers(key, value))  => makeReader(key, value)
+        case _                                                       => ???
+      }
+    }
+
+    for {
+      catalogInfo <- catalog.catalogInfo(columnPath)
+    } yield {
+      reader(catalogInfo)
+    }
+  }
+
+  override val prepareStatements = (ReadAll -> readAllStatement _) :: Nil
+
+  def readAllStatement(tableName: String): String = s"""
+      SELECT argument, value FROM $tableName
+      WHERE dataSet = ? AND column = ? AND rowIndex = ? 
+      """
+}
+
+import SparseColumnReader._
 
 /** read only access to a cassandra source event column */
-case class SparseColumnReader[T, U] (dataSetName: String, columnName: String, session: Session, 
-      catalog: ColumnCatalog) 
-    extends Column[T, U] with PreparedStatements[SparseReaderStatements] with ColumnSupport {
-  def name = columnName  
-  
-  private val domainSerializer = serializers.LongSerializer // TODO read these from catalog
-  private val rangeSerializer = serializers.DoubleSerializer
-  def keyType = typeTag[Long]
-  def valueType = typeTag[Double]
+class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: String, // format: OFF 
+      val columnName: String, catalog: ColumnCatalog) (implicit val session: Session) 
+      extends Column[T, U] with ColumnSupport { // format: ON
 
-  /** return a successful future if the column exists */
-  def exists(implicit context: ExecutionContext): Future[Unit] = {
-    catalog.tableForColumn(columnPath).map{ _ => () }
-  }
+  def name = columnName
+
+  private val keySerializer = implicitly[CanSerialize[T]]
+  private val valueSerializer = implicitly[CanSerialize[U]]
+  def keyType = keySerializer.typedTag
+  def valueType = valueSerializer.typedTag
+
+  val serialInfo = ColumnTypes.serializationInfo()(keySerializer, valueSerializer)
+  val tableName = serialInfo.tableName
   
   /** read a slice of events from the column */      // format: OFF
   def readRange(start:Option[T] = None, end:Option[T] = None) 
@@ -67,32 +112,18 @@ case class SparseColumnReader[T, U] (dataSetName: String, columnName: String, se
 
   /** read all the column values from the column */
   private def readAll()(implicit executionContext: ExecutionContext): Observable[Event[T, U]] = { // format: ON
-    val statement = readerStatements.readAll.bind(
+    val readStatement = statement(ReadAll(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
 
+    log.trace(s"readAll from $tableName $columnPath")
     def rowDecoder(row: Row): Event[T, U] = {
-      val argument = domainSerializer.fromRow(row, 0)
-      val value = rangeSerializer.fromRow(row, 1)
-      Event(argument.asInstanceOf[T], value.asInstanceOf[U])    
+      log.trace(s"rowDecoder: $row")
+      val argument = keySerializer.fromRow(row, 0)
+      val value = valueSerializer.fromRow(row, 1)
+      Event(argument.asInstanceOf[T], value.asInstanceOf[U])
     }
 
-    val rows = session.executeAsync(statement).observerableRows
+    val rows = session.executeAsync(readStatement).observerableRows
     rows map rowDecoder
   }
-
-  private def makeStatements(): SparseReaderStatements = {
-    SparseReaderStatements(
-      readAll = session.prepare(readAllStatement)
-    )
-  }
-
-  private val readAllStatement = """
-    SELECT argument, value FROM bigint0double
-    WHERE dataSet = ? AND column = ? AND rowIndex = ? 
-    """
-    
-  private def readerStatements(): SparseReaderStatements = {
-    preparedStatements(makeStatements)
-  }
-
 }

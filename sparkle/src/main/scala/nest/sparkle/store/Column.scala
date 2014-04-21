@@ -27,11 +27,6 @@ trait Column[T, U] {
   def keyType: TypeTag[_]
   def valueType: TypeTag[_]
 
-  /** return a successful future if the column exists in the storage.
-    * TODO get rid of this, the Storage api needn't make Columns for nonexistent columns. 
-    */
-  def exists(implicit context: ExecutionContext): Future[Unit]
-  
   /** read a slice of events from the column, inclusive of the start and end values.  
    *  If start is missing, read from the first element in the column.  If end is missing
    *  read from the last element in the column.  */      // format: OFF

@@ -39,7 +39,7 @@ case class AsciiString(val string: String) extends AnyVal
 case class NanoTime(val nanos: Long) extends AnyVal
 case class MilliTime(val millis: Long) extends AnyVal
 
-object CassandraStore {
+object CassandraStore extends Log {
   /** return a Storage DAO for cassandra.  */
   def apply(config: Config) = new ConfiguredCassandra(config)
 
@@ -69,12 +69,12 @@ object CassandraStore {
     * @param keySpace keyspace to drop.
     */
   def dropKeySpace(contactHosts: Seq[String], keySpace: String) {
-    val session = getSession(contactHosts)
+    val clusterSession = getClusterSession(contactHosts)
     try {
-      session.execute(s"DROP KEYSPACE IF EXISTS $keySpace")
+      log.info(s"dropping keySpace: $keySpace")
+      clusterSession.session.execute(s"DROP KEYSPACE IF EXISTS $keySpace")
     } finally {
-      session.shutdown()
-      // We don't wait for shutdown since session is abandoned
+      clusterSession.close()
     }
   }
 
@@ -93,12 +93,12 @@ object CassandraStore {
     * @param contactHosts Hosts to connect to
     * @return Cassandra session
     */
-  protected def getSession(contactHosts: Seq[String]): Session = {
+  protected def getClusterSession(contactHosts: Seq[String]): ClusterSession = {
     val builder = Cluster.builder()
     contactHosts.foreach{ builder.addContactPoint(_) }
     val cluster = builder.build()
     val session = cluster.connect()
-    session
+    ClusterSession(cluster, session)
   }
 
   /** Create a connection to the cassandra cluster using the single host.
@@ -106,8 +106,8 @@ object CassandraStore {
     * @param contactHost Host to connect to
     * @return Cassandra session
     */
-  protected def getSession(contactHost: String): Session = {
-    getSession(Seq(contactHost))
+  protected def getClusterSession(contactHost: String): ClusterSession = {
+    getClusterSession(Seq(contactHost))
   }
 
 }
@@ -119,22 +119,27 @@ class ConfiguredCassandra(config: Config) extends CassandraStore {
   override val storeKeySpace = storeConfig.getString("key-space")
 }
 
-/** a Storage DAO for cassandra.  */
+/** a Storage data access object for Cassandra. Supports the Store and WriteableStore apis for 
+ *  reading/writing columns and column metadata.  */
 trait CassandraStore extends Store with WriteableStore with Log {
   lazy val columnCatalog = ColumnCatalog(session)
   lazy val dataSetCatalog = DataSetCatalog(session)
 
   def contactHosts: Seq[String]
   val storeKeySpace: String
-  implicit def execution: ExecutionContext = ExecutionContext.global
+  implicit def execution: ExecutionContext = ExecutionContext.global // TODO use a provided execution context
+
+  /** current cassandra session.  (Currently we use one session for this CassandraStore) */
+  implicit lazy val session: Session = {
+    useKeySpace(clusterSession.session)
+    clusterSession.session
+  }
 
   /** create a connection to the cassandra cluster */
-  implicit lazy val session: Session = {
+  lazy val clusterSession: ClusterSession = {
     try {
       log.info(s"""starting session using contact hosts on ${contactHosts.mkString(",")}""")
-      val session = CassandraStore.getSession(contactHosts)
-      useKeySpace(session)
-      session
+      CassandraStore.getClusterSession(contactHosts)
     } catch {
       case e: Exception => log.error("session creation failed", e); throw e
     }
@@ -142,11 +147,9 @@ trait CassandraStore extends Store with WriteableStore with Log {
 
   /** Close the connection to Cassandra.
     *
-    * Note that close is asynchronous.
-    *
-    * @return ShutdownFuture
+    * Blocks the calling thread until the session is closed
     */
-  def close() = session.shutdown()
+  def close() { clusterSession.close() }
 
   /** Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
     *
@@ -167,15 +170,14 @@ trait CassandraStore extends Store with WriteableStore with Log {
   /** return a column from a fooSet/barSet/columName path */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
-    val column = SparseColumnReader[T, U](dataSetName, columnName, session, columnCatalog)
-    Future.successful(column)
+    val futureColumn = SparseColumnReader.instance[T, U](dataSetName, columnName, columnCatalog)
+    futureColumn
   }
 
   /** return a column from a fooSet/barSet/columName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
-    val column = SparseColumnWriter[T, U](dataSetName, columnName, session, columnCatalog, dataSetCatalog)
-    Future.successful(column)
+    SparseColumnWriter.instance[T, U](dataSetName, columnName, columnCatalog, dataSetCatalog)
   }
 
   /** Create the tables using the session passed.
@@ -192,14 +194,15 @@ trait CassandraStore extends Store with WriteableStore with Log {
     * session to use the default keyspace.
     *
     * @param session The session to use. This shadows the instance variable
-    *               because the instance variable may not be initialized yet.
+    *            because the instance variable may not be initialized yet.
     */
   private def useKeySpace(session: Session) {
     val keySpacesRows = session.executeAsync(s"""
         SELECT keyspace_name FROM system.schema_keyspaces""").observerableRows
 
     val keySpaces = keySpacesRows.toFutureSeq.await
-    val keySpaceFound = keySpaces.map(_.getString(0)).contains(storeKeySpace)
+    log.trace(s"useKeySpace checking keySpaces: $keySpaces")
+    val keySpaceFound = keySpaces.map(_.getString(0).toLowerCase).contains(storeKeySpace)
 
     if (keySpaceFound) {
       session.execute(s"USE $storeKeySpace")

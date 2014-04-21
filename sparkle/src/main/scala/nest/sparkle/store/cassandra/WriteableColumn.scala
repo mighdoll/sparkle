@@ -26,9 +26,6 @@ trait WriteableColumn[T, U] {
    *  have unpredictable results on downstream readers.  */
   def write(items:Iterable[Event[T,U]])(implicit executionContext: ExecutionContext): Future[Unit]
   
-  /** Create the column if it doesn't exist.  LATER get rid of this, write() should  create the column if it doesn't exist */
-  def create(description: String)(implicit executionContext: ExecutionContext): Future[Unit]
-  
   /** (Intended for testing) Delete all the data in the column.   */
   def erase()(implicit executionContext:ExecutionContext): Future[Unit]
 }

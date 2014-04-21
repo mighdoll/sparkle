@@ -161,7 +161,7 @@ object DataSetCatalog {
    */
   def create(session:Session) {
     session.execute(s"""
-      CREATE TABLE $tableName (
+      CREATE TABLE IF NOT EXISTS $tableName (
         parentPath text,
         childPath text,      // children
         isColumn Boolean,

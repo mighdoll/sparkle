@@ -14,58 +14,31 @@
 
 package nest.sparkle.loader
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ Future, Promise }
 import scala.concurrent.duration._
 import scala.util.Success
 import scala.collection.JavaConverters._
-
 import org.slf4j.LoggerFactory
-
 import org.scalatest.FunSuite
 import org.scalatest.Matchers
 import org.scalatest.BeforeAndAfterAll
-
 import com.typesafe.config.ConfigFactory
-
 import akka.actor.ActorSystem
 import akka.actor.Actor
 import akka.actor.Props
-
 import spray.util._
-
 import nest.sparkle.util.ConfigUtil
 import nest.sparkle.store.cassandra.CassandraStore
 import nest.sparkle.util.GuavaConverters._
+import nest.sparkle.store.cassandra.CassandraTestConfig
 
-class TestFilesLoader extends FunSuite with Matchers with BeforeAndAfterAll {
+class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   val log = LoggerFactory.getLogger(classOf[TestFilesLoader])
-  
-  val config = {
-    val source = ConfigFactory.load().getConfig("sparkle-time-server")
-    ConfigUtil.modifiedConfig(
-      source, 
-      "sparkle-store-cassandra.key-space" -> "testfileloader"
-    )
-  }
-  val storeConfig = config.getConfig("sparkle-store-cassandra")
-  val contactHosts = storeConfig.getStringList("contact-hosts").asScala.toSeq
-  val keySpace = storeConfig.getString("key-space")
-  lazy val testDb = CassandraStore(config)
-  
-  implicit val system = ActorSystem("test-FilesLoader")
-  import system.dispatcher
-  
-  override def beforeAll() {
-    CassandraStore.dropKeySpace(contactHosts, keySpace)
-  }
-  
-  override def afterAll() {
-    testDb.close().toFuture.await(10.seconds)
-    CassandraStore.dropKeySpace(contactHosts, keySpace)
-  }
+
+  def testKeySpace = "testfilesloader"
 
   /** return a future that completes when the loader reports that loading is complete */
-  def onLoadComplete(path: String): Future[Unit] = {
+  def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
     val promise = Promise[Unit]
     system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
       classOf[LoadComplete])
@@ -73,34 +46,31 @@ class TestFilesLoader extends FunSuite with Matchers with BeforeAndAfterAll {
     promise.future
   }
 
+  /** try loading a known file and check the expected column for results */
+  def testLoadFile(filePath: String, columnPath: String) {
+    withTestDb { testDb =>
+      withTestActors { implicit system =>
+        import system.dispatcher
+        FilesLoader(filePath, testDb)
+        onLoadComplete(system, filePath).await
+        val column = testDb.column[Long, Double](columnPath).await
+        val read = column.readRange(None, None)
+        val results = read.toBlockingObservable.toList
+        results.length shouldBe 2751
+      }
+    }
+  }
+
   test("load csv file") {
-    val filePath = "sparkle/src/test/resources/epochs.csv"
-    FilesLoader(filePath, testDb)
-    onLoadComplete(filePath).await
-    val column = testDb.column[Long, Double]("sparkle/src/test/resources/epochs.csv/count").await
-    val read = column.readRange(None, None)
-    val results = read.toBlockingObservable.toList
-    results.length shouldBe 2751
+    testLoadFile("sparkle/src/test/resources/epochs.csv", "sparkle/src/test/resources/epochs.csv/count")
   }
 
   test("load csv file with leading underscore in filename") {
-    val filePath = "sparkle/src/test/resources/_epochs.csv"
-    FilesLoader(filePath, testDb)
-    onLoadComplete(filePath).await
-    val column = testDb.column[Long, Double]("sparkle/src/test/resources/count").await
-    val read = column.readRange(None, None)
-    val results = read.toBlockingObservable.toList
-    results.length shouldBe 2751
+    testLoadFile("sparkle/src/test/resources/_epochs.csv", "sparkle/src/test/resources/count")
   }
 
   test("load csv file with leading underscore in directory path element") {
-    val filePath = "sparkle/src/test/resources/_ignore/epochs2.csv"
-    FilesLoader(filePath, testDb)
-    onLoadComplete(filePath).await
-    val column = testDb.column[Long, Double]("sparkle/src/test/resources/epochs2.csv/count").await
-    val read = column.readRange(None, None)
-    val results = read.toBlockingObservable.toList
-    results.length shouldBe 2751
+    testLoadFile("sparkle/src/test/resources/_ignore/epochs2.csv", "sparkle/src/test/resources/epochs2.csv/count")
   }
 }
 

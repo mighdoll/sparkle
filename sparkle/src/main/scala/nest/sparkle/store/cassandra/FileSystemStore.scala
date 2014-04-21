@@ -21,6 +21,7 @@ import nest.sparkle.store.Store
 import nest.sparkle.store.DataSet
 import nest.sparkle.store.Column
 
+// TODO move to legacy or delete
 case class FileSystemStore(root:Path) extends Store{
   /** return the dataset for the provided dataSet name or path (fooSet/barSet/mySet).  */
   def dataSet(name: String): Future[DataSet] = ???
@@ -28,4 +29,5 @@ case class FileSystemStore(root:Path) extends Store{
   /** return a column from a columnPath like fooSet/barSet/columName*/
   def column[T, U](columnPath: String): Future[Column[T, U]] = ???
 
+  def close() = ???
 }

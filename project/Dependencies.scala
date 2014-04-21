@@ -36,7 +36,7 @@ object Dependencies {
   val nScalaTime            = "com.github.nscala-time"    %% "nscala-time"            % "0.4.2"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
   val cassandraAll          = "org.apache.cassandra"      % "cassandra-all"           % "2.0.3"
-  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.0.0-rc1"
+  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.0.0"
   val snappy                = "org.xerial.snappy"         % "snappy-java"             % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           % "lz4"                     % "1.2.0"
 
@@ -54,7 +54,7 @@ object Dependencies {
                               )
 
   object Runtime {
-    val logback              = "ch.qos.logback"            % "logback-classic"         % "1.0.9"      
+    val logback              = "ch.qos.logback"            % "logback-classic"         % "1.0.9"     
   }
 
   object Test {

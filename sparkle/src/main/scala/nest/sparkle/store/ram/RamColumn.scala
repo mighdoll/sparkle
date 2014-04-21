@@ -30,7 +30,6 @@ abstract class RamColumn[T: TypeTag: Ordering, U: TypeTag](val name: String) ext
   def values: Seq[U]
   def keyType = typeTag[T]
   def valueType = typeTag[U]
-  def exists(implicit context: ExecutionContext): Future[Unit] = Future.successful()
 
   def readBefore(start: T, maxResults: Long = Long.MaxValue) // format: OFF
       (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON

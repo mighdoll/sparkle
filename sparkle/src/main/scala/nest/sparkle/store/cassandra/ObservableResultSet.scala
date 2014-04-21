@@ -26,11 +26,12 @@ import nest.sparkle.util.GuavaConverters._
 import scala.annotation.tailrec
 import com.datastax.driver.core.ResultSetFuture
 import rx.lang.scala.Subscriber
+import nest.sparkle.util.Log
 
 object ObservableResultSet {
   /** a ResultSetFuture that can be converted into an Observable for asynchronously 
    *  working with the stream of Rows as the arrive from the database */
-  implicit class WrappedResultSet(val resultSetFuture: ResultSetFuture) {
+  implicit class WrappedResultSet(val resultSetFuture: ResultSetFuture) extends Log {
 
     /** return an Observable[Row] for the Future[ResultSet].  */
     def observerableRows(implicit executionContext: ExecutionContext): Observable[Row] = {
@@ -52,9 +53,9 @@ object ObservableResultSet {
             if (!subscriber.isUnsubscribed) {
               val iterator = resultSet.iterator().asScala
               val availableNow = resultSet.getAvailableWithoutFetching()
-              
+
               iterator.take(availableNow).foreach { row => 
-                subscriber.onNext(row) // TODO RX consider is it ok to block a thread if the consumer is busy here
+                subscriber.onNext(row) // note blocks the thread here if consumer is slow. RX
               }
 
               if (!resultSet.isFullyFetched()) {    // CONSIDER - is this a race with availableNow?

@@ -30,31 +30,46 @@ import nest.sparkle.util.Log
 import SparseColumnWriter._
 import com.typesafe.scalalogging.slf4j.Logger
 import org.slf4j.LoggerFactory
+import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.Executors
 
-case class SparseWriterStatements(
-  val insertOne: PreparedStatement,
-  val deleteAll: PreparedStatement)
+object SparseColumnWriter extends PrepareTableOperations {
+  case class InsertOne(override val tableName: String) extends TableOperation
+  case class DeleteAll(override val tableName: String) extends TableOperation
 
-object SparseColumnWriter {
-  val log = Logger(LoggerFactory.getLogger(getClass.getName))   // SCALA how to extend Log in both class and companion?
+  val log = Logger(LoggerFactory.getLogger(getClass.getName)) // SCALA how to extend Log in both class and companion?
+
+  override val prepareStatements = List(
+    (InsertOne -> insertOneStatement _),
+    (DeleteAll -> deleteAllStatement _)
+  )
+
   /** constructor to create a SparseColumnWriter */
-  def apply[T: CanSerialize, U: CanSerialize](dataSetName: String, columnName: String, session: Session,
-                                              catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog) =
-    new SparseColumnWriter[T, U](dataSetName, columnName, session, catalog, dataSetCatalog)
+  def instance[T: CanSerialize, U: CanSerialize](dataSetName: String, columnName: String, // format: OFF 
+      catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog)
+      (implicit session: Session, execution:ExecutionContext):Future[SparseColumnWriter[T,U]] = { // format: ON
+
+    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog)
+    writer.updateCatalog().map { _ => writer }
+  }
 
   /** create columns for default data types */
-  def createColumnTables(session: Session)(implicit execution: ExecutionContext):Future[Unit] = {
-    createEmptyColumn[Long, Double](session)
+  def createColumnTables(session: Session)(implicit execution: ExecutionContext): Future[Unit] = {
+    val futures = ColumnTypes.supportedColumnTypes.map { serialInfo =>
+      createEmptyColumn(session)(serialInfo.domain, serialInfo.range, execution)
+    }
+    Future.sequence(futures).map { _ => () }
   }
 
   /** create a column asynchronously (idempotent) */
-  protected def createEmptyColumn[T: CanSerialize, U: CanSerialize](session: Session) // format: OFF
+  private def createEmptyColumn[T: CanSerialize, U: CanSerialize](session: Session) // format: OFF
       (implicit execution:ExecutionContext): Future[Unit] = { // format: ON
-    val serials = serialInfo[T, U]()
+    val serialInfo = serializationInfo[T, U]()
     // cassandra storage types for the argument and value
-    val argumentStoreType = serials.domain.columnType
-    val valueStoreType = serials.range.columnType
-    val tableName = serials.tableName
+    val argumentStoreType = serialInfo.domain.columnType
+    val valueStoreType = serialInfo.range.columnType
+    val tableName = serialInfo.tableName
     assert(tableName == CassandraStore.sanitizeTableName(tableName))
 
     val createTable = s"""  
@@ -68,133 +83,91 @@ object SparseColumnWriter {
       ) WITH COMPACT STORAGE
       """
     val created = session.executeAsync(createTable).toFuture.map { _ => () }
-    created.onFailure{ case error => log.error("createEmpty failed", error)}
+    created.onFailure{ case error => log.error("createEmpty failed", error) }
     created
   }
 
-  /** return some serialization info for the types provided */
-  protected def serialInfo[T: CanSerialize, U: CanSerialize](): SerializeInfo[T, U] = {
-    val domainSerializer = implicitly[CanSerialize[T]]
-    val rangeSerializer = implicitly[CanSerialize[U]]
+  private def deleteAllStatement(tableName: String): String = s"""
+      DELETE FROM $tableName
+      WHERE dataSet = ? AND column = ? AND rowIndex = ? 
+      """
 
-    // cassandra storage types for the argument and value
-    val argumentStoreType = domainSerializer.columnType
-    val valueStoreType = rangeSerializer.columnType
-    val tableName = argumentStoreType + "0" + valueStoreType
+  private def insertOneStatement(tableName: String): String = s"""
+      INSERT INTO $tableName
+      (dataSet, column, rowIndex, argument, value)
+      VALUES (?, ?, ?, ?, ?)
+      """
 
-    SerializeInfo(domainSerializer, rangeSerializer, tableName)
-  }
-
-  /** holder for serialization info for given domain and range types */
-  case class SerializeInfo[T, U](domain: CanSerialize[T], range: CanSerialize[U], tableName: String)
 }
 
 /** Manages a column of (argument,value) data pairs.  The pair is typically
   * a millisecond timestamp and a double value.
   */
-class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
-    val dataSetName: String, val columnName: String, session: Session,
-    catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog) 
-  extends WriteableColumn[T, U] with PreparedStatements[SparseWriterStatements] 
-      with ColumnSupport with Log {
+protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
+    val dataSetName: String, val columnName: String, 
+    catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog)(implicit session: Session) 
+  extends WriteableColumn[T, U] with ColumnSupport with Log { // format: ON
 
-  val serials = serialInfo[T, U]()
+  val serialInfo = serializationInfo[T, U]()
+  val tableName = serialInfo.tableName
+  
+  log.debug(s"creating instance for $dataSetName/$columnName $tableName")
 
-  /** create a cassandra table for a given sparse column */
-  def create(description: String)(implicit executionContext: ExecutionContext): Future[Unit] = {
+
+  /** create a catalog entries for this given sparse column */
+  protected def updateCatalog(description: String = "no description")(implicit executionContext: ExecutionContext): Future[Unit] = {
     // LATER check to see if table already exists first
 
-    val entry = CassandraCatalogEntry(columnPath = columnPath, tableName = serials.tableName, description = description,
-      domainType = serials.domain.nativeType, rangeType = serials.range.nativeType)
-    
-    val result = 
+    val entry = CassandraCatalogEntry(columnPath = columnPath, tableName = tableName, description = description,
+      domainType = serialInfo.domain.nativeType, rangeType = serialInfo.range.nativeType)
+
+    val result =
       for {
-        _ <- createEmptyColumn[T, U](session) // TODO can we remove this given the createColumnTables?
         _ <- catalog.writeCatalogEntry(entry)
         _ <- dataSetCatalog.addColumnPath(entry.columnPath)
       } yield { () }
 
-    result.onFailure {case error => log.error("create column failed", error)}
+    result.onFailure { case error => log.error("create column failed", error) }
     result
   }
 
-  // LATER generate the queries for the appropriate table types dynamically
-  // (for now we hard code the bigint0double table for bigint, Double events)
-
-  val insertOneStatement = """
-    INSERT INTO bigint0double
-    (dataSet, column, rowIndex, argument, value)
-    VALUES (?, ?, ?, ?, ?)
-    """
-
-  val deleteAllStatement = """
-    DELETE FROM bigint0double
-    WHERE dataSet = ? AND column = ? AND rowIndex = ? 
-    """
-
-  private def makeStatements(): SparseWriterStatements = {
-    SparseWriterStatements(
-      insertOne = session.prepare(insertOneStatement),
-      deleteAll = session.prepare(deleteAllStatement)
-    )
-  }
-  
   /** write a bunch of column values in a batch */ // format: OFF
   def write(items:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
     val events = items.toSeq
-    log.trace(s"write() events: $events")
-    if (events.length == 1) {
-      writeOne(events.head)
-    } else {
-      writeMany(events)
-    }
+    log.trace(s"write() to $tableName $columnPath  events: $events ")
+    writeMany(events)
   }
 
   /** delete all the column values in the column */
   def erase()(implicit executionContext: ExecutionContext): Future[Unit] = { // format: ON
-    val statement = sparseColumnStatements.deleteAll.bind(Seq[Object](dataSetName, columnName, rowIndex): _*)
-    session.executeAsync(statement).toFuture.map { _ => () }
+    val deleteAll = statement(DeleteAll(tableName)).bind(Seq[Object](dataSetName, columnName, rowIndex): _*)
+    session.executeAsync(deleteAll).toFuture.map { _ => () }
   }  
   
-  /** write one column value */ // format: OFF
-  private def writeOne(event:Event[T,U])
-      (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
-
-    val (argument, value) = serializeEvent(event)
-
-    val statement = sparseColumnStatements.insertOne.bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex, argument, value): _*
-    )
-    session.executeAsync(statement).toFuture.map { _ => () }
-  }
   
   /** write a bunch of column values in a batch */ // format: OFF
   private def writeMany(events:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
-    val statements = events.map { event =>
+    val group = events.map { event =>
       val (argument, value) = serializeEvent(event)
-      sparseColumnStatements.insertOne.bind(
+      statement(InsertOne(tableName)).bind(
         Seq[AnyRef](dataSetName, columnName, rowIndex, argument, value): _*
       )
     }
-    
+
     val batch = new BatchStatement()
-    batch.addAll(statements.toSeq.asJava)
+    batch.addAll(group.toSeq.asJava)
 
     session.executeAsync(batch).toFuture.map { _ => () }
   }
 
   /** return a tuple of cassandra serializable objects for an event */
   private def serializeEvent(event: Event[T, U]): (AnyRef, AnyRef) = {
-    val argument = serials.domain.serialize(event.argument)
-    val value = serials.range.serialize(event.value)
+    val argument = serialInfo.domain.serialize(event.argument)
+    val value = serialInfo.range.serialize(event.value)
 
     (argument, value)
-  }
-
-  private def sparseColumnStatements(): SparseWriterStatements = {
-    preparedStatements(makeStatements)
   }
 
 }

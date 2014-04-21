@@ -33,6 +33,7 @@ object BuildSettings {
     eclipseSettings ++
     itSettingsWithEclipse ++
     slf4jSettings ++
+    testSettings ++
     publishSettings
     
   lazy val orgSettings = Seq(
@@ -56,6 +57,12 @@ object BuildSettings {
     // include integration test code (src/it) in generated eclipse projects
     EclipseKeys.configurations := Set(sbt.Compile, sbt.Test, sbt.IntegrationTest)
   )
+
+  lazy val testSettings = Seq(
+    parallelExecution in test in IntegrationTest:= false  // cassandra driver (2.0.[01]) seems to have trouble with multiple keyspaces..
+//    fork in IntegrationTest := true // LATER clean up tests better so that this is unnecessary
+  )
+
 
   lazy val slf4jSettings = Seq(
     // see http://stackoverflow.com/questions/7898273/how-to-get-logging-working-in-scala-unit-tests-with-testng-slf4s-and-logback

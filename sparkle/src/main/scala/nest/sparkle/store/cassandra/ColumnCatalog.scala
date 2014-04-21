@@ -22,34 +22,37 @@ import nest.sparkle.store.ColumnNotFound
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.OptionConversion._
 import nest.sparkle.util.Log
+import scala.language.existentials
+import scala.reflect.runtime.universe._
+import nest.sparkle.util.TaggedKeyValue
 
-/** 
- * metadata about a column of data 
- * 
- * @param columnPath name of the det and column, e.g. "server1.responseLatency/p99"
- * @param tableName cassandra table for the column e.g. "timestamp0double"
- * @param description description of the column (for developer UI documentation)
- * @param domainType type of domain elements, e.g. "NanoTime" for nanosecond timestamps
- * @param rangeType type of range elements, e.g. "Double" for double event
- */
+/** metadata about a column of data
+  *
+  * @param columnPath name of the det and column, e.g. "server1.responseLatency/p99"
+  * @param tableName cassandra table for the column e.g. "timestamp0double"
+  * @param description description of the column (for developer UI documentation)
+  * @param domainType type of domain elements, e.g. "NanoTime" for nanosecond timestamps
+  * @param rangeType type of range elements, e.g. "Double" for double event
+  */
 case class CassandraCatalogEntry(
-                                  columnPath: String,
-                                  tableName: String,
-                                  description: String,
-                                  domainType: String,
-                                  rangeType: String
-                                )
+  columnPath: String,
+  tableName: String,
+  description: String,
+  domainType: String,
+  rangeType: String)
 
-case class CatalogStatements(addCatalogEntry: PreparedStatement, tableForColumn: PreparedStatement)
+case class CatalogStatements(addCatalogEntry: PreparedStatement,
+                             tableForColumn: PreparedStatement,
+                             catalogInfo: PreparedStatement)
 
 /** Manages a table of CatalogEntry rows in cassandra.  Each CatalogEntry references
   * the cassandra table holding the column data, as well as other
   * metadata about the column like the type of data that is stored in the column.
   */
-case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogStatements] 
+case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogStatements]
     with Log {
   val catalogTable = ColumnCatalog.catalogTable
-  
+
   /** insert or overwrite a catalog entry */
   val addCatalogEntryStatement = s"""
       INSERT INTO $catalogTable 
@@ -61,22 +64,46 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
       SELECT tableName FROM $catalogTable
       WHERE columnPath = ?;
     """
+
+  val catalogInfoStatement = s"""
+      SELECT tableName, domainType, rangeType FROM $catalogTable
+      WHERE columnPath = ?;
+    """
     
-  /** store catalog entry in Cassandra */ // format: OFF
+  /** store metadata about a column in Cassandra */ // format: OFF
   def writeCatalogEntry(entry: CassandraCatalogEntry)
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
+    log.info(s"writing catalog entry: $entry")
     val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef] }.toSeq
     val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
     val result = session.executeAsync(statement).toFuture.map{ _ => }
-    result.onFailure { case error => log.error("writing catalog entry failed", error)}
+    result.onFailure { case error => log.error("writing catalog entry failed", error) }
     result
   }
 
+  /** return metadata about a given columnPath (based on data previously stored with writeCatalogEntry */
+  def catalogInfo(columnPath: String) // format:OFF
+  (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
+    val statement = catalogStatements.catalogInfo.bind(columnPath)
+
+    // result should be a single row containing a three strings: 
+    for {
+      resultSet <- session.executeAsync(statement).toFuture
+      row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath))
+    } yield {
+      val tableName = row.getString(0)
+      val domainType = CanSerialize.stringToTypeTag(row.getString(1))
+      val rangeType = CanSerialize.stringToTypeTag(row.getString(2))
+      CatalogInfo(tableName, domainType, rangeType)
+    }
+  }
+
+  // TODO I think we can get rid of this now
   /** return the cassandra table name for a given column */
   def tableForColumn(columnPath: String) // format: OFF
       (implicit executionContext: ExecutionContext): Future[String] = { // format: ON
     val statement = catalogStatements.tableForColumn.bind(columnPath)
-    
+
     // result should be a single row containing a single string: the table name for the column
     for {
       resultSet <- session.executeAsync(statement).toFuture
@@ -94,23 +121,25 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
   def makeStatements(): CatalogStatements = {
     CatalogStatements(
       addCatalogEntry = session.prepare(addCatalogEntryStatement),
-      tableForColumn = session.prepare(tableForColumnStatement)
+      tableForColumn = session.prepare(tableForColumnStatement),
+      catalogInfo = session.prepare(catalogInfoStatement)
     )
   }
 }
 
+case class CatalogInfo(tableName: String, keyType: TypeTag[_], valueType: TypeTag[_]) extends TaggedKeyValue
+
 object ColumnCatalog {
-  
+
   val catalogTable = "catalog"
 
-  /**
-   * Create the table using the session passed.
-   * 
-   * @param session Session to use. Shadows instance variable.
-   */
+  /** Create the table using the session passed.
+    *
+    * @param session Session to use. 
+    */
   def create(session: Session) {
     session.execute(s"""
-      CREATE TABLE $catalogTable (
+      CREATE TABLE IF NOT EXISTS $catalogTable (
         columnPath text,
         tableName text,
         description text,
@@ -120,6 +149,6 @@ object ColumnCatalog {
       );"""
     )
   }
-  
+
 }
 

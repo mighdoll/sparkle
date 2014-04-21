@@ -25,7 +25,7 @@ import rx.lang.scala.Observable
   * a filter by calling watch() on a Watch object. Results matching the filter are reported 
   * to an Observable in the Watch object.
   */
-trait Watched[T] {
+trait Watched[T] extends Log {
   // raw data stream that we for watchers 
   private val publishedData = PublishSubject[T]()
 
@@ -67,7 +67,9 @@ trait Watched[T] {
     validSubscriptions().foreach { subscribe =>
       subscribe.filter match {
         case Some(filter) if !filter(event) => // skip, filter didn't match
-        case _                              => subscribe.fullReport.onNext(WatchData(event))
+        case _                              => 
+          log.trace(s"processEvent: $event")
+          subscribe.fullReport.onNext(WatchData(event))
       }
     }
   }
@@ -123,7 +125,7 @@ case class Watch[T](
   lazy val report: Observable[T] = {
     // RX Observable.collect would be handy here
     fullReport.flatMap { watchReport =>
-      log.trace(s"report: $watchReport")
+      log.trace(s"report: $watchReport")    // TODO why is this received twice?
       watchReport match {
         case WatchData(data)          => Observable.from(List(data))
         case started: WatchStarted[T] => Observable.empty

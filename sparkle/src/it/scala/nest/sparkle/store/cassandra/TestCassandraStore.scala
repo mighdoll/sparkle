@@ -15,88 +15,52 @@
 package nest.sparkle.store.cassandra
 
 import scala.util.Failure
-import scala.concurrent.{ExecutionContext,Future}
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
-
 import com.datastax.driver.core.Session
-
 import spray.util._
-
-import org.scalatest.{Matchers,FunSuite,BeforeAndAfterEach}
+import org.scalatest.{ Matchers, FunSuite, BeforeAndAfterEach }
 import org.scalatest.prop.PropertyChecks
-
 import org.scalacheck.Gen
-
 import com.typesafe.config.ConfigFactory
-
-import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
+import nest.sparkle.store.{ ColumnNotFound, DataSetNotFound, Event }
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.util.ConfigUtil
 import nest.sparkle.util.GuavaConverters._
+import nest.sparkle.util.ConfigureLogback
+import nest.sparkle.util.RandomUtil.randomAlphaNum
 
-class TestCassandraStore extends FunSuite
-                                 with Matchers
-                                 with PropertyChecks
-                                 with BeforeAndAfterEach
-{
+class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with CassandraTestConfig {
   import ExecutionContext.Implicits.global
 
-  val config = {
-    val source = ConfigFactory.load().getConfig("sparkle-time-server")
-    ConfigUtil.modifiedConfig(
-      source, 
-      "sparkle-store-cassandra.key-space" -> "testcassandrastore"
-    )
-  }
-  val storeConfig = config.getConfig("sparkle-store-cassandra")
-  val testContactHosts = storeConfig.getStringList("contact-hosts").asScala.toSeq
-  val testKeySpace = storeConfig.getString("key-space")
-  val testColumn = "latency.p99"
-  val testId = "server1"
-  val columnPath = s"$testId/$testColumn"
+  def testKeySpace = "testcassandrastore"
 
-  var testDb: Option[CassandraStore] = None 
-  
-  override def beforeEach() = {
-    CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
-    val store = CassandraStore(config)
-    val column = store.writeableColumn[NanoTime, Double](columnPath).await
-    column.create("a test column").await
-    
-    testDb = Some(store)
-    
-    super.beforeEach()
-  }
-
-  override def afterEach() = {
+  def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStore) // format: OFF
+      (fn: (WriteableColumn[T,U], String) => Unit): Unit = { // format: ON
+    val testColumn = s"latency.p99.${randomAlphaNum(3)}"
+    val testId = "server1"
+    val testColumnPath = s"$testId/$testColumn"
+    val column = store.writeableColumn[T, U](testColumnPath).await
     try {
-      super.afterEach()
-    } finally {
-      testDb.foreach(_.close().toFuture.await(10.seconds))
-      testDb = None
-      CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
+      fn(column, testColumnPath)
     }
   }
 
-  /** recreate the database and a test column */
-  def withTestDb[T](fn: CassandraStore => T): T = {
-    testDb.map(fn).get
-  }
-
-  /**
-   * Sanity test to validate store can be created w/o an exception.
-   */
+  /** Sanity test to validate store can be created w/o an exception.
+    */
   test("create event schema and catalog") {
     withTestDb { _ => }
   }
-  
+
   test("erase works") {
-    testDb.map{ store => 
-      store.format()
-      // columnPath no longer in the store
-      val result = store.columnCatalog.tableForColumn(columnPath).failed.await
-      result shouldBe ColumnNotFound(columnPath)
+    withTestDb{ store =>
+      withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
+        store.format()
+        // columnPath no longer in the store
+        val result = store.columnCatalog.tableForColumn(testColumnPath).failed.await
+        result shouldBe ColumnNotFound(testColumnPath)
+      }
     }
   }
 
@@ -108,46 +72,66 @@ class TestCassandraStore extends FunSuite
       result shouldBe ColumnNotFound(notColumn)
     }
   }
-  
-  test("missing column !exists") {
-    val notColumn = "foo/notAColumn"
+
+  test("missing column returns ColumnNotFound") {
+    val badPath = "foo/notAColumn"
     withTestDb { store =>
-      val column = store.column[Int, Double](notColumn).await
-      val result = column.exists.failed.await
-      result shouldBe ColumnNotFound(notColumn)
+      val column = store.column[Int, Double](badPath)
+      val done = column.recover {
+        case ColumnNotFound(columnPath) => columnPath shouldBe badPath
+      }
+      done.await
     }
   }
 
-  test("read+write one item") {
-    withTestDb { store =>
-      val writeColumn = store.writeableColumn[Long, Double](columnPath).await
-      writeColumn.write(Seq(Event(100L, 1.1d))).await
-      
-      val readColumn = store.column[Long, Double](columnPath).await
-      val read = readColumn.readRange(None, None)
-      val results = read.toBlockingObservable.single
-      results shouldBe Event(100L, 1.1d)
-    }
-  }
 
-  test("read+write many events") {
-    withTestDb { implicit store =>
-      val writeColumn = store.writeableColumn[Long, Double](columnPath).await
-      val readColumn = store.column[Long, Double](columnPath).await
-      forAll(Gen.chooseNum(0, 1000), minSuccessful(10)) { rowCount =>
-        writeColumn.erase().await
-        
-        val events = Range(0, rowCount).map { index =>
-          Event(index.toLong, index.toDouble)
-        }.toIterable
-        
-        writeColumn.write(events).await
+  test("read+write one long-int item") {
+    withTestDb { store =>
+      withTestColumn[Long, Int](store) { (writeColumn, testColumnPath) =>
+        val event = Event(100L, 1)
+        writeColumn.write(event :: Nil).await
+
+        val readColumn = store.column[Long, Int](testColumnPath).await
         val read = readColumn.readRange(None, None)
-        val results = read.toBlockingObservable.toList
-        results.length shouldBe rowCount
-        results.zipWithIndex.foreach {
-          case (item, index) =>
-            item shouldBe Event(index, index)
+        val results = read.toBlockingObservable.single
+        results shouldBe event
+      }
+    }
+  }
+
+  test("read+write one long-double item") {
+    Thread.sleep(2000)
+    withTestDb { store =>
+      withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
+        writeColumn.write(Seq(Event(100L, 1.1d))).await
+
+        val readColumn = store.column[Long, Double](testColumnPath).await
+        val read = readColumn.readRange(None, None)
+        val results = read.toBlockingObservable.single
+        results shouldBe Event(100L, 1.1d)
+      }
+    }
+  }
+  
+  test("read+write many long double events") {
+    withTestDb { implicit store =>
+      withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
+        val readColumn = store.column[Long, Double](testColumnPath).await
+        forAll(Gen.chooseNum(0, 1000), minSuccessful(10)) { rowCount =>
+          writeColumn.erase().await
+
+          val events = Range(0, rowCount).map { index =>
+            Event(index.toLong, index.toDouble)
+          }.toIterable
+
+          writeColumn.write(events).await
+          val read = readColumn.readRange(None, None)
+          val results = read.toBlockingObservable.toList
+          results.length shouldBe rowCount
+          results.zipWithIndex.foreach {
+            case (item, index) =>
+              item shouldBe Event(index, index)
+          }
         }
       }
     }
@@ -157,26 +141,27 @@ class TestCassandraStore extends FunSuite
     withTestDb { store =>
       val parts = Array("a", "b", "c", "d", "e", "column")
       val paths = parts.scanLeft("") {
-        case ("",x) => x
-        case (last,x) => last + "/" + x
+        case ("", x)   => x
+        case (last, x) => last + "/" + x
       }.tail
       val writeColumn = store.writeableColumn[Long, Double](paths.last).await
-      writeColumn.create("a column with multi-level datasets").await
-      
+
       // Each part except for the last should have a single dataset child
-      paths.dropRight(1).sliding(2).foreach { case Array(parent,child) =>
-        val root = store.dataSet(parent).await
-        val childDataSets = root.childDataSets.toBlockingObservable.toList
-        childDataSets.length shouldBe 1
-        childDataSets(0).name shouldBe child
+      paths.dropRight(1).sliding(2).foreach {
+        case Array(parent, child) =>
+          val root = store.dataSet(parent).await
+          val childDataSets = root.childDataSets.toBlockingObservable.toList
+          childDataSets.length shouldBe 1
+          childDataSets(0).name shouldBe child
       }
-      
+
       // The last dataset path should have one child that is a column
-      paths.takeRight(2).sliding(2).foreach { case Array(parent,child) =>
-        val root = store.dataSet(parent).await
-        val columns = root.childColumns.toBlockingObservable.toList
-        columns.length shouldBe 1
-        columns(0) shouldBe child
+      paths.takeRight(2).sliding(2).foreach {
+        case Array(parent, child) =>
+          val root = store.dataSet(parent).await
+          val columns = root.childColumns.toBlockingObservable.toList
+          columns.length shouldBe 1
+          columns(0) shouldBe child
       }
     }
   }
@@ -189,24 +174,23 @@ class TestCassandraStore extends FunSuite
         case (last, x) => last + "/" + x
       }.tail
       val writeColumn1 = store.writeableColumn[Long, Double](paths1.last).await
-      writeColumn1.create("a column with multi-level datasets").await
-    
+
       val parts2 = Array("a", "b", "c", "d", "e", "columnA")
       val paths2 = parts2.scanLeft("") {
         case ("", x)   => x
         case (last, x) => last + "/" + x
       }.tail
       val writeColumn2 = store.writeableColumn[Long, Double](paths2.last).await
-      writeColumn2.create("a column with multi-level datasets").await
-      
+
       // Each part except for the last should have a single dataset child
-      paths1.dropRight(1).sliding(2).foreach { case Array(parent,child) =>
-        val root = store.dataSet(parent).await
-        val childDataSets = root.childDataSets.toBlockingObservable.toList
-        childDataSets.length shouldBe 1
-        childDataSets(0).name shouldBe child
+      paths1.dropRight(1).sliding(2).foreach {
+        case Array(parent, child) =>
+          val root = store.dataSet(parent).await
+          val childDataSets = root.childDataSets.toBlockingObservable.toList
+          childDataSets.length shouldBe 1
+          childDataSets(0).name shouldBe child
       }
-      
+
       // The last dataset path should have two children that are columns
       paths1.takeRight(2).dropRight(1).foreach { parent =>
         val root = store.dataSet(parent).await
@@ -227,29 +211,27 @@ class TestCassandraStore extends FunSuite
         case (last, x) => last + "/" + x
       }.tail
       val writeColumn1 = store.writeableColumn[Long, Double](paths1.last).await
-      writeColumn1.create("a column with multi-level datasets").await
-    
+
       val parts2 = Array("a", "b", "c2", "column")
       val paths2 = parts2.scanLeft("") {
         case ("", x)   => x
         case (last, x) => last + "/" + x
       }.tail
       val writeColumn2 = store.writeableColumn[Long, Double](paths2.last).await
-      writeColumn2.create("a column with multi-level datasets").await
-      
+
       // "a/b" should have two children, "a/b/c1" and "a/b/c2"
       val root = store.dataSet("a/b").await
       val childDataSets = root.childDataSets.toBlockingObservable.toList
       childDataSets.length shouldBe 2
       childDataSets(0).name shouldBe "a/b/c1"
       childDataSets(1).name shouldBe "a/b/c2"
-      
+
       // Ensure c level datasets have one child column
       Array("a/b/c1", "a/b/c2").foreach { parent =>
         val root = store.dataSet(parent).await
         val columns = root.childColumns.toBlockingObservable.toList
         columns.length shouldBe 1
-        columns(0) shouldBe (parent+"/"+parts1.last)
+        columns(0) shouldBe (parent + "/" + parts1.last)
       }
     }
   }
@@ -259,6 +241,6 @@ class TestCassandraStore extends FunSuite
       val result = store.dataSet("foo")
       result.failed.await shouldBe DataSetNotFound("foo does not exist")
     }
-   }
+  }
 
 }

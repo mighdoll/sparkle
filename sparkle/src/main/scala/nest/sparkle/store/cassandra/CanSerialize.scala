@@ -20,23 +20,42 @@ import scala.reflect.runtime.universe._
 import scala.concurrent.duration.NANOSECONDS
 import com.datastax.driver.core.Row
 
+/** utilities for converting between typeTags and cassandra serialized nativeType strings */
+object CanSerialize {
+  /** return a TypeTag from cassandra serialized nativeType string */
+  def stringToTypeTag(typeString: String): TypeTag[_] = {
+    typeString match {
+      case "Double"  => typeTag[Double]
+      case "Long"    => typeTag[Long]
+      case "String"  => typeTag[String]
+      case "Boolean" => typeTag[Boolean]
+      case "Int"     => typeTag[Int]
+      case _         => ???
+    }
+  }
+
+  /** return nativeType string from a TypeTag */
+  def typeTagToString(typeTag: TypeTag[_]): String = {
+    typeTag.tpe.toString
+  }
+}
+
 /** a cassandra serializer/deserializer */
 abstract class CanSerialize[T: TypeTag] {
   /** return the cassandra data type */
   def columnType: String
 
   /** return a string representation of the stored scala type */
-  def nativeType: String = {
-    val x = implicitly[TypeTag[T]]
-    x.tpe.toString()
-  }
+  def nativeType: String = CanSerialize.typeTagToString(implicitly[TypeTag[T]])
   
   /** serialize a scala native type into an AnyRef that maps directly to a cassandra data type */
   def serialize(value: T): AnyRef = value.asInstanceOf[AnyRef]
-  
-  /** deserialize a scala native type from a cassandra row */
-  def fromRow(row: Row, index: Int): T 
 
+  /** deserialize a scala native type from a cassandra row */
+  def fromRow(row: Row, index: Int): T
+
+  /** return the TypeTag for the type we CanSerialize */
+  def typedTag:TypeTag[T] = typeTag[T]
 }
 
 /** standard serializers for cassandra data types */
@@ -48,15 +67,17 @@ object serializers {
       row.getLong(index)
     }
   }
+  
   implicit object NanoTimeSerializer extends CanSerialize[NanoTime] {
-    def columnType = "bigint"    
+    def columnType = "bigint"
     override def serialize(value: NanoTime) = value.nanos.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): NanoTime = {
       NanoTime(row.getLong(index))
     }
   }
+  
   implicit object MilliTimeSerializer extends CanSerialize[MilliTime] {
-    def columnType = "bigint"    
+    def columnType = "bigint"
     override def serialize(value: MilliTime) = value.millis.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): MilliTime = {
       MilliTime(row.getLong(index))
@@ -70,6 +91,7 @@ object serializers {
       FiniteDuration(row.getLong(index), NANOSECONDS)
     }
   }
+  
   implicit object DoubleSerializer extends CanSerialize[Double] {
     def columnType = "double"
     def deserialize(serialized: AnyRef): Double =
@@ -92,12 +114,14 @@ object serializers {
       row.getBool(index)
     }
   }
+  
   implicit object StringSerializer extends CanSerialize[String] {
     def columnType = "text"
     def fromRow(row: Row, index: Int): String = {
       row.getString(index)
     }
   }
+  
   implicit object AsciiSerializer extends CanSerialize[AsciiString] {
     def columnType = "ascii"
     def fromRow(row: Row, index: Int): AsciiString = {

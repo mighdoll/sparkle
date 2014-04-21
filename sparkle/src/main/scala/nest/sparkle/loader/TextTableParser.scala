@@ -42,6 +42,7 @@ object TextTableParser {
     }
 
     val columnTypes: Seq[TypeTag[_]] = {
+      // TODO support other column value types
       // for now, assume everything's a double except the index which is a long
       val doubleTags = columnMap.data.toList map { case (name, index) => (typeTag[Double], index) }
       val indexTag = typeTag[Long] -> columnMap.time

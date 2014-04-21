@@ -27,4 +27,6 @@ trait KafkaTestConfig {
     ConfigureLog4j.configure(kafkaLoaderConfig)
     root
   }
+  
+
 }
