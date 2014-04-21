@@ -93,10 +93,12 @@ describe("chart", function() {
         saveArgs = Array.prototype.slice.call(arguments, 0);
     setTimeout(function() {
       deferred.resolve(dataApi.apply(saveThis, saveArgs));
-    }, slowDataApi);
+    }, slowApiDelay);
 
     return deferred.promise;
   }
+  slowDataApi.toObject = dataApi.toObject;
+  slowDataApi.millisToDates = dataApi.millisToDates;
 
 
   /** draw the chart, return a when that completes when the chart has drawn */

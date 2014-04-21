@@ -49,11 +49,11 @@ describe("dashboard", function() {
     drawDashboard([bugs]).then(fixture.finish(done));
   });
   
-  xit("can draw two charts", function(done) {
+  it("can draw two charts", function(done) {
     drawDashboard([bugs, bugs]).then(fixture.finish(done));
   });
 
-  xit("two charts zoom together", function(done) {
+  it("two charts zoom together", function(done) {
     drawDashboard([bugs, bugs], setZoomTogether)
       .then(zoomOne)
       .then(verify)
@@ -69,7 +69,7 @@ describe("dashboard", function() {
     }
   });
 
-  xit("history back returns to original state", function(done) {
+  it("history back returns to original state", function(done) {
     var promisedDash = drawDashboard([bugs]),
         chartSelection = d3.select(".chart");
 

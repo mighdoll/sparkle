@@ -12,15 +12,15 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["lib/when/when"], function(when) {
+define(["lib/when/when", "sg/data"], function(when, dataApi) {
 
   /** returns an object that supports the async data() api
    *
    * Call with a local array of data: [Date, Number] */
   return function(dataArray) {
     
-    returnFn.millisToDates = millisToDates;
-    returnFn.toObject = toObject;
+    returnFn.millisToDates = dataApi.millisToDates;
+    returnFn.toObject = dataApi.toObject;
     return returnFn;
 
     /* return data points within the domain from a local RAM array.
@@ -64,24 +64,6 @@ define(["lib/when/when"], function(when) {
 
       var result = dataArray.slice(start, endDex + 1);
       return when.resolve(result);
-    }
-  
-    /** convert [Millis,Number] to [Date, Number] format */
-    function millisToDates(jsonArray) {
-      var data = jsonArray.map( function (row) { 
-        var time = new Date(row[0]);
-        return [time, row[1]]; 
-      });
-      return data;
-    }
-  
-    /** convert [String,Value] to {name1: value1, name2: value2}.  */
-    function toObject(jsonArray) {
-      var result = {};
-      jsonArray[0].forEach( function(element) {
-        result[element[0]] = element[1];
-      });
-      return result;
     }
 
     /**

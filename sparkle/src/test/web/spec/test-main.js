@@ -31,7 +31,7 @@ requirejs.config({
 });
 
 require(['boot','jquery.simulate'], function() {
-    require(["spec/dashboardSpec"], function() {
+    require(["spec/chartSpec", "spec/dashboardSpec", "spec/zoomSpec"], function() {
         // onload has already happened by time require executes. Run fcn boot.js setup.
         window.onload();
     });
