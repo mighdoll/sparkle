@@ -1,5 +1,5 @@
 define([], 
-function(_simulate) {
+function() {
   /** generate DOM events as if the mouse was clicked 
    *
    * .selection:D3Selection     - mouse events will target the first element in the selection

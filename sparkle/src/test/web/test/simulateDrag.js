@@ -1,5 +1,5 @@
 define([], 
-function(_simulate) {
+function() {
   /** simulate the mousedown,mousemove,mouseup and click events of a drag operation.
    * selection: [Selection] - single node d3 selection 
    * ?start: [Number,Number] - start drag from this x,y (relative to the selection upper left)
