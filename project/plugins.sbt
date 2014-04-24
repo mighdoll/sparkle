@@ -24,3 +24,5 @@ addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.8")
 // for quick rebuilds of any scala service, not needed for deployed builds, but handy for development
 addSbtPlugin("io.spray" % "sbt-revolver" % "0.7.1")
 
+// for scalastyle checks
+addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "0.4.0")

@@ -34,7 +34,8 @@ object BuildSettings {
     itSettingsWithEclipse ++
     slf4jSettings ++
     testSettings ++
-    publishSettings
+    publishSettings ++
+    org.scalastyle.sbt.ScalastylePlugin.Settings
     
   lazy val orgSettings = Seq(
     organization := "nest",
