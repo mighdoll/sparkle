@@ -98,6 +98,6 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
 
 /** Enables reading streams from kafka topics */
 object KafkaReader {
-  def apply[T: Decoder](topic: String, config: Config = ConfigFactory.load(), clientGroup: Option[String]) =
+  def apply[T: Decoder](topic: String, config: Config = ConfigFactory.load(), clientGroup: Option[String]): KafkaReader[T] =
     new KafkaReader[T](topic, config, clientGroup)
 }

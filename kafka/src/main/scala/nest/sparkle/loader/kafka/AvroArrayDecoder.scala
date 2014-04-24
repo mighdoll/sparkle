@@ -156,5 +156,5 @@ object AvroArrayDecoder extends Log {
 /** failure in configuring the avro schema */
 case class SchemaDecodeException(msg: String) extends RuntimeException(msg)
 object SchemaDecodeException {
-  def schemaDecodeException(msg: String) = throw SchemaDecodeException(msg)
+  def schemaDecodeException(msg: String): Nothing = throw SchemaDecodeException(msg)
 }

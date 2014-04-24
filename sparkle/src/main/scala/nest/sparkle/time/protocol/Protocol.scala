@@ -66,7 +66,7 @@ case class SummarizeParams[T](
 
 /** Spray json converters for transform parameters */
 object TransformParametersJson extends DefaultJsonProtocol {
-  implicit def SummarizeParamsFormat[T: JsonFormat] = jsonFormat4(SummarizeParams.apply[T])
+  implicit def SummarizeParamsFormat[T: JsonFormat]: RootJsonFormat[SummarizeParams[T]] = jsonFormat4(SummarizeParams.apply[T])
 }
 
 /** Start some data streams.  Sent from server to client */
@@ -85,9 +85,9 @@ case object ValueType extends JsonStreamType("Value")
 /** Spray json encoder/decoder for JsonStreamType */
 object JsonStreamTypeFormat extends DefaultJsonProtocol {
   implicit object JsonStreamTypeFormatter extends JsonFormat[JsonStreamType] {
-    def write(jsonStreamType: JsonStreamType) = JsString(jsonStreamType.name)
+    def write(jsonStreamType: JsonStreamType): JsValue = JsString(jsonStreamType.name)
 
-    def read(value: JsValue) = value match {
+    def read(value: JsValue): JsonStreamType = value match {
       case JsString(KeyValueType.name) => KeyValueType
       case JsString(ValueType.name)    => ValueType
       case _                           => throw new DeserializationException("JsonStreamType expected")
@@ -112,8 +112,8 @@ object ResponseJson extends DefaultJsonProtocol {
 /** spray json converters for MilliTime */
 object TimeJson extends DefaultJsonProtocol {
   implicit object MilliTimeFormat extends JsonFormat[MilliTime] {
-    def write(milliTime: MilliTime) = JsNumber(milliTime.millis)
-    def read(value: JsValue) = value match {
+    def write(milliTime: MilliTime): JsValue = JsNumber(milliTime.millis)
+    def read(value: JsValue): MilliTime = value match {
       case JsNumber(millis) => MilliTime(millis.toLong)
       case _                => throw new DeserializationException("MilliTime expected")
     }
@@ -127,11 +127,11 @@ object EventJson extends DefaultJsonProtocol {
     val valueFormat = implicitly[JsonFormat[U]]
 
     new JsonFormat[Event[T, U]] {
-      def write(event: Event[T, U]) = {
+      def write(event: Event[T, U]): JsValue = {
         JsArray(argumentFormat.write(event.argument), valueFormat.write(event.value))
       }
 
-      def read(value: JsValue) = value match {
+      def read(value: JsValue): Event[T, U] = value match {
         case JsArray(Seq(elem1, elem2)) =>
           val argument = argumentFormat.read(elem1)
           val value = valueFormat.read(elem2)

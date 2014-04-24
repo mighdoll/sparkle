@@ -57,5 +57,5 @@ case class KeyValueSerializers[T, U](keySerializer: CanSerialize[T], valueSerial
 /** support for writing an extractor from TaggedKeyValue to a KeyValueSerializer */
 class SerializerExtractor[T: CanSerialize :TypeTag, U: CanSerialize :TypeTag] 
     extends TaggedKeyValueExtractor[T, U, KeyValueSerializers[T, U]] {
-  def cast = KeyValueSerializers(implicitly[CanSerialize[T]], implicitly[CanSerialize[U]])
+  def cast: KeyValueSerializers[T, U] = KeyValueSerializers(implicitly[CanSerialize[T]], implicitly[CanSerialize[U]])
 }

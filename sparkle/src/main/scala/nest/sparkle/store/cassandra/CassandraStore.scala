@@ -41,7 +41,7 @@ case class MilliTime(val millis: Long) extends AnyVal
 
 object CassandraStore extends Log {
   /** return a Storage DAO for cassandra.  */
-  def apply(config: Config) = new ConfiguredCassandra(config)
+  def apply(config: Config): CassandraStore = new ConfiguredCassandra(config)
 
   /** Convert a proposed name into a name that's safe to use as a cassandra table name (aka column family).
     * illegal characters are removed.  too long names are partially replaced with a random string

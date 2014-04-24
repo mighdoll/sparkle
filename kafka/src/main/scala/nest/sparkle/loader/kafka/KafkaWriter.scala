@@ -57,6 +57,6 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log{
 
 /** enables writing to a kafka topic */
 object KafkaWriter {
-  def apply[T: Encoder](topic: String, config: Config = ConfigFactory.load()) =
-    new KafkaWriter(topic, config)
+  def apply[T: Encoder](topic: String, config: Config = ConfigFactory.load()): KafkaWriter[T] =
+    new KafkaWriter[T](topic, config)
 }

@@ -42,5 +42,5 @@ case class PreloadedStore(dataSetList:Iterable[DataSetOld]) extends Store {
   /** return a column from a columnPath like fooSet/barSet/columName*/
   def column[T, U](columnPath: String): Future[Column[T, U]] = ???
   
-  def close() = ???
+  def close(): Unit = ???
 }

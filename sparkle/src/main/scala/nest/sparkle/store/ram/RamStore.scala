@@ -65,7 +65,7 @@ class WriteableRamStore extends Store {
   }
   
   /** free memory we might have been hanging on to */
-  def close() {
+  def close(): Unit = {
     columns.clear()
   }
   

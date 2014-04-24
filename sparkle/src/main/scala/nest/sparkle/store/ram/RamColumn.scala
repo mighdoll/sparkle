@@ -28,8 +28,8 @@ import nest.sparkle.store.cassandra.WriteableColumn
 abstract class RamColumn[T: TypeTag: Ordering, U: TypeTag](val name: String) extends Column[T, U] {
   def keys: Seq[T]
   def values: Seq[U]
-  def keyType = typeTag[T]
-  def valueType = typeTag[U]
+  def keyType: TypeTag[T] = typeTag[T]
+  def valueType: TypeTag[U] = typeTag[U]
 
   def readBefore(start: T, maxResults: Long = Long.MaxValue) // format: OFF
       (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON

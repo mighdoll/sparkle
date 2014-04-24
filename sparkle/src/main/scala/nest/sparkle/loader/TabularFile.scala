@@ -52,7 +52,9 @@ case class ConcreteRowInfo(names: Seq[String], types: Seq[TypeTag[_]], keyColumn
 
 case class CloseableRowInfo(names: Seq[String], types: Seq[TypeTag[_]], keyColumn: Option[Int], rows: Iterator[RowData], closeable: Closeable)
     extends RowInfo with Closeable {
-  def close() = closeable.close()
+  def close(): Unit = {
+    closeable.close()
+  }
 }
 
 /** row contents.  Rows typically contain a key value (typically time), and zero or more other values */

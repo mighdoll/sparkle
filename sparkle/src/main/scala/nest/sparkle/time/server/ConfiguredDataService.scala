@@ -26,7 +26,7 @@ import nest.sparkle.util.Log
 /** a DataService that reads configuration from a config file */
 trait ConfiguredDataService extends DataService with Log {
   def config: Config
-  override def customRoutes = customApis(config, registry)
+  override def customRoutes: Iterable[Route] = customApis(config, registry)
   override lazy val corsHosts:List[String] = config.getStringList("cors-hosts").asScala.toList
 
   /** Return the routes from the ApiExtensions listed in the "apis" section of

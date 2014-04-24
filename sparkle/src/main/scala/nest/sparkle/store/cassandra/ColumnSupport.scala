@@ -16,7 +16,7 @@ package nest.sparkle.store.cassandra
 import ColumnSupport._
 
 object ColumnSupport {
-  def constructColumnPath(dataSetName:String, columnName:String) = dataSetName + "/" + columnName 
+  def constructColumnPath(dataSetName:String, columnName:String): String = dataSetName + "/" + columnName 
 }
 
 

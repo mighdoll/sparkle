@@ -142,7 +142,7 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
 
   context.execute(runner)
 
-  def cancel() = {
+  def cancel(): Unit = {
     watchKeys.keys foreach { _.cancel() }
     done = true
   }

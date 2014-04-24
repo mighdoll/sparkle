@@ -78,12 +78,12 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
       val columnName: String, catalog: ColumnCatalog) (implicit val session: Session) 
       extends Column[T, U] with ColumnSupport { // format: ON
 
-  def name = columnName
+  def name: String = columnName
 
   private val keySerializer = implicitly[CanSerialize[T]]
   private val valueSerializer = implicitly[CanSerialize[U]]
-  def keyType = keySerializer.typedTag
-  def valueType = valueSerializer.typedTag
+  def keyType: TypeTag[T] = keySerializer.typedTag
+  def valueType: TypeTag[U] = valueSerializer.typedTag
 
   val serialInfo = ColumnTypes.serializationInfo()(keySerializer, valueSerializer)
   val tableName = serialInfo.tableName

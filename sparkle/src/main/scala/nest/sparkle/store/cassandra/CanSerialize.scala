@@ -61,7 +61,7 @@ abstract class CanSerialize[T: TypeTag] {
 /** standard serializers for cassandra data types */
 object serializers {
   implicit object LongSerializer extends CanSerialize[Long] {
-    def columnType = "bigint"
+    val columnType = "bigint"
     def deserialize(serialized: AnyRef): Long = serialized.asInstanceOf[Long]
     def fromRow(row: Row, index: Int): Long = {
       row.getLong(index)
@@ -69,31 +69,31 @@ object serializers {
   }
   
   implicit object NanoTimeSerializer extends CanSerialize[NanoTime] {
-    def columnType = "bigint"
-    override def serialize(value: NanoTime) = value.nanos.asInstanceOf[AnyRef]
+    val columnType = "bigint"
+    override def serialize(value: NanoTime): AnyRef = value.nanos.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): NanoTime = {
       NanoTime(row.getLong(index))
     }
   }
   
   implicit object MilliTimeSerializer extends CanSerialize[MilliTime] {
-    def columnType = "bigint"
-    override def serialize(value: MilliTime) = value.millis.asInstanceOf[AnyRef]
+    val columnType = "bigint"
+    override def serialize(value: MilliTime): AnyRef = value.millis.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): MilliTime = {
       MilliTime(row.getLong(index))
     }
   }
 
   implicit object FiniteDurationSerializer extends CanSerialize[FiniteDuration] {
-    def columnType = "bigint"
-    override def serialize(value: FiniteDuration) = value.toNanos.asInstanceOf[AnyRef]
+    val columnType = "bigint"
+    override def serialize(value: FiniteDuration): AnyRef = value.toNanos.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): FiniteDuration = {
       FiniteDuration(row.getLong(index), NANOSECONDS)
     }
   }
   
   implicit object DoubleSerializer extends CanSerialize[Double] {
-    def columnType = "double"
+    val columnType = "double"
     def deserialize(serialized: AnyRef): Double =
       serialized.asInstanceOf[Double]
     def fromRow(row: Row, index: Int): Double = {
@@ -102,28 +102,28 @@ object serializers {
   }
 
   implicit object IntSerializer extends CanSerialize[Int] {
-    def columnType = "int"
+    val columnType = "int"
     def fromRow(row: Row, index: Int): Int = {
       row.getInt(index)
     }
   }
 
   implicit object BooleanSerializer extends CanSerialize[Boolean] {
-    def columnType = "boolean"
+    val columnType = "boolean"
     def fromRow(row: Row, index: Int): Boolean = {
       row.getBool(index)
     }
   }
   
   implicit object StringSerializer extends CanSerialize[String] {
-    def columnType = "text"
+    val columnType = "text"
     def fromRow(row: Row, index: Int): String = {
       row.getString(index)
     }
   }
   
   implicit object AsciiSerializer extends CanSerialize[AsciiString] {
-    def columnType = "ascii"
+    val columnType = "ascii"
     def fromRow(row: Row, index: Int): AsciiString = {
       AsciiString(row.getString(index))
     }

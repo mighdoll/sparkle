@@ -29,5 +29,5 @@ case class FileSystemStore(root:Path) extends Store{
   /** return a column from a columnPath like fooSet/barSet/columName*/
   def column[T, U](columnPath: String): Future[Column[T, U]] = ???
 
-  def close() = ???
+  def close(): Unit = ???
 }
