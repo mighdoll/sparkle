@@ -111,9 +111,6 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
   val serialInfo = serializationInfo[T, U]()
   val tableName = serialInfo.tableName
   
-  log.debug(s"creating instance for $dataSetName/$columnName $tableName")
-
-
   /** create a catalog entries for this given sparse column */
   protected def updateCatalog(description: String = "no description")(implicit executionContext: ExecutionContext): Future[Unit] = {
     // LATER check to see if table already exists first

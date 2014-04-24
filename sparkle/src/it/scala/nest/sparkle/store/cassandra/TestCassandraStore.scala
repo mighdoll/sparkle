@@ -30,6 +30,8 @@ import nest.sparkle.util.ConfigUtil
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.ConfigureLogback
 import nest.sparkle.util.RandomUtil.randomAlphaNum
+import nest.sparkle.time.protocol.ArbitraryColumn
+import org.scalacheck.Arbitrary
 
 class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with CassandraTestConfig {
   import ExecutionContext.Implicits.global
@@ -84,14 +86,16 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
     }
   }
 
-
-  test("read+write one long-int item") {
+  /** read and write a single event */
+  def testOneEvent[T: CanSerialize: Arbitrary, U: CanSerialize: Arbitrary]() {
     withTestDb { store =>
-      withTestColumn[Long, Int](store) { (writeColumn, testColumnPath) =>
-        val event = Event(100L, 1)
+      withTestColumn[T, U](store) { (writeColumn, testColumnPath) =>
+        val eventMaker = ArbitraryColumn.arbitraryEvent[T, U]
+        val event = eventMaker.arbitrary.sample.get
+
         writeColumn.write(event :: Nil).await
 
-        val readColumn = store.column[Long, Int](testColumnPath).await
+        val readColumn = store.column[T, U](testColumnPath).await
         val read = readColumn.readRange(None, None)
         val results = read.toBlockingObservable.single
         results shouldBe event
@@ -99,20 +103,18 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
     }
   }
 
-  test("read+write one long-double item") {
-    Thread.sleep(2000)
-    withTestDb { store =>
-      withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
-        writeColumn.write(Seq(Event(100L, 1.1d))).await
-
-        val readColumn = store.column[Long, Double](testColumnPath).await
-        val read = readColumn.readRange(None, None)
-        val results = read.toBlockingObservable.single
-        results shouldBe Event(100L, 1.1d)
-      }
-    }
+  test("read+write one long-int item") {
+    testOneEvent[Long,Int]()
   }
-  
+
+  test("read+write one long-double item") {
+    testOneEvent[Long,Double]()
+  }
+
+  test("read+write one long-string item") {
+    testOneEvent[Long,String]()
+  }
+
   test("read+write many long double events") {
     withTestDb { implicit store =>
       withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>

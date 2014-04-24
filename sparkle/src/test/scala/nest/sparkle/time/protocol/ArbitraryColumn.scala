@@ -29,20 +29,22 @@ import org.scalacheck.Gen
 
 /** Utility for using scalacheck properties to generate Events */
 object ArbitraryColumn extends PropertyChecks {
-  private val eventGenerator = for {
-    key <- arbitrary[Long]
-    value <- arbitrary[Double]
-  } yield {
-    Event(key, value)
+  def eventGenerator[T: Arbitrary, U:Arbitrary]() = {
+    for {
+      key <- arbitrary[T]
+      value <- arbitrary[U]
+    } yield {
+      Event(key, value)
+    }
   }
   
   /** import this to allow generating Events in scalacheck generators */
-  implicit val arbitraryEvent = Arbitrary(eventGenerator)
+  implicit def arbitraryEvent[T:Arbitrary, U:Arbitrary] = Arbitrary(eventGenerator[T,U]())
 
-  /** (currently unused, causes compiler problems) */
-  def arbitraryColumn[T: TypeTag: Ordering, U: TypeTag](prefix: String, storage: WriteableRamStore) // format: OFF
+  /** (currently unused, causes compiler problems in 2.10.3.  retry in 2.10.4 or 2.11) */
+  def arbitraryColumn[T: TypeTag: Ordering: Arbitrary, U: TypeTag: Arbitrary](prefix: String, storage: WriteableRamStore) // format: OFF
       (implicit execution: ExecutionContext): (String, Seq[Event[T, U]]) = { // format: ON
-    val eventListGenerator = arbitrary[List[Event[Long, Double]]] // SCALA make generator work for T,U    
+    val eventListGenerator = arbitrary[List[Event[T, U]]]  
     val eventsGenerator = eventListGenerator.asInstanceOf[Gen[List[Event[T, U]]]]
     val storedEventsGenerator =
       eventsGenerator.map { events =>
@@ -57,7 +59,7 @@ object ArbitraryColumn extends PropertyChecks {
 
 /** utility for testing the DomainRange transform */
 object TestDomainRange {
-    /** return the min max of domain and range of a list of events */
+  /** return the min max of domain and range of a list of events */
   def minMaxEvents(events: Seq[Event[Long, Double]]): (Long, Long, Double, Double) = {
     val domainMin = events.map { case Event(k, v) => k }.min
     val domainMax = events.map { case Event(k, v) => k }.max
