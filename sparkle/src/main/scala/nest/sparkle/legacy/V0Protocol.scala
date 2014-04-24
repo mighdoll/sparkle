@@ -68,10 +68,7 @@ trait DataServiceV0 extends RichComplete with Directives {
 
   private val dataSetInfoRequest = // return meta data about this data set 
     path("info" / Rest) { dataSet =>
-      if (dataSet.isEmpty())
-        reject
-      else
-        richComplete(registry.dataSetInfo(dataSet))
+      if (dataSet.isEmpty()) reject else richComplete(registry.dataSetInfo(dataSet))
     }
 
   private val allSetInfoRequest = // return meta data about all the sets

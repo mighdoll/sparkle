@@ -38,7 +38,7 @@ object DirectoryDataRegistry {
     TypedActor(system).typedActorOf(
         TypedProps(classOf[DirectoryDataRegistryApi],
                    new DirectoryDataRegistryActor(path, glob)).withTimeout(30.seconds),
-        "DirectoryDataRegistry_"+path.toString.replace('/', '-')
+        "DirectoryDataRegistry_" + path.toString.replace('/', '-')
       )
   }
 }

@@ -20,9 +20,7 @@ case class Datum(time: Long, value: Double)
 object Datum {
   implicit object ValueOrdering extends Ordering[Datum] {
     def compare(a:Datum, b:Datum):Int = 
-      if (a.value > b.value) 1
-      else if (a.value < b.value) -1
-      else 0
+      if (a.value > b.value) 1 else if (a.value < b.value) -1 else 0
   }
   
 } 

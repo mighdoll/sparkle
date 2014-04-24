@@ -19,7 +19,7 @@ object Instance {
   /** Create an class instance by calling its (hopefully only) constructor */
   def byClass[T](clazz: java.lang.Class[T])(args:AnyRef*): T = {
     val constructor = clazz.getConstructors()(0)
-    return constructor.newInstance(args:_*).asInstanceOf[T]
+    constructor.newInstance(args:_*).asInstanceOf[T]
   }
 
   /** Create an class instance, given a class fully qualified class name 

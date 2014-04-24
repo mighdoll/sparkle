@@ -33,8 +33,9 @@ object FileSystemScan {
 
       val pathMatcher = FileSystems.getDefault.getPathMatcher("glob:" + glob)
       override def visitFile(path: Path, attrs: BasicFileAttributes): FileVisitResult = {
-        if (pathMatcher.matches(path))
+        if (pathMatcher.matches(path)) {
           files.append(path)
+        }
         FileVisitResult.CONTINUE
       }
       
