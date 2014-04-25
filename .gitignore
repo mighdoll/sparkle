@@ -7,3 +7,4 @@ target/
 .worksheet
 *.sc
 *.log
+.idea/
