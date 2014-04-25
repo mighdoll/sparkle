@@ -47,11 +47,11 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   }
 
   /** try loading a known file and check the expected column for results */
-  def testLoadFile(filePath: String, columnPath: String) {
+  def testLoadFile(filePath: String, columnPath: String, strip: Int = 0) {
     withTestDb { testDb =>
       withTestActors { implicit system =>
         import system.dispatcher
-        FilesLoader(filePath, testDb)
+        FilesLoader(filePath, testDb, strip)
         onLoadComplete(system, filePath).await
         val column = testDb.column[Long, Double](columnPath).await
         val read = column.readRange(None, None)
@@ -71,6 +71,10 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
 
   test("load csv file with leading underscore in directory path element") {
     testLoadFile("sparkle/src/test/resources/_ignore/epochs2.csv", "sparkle/src/test/resources/epochs2.csv/count")
+  }
+
+  test("load csv file with stripping off 3 leading path elements for DataSet name") {
+    testLoadFile("sparkle/src/test/resources/epochs.csv", "resources/epochs.csv/count", 3)
   }
 }
 

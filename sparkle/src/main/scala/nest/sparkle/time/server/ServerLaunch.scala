@@ -89,9 +89,10 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   /** launch a FilesLoader for each configured directory */
   private def startFilesLoader() {
     if (config.getBoolean("files-loader.auto-start")) {
+      val strip = config.getInt("files-loader.directory-strip")
       config.getStringList("files-loader.directories").asScala.foreach { pathString =>
         try {
-          FilesLoader(pathString, writeableStore)
+          FilesLoader(pathString, writeableStore, strip)
         } catch {
           case LoadPathDoesNotExist(path) => sys.exit(4)
         }

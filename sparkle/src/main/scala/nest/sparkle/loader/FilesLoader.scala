@@ -39,9 +39,9 @@ case class LoadComplete(filePath: String)
 case class LoadPathDoesNotExist(path: String) extends RuntimeException
 
 object FilesLoader {
-  def apply(rootDirectory: String, store: WriteableStore) // format: OFF
+  def apply(rootDirectory: String, store: WriteableStore, strip: Int = 0) // format: OFF
       (implicit system: ActorSystem): FilesLoader = { // format: ON
-    new FilesLoader(rootDirectory, store)
+    new FilesLoader(rootDirectory, store, strip)
   }
 }
 
@@ -50,8 +50,10 @@ object FilesLoader {
   *
   * @param loadPath Path to directory to load from/watch or a single file to load.
   * @param store Store to write data to.
+  * @param strip Number of leading path elements to strip when 
+  *              creating the DataSet name.
   */
-class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: ActorSystem) {
+class FilesLoader(loadPath: String, store: WriteableStore, strip: Int = 0)(implicit system: ActorSystem) {
   val log = LoggerFactory.getLogger(classOf[FilesLoader])
   implicit val executor = system.dispatcher
   val root = Paths.get(loadPath)
@@ -103,7 +105,6 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
   }
 
   private def loadRows(rowInfo: CloseableRowInfo, store: WriteableStore, path: Path): Future[Path] = {
-    val pathString = path.toString
     val dsString = dataSetString(path)
 
     /** indices of RowData columns that we'll store (i.e. not the time column) */
@@ -161,13 +162,15 @@ class FilesLoader(loadPath: String, store: WriteableStore)(implicit system: Acto
     *
     * The dataset string is the file's path minus any parts beginning with an
     * underscore.
+    * 
+    * Strips off leading path elements if strip > 0.
     *
     * @param path Path of the tsv/csv file
     * @return The DataSet as a string.
     */
   private def dataSetString(path: Path): String = {
     val parent =
-      path.getParent.iterator
+      path.getParent.iterator.drop(strip)
         .filterNot(p => p.toString.startsWith("_"))
         .mkString("/")
     val fileName = path.getFileName.toString match {
