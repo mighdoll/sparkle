@@ -76,6 +76,19 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   test("load csv file with stripping off 3 leading path elements for DataSet name") {
     testLoadFile("sparkle/src/test/resources/epochs.csv", "resources/epochs.csv/count", 3)
   }
+
+  test("load csv file with stripping off all directory elements") {
+    testLoadFile("sparkle/src/test/resources/epochs.csv", "epochs.csv/count", 4)
+  }
+
+  // Allowing more directory elements than exist to be specified.
+  test("load csv file specifying stripping more path elements than exist") {
+    testLoadFile("sparkle/src/test/resources/epochs.csv", "epochs.csv/count", 5)
+  }
+
+  ignore("can not load file that results in columns with no DataSet") {
+    testLoadFile("sparkle/src/test/resources/_epochs.csv", "count", 4)
+  }
 }
 
 /** Constructor for a ReceiveLoaded actor */

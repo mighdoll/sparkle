@@ -179,10 +179,10 @@ class FilesLoader(loadPath: String, store: WriteableStore, strip: Int = 0)(impli
       case s => s
     }
 
-    parent + (fileName match {
+    (parent + (fileName match {
       case s if s.startsWith("_") => ""
       case _                      => "/" + fileName
-    })
+    })).stripPrefix("/")
   }
 
 }
