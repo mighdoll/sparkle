@@ -9,7 +9,6 @@ import org.apache.avro.Schema
   * The columnPath produced by users of the decoder is expected to be:
   * prefix/id/suffix/columnName
   */
-
 sealed trait KafkaColumnDecoder[T] extends Decoder[T] {
   /** columnPath after the id (including the columnName itself) */
   lazy val columnPathSuffix: String = appendSlash(suffix) 
@@ -62,13 +61,13 @@ case class AvroColumnDecoder(// format: OFF
     override val prefix: String
    ) extends KafkaKeyValues { // format: ON
 
-  def fromBytes(bytes: Array[Byte]): ArrayRecordColumns = {
+  override def fromBytes(bytes: Array[Byte]): ArrayRecordColumns = {
     val genericDecoder = AvroSupport.genericDecoder(schema)
     val record = genericDecoder.fromBytes(bytes)
     decoder.decodeRecord(record)
   }
 
-  def metaData: ArrayRecordMeta = decoder.metaData
+  override def metaData: ArrayRecordMeta = decoder.metaData
 
   override def suffix: String = schema.getName()
 }

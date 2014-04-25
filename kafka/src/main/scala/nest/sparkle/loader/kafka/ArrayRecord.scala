@@ -16,12 +16,12 @@ case class ArrayRecordMeta(
   def keyType: TypeTag[_] = ???
 }
 
-/** all values from an tabular array record, in columnar form */
+/** all values from a tabular array record, organized in columns */
 case class ArrayRecordColumns(
     val id: Any,
     val columns: Seq[Seq[Event[_, _]]] // columns in the same order as in the values[NameAndType] sequence
     ) {
-  
+
   /** combine type tags with data columns based on the metadata. */
   def typedColumns(metaData: ArrayRecordMeta): Seq[TaggedColumn] = {
     columns zip metaData.values map {

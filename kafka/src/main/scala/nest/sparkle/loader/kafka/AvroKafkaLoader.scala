@@ -146,7 +146,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
     Instance.byName[FindDecoder](className)(rootConfig)
   }
 
-  /** return a kafka topic reader and a kafka decoder based on a given topic */
+  /** return the kafka decoder for a given kafka topic */
   private def columnDecoder(finder: FindDecoder, topic: String): KafkaKeyValues = {
     finder.decoderFor(topic) match {
       case keyValueDecoder: KafkaKeyValues => keyValueDecoder
