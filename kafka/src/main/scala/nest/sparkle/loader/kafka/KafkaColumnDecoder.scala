@@ -42,9 +42,9 @@ sealed trait KafkaColumnDecoder[T] extends Decoder[T] {
   *
   * e.g. a record of the following structure:
   * id: "id",
-  * row: [[key,[value,..],
-  *      [key,[value,..]
-  *     ]
+  * row: [ [key,[value,..],
+  *        [key,[value,..]
+  *      ]
   */
 trait KafkaKeyValues extends KafkaColumnDecoder[ArrayRecordColumns] {
   /** report the types of the id, the key, and the values */

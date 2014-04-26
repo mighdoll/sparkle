@@ -35,7 +35,7 @@ object AvroArrayDecoder extends Log {
     *
     * See `MillisDoubleArrayAvro` in the tests for an example avro schema in the expected structure.
     *
-    * @skipValueFields a blacklist of values fields in each array row to ignore
+    * @param skipValueFields a blacklist of values fields in each array row to ignore
     */
   def decoder(schema: Schema,
               arrayField: String = "elements",
