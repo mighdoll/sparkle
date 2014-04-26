@@ -30,7 +30,7 @@ import nest.sparkle.util.ConfigUtil
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.ConfigureLogback
 import nest.sparkle.util.RandomUtil.randomAlphaNum
-import nest.sparkle.time.protocol.ArbitraryColumn
+import nest.sparkle.time.protocol.ArbitraryColumn2
 import org.scalacheck.Arbitrary
 
 class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with CassandraTestConfig {
@@ -90,7 +90,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
   def testOneEvent[T: CanSerialize: Arbitrary, U: CanSerialize: Arbitrary]() {
     withTestDb { store =>
       withTestColumn[T, U](store) { (writeColumn, testColumnPath) =>
-        val eventMaker = ArbitraryColumn.arbitraryEvent[T, U]
+        val eventMaker = ArbitraryColumn2.arbitraryEvent[T, U]
         val event = eventMaker.arbitrary.sample.get
 
         writeColumn.write(event :: Nil).await
