@@ -53,7 +53,7 @@ object FilesLoader {
   * @param strip Number of leading path elements to strip when 
   *              creating the DataSet name.
   */
-class FilesLoader(loadPath: String, store: WriteableStore, strip: Int = 0)(implicit system: ActorSystem) {
+protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)(implicit system: ActorSystem) {
   val log = LoggerFactory.getLogger(classOf[FilesLoader])
   implicit val executor = system.dispatcher
   val root = Paths.get(loadPath)

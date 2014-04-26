@@ -32,7 +32,7 @@ object Dependencies {
   val akkaSlf4j             = "com.typesafe.akka"         %% "akka-slf4j"             % V.akka
   val akkaRemoting          = "com.typesafe.akka"         %% "akka-remote"            % V.akka
 
-  val argot                 = "org.clapper"               %% "argot"                  % "1.0.0"
+  val argot                 = "org.clapper"               %% "argot"                  % "1.0.1"
   val nScalaTime            = "com.github.nscala-time"    %% "nscala-time"            % "0.4.2"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
   val cassandraAll          = "org.apache.cassandra"      % "cassandra-all"           % "2.0.3"
