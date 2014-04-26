@@ -37,7 +37,7 @@ object SparseColumnReader extends PrepareTableOperations with Log {
     val columnPath = ColumnSupport.constructColumnPath(dataSetName, columnName)
 
     /** create a SparseColumnReader of the supplied X,Y type. The cast it to the
-      * (presumably wildcard) type of create's T,U parameters.
+      * (presumably _) type of instance()s T,U parameters.
       */
     def makeReader[X, Y](key: CanSerialize[X], value: CanSerialize[Y]): SparseColumnReader[T, U] = {
       val typed = new SparseColumnReader(dataSetName, columnName, catalog)(key, value, session)

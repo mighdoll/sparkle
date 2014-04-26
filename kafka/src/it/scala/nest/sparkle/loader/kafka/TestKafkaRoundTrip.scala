@@ -23,6 +23,7 @@ import org.apache.log4j
 import scala.concurrent.ExecutionContext
 import nest.sparkle.loader.kafka.KafkaDecoders.Implicits._
 import rx.lang.scala.Observable
+import nest.sparkle.loader.kafka.KafkaTestTopic.withKafkaTestTopic
 
 class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
   import ExecutionContext.Implicits.global
@@ -33,12 +34,13 @@ class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
 
   def roundTripTest(writerFn: (KafkaTestTopic, Seq[String]) => Unit) {
     val entries = 3
-    val kafka = new KafkaTestTopic(rootConfig)
-    val testData = randomStrings(entries)
-    writerFn(kafka, testData)
-    val stream = kafka.reader.stream()
-    val results = stream.take(entries).toFutureSeq.await
-    results shouldBe testData
+    withKafkaTestTopic(rootConfig) { kafka =>
+      val testData = randomStrings(entries)
+      writerFn(kafka, testData)
+      val stream = kafka.reader.stream()
+      val results = stream.take(entries).toFutureSeq.await
+      results shouldBe testData
+    }
   }
 
   test("round trip 3 strings") {
@@ -71,9 +73,8 @@ class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
     val results2 = stream2.take(entries / 2).toFutureSeq.await
     (results1 ++ results2) shouldBe testData
 
-    roundTripTest { (kafka, testData) =>
-      kafka.writer.writeStream(Observable.from(testData))
-    }
+    kafka1.close()
+    kafka2.close()
   }
 
 }

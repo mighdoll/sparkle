@@ -44,6 +44,11 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log{
   def write(data: Iterable[T]) {
     data foreach writeElement
   }
+  
+  /** close the underlying kafka producer connection */
+  def close() {
+    producer.close  // KAFKA should have parens on close
+  }
 
   /** write a single item to a kafka topic. */
   private def writeElement(item: T) {

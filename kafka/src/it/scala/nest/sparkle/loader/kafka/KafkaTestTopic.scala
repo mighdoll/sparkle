@@ -20,12 +20,32 @@ import nest.sparkle.loader.kafka.KafkaDecoders.Implicits._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.Config
 
-/** create a kafka reader/writer pair for a new test topic.
- *  Topics are not cleaned up after completion.  */
-class KafkaTestTopic(rootConfig:Config, id:String = randomAlphaNum(3)) {
+/** Create a kafka reader/writer pair for a kafka test.  
+ *  Note topics are not cleaned up: use withKafkaTestTopic instead if possible.  */
+private class KafkaTestTopic(rootConfig:Config, id:String = randomAlphaNum(3)) {
   val topic = s"testTopic-$id"
   val clientGroup = s"testClient-$id"
 
   val writer = KafkaWriter[String](topic, rootConfig)
   val reader = KafkaReader[String](topic, rootConfig, clientGroup = Some(clientGroup))
+  
+  def close() {
+    writer.close()
+    reader.close()
+  }
+}
+
+/** run a test with a kafka reader/writer pair, cleaning up afterwards */
+object KafkaTestTopic {
+  
+  /** run a test with a kafka reader/writer pair, cleaning up afterwards */
+  def withKafkaTestTopic[T](rootConfig:Config, id:String = randomAlphaNum(3))(fn:KafkaTestTopic => T):T = {
+    var topic:KafkaTestTopic = null
+    try {
+      topic = new KafkaTestTopic(rootConfig, id)
+      fn(topic)
+    } finally {
+      topic.close()
+    }
+  }
 }
