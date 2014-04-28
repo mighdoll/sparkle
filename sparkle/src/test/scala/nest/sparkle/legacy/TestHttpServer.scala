@@ -40,7 +40,7 @@
 //  // we setup the server 'manually' rather than relying on e.g. SprayCanHttpServerApp for now,
 //  // (LATER consider whether it's worth the time/trouble of setting up a new server for every test)
 //  def withServer[T](fn: => T): T = {
-//    val testConfig = ConfigServer.loadConfig() 
+//    val testConfig = ConfigServer.loadConfig()
 //    implicit val serverSystem = ActorSystem("server", testConfig)
 //    import serverSystem.dispatcher
 //    val dataApi = new PreloadedRegistry(List(SampleData))
@@ -51,7 +51,7 @@
 //    implicit val timeout = Timeout(10.seconds)
 //    val started = IO(Http) ? Http.Bind(dataService, "localhost", port = 17997)
 //    started.await()
-//    
+//
 //    try {
 //      fn
 //    } finally {
@@ -61,7 +61,7 @@
 //
 //  /** setup a client pipeline to the test server */
 //  def withClient[T](fn: (ActorSystem) => T): T = {
-//    val testConfig = ConfigServer.loadConfig() 
+//    val testConfig = ConfigServer.loadConfig()
 //    val clientSystem = ActorSystem("client", testConfig)
 //
 //    try {

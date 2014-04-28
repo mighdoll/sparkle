@@ -21,11 +21,11 @@ object RandomUtil {
   /** Return a random string of the specified length.  The string will include only a-zA-Z0-9 */
   def randomAlphaNum(length:Int):String = {
     val valid = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXZ01234567890"
-    val chars = Iterator.tabulate(length) {_ =>    
+    val chars = Iterator.tabulate(length) {_ =>
       val random = Math.abs(ThreadLocalRandom.current().nextInt()) % valid.length
       valid(random)
     }
-    
-    chars.mkString    
+
+    chars.mkString
   }
 }

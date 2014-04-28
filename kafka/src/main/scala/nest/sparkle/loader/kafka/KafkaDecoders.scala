@@ -22,6 +22,6 @@ object KafkaDecoders {
     implicit object StringDecoder extends Decoder[String] {
       def fromBytes(bytes: Array[Byte]): String = new String(bytes)
     }
-    
+
   }
 }

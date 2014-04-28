@@ -23,12 +23,12 @@ trait ArgotApp extends App {
   def app[T](parser: ArgotParser, help: FlagOption[Boolean])(fn: =>T):T = {
     try {
       parser.parse(args)
-      
+
       help.value.foreach { v =>
         Console.println(parser.usageString())
         sys.exit(0)
       }
-      
+
       fn
 
     } catch {

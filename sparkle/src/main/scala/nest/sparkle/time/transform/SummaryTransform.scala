@@ -39,7 +39,7 @@ object StandardColumnTransform {
   /** Given an untyped future Column, call a transform function with the type specific column
    *  when the future completes. */
   def executeTypedTransform(futureColumns: Future[Seq[Column[_, _]]], // format: OFF
-      columnTransform:ColumnTransform, transformParameters:JsObject) 
+      columnTransform:ColumnTransform, transformParameters:JsObject)
       (implicit execution: ExecutionContext):Future[Seq[JsonDataStream]] = { // format: ON
     futureColumns.map { columns =>
       columns.map {
@@ -83,7 +83,7 @@ object JustCopy extends ColumnTransform {
      ) (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
     /** return an outputStream that can produce a column */
-    val events = column.readRange() // just copy the entire source column to the output  
+    val events = column.readRange() // just copy the entire source column to the output
     JsonDataStream(
       dataStream = JsonEventWriter(events),
       streamType = KeyValueType

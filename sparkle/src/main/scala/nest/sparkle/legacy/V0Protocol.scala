@@ -27,23 +27,23 @@ import spray.routing.Directives
 /** legacy protocol, this will go away */
 trait DataServiceV0 extends RichComplete with Directives {
   self:DataService =>
-    
+
   implicit def executionContext: ExecutionContext
-  
+
   lazy val v0protocol = {
     dataRequest ~
     metricInfoRequest ~
     dataSetInfoRequest ~
     allSetInfoRequest
   }
-  
+
   private val dataRequest = { // return time series data points
     // format: OFF
     (path("data" / Segment / Rest) & parameters('start.as[Long] ?,
                                                    'end.as[Long] ?,
                                                    'max.as[Double] ?,
                                                    'edge.as[Boolean] ?,
-                                                   'summary.as[String] ?, 
+                                                   'summary.as[String] ?,
                                                    'filter.as[String] ?
                                                 )
      ) { (metricName, dataSet, start, end, max, edge, summary, filter) =>
@@ -66,7 +66,7 @@ trait DataServiceV0 extends RichComplete with Directives {
       }
     }
 
-  private val dataSetInfoRequest = // return meta data about this data set 
+  private val dataSetInfoRequest = // return meta data about this data set
     path("info" / Rest) { dataSet =>
       if (dataSet.isEmpty()) reject else richComplete(registry.dataSetInfo(dataSet))
     }

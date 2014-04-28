@@ -25,8 +25,8 @@ import nest.sparkle.time.server.DataService
 import nest.sparkle.time.protocol.TestDataService
 
 class TestRestApi extends FunSuite with Matchers with ScalatestRouteTest with TestDataService {
-  override def testConfig = ConfigureSparkle.loadConfig() 
-  
+  override def testConfig = ConfigureSparkle.loadConfig()
+
   override val registry = new PreloadedRegistry(List(SampleData))(system.dispatcher)
   val store = PreloadedStore(List(SampleData))
 
@@ -36,7 +36,7 @@ class TestRestApi extends FunSuite with Matchers with ScalatestRouteTest with Te
       samples.length should be (7)
     }
   }
-  
+
   test("data request - max values") {
     Get("/data/p90/sample?max=5") ~> route ~> check {
       val samples = responseAs[Array[(Long, Double)]]
@@ -51,14 +51,14 @@ class TestRestApi extends FunSuite with Matchers with ScalatestRouteTest with Te
       info.domain.get._1 should be(DateTime.fromIsoDateTimeString("2013-01-19T22:13:10").get.clicks)
     }
   }
-  
+
   test("dataset info request ") {
     Get("/info/sample") ~> route ~> check {
       val info = responseAs[DataSetInfo]
       info.domain.get._1 should be(DateTime.fromIsoDateTimeString("2013-01-19T22:13:10").get.clicks)
     }
   }
-  
+
   test("nonexistent api") {
     Get("/bizdoodle") ~> route ~> check {
       assert(status.intValue === 404)
@@ -79,16 +79,16 @@ class TestRestApi extends FunSuite with Matchers with ScalatestRouteTest with Te
       assert(status.intValue === 404)
     }
   }
-  
+
   test("nonexistent metric") {
     Get("/column/boobah/sample") ~> route ~> check {
       assert(status.intValue === 404)
       val info = responseAs[String]
     }
   }
-  
+
   test("unique values from column") {
-    Get("/column/p90/sample?uniques=true") ~> route ~> check {      
+    Get("/column/p90/sample?uniques=true") ~> route ~> check {
       assert(status.intValue === 200)
       val info = responseAs[MetricInfoWithUniques]
       info.uniqueValues.length should be (6)

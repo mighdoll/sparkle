@@ -19,7 +19,7 @@ class TestTaggedEvent extends FunSuite with Matchers {
       case _                          => fail("should have matched LongDoubleEvents")
     }
   }
-  
+
   test("match LongInt") {
     val tagged = TaggedColumn("longDouble", typeTag[Long], typeTag[Int], Nil)
 
@@ -28,9 +28,9 @@ class TestTaggedEvent extends FunSuite with Matchers {
       case LongStringEvents(events)   => fail("should have matched LongIntEvents")
       case StringDoubleEvents(events) => fail("should have matched LongIntEvents")
       case LongDoubleEvents(events)   => fail("should have matched LongIntEvents")
-      case LongIntEvents(events)      => 
+      case LongIntEvents(events)      =>
       case _                          => fail("should have matched LongIntEvents")
     }
   }
-  
+
 }

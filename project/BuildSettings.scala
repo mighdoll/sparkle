@@ -26,7 +26,7 @@ import bintray.Plugin._
 
 object BuildSettings {
 
-  lazy val allSettings = 
+  lazy val allSettings =
     Defaults.defaultSettings ++
     orgSettings ++
     compileSettings ++
@@ -36,7 +36,7 @@ object BuildSettings {
     testSettings ++
     publishSettings ++
     org.scalastyle.sbt.ScalastylePlugin.Settings
-    
+
   lazy val orgSettings = Seq(
     organization := "nest",
     licenses += ("Apache-2.0", url("http://apache.org/licenses/LICENSE-2.0.html"))
@@ -48,7 +48,7 @@ object BuildSettings {
     testOptions += Tests.Argument("-oF"),    // show full stack traces during test failures
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps", "-target:jvm-1.7")
   )
-    
+
   lazy val eclipseSettings = Seq(
     EclipseKeys.withSource := true,
     EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource
@@ -73,8 +73,8 @@ object BuildSettings {
         invoke(null, "ROOT")
     )
   )
-  
-  lazy val publishSettings = 
+
+  lazy val publishSettings =
     // bintraySettings ++ // disabled pending https://github.com/softprops/bintray-sbt/issues/18
     sbtassembly.Plugin.assemblySettings ++
     ReleasePlugin.releaseSettings ++

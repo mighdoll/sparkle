@@ -27,7 +27,7 @@ import nest.sparkle.store.Event
 /** (for unit tests) a ram based Store with a sample column */
 trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
     with PropertyChecks with BeforeAndAfterAll {
-  
+
   lazy val testColumn = "latency.p99"
   lazy val testId = "server1"
   lazy val testColumnPath = s"$testId/$testColumn"

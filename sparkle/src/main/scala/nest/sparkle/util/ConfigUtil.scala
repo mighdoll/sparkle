@@ -22,7 +22,7 @@ import com.typesafe.config.ConfigFactory
 
 /** utility functions for working with the typesafe Config library */
 object ConfigUtil {
-  
+
   /** Load the configuration from a .conf file in the filesystem, falling back to
     * the built in reference.conf.
     */

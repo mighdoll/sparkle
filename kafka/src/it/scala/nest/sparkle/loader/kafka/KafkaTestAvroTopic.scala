@@ -35,7 +35,7 @@ object KafkaTestUtil {
     try {
       fn(kafka)
     } finally {
-      // TODO delete topic when we switch to KAFKA 0.8.1+ 
+      // TODO delete topic when we switch to KAFKA 0.8.1+
     }
   }
 

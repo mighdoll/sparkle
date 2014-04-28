@@ -27,12 +27,12 @@ import nest.sparkle.time.server.ConfigureSparkle
 /** test serving a custom webroot */
 class TestTemplate extends FunSuite with Matchers with ScalatestRouteTest
     with TestDataService {
-  override def testConfig = ConfigureSparkle.loadConfig()   
+  override def testConfig = ConfigureSparkle.loadConfig()
 
   override val registry = PreloadedRegistry(Nil)
   val store = PreloadedStore(List(SampleData))
   override def webRoot = Some("sparkle/src/test/resources/subdir")
-  
+
   test("serve index from custom webRoot") {
     Get("/") ~> route ~> check {
       status shouldEqual StatusCodes.OK

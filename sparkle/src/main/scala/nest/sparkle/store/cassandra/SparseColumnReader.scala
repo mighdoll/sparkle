@@ -67,15 +67,15 @@ object SparseColumnReader extends PrepareTableOperations with Log {
 
   def readAllStatement(tableName: String): String = s"""
       SELECT argument, value FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? 
+      WHERE dataSet = ? AND column = ? AND rowIndex = ?
       """
 }
 
 import SparseColumnReader._
 
 /** read only access to a cassandra source event column */
-class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: String, // format: OFF 
-      val columnName: String, catalog: ColumnCatalog) (implicit val session: Session) 
+class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: String, // format: OFF
+      val columnName: String, catalog: ColumnCatalog) (implicit val session: Session)
       extends Column[T, U] with ColumnSupport { // format: ON
 
   def name: String = columnName
@@ -87,9 +87,9 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
 
   val serialInfo = ColumnTypes.serializationInfo()(keySerializer, valueSerializer)
   val tableName = serialInfo.tableName
-  
+
   /** read a slice of events from the column */      // format: OFF
-  def readRange(start:Option[T] = None, end:Option[T] = None) 
+  def readRange(start:Option[T] = None, end:Option[T] = None)
       (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON
     if (start.isEmpty && end.isEmpty) {
       readAll()
@@ -99,13 +99,13 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
   }
 
   /** read a range of events from the column */      // format: OFF
-  def readBefore(start:T, maxResults:Long = Long.MaxValue) 
+  def readBefore(start:T, maxResults:Long = Long.MaxValue)
       (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON
     ???
   }
-  
+
   /** read a range of events from the column */      // format: OFF
-  def readAfter(start:T, maxResults:Long = Long.MaxValue) 
+  def readAfter(start:T, maxResults:Long = Long.MaxValue)
       (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON
     ???
   }

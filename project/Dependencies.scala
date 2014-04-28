@@ -23,10 +23,10 @@ object Dependencies {
   }
 
   // Spray + Akka
-  val sprayCan              = "io.spray"                  %  "spray-can"              % V.spray  
-  val sprayRouting          = "io.spray"                  %  "spray-routing"          % V.spray  
-  val sprayClient           = "io.spray"                  %  "spray-client"           % V.spray  
-  val sprayCaching          = "io.spray"                  %  "spray-caching"          % V.spray  
+  val sprayCan              = "io.spray"                  %  "spray-can"              % V.spray
+  val sprayRouting          = "io.spray"                  %  "spray-routing"          % V.spray
+  val sprayClient           = "io.spray"                  %  "spray-client"           % V.spray
+  val sprayCaching          = "io.spray"                  %  "spray-caching"          % V.spray
   val sprayJson             = "io.spray"                  %% "spray-json"             % "1.2.5"
   val akkaActor             = "com.typesafe.akka"         %% "akka-actor"             % V.akka
   val akkaSlf4j             = "com.typesafe.akka"         %% "akka-slf4j"             % V.akka
@@ -45,16 +45,16 @@ object Dependencies {
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
   val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.0.1"
-  val apacheAvro            = "org.apache.avro"           % "avro"                    % "1.7.6"  
-  val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.0" 
-                                  exclude("javax.jms", "jms") 
-                                  exclude("com.sun.jdmk", "jmxtools") 
+  val apacheAvro            = "org.apache.avro"           % "avro"                    % "1.7.6"
+  val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.0"
+                                  exclude("javax.jms", "jms")
+                                  exclude("com.sun.jdmk", "jmxtools")
                                   exclude("com.sun.jmx", "jmxri")
                                   exclude("org.slf4j", "slf4j-simple")
                               )
 
   object Runtime {
-    val logback              = "ch.qos.logback"            % "logback-classic"         % "1.0.9"     
+    val logback              = "ch.qos.logback"            % "logback-classic"         % "1.0.9"
   }
 
   object Test {
@@ -93,15 +93,15 @@ object Dependencies {
     sprayCan,
     sprayCaching,
     Test.sprayTestKit,
-    Test.akkaTestKit, // delete this after spray #446 is resolved 
+    Test.akkaTestKit, // delete this after spray #446 is resolved
     IT.sprayTestKit,
-    IT.akkaTestKit // delete this after spray #446 is resolved 
+    IT.akkaTestKit // delete this after spray #446 is resolved
   )
-  
+
   val kafka = Seq(apacheKafka)
 
   val avro = Seq(apacheAvro)
-  
+
   val akka = Seq(
     akkaActor,
     akkaRemoting,

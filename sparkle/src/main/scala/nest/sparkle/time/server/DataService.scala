@@ -93,12 +93,12 @@ trait DataService extends HttpService with DataServiceV0 with DataServiceV1 with
   }
 
   /** all api endpoints */
-  val route = {  // format: OFF    
-    logRequestResponse(showResponse _) { 
+  val route = {  // format: OFF
+    logRequestResponse(showResponse _) {
       externalRoutes ~
       v1protocol ~
       get {
-        (path("") | path ("/")) { 
+        (path("") | path ("/")) {
           getIndex
         } ~
         healthRequest ~
@@ -107,7 +107,7 @@ trait DataService extends HttpService with DataServiceV0 with DataServiceV1 with
         staticResponse ~
         unmatchedPath { path => complete(NotFound, "not found") }
       }
-    } 
+    }
   } // format: ON
 
   def showResponse(request: HttpRequest): HttpResponsePart => Option[LogEntry] = {

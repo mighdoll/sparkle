@@ -130,7 +130,7 @@ object Summarize {
         Array()
       }
   }
-  
+
   private def ratePerSecond(data: Array[Datum]) = ???  /* TODO adjust bucketByTime to pass along partition time boundary so we can calculate rate.. */
 
   /** return the arithmetic mean */

@@ -75,9 +75,9 @@ object DomainRangeJson extends DefaultJsonProtocol {
       def read(value: JsValue): DomainRangeLimits[T, U] = {
         value match {
           case JsArray(
-                    JsArray(JsString("domain") :: List(domainJs)) 
-                 :: JsArray(JsString("range") :: List(rangeJs)) 
-                 :: Nil                 
+                    JsArray(JsString("domain") :: List(domainJs))
+                 :: JsArray(JsString("range") :: List(rangeJs))
+                 :: Nil
                ) =>
             val domain = domainJs.convertTo[MinMax[T]]
             val range = rangeJs.convertTo[MinMax[U]]

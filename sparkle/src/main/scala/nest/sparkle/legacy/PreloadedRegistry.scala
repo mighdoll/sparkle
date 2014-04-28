@@ -27,12 +27,12 @@ import nest.sparkle.store.Column
 case class PreloadedRegistry(dataSetList:Iterable[DataSetOld])
     (implicit val execution:ExecutionContext) extends DataRegistry {
   private val dataSets = dataSetList.map(dataSet => (dataSet.name, dataSet)).toMap
-  def allSets():Future[Iterable[String]] = 
+  def allSets():Future[Iterable[String]] =
     Promise.successful(dataSets.keys).future
-    
-  def findDataSet(name:String):Future[DataSetOld] = 
+
+  def findDataSet(name:String):Future[DataSetOld] =
     dataSets.get(name).futureOrFailed(new FileNotFoundException(s"dataSet $name not found"))
-    
+
 }
 
 case class PreloadedStore(dataSetList:Iterable[DataSetOld]) extends Store {
@@ -41,6 +41,6 @@ case class PreloadedStore(dataSetList:Iterable[DataSetOld]) extends Store {
 
   /** return a column from a columnPath like fooSet/barSet/columName*/
   def column[T, U](columnPath: String): Future[Column[T, U]] = ???
-  
+
   def close(): Unit = ???
 }

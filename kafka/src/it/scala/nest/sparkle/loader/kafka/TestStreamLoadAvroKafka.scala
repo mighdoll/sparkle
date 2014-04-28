@@ -90,7 +90,7 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
 
     /** verify that the correct data is in cassandra */
     def checkCassandra(testStore:CassandraStore, generatedRecords: List[GeneratedRecord[Long, Double]]) {
-      // verify matching data in cassandra 
+      // verify matching data in cassandra
       generatedRecords.foreach { generated =>
         val column = testStore.column[Long, Double](expectedPath(generated.id)).await
         val results = column.readRange(None, None).toBlockingObservable.toList

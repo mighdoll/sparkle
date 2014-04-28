@@ -38,10 +38,10 @@ object SourceSelector {
           case _                    => throw new IllegalArgumentException(s"source: $errorValue")
         }
       }
-    
+
     val futureColumns = Future.sequence(columnFutures.toSeq)
 
-    futureColumns 
+    futureColumns
   }
 
 }

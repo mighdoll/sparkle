@@ -32,10 +32,10 @@ object AvroRecordGenerators {
 
   object Implicits {
     /** generate a single long-double (non-array) latency record */
-    implicit val arbitraryMillisDoubleRecord:Arbitrary[GenericData.Record] = 
+    implicit val arbitraryMillisDoubleRecord:Arbitrary[GenericData.Record] =
       Arbitrary(genMillisDoubleRecord)
   }
-  
+
   /** return a single GenericData record containing an array of latency time,value events */
   def makeLatencyRecord(id: String, events: Iterable[(Long, Double)]): GenericData.Record = {
     val elementArray = {

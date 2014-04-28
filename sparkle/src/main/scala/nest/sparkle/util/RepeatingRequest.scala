@@ -43,7 +43,7 @@ object RepeatingRequest {
         Future.failed(new TimeoutException(s"Timeout after $maxAttempts attempts"))
       } else {
         fn recoverWith {
-          case t: TimeoutException => 
+          case t: TimeoutException =>
             Console.println("retryingFuture retrying.  Remaining attempts: $attemptsRemaining")
             retry(attemptsRemaining - 1)
         }

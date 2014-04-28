@@ -25,12 +25,12 @@
 //import spray.util._
 //
 ///** Demonstrate how Observable backpressure works:
-// *  . The producing thread blocks if the consumer is busy. 
+// *  . The producing thread blocks if the consumer is busy.
 // *  . The producer *must* respect cancellation and not produce more elements than the consumer wants
 // *  . Requesting the next element from the source needs to be thread synchronous with cancellation
 // */
 //class TestObservable extends FunSuite with Matchers {
-//  
+//
 //  test("iterator to observable") {
 //    Thread.currentThread().setName("consumer")
 //    val observable = Observable.create { observer: Observer[Int] =>
@@ -44,13 +44,13 @@
 //          observer.onNext(value)
 //          !cancelled
 //          // uncomment to see what happens if the producer produces more elements beyond cancellation
-//          // true  
+//          // true
 //        }.foreach{ _ => }
 //      }
 //      Subscription { cancelled = true }
 //    }
 //
-//    val result1 = observable.map {value => 
+//    val result1 = observable.map {value =>
 //      Thread.sleep(250) // pretend we're doing some work
 //      value
 //    }.take(10).toFutureSeq.await

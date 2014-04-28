@@ -63,7 +63,7 @@ object TextTableParser {
   /** return an iterator that will parse incoming string arrays into parsed numeric data */
   private def makeRowIterator(rows: Iterator[Array[String]], columnMap: ColumnMap): Iterator[RowData] = {
     val valueIndices:Seq[Int] = columnMap.data.map { case (name, index) => index }.toSeq
-    
+
     /** an iterator that will pull data from the source parser */
     val iterator = new Iterator[RowData] {
       def hasNext: Boolean = rows.hasNext
@@ -73,16 +73,16 @@ object TextTableParser {
         val key = parseTime(timeString).getOrElse {
           formatError(s"couldn't parse the time in line ${row.mkString(",")}")
         }
-        val values:Seq[Option[Any]] = valueIndices.map {index => 
+        val values:Seq[Option[Any]] = valueIndices.map {index =>
           val valueString = row(index)
           val doubleValue = parseDouble(valueString) // LATER parse based on the type
-                                                     // TODO handle string values and log unhandled types 
+                                                     // TODO handle string values and log unhandled types
           doubleValue
         }
         RowData(Some(key) +: values)
       }
     }
-    
+
     iterator
   }
 

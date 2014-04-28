@@ -25,16 +25,16 @@ object ObservableIterator {
   implicit class WrappedIterator[T](val iterator: Iterator[T]) extends AnyVal {
     /**
      * Convert an Iterator to an Observable by dedicating a thread to iteration.
-     * 
-     * Note that this consumes a threadpool thread until the iterator completes or the 
+     *
+     * Note that this consumes a threadpool thread until the iterator completes or the
      * subscription is cancelled.
      */
     def toObservable(implicit executionContext: ExecutionContext): Observable[T] = {
       Observable { subscriber:Subscriber[T] =>
-        executionContext.execute(new Runnable {          
-          def run() { // run in a background thread.  
+        executionContext.execute(new Runnable {
+          def run() { // run in a background thread.
             iterator.takeWhile { value =>
-              subscriber.onNext(value) 
+              subscriber.onNext(value)
               !subscriber.isUnsubscribed
             }.foreach { _ => } // trigger iteration until cancelled
           }

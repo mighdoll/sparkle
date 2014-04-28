@@ -56,17 +56,17 @@ case class DataRequestApi(store: Store) {
 
     val futureStreamAndData = // completes when output streams are finished
       futureOutputStreams.flatMap { outputStreams =>
-        val futureStreamAndDatas: Seq[Future[StreamAndData]] = 
+        val futureStreamAndDatas: Seq[Future[StreamAndData]] =
           outputStreams.map { streamWithFutureData(_) } // SCALA why can't we use infix here?
         Future.sequence(futureStreamAndDatas)
       }
 
-    val futureStreamArray:Future[Array[Stream]] = 
+    val futureStreamArray:Future[Array[Stream]] =
       futureStreamAndData map { seq =>
         seq.toArray.map { makeStream(_) }
       }
 
-    futureStreamArray map { array => Streams(streams = array) }  
+    futureStreamArray map { array => Streams(streams = array) }
   }
 
 }

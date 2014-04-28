@@ -28,9 +28,9 @@ import nest.sparkle.time.server.ConfigureSparkle
 import nest.sparkle.time.server.DataService
 import nest.sparkle.time.protocol.TestDataService
 
-trait DirectoryRegistryFixture extends FunSuite 
+trait DirectoryRegistryFixture extends FunSuite
   with ScalatestRouteTest with TestDataService with BeforeAndAfterAll {
-  override def testConfig = ConfigureSparkle.loadConfig() 
+  override def testConfig = ConfigureSparkle.loadConfig()
   val dir = Files.createTempDirectory("testDirectoryRegistry")
   override val registry = DirectoryDataRegistry(dir)
   val store = PreloadedStore(List(SampleData))

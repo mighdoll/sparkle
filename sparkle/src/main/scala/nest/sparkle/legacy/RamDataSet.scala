@@ -89,7 +89,7 @@ trait RamDataSet extends DataSetOld {
     val (startDex, afterEnd) = timeRange(start, end)
     val summaryFn = Summarize(summarize)
     val raw = timeSlice(startDex, afterEnd)
-    val converted = raw map { timeDatum => Datum(timeDatum.time, timeDatum.value.toDouble) } // (we don't actually use the value)      
+    val converted = raw map { timeDatum => Datum(timeDatum.time, timeDatum.value.toDouble) } // (we don't actually use the value)
     val results = summaryFn(converted, max)
     Future.successful(results)
   }
@@ -205,14 +205,14 @@ trait RamDataSet extends DataSetOld {
   private def timeMetricInfo():Future[MetricInfo] = {
     import scala.concurrent.ExecutionContext.Implicits.global
     info() map { setInfo =>
-      val range = setInfo.domain.map { 
+      val range = setInfo.domain.map {
         case (start,end) => (start.toDouble, end.toDouble)
       }
-      MetricInfo(domain = setInfo.domain, range = range)      
+      MetricInfo(domain = setInfo.domain, range = range)
     }
   }
-  
-  private def timeColumn(metricName:String):Boolean = 
+
+  private def timeColumn(metricName:String):Boolean =
     metricName == "time"
 
   /** return a structure describing a particular column */

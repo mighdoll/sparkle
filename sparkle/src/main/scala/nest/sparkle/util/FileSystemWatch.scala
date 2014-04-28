@@ -74,7 +74,7 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
   }
 
   private def watchable(path: Path): Boolean = {
-    // we've been notified, but the newly created file might not be readable yet 
+    // we've been notified, but the newly created file might not be readable yet
     // so we can't call e.g. Files.isRegular(path)
     (Files.isReadable(path) && !Files.isDirectory(path) && pathMatcher.matches(path))
   }
@@ -93,7 +93,7 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
 
     /** drain all events from the given watch key, calling pollEvents until it returns an empty list */
     def collectEvents(key:WatchKey):Iterable[WatchEvent[_]] = {
-      val events = key.pollEvents().asScala 
+      val events = key.pollEvents().asScala
       if (!events.isEmpty) {
         events ++ collectEvents(key)
       } else {
@@ -115,8 +115,8 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
                 if (Files.isDirectory(completePath)) {
                   watchPath(completePath)
                   val (files, dirs) = scanFileSystem(completePath, glob)
-                  dirs foreach watchPath                  
-                  files.foreach {file => 
+                  dirs foreach watchPath
+                  files.foreach {file =>
                     val fromRoot = completePath.resolve(file)
                     report(Added(fromRoot))
                   }

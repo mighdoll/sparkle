@@ -27,7 +27,7 @@ trait WriteableStore {
 
   /**
    * Format the store.
-   * 
+   *
    * This erases any existing data in the store. The store is in the same state
    * as if it was just created.
    */

@@ -45,7 +45,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
   }
 
   var readers:Seq[KafkaReader[_]] = Seq()
-  
+
   /** Start the loader reading from the configured kafka topics
     *
     * Note that load() will consume a thread for each kafka topic
@@ -54,7 +54,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
   def load() {
     val finder = decoderFinder()
 
-    readers = 
+    readers =
       topics.map { topic =>
         val decoder = columnDecoder(finder, topic)
         val reader = KafkaReader(topic, rootConfig, None)(decoder)
@@ -62,7 +62,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
         reader
       }
   }
-  
+
   /** terminate all readers */
   def close() {
     readers.foreach{_.close()}
@@ -98,7 +98,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
           }
         }
 
-      // The type parameterization of K is incomplete. we'd need to add a typeclass to 
+      // The type parameterization of K is incomplete. we'd need to add a typeclass to
       // abstract out the LongDouble stuff above.  For now we just cast to the expected type
       val castFutures = writeFutures.asInstanceOf[Seq[Future[Option[ColumnUpdate[K]]]]]
 
@@ -116,7 +116,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
     // TODO, commit is relatively slow. let's commit/notify only every N items and/or after a timeout
     reader.commit() // record the progress reading this kafka topic into zookeeper
 
-    // notify anyone subscribed to the Watched stream that we've written some data 
+    // notify anyone subscribed to the Watched stream that we've written some data
     updates.foreach { update =>
       log.trace(s"recordComplete: $update")
       watchedData.onNext(update)
@@ -160,17 +160,17 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
 A note about kafka topics and connections:
 
 It would be nice to start streams from multiple topics with one of the connection.createMessageStreams()
-variants. This has the advantage of minimizing the amount of rebalancing when a node is added or restarted, 
-since rumor has it that one multi-topic request will trigger one total rebalancing rather than one rebalancing 
+variants. This has the advantage of minimizing the amount of rebalancing when a node is added or restarted,
+since rumor has it that one multi-topic request will trigger one total rebalancing rather than one rebalancing
 for each topic.
 
-However, the connection.commitOffset call tracks topic offsets for the entire connection's worth of 
-streams, not per stream.  Using multiple streams per connection and commitOffset would introduce potential 
-correctness problems - the topic offsets for some streams might be recorded before the app has committed 
+However, the connection.commitOffset call tracks topic offsets for the entire connection's worth of
+streams, not per stream.  Using multiple streams per connection and commitOffset would introduce potential
+correctness problems - the topic offsets for some streams might be recorded before the app has committed
 the topic data to cassandra, resulting in data loss if a node fails.
 
 So given a choice between a performance degradation on node failure vs. correctness violation, we'll
-go with the performance degradation. 
+go with the performance degradation.
 
 One topic per connection.
 

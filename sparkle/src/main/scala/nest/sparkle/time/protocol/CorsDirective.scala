@@ -50,9 +50,9 @@ trait CorsDirective {
     `Accept-Encoding`, `Accept-Language`, Host, `User-Agent`, `Authorization`, `Cache-Control`)
 
   private lazy val corsAdditionalHeaders: List[String] = List("Referer", "X-Requested-With", "DNT", "Keep-Alive") // SPRAY why no Referer?
-  
+
   private lazy val corsHeaderString = corsHeaders.mkString(", ")
-  
+
   /** all allowable methods, including OPTIONS which is always allowable if CORS is enabled */
   private lazy val allCorsMethods = OPTIONS :: corsMethods
 

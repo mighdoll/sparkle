@@ -22,17 +22,17 @@ class TestPeekIterator extends FunSuite with Matchers with PropertyChecks {
   implicit override val generatorDrivenConfig = PropertyCheckConfig(minSuccessful = 10)
 
   def peeked[T](list:List[T]) = PeekableIterator(list.toIterator)
-  
+
   def peekedIteratorMatch(list: List[Int]) {
     peeked(list).toList shouldEqual list
   }
-  
+
   def peekedTailMatch(list: List[Int]) {
     peeked(list).tail.toList shouldEqual list.tail
   }
-  
+
   def peekedHeadOptionMatch(list:List[Int]) {
-    peeked(list).headOption shouldEqual list.headOption    
+    peeked(list).headOption shouldEqual list.headOption
   }
 
   test("peeked.headOption should match original") {

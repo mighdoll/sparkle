@@ -32,7 +32,7 @@ class TestCustomApi extends FunSuite with Matchers with ScalatestRouteTest with 
   val registry = new PreloadedRegistry(List(SampleData))(system.dispatcher)
   val store = PreloadedStore(List(SampleData))
   def config = testConfig
-  
+
   test("custom api") {
     Get("/foo") ~> route ~> check {
       assert(status.intValue === 200)

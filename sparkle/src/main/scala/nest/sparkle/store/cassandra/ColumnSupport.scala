@@ -16,7 +16,7 @@ package nest.sparkle.store.cassandra
 import ColumnSupport._
 
 object ColumnSupport {
-  def constructColumnPath(dataSetName:String, columnName:String): String = dataSetName + "/" + columnName 
+  def constructColumnPath(dataSetName:String, columnName:String): String = dataSetName + "/" + columnName
 }
 
 
@@ -24,7 +24,7 @@ object ColumnSupport {
 trait ColumnSupport {
   def dataSetName:String
   def columnName:String
-  
+
   lazy val columnPath = constructColumnPath(dataSetName, columnName)
   protected val rowIndex = 0.asInstanceOf[AnyRef] // LATER implement when we do wide row partitioning
 

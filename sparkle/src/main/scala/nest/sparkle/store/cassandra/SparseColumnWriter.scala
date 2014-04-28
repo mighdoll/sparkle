@@ -46,7 +46,7 @@ object SparseColumnWriter extends PrepareTableOperations {
   )
 
   /** constructor to create a SparseColumnWriter */
-  def instance[T: CanSerialize, U: CanSerialize](dataSetName: String, columnName: String, // format: OFF 
+  def instance[T: CanSerialize, U: CanSerialize](dataSetName: String, columnName: String, // format: OFF
       catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog)
       (implicit session: Session, execution:ExecutionContext):Future[SparseColumnWriter[T,U]] = { // format: ON
 
@@ -72,7 +72,7 @@ object SparseColumnWriter extends PrepareTableOperations {
     val tableName = serialInfo.tableName
     assert(tableName == CassandraStore.sanitizeTableName(tableName))
 
-    val createTable = s"""  
+    val createTable = s"""
       CREATE TABLE IF NOT EXISTS "$tableName" (
         dataSet ascii,
         rowIndex int,
@@ -89,7 +89,7 @@ object SparseColumnWriter extends PrepareTableOperations {
 
   private def deleteAllStatement(tableName: String): String = s"""
       DELETE FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? 
+      WHERE dataSet = ? AND column = ? AND rowIndex = ?
       """
 
   private def insertOneStatement(tableName: String): String = s"""
@@ -104,13 +104,13 @@ object SparseColumnWriter extends PrepareTableOperations {
   * a millisecond timestamp and a double value.
   */
 protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
-    val dataSetName: String, val columnName: String, 
-    catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog)(implicit session: Session) 
+    val dataSetName: String, val columnName: String,
+    catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog)(implicit session: Session)
   extends WriteableColumn[T, U] with ColumnSupport with Log { // format: ON
 
   val serialInfo = serializationInfo[T, U]()
   val tableName = serialInfo.tableName
-  
+
   /** create a catalog entries for this given sparse column */
   protected def updateCatalog(description: String = "no description")(implicit executionContext: ExecutionContext): Future[Unit] = {
     // LATER check to see if table already exists first
@@ -140,9 +140,9 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
   def erase()(implicit executionContext: ExecutionContext): Future[Unit] = { // format: ON
     val deleteAll = statement(DeleteAll(tableName)).bind(Seq[Object](dataSetName, columnName, rowIndex): _*)
     session.executeAsync(deleteAll).toFuture.map { _ => () }
-  }  
-  
-  
+  }
+
+
   /** write a bunch of column values in a batch */ // format: OFF
   private def writeMany(events:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON

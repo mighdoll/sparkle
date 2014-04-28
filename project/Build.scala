@@ -37,7 +37,7 @@ object SparkleTimeBuild extends Build {
           nScalaTime,
           argot,
           openCsv
-        ) 
+        )
       )
 
   lazy val kafkaLoader =

@@ -37,7 +37,7 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log{
   def writeStream(stream: Observable[T]) {
     stream.subscribe { datum =>
       writeElement(datum)
-    } 
+    }
   }
 
   /** write a collection of items to kafka. Note that this blocks the calling thread until it is done. */

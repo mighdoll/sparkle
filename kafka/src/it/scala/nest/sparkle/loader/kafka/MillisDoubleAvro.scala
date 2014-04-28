@@ -19,7 +19,7 @@ import com.typesafe.config.Config
 object MillisDoubleAvro {
   val avroJson ="""
     {
-      "type": "record", 
+      "type": "record",
       "name": "MillitimeDouble",
       "fields" : [
         {"name": "id", "type": "string"},
@@ -27,20 +27,20 @@ object MillisDoubleAvro {
         {"name": "value", "type": "double"}
       ]
     }"""
-    
+
   val schema = schemaFromString(avroJson)
 }
 
 object MillisDoubleArrayAvro {
   val elementJson = """
-      { "name":"element", 
+      { "name":"element",
         "type":"record",
-        "fields":[ 
-          { "name":"time", "type":"long" }, 
-          { "name":"value", "type":"double" } 
+        "fields":[
+          { "name":"time", "type":"long" },
+          { "name":"value", "type":"double" }
         ]
       }"""
-    
+
   val arrayJson = s"""
       { "type": "array",
         "items": $elementJson
@@ -54,7 +54,7 @@ object MillisDoubleArrayAvro {
           { "name":"elements", "type": $arrayJson }
         ]
       }"""
-    
+
   val schema = schemaFromString(avroJson)
   val elementSchema = schemaFromString(elementJson)
   val arraySchema = schemaFromString(arrayJson)
@@ -65,7 +65,7 @@ class MillisDoubleArrayFinder(rootConfig:Config) extends FindDecoder {
     val schema = MillisDoubleArrayAvro.schema
     val decoder = AvroArrayDecoder.decoder(schema)
     AvroColumnDecoder(schema, decoder, prefix = "sample-data/path")
-  }  
+  }
 }
 
 

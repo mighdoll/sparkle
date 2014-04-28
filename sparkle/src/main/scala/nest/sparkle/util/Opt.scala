@@ -23,7 +23,7 @@ import scala.language.implicitConversions
 class Opt[T] private (val option: Option[T])
 
 // from: http://stackoverflow.com/questions/4199393/are-options-and-named-default-arguments-like-oil-and-water-in-a-scala-api
-object Opt {  
+object Opt {
   implicit def any2opt[T](t: T): Opt[T] = new Opt(Option(t)) // NOT Some(t)
   implicit def option2opt[T](o: Option[T]): Opt[T] = new Opt(o)
   implicit def opt2option[T](o: Opt[T]): Option[T] = o.option

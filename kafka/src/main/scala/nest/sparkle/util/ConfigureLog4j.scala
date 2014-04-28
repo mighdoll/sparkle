@@ -24,25 +24,25 @@ import scala.collection.JavaConverters._
 
 /** configure log4j logging based on a .conf file */
 object ConfigureLog4j {
-  
+
   /** configure log4j logging based on a .conf file */
-  def configure(config: Config) {    
+  def configure(config: Config) {
     val log4jConfig = config.getConfig("log4j")
     val file = log4jConfig.getString("file")
     val append = log4jConfig.getBoolean("append")
     val pattern = log4jConfig.getString("pattern")
     val levels = log4jConfig.getConfig("levels")
-    
+
     val patternLayout = new PatternLayout(pattern)
-    
-    val fileAppender = new FileAppender()    
+
+    val fileAppender = new FileAppender()
     fileAppender.setName("FileLogger")
     fileAppender.setFile(file)
     fileAppender.setLayout(patternLayout)
     fileAppender.setThreshold(Level.DEBUG)
     fileAppender.setAppend(append)
     fileAppender.activateOptions()
-    
+
     val consoleAppender = new ConsoleAppender()
     consoleAppender.setName("Console")
     consoleAppender.setLayout(patternLayout)

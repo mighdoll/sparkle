@@ -23,15 +23,15 @@ import nest.sparkle.store.Column
 
 case class CassandraDataSet(store: CassandraStore, name: String) extends DataSet {
   implicit def execution: ExecutionContext = store.execution
-  
+
   /** return a column in this dataset (or FileNotFound) */
   def column[T, U](columnName: String): Future[Column[T, U]] = {
     ???
   }
 
-  /** 
-   * return all child columns 
-   * 
+  /**
+   * return all child columns
+   *
    * @return Observable of full path of any child columns of this DataSet.
    */
   def childColumns: Observable[String] = {
@@ -39,9 +39,9 @@ case class CassandraDataSet(store: CassandraStore, name: String) extends DataSet
     entries.filter(_.isColumn).map(_.childPath)
   }
 
-  /** 
-   * return all child datasets 
-   * 
+  /**
+   * return all child datasets
+   *
    * @return Observable of any child DataSets of this DataSet.
    */
   def childDataSets: Observable[DataSet] = {

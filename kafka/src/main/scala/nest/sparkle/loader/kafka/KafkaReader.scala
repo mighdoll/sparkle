@@ -44,7 +44,7 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
   def stream()(implicit execution: ExecutionContext): Observable[T] = {
     iterableStream().toObservable
   }
-  
+
   /** return an iterator of decoded data from the kafka topic */
   def iterableStream():Iterator[T] = {
     val decoder = implicitly[Decoder[T]]
@@ -56,9 +56,9 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
     val messages = stream.iterator().map { messageAndMetadata =>
       messageAndMetadata.message
     }
-    
+
     // TODO handle reconnecting after kafka consumer timeouts
-    
+
     messages
   }
 
@@ -80,10 +80,10 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
   private def connect(): ConsumerConnector = {
     val properties = {
       val loaderConfig = rootConfig.getConfig("sparkle-time-server.kafka-loader")
-      
-      // extract the kafka-client settings verbatim, send directly to kafka 
+
+      // extract the kafka-client settings verbatim, send directly to kafka
       val props = ConfigUtil.properties(loaderConfig.getConfig("kafka-reader"))
-      
+
       val groupPrefix = consumerGroupPrefix.getOrElse { loaderConfig.getString("reader.consumer-group-prefix") }
       val group = groupPrefix + "." + topic
       props.put("group.id", group)

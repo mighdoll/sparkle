@@ -57,15 +57,15 @@ class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
     val entries = 4
     val testData = randomStrings(entries)
     val testId = randomAlphaNum(3)
-    
+
     val kafka1 = new KafkaTestTopic(rootConfig, testId)
     kafka1.writer.write(testData)
     val stream1 = kafka1.reader.stream()
     val results1 = stream1.take(entries / 2).toFutureSeq.await
 
     kafka1.reader.commit()
-    kafka1.reader.close() // trigger rebalancing immediately for test 
-    
+    kafka1.reader.close() // trigger rebalancing immediately for test
+
     val kafka2 = new KafkaTestTopic(rootConfig, testId)
     val stream2 = kafka2.reader.stream()
     val results2 = stream2.take(entries / 2).toFutureSeq.await

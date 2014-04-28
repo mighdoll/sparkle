@@ -25,7 +25,7 @@ trait Store {
 
   /** return a column from a columnPath e.g. "fooSet/barSet/columName". */
   def column[T,U](columnPath: String): Future[Column[T, U]]
-  
+
   def close(): Unit
 }
 

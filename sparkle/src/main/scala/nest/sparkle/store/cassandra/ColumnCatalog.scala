@@ -55,7 +55,7 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
 
   /** insert or overwrite a catalog entry */
   val addCatalogEntryStatement = s"""
-      INSERT INTO $catalogTable 
+      INSERT INTO $catalogTable
       (columnPath, tableName, description, domainType, rangeType)
       VALUES (?, ?, ?, ?, ?);
       """
@@ -69,7 +69,7 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
       SELECT tableName, domainType, rangeType FROM $catalogTable
       WHERE columnPath = ?;
     """
-    
+
   /** store metadata about a column in Cassandra */ // format: OFF
   def writeCatalogEntry(entry: CassandraCatalogEntry)
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
@@ -86,7 +86,7 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
   (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
     val statement = catalogStatements.catalogInfo.bind(columnPath)
 
-    // result should be a single row containing a three strings: 
+    // result should be a single row containing a three strings:
     for {
       resultSet <- session.executeAsync(statement).toFuture
       row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath))
@@ -135,7 +135,7 @@ object ColumnCatalog {
 
   /** Create the table using the session passed.
     *
-    * @param session Session to use. 
+    * @param session Session to use.
     */
   def create(session: Session) {
     session.execute(s"""

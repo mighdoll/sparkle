@@ -43,7 +43,7 @@ class WriteableRamStore extends Store {
     optTypedColumn.toFutureOr(new FileNotFoundException())
   }
 
-  /** return a WriteableColumn for the given columnPath.  (returned as a future 
+  /** return a WriteableColumn for the given columnPath.  (returned as a future
    *  for compatibility with other slower Storage types) */
   def writeableColumn[T: TypeTag: Ordering, U: TypeTag](columnPath: String) // format: OFF
       : Future[WriteableColumn[T, U]] = { // format: ON
@@ -63,11 +63,11 @@ class WriteableRamStore extends Store {
       dataSetName == name
     }.toSeq
   }
-  
+
   /** free memory we might have been hanging on to */
   def close(): Unit = {
     columns.clear()
   }
-  
+
 }
 

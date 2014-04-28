@@ -24,7 +24,7 @@ import ch.qos.logback.core.encoder.Encoder
 import scala.collection.JavaConverters._
 
 /** configure a logback logger based on the config file */
-object ConfigureLogback extends Log { 
+object ConfigureLogback extends Log {
 
   /** configure logging based on the .conf file */
   def configureLogging(config: Config) {
@@ -48,13 +48,13 @@ object ConfigureLogback extends Log {
         rootLogger
       } else {
         slf4j.LoggerFactory.getLogger(entry.getKey).asInstanceOf[Logger]
-        
+
       }
       val level = entry.getValue.unwrapped.toString
       logger.setLevel(Level.toLevel(level))
     }
 
-    // attach new file appender 
+    // attach new file appender
     val fileAppender = new FileAppender[LoggingEvent]
     fileAppender.setFile(file)
     val encoder = new PatternLayoutEncoder
@@ -65,7 +65,7 @@ object ConfigureLogback extends Log {
     fileAppender.setContext(context)
     fileAppender.start()
     rootLogger.addAppender(fileAppender.asInstanceOf[Appender[ILoggingEvent]])
-    
+
   }
-  
+
 }

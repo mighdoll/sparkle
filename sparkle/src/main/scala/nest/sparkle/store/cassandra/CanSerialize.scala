@@ -47,7 +47,7 @@ abstract class CanSerialize[T: TypeTag] {
 
   /** return a string representation of the stored scala type */
   def nativeType: String = CanSerialize.typeTagToString(implicitly[TypeTag[T]])
-  
+
   /** serialize a scala native type into an AnyRef that maps directly to a cassandra data type */
   def serialize(value: T): AnyRef = value.asInstanceOf[AnyRef]
 
@@ -67,7 +67,7 @@ object serializers {
       row.getLong(index)
     }
   }
-  
+
   implicit object NanoTimeSerializer extends CanSerialize[NanoTime] {
     val columnType = "bigint"
     override def serialize(value: NanoTime): AnyRef = value.nanos.asInstanceOf[AnyRef]
@@ -75,7 +75,7 @@ object serializers {
       NanoTime(row.getLong(index))
     }
   }
-  
+
   implicit object MilliTimeSerializer extends CanSerialize[MilliTime] {
     val columnType = "bigint"
     override def serialize(value: MilliTime): AnyRef = value.millis.asInstanceOf[AnyRef]
@@ -91,7 +91,7 @@ object serializers {
       FiniteDuration(row.getLong(index), NANOSECONDS)
     }
   }
-  
+
   implicit object DoubleSerializer extends CanSerialize[Double] {
     val columnType = "double"
     def deserialize(serialized: AnyRef): Double =
@@ -114,14 +114,14 @@ object serializers {
       row.getBool(index)
     }
   }
-  
+
   implicit object StringSerializer extends CanSerialize[String] {
     val columnType = "text"
     def fromRow(row: Row, index: Int): String = {
       row.getString(index)
     }
   }
-  
+
   implicit object AsciiSerializer extends CanSerialize[AsciiString] {
     val columnType = "ascii"
     def fromRow(row: Row, index: Int): AsciiString = {

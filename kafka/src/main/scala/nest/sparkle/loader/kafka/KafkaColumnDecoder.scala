@@ -11,7 +11,7 @@ import org.apache.avro.Schema
   */
 sealed trait KafkaColumnDecoder[T] extends Decoder[T] {
   /** columnPath after the id (including the columnName itself) */
-  lazy val columnPathSuffix: String = appendSlash(suffix) 
+  lazy val columnPathSuffix: String = appendSlash(suffix)
 
   /** columnPath before the id */
   lazy val columnPathPrefix: String = appendSlash(prefix)
@@ -32,7 +32,7 @@ sealed trait KafkaColumnDecoder[T] extends Decoder[T] {
   }
 
   /** return the full columnPath for this decoder given an id and columnName */
-  def columnPath(id:String, columnName:String):String = 
+  def columnPath(id:String, columnName:String):String =
       s"$columnPathPrefix$id/$columnPathSuffix$columnName"
 
 }
@@ -52,11 +52,11 @@ trait KafkaKeyValues extends KafkaColumnDecoder[ArrayRecordColumns] {
 }
 
 /** a KafkaColumnDecoder for id,[value] only records */
-// trait KafkaValues // LATER 
+// trait KafkaValues // LATER
 
 /** KafkaColumnDecoder for avro encoded key,value records */
 case class AvroColumnDecoder(// format: OFF
-    val schema: Schema, 
+    val schema: Schema,
     val decoder: ArrayRecordDecoder,
     override val prefix: String
    ) extends KafkaKeyValues { // format: ON

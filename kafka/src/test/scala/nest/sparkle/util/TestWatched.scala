@@ -78,11 +78,11 @@ class TestWatched extends FunSuite with Matchers {
       // filter for values that equal 0
       val watch = Watch[Int](filter = Some{ (a: Int) => a == 0})
       source.watch(watch)
-      
+
       // print the filtered result stream
       watch.report.subscribe { value => println(value) }
     }
-    
+
     val watched = TestWatchable()
     example(watched)
     watched.start()

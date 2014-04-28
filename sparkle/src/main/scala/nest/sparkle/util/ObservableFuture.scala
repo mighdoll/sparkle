@@ -25,25 +25,25 @@ import scala.util.Failure
 object ObservableFuture {
 
   implicit class WrappedFuture[T](val futureValue: Future[T]) {
-    
+
     /** return an observable that will return a single value when the future completes */
-    def toObservable(implicit executionContext: ExecutionContext): Observable[T] = 
+    def toObservable(implicit executionContext: ExecutionContext): Observable[T] =
       Observable.from(futureValue)(executionContext)
   }
-  
+
   implicit class WrappedObservable[T](val observable: Observable[T]) {
-    
+
     /** return an Future that will return a single sequence for the observable stream */
     def toFutureSeq: Future[Seq[T]] = {
       val promise = Promise[Seq[T]]()
       def onNext(value:Seq[T]) {
         promise.complete(Success(value))
       }
-      
+
       def onError(error:Throwable) {
         promise.complete(Failure(error))
       }
-      
+
       observable.toSeq.subscribe(onNext _, onError _)
       promise.future
     }

@@ -35,7 +35,7 @@ trait ConfiguredDataService extends DataService with Log {
   def customApis(config: Config, dataRegistry: DataRegistry)(implicit actorRefFactory: ActorRefFactory): Iterable[Route] = {
     val classes = config.getStringList("apis").asScala
     classes.map { className =>
-      log.info(s"adding api from .conf: $className") 
+      log.info(s"adding api from .conf: $className")
       val custom = Instance.byName[ApiExtension](className)(actorRefFactory, dataRegistry)
       custom.route
     }

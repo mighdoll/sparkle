@@ -29,12 +29,12 @@ trait DataSetOld {
 
   /** Return a slice from a single data column */
   def data(metricName: String, start: Opt[DateTime] = None, end: Opt[DateTime] = None,
-           max: Opt[Int] = None, edgeExtra: Opt[Boolean] = None, 
+           max: Opt[Int] = None, edgeExtra: Opt[Boolean] = None,
            summarize: Opt[String] = None, filter: Opt[Array[Double]] = None): Future[Array[Datum]]
 
   def info(): Future[DataSetInfo]
-  def metricInfo(name: String): Future[MetricInfo] 
-  def minValue(metricName: String): Future[Double]  
+  def metricInfo(name: String): Future[MetricInfo]
+  def minValue(metricName: String): Future[Double]
   def maxValue(metricName: String): Future[Double]
   def uniqueValues(metricName:String):Future[Array[Double]]
   def minDomain: Future[Long]

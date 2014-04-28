@@ -26,7 +26,7 @@ import akka.actor.ActorRefFactory
 
 trait PathWatcher {
   /** Return the current set of files in the WatchPath.  Report any future additions,
-    * deletions, or modifications to matching files in the WatchPath.  
+    * deletions, or modifications to matching files in the WatchPath.
     * Does not currently support symbolic links */
   def watch(fn: WatchPath.Change => Unit): Future[Iterable[Path]]
 }
@@ -35,7 +35,7 @@ object WatchPath {
   /** Create a typed actor to watch a portion of the filesystem subtree starting at the root path.
     * Clients should call watch() on the returned PathWatcher to capture the initial set of files and
     * start watching for subsequent changes.
-    * File reporting is filtered with shell globbing syntax.  
+    * File reporting is filtered with shell globbing syntax.
     * (See http://docs.oracle.com/javase/7/docs/api/java/nio/file/FileSystem.html#getPathMatcher(java.lang.String))
     */
   def apply(root: Path, glob: String = "**")(implicit system: ActorSystem): PathWatcher = {

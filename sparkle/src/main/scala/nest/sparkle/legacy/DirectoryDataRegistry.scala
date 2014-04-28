@@ -30,7 +30,7 @@ import nest.sparkle.util.TryToFuture._
 import akka.util.Timeout.durationToTimeout
 import nest.sparkle.util.Opt._
 import nest.sparkle.util.WatchPath
-  
+
 
 /** Create a data registry backed by a filesystem subdirectory */
 object DirectoryDataRegistry {
@@ -54,58 +54,58 @@ class DirectoryDataRegistryActor(path:Path, glob:String = "**")
     extends DirectoryDataRegistryApi with TypedActor.PreStart {
   implicit val system = TypedActor.context.system
   implicit val execution = TypedActor.context.dispatcher
-  
+
   private val self = TypedActor.self[DirectoryDataRegistryApi]
-  private val files = mutable.HashSet[String]()  
+  private val files = mutable.HashSet[String]()
   private val loadedSets = LruCache[DataSetOld](maxCapacity = 100)
   private val watcher = WatchPath(path, glob)
-  
+
   def preStart() {
-    val initialFiles = watcher.watch(self.fileChange) 
+    val initialFiles = watcher.watch(self.fileChange)
     val fileNames = initialFiles.await.map(_.toString)
     files ++= fileNames
   }
-  
+
   /** return the DataSet for the given path string */
   def findDataSet(name:String):Future[DataSetOld] = {
     loadedSets(name, () => loadSet(name))
   }
-  
+
   def allSets():Future[Iterable[String]] = {
     Future.successful(files)
   }
-  
+
   /** asynchronously load a .csv or .tsv file */
   private def loadSet(name:String):Future[DataSetOld] = {
     val resolved = path.resolve(name)
     val fullPathTry = Try(resolved.toRealPath())
     fullPathTry.toFuture.flatMap {fullPath =>
-      FileLoadedDataSet.loadAsync(fullPath, name) 
+      FileLoadedDataSet.loadAsync(fullPath, name)
     }
-  } 
-  
+  }
+
   /** called when the filesystem watcher notices a change */
   protected[legacy] def fileChange(change:WatchPath.Change) {
     import WatchPath._
-    
+
     def localPath(fullPath:Path):String = {
       path.relativize(fullPath).toString
     }
-    
+
     change match {
       case Added(fullPath) =>
         files += localPath(fullPath)
-      case Modified(fullPath) =>        
+      case Modified(fullPath) =>
         loadedSets.remove(localPath(fullPath))
       case Removed(fullPath) =>
         val changedPath = localPath(fullPath)
         loadedSets.remove(changedPath)
         files.remove(changedPath)
     }
-  } 
-  
+  }
+
   def postStop() {
     TypedActor(system).stop(watcher)
   }
-  
+
 }

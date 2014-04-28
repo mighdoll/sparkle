@@ -50,7 +50,7 @@ object FilesLoader {
   *
   * @param loadPath Path to directory to load from/watch or a single file to load.
   * @param store Store to write data to.
-  * @param strip Number of leading path elements to strip when 
+  * @param strip Number of leading path elements to strip when
   *              creating the DataSet name.
   */
 protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)(implicit system: ActorSystem) {
@@ -162,7 +162,7 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
     *
     * The dataset string is the file's path minus any parts beginning with an
     * underscore.
-    * 
+    *
     * Strips off leading path elements if strip > 0.
     *
     * @param path Path of the tsv/csv file

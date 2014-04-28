@@ -43,7 +43,7 @@ case class PeekableIterator[T](iterator: Iterator[T]) extends Iterator[T] {
     * if next() has been called).
     */
   def tail: Iterator[T] = {
-    headOption // trigger lazy iteration of first element if necessary 
+    headOption // trigger lazy iteration of first element if necessary
     iterator
   }
 

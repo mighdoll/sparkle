@@ -19,7 +19,7 @@ import kafka.serializer.Decoder
 
 /** Subclasses implement the FindDecoder trait to identify the KafkaColumnDecoder for each
  *  kafka topic.  The implementing subclass must have a single argument constructor containing
- *  a Config parameter. The fully qualified class name of the subclass goes should be added to the .conf file 
+ *  a Config parameter. The fully qualified class name of the subclass goes should be added to the .conf file
  *  at the key `kafka-loader.find-decoder`. */
 trait FindDecoder {
   def decoderFor(topic: String): KafkaColumnDecoder[_]

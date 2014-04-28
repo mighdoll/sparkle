@@ -23,15 +23,15 @@ class TestDirectoryRegistry extends DirectoryRegistryFixture with Matchers {
     try {
       val files = awaitFileCount(1)
       files(0) should be ("a.csv")
-      
+
       val b = Files.createFile(dir.resolve("b.csv"))
       val files2 = awaitFileCount(2)
       files2(1) should be ("b.csv")
-      
+
       Files.deleteIfExists(b) should be (true)
       val files3 = awaitFileCount(1)
       files3(0) should be ("a.csv")
-      
+
     } finally {
       Files.deleteIfExists(a)
     }

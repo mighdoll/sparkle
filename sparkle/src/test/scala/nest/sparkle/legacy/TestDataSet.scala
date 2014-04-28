@@ -48,10 +48,10 @@ class TestDataSet extends FunSuite with Matchers {
       end = DateTime.fromIsoDateTimeString("2013-01-19T22:13:20").get,
       edgeExtra = edgeExtra).await
     }
-    
+
     val data = requestTwo(edgeExtra=false)
     data.length should be(2)
-    
+
     val data3 = requestTwo(edgeExtra=true)
     data3.length should be(3)
   }
@@ -60,28 +60,28 @@ class TestDataSet extends FunSuite with Matchers {
     val data = SampleData.data("p90").await
     data.length should be(7)
   }
-  
+
   test("summarize mean") {
     val data = SampleData.data("p90", max=1, summarize="mean").await
     data.length should be(1)
     data(0).value should be (26.714285714285715)
     data(0).time should be (DateTime.fromIsoDateTimeString("2013-01-19T22:13:40").get.clicks)
   }
-  
+
   test("summarize max") {
     val data = SampleData.data("p90", max=1, summarize="max").await
     data.length should be(1)
     data(0).value should be (32)
     data(0).time should be (DateTime.fromIsoDateTimeString("2013-01-19T22:13:40").get.clicks)
   }
-  
+
   test("summarize min") {
     val data = SampleData.data("p90", max=1, summarize="min").await
     data.length should be(1)
     data(0).value should be (20)
     data(0).time should be (DateTime.fromIsoDateTimeString("2013-01-19T22:14:10").get.clicks)
   }
-  
+
   test("summarize uniques") {
     val data = SampleData.data("p90", max=1, summarize="uniques").await
     data.length should be(6)  // one duplicated item removed
@@ -90,41 +90,41 @@ class TestDataSet extends FunSuite with Matchers {
     val last = data.filter {datum => datum.value == 20} // last unique item should be there
     assert(last.length === 1)
   }
-  
+
   test("summarize sum") {
     val data = SampleData.data("p90", max=1, summarize="sum").await
     data.length should be(1)
     data(0).value should be (187)
     data(0).time should be (DateTime.fromIsoDateTimeString("2013-01-19T22:13:40").get.clicks)
   }
-  
+
   test("summarize count") {
     val data = SampleData.data("p90", max=1, summarize="count").await
     data.length should be(1)
     data(0).value should be (7)
     data(0).time should be (DateTime.fromIsoDateTimeString("2013-01-19T22:13:10").get.clicks)
   }
-  
+
   test("summarize count no data reduction") {
     val data = SampleData.data("p90", max=100, summarize="count").await
     data.length should be(7)
     data(0).value should be (1)
     data(0).time should be (DateTime.fromIsoDateTimeString("2013-01-19T22:13:10").get.clicks)
   }
-  
-  test("summarize unevenly time sampled data") {  
+
+  test("summarize unevenly time sampled data") {
     // 7 data items over a 60 seconds period, but 3 data items in the first bucket
     val data = SampleDataUneven.data("p90", max=6, summarize="count").await
     data.length should be(4)
     data(0).value should be (3)
     data(0).time should be (DateTime.fromIsoDateTimeString("2013-01-19T22:13:10").get.clicks)
   }
-  
+
   test("filter") {
     val data = SampleData.data("p90", valueFilter=Array(25)).await
     data.length should be(2)  // one duplicated item removed
     val dups = data.filter {datum => datum.value == 25} // duplicated item should be there, twice
     assert(dups.length === 2)
   }
-  
+
 }

@@ -26,7 +26,7 @@ object Transform {
 
   /** apply requested StreamRequest transforms, returning OutputStreams that generate results on demand */
   def connectTransform( // format: OFF
-        transform: String, transformParameters: JsObject,  
+        transform: String, transformParameters: JsObject,
         futureColumns: Future[Seq[Column[_, _]]]
       ) (implicit execution: ExecutionContext): Future[Seq[JsonDataStream]] = { // format: ON
 
@@ -41,7 +41,7 @@ object Transform {
 
     futureStreams
   }
-  
+
 
 }
 

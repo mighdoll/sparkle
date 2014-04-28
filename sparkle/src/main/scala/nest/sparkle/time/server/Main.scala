@@ -41,16 +41,16 @@ object Main extends ArgotApp {
     val eraseOverride = erase.value.toList.map { ("sparkle-time-server.erase-store", _) }
     val strip = filesStrip.value.getOrElse(0)
     val filesOverride = filesPath.value.toList.flatMap { path =>
-      ("sparkle-time-server.files-loader.directories", List(s"$path")) :: 
-      ("sparkle-time-server.files-loader.directory-strip", strip) :: 
+      ("sparkle-time-server.files-loader.directories", List(s"$path")) ::
+      ("sparkle-time-server.files-loader.directory-strip", strip) ::
       ("sparkle-time-server.files-loader.auto-start", "true") :: Nil
     }
     val configOverrides = portMapping ::: rootMapping ::: eraseOverride ::: filesOverride
 
-    val launch = ServerLaunch(confFile.value, configOverrides:_*)  
-    
+    val launch = ServerLaunch(confFile.value, configOverrides:_*)
+
     display.value.foreach { _ => launch.launchDesktopBrowser() }
-  } 
+  }
 }
 
 

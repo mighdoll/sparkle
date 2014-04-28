@@ -31,7 +31,7 @@ object JsonEventWriter {
 
     // LATER It would be nice to return all the available data here, but AFAICT the Observable api only gives
     // the choice of buffering by time or count, or getting all of the data.
-    events.map{ eventToArray }.toSeq    
+    events.map{ eventToArray }.toSeq
   }
 }
 

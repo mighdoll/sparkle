@@ -18,22 +18,22 @@ import java.io.BufferedReader
 import scala.collection.Iterator
 
 case class TsvReader(reader: BufferedReader) {
-  
+
   /** Parse a tsv file into an array of strings per line */
   def lines(): Iterator[Array[String]] = {
     linesIterator(reader).map {_.split('\t') }
   }
-  
+
   /** return an iterator over the lines from this buffered reader */
   def linesIterator(reader:BufferedReader):Iterator[String] = {
     val iterator = new Iterator[String]() {
       var nextLine:String = reader.readLine()
-      
+
       def hasNext:Boolean = (nextLine != null)
       def next():String = {
-        val line = nextLine        
+        val line = nextLine
         try {
-          nextLine = reader.readLine()       
+          nextLine = reader.readLine()
         } catch {
           case e:Exception =>
             Console.err.println(s"error reading file $e")
@@ -41,7 +41,7 @@ case class TsvReader(reader: BufferedReader) {
         }
         line
       }
-    }    
+    }
     iterator
   }
 }

@@ -25,26 +25,26 @@ import scala.util.Failure
 class TestObservableFuture extends FunSuite with Matchers {
 
   import scala.concurrent.ExecutionContext.Implicits.global
-    
+
   test("failed future to failed observable") {
     case class MyException() extends RuntimeException("ugh")
-    
+
     val failed = Future.failed(MyException())
     val observable = failed.toObservable
-    
+
     val tried = Try {observable.toBlockingObservable.single}
     tried match {
-      case Failure(MyException()) => 
+      case Failure(MyException()) =>
       case x => fail(s"expected a failure with MyException, got: $x")
     }
   }
-  
+
   test("future string to observable string") {
     val success = Future.successful("foo")
     val observable = success.toObservable
-    
+
     observable.toBlockingObservable.single shouldBe "foo"
   }
 
-  
+
 }

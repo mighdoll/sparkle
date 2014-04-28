@@ -26,12 +26,12 @@ class TestDeepDirectoryRegistry extends DirectoryRegistryFixture with Matchers {
     try {
       val files = awaitFileCount(1)
       files(0) should be ("sub/a.csv")
-      
+
       sub2 = Files.createDirectory(sub.resolve("sub2"))
       b = Files.createFile(sub2.resolve("b.csv"))
       val files2 = awaitFileCount(2)
       files2(1) should be ("sub/sub2/b.csv")
-      
+
     } finally {
       List(a,b,sub2,sub) foreach Files.deleteIfExists
     }

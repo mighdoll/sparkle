@@ -20,9 +20,9 @@ import java.nio.file.attribute.BasicFileAttributes
 import scala.collection.JavaConverters._
 
 object FileSystemScan {
-  
+
   /** Scan a filesystem subtree and report directories and matching files */
-  protected[util] 
+  protected[util]
   def scanFileSystem(path: Path, glob: String = "**"): (mutable.ArrayBuffer[Path], mutable.ArrayBuffer[Path]) = {
     val files = mutable.ArrayBuffer[Path]()
     val directories = mutable.ArrayBuffer[Path]()
@@ -38,7 +38,7 @@ object FileSystemScan {
         }
         FileVisitResult.CONTINUE
       }
-      
+
       override def preVisitDirectory(path:Path, attrs:BasicFileAttributes):FileVisitResult = {
         directories.append(path)
         FileVisitResult.CONTINUE
@@ -50,5 +50,5 @@ object FileSystemScan {
     val relativeFiles = files.map {path.relativize(_)}
     (relativeFiles, directories)
   }
-  
+
 }

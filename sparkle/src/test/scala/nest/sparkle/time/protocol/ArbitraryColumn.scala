@@ -37,14 +37,14 @@ object ArbitraryColumn extends PropertyChecks {
       Event(key, value)
     }
   }
-  
+
   /** import this to allow generating Events in scalacheck generators */
   implicit def arbitraryEvent[T:Arbitrary, U:Arbitrary] = Arbitrary(eventGenerator[T,U]())
 
   /** (currently unused, causes compiler problems in 2.10.3.  retry in 2.10.4 or 2.11) */
   def arbitraryColumn[T: TypeTag: Ordering: Arbitrary, U: TypeTag: Arbitrary](prefix: String, storage: WriteableRamStore) // format: OFF
       (implicit execution: ExecutionContext): (String, Seq[Event[T, U]]) = { // format: ON
-    val eventListGenerator = arbitrary[List[Event[T, U]]]  
+    val eventListGenerator = arbitrary[List[Event[T, U]]]
     val eventsGenerator = eventListGenerator.asInstanceOf[Gen[List[Event[T, U]]]]
     val storedEventsGenerator =
       eventsGenerator.map { events =>

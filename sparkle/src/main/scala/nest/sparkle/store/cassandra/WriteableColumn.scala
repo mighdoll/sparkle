@@ -20,12 +20,12 @@ import nest.sparkle.store.Event
 
 /** A modifiable Storage column */
 trait WriteableColumn[T, U] {
-  /** Write events to the column.  Events are considered immutable once written.  Rewriting the same event is safe.  
-   *  
+  /** Write events to the column.  Events are considered immutable once written.  Rewriting the same event is safe.
+   *
    *  Overwriting an event with different values has undefined results.  i.e. in a time-value column, writing the same time twice will
    *  have unpredictable results on downstream readers.  */
   def write(items:Iterable[Event[T,U]])(implicit executionContext: ExecutionContext): Future[Unit]
-  
+
   /** (Intended for testing) Delete all the data in the column.   */
   def erase()(implicit executionContext:ExecutionContext): Future[Unit]
 }

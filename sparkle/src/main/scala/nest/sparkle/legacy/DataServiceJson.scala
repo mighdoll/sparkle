@@ -22,16 +22,16 @@ import spray.json.DefaultJsonProtocol
 case class MetricInfo(domain:Option[Tuple2[Long,Long]], range:Option[Tuple2[Double, Double]], units:Option[String] = None)
 
 /** info about one particular metric (e.g. one data column), including all the unique values in the column */
-case class MetricInfoWithUniques(domain:Option[Tuple2[Long,Long]], 
-    range:Option[Tuple2[Double, Double]], 
+case class MetricInfoWithUniques(domain:Option[Tuple2[Long,Long]],
+    range:Option[Tuple2[Double, Double]],
     uniqueValues:Array[Double],
     units:Option[String] = None)
 
 /** list of data columns available in a data set (and the aggregate time range for each) */
 case class DataSetInfo(metrics:Iterable[String], domain:Option[Tuple2[Long, Long]])
-    
+
 /** spray json converters for objects we send to the browser */
-object DataServiceJson extends DefaultJsonProtocol {  
+object DataServiceJson extends DefaultJsonProtocol {
   implicit val DataSetFormat = jsonFormat2(DataSetInfo)
   implicit val MetricInfoFormat = jsonFormat3(MetricInfo)
   implicit val MetricInfoLongFormat = jsonFormat4(MetricInfoWithUniques)

@@ -47,12 +47,12 @@ object MavenPublishKeys {
 /** Adds an sbt command 'mavenPublish' and associated settings.  mavenPublish will publish
   * artifacts to a maven repository.  The maven repository url and credentials are configured
   * by a file in the user's home directory:  ~/.maven/.credentials.  The paths in the
-  * repository to snapshot and release directories are configurable as sbt settings or in the 
+  * repository to snapshot and release directories are configurable as sbt settings or in the
   * .credentials file.
-  * 
+  *
   * The .credentials file looks like this:
-  * 
-  * <code>  
+  *
+  * <code>
     $ cat ~/.maven/.credentials
         realm=Artifactory Realm
         host=artifactory.my-workgroup-domain.com
@@ -60,11 +60,11 @@ object MavenPublishKeys {
         password=my-password
         snapshotsPath=artifactory/libs-snapshot-local
         releasesPath=artifactory/libs-release-local
-    </code> 
+    </code>
   *
   * mavenPublish is implemented as an sbt command (rather than an sbt task) so as not to conflict
   * with other plugins that use the 'publish' command.
-  */ 
+  */
 object MavenPublish { // format: ON
   /** users should normally include these settings in their sbt project */
   lazy val settings = Seq(

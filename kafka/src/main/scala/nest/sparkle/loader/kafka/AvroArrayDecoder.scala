@@ -122,7 +122,7 @@ object AvroArrayDecoder extends Log {
         }
       }
 
-      // collect all values in column format 
+      // collect all values in column format
       val valueColumns: Seq[Seq[Any]] = {
         val valueNames = metaData.values.map{ _.name }
         valueNames.map{ name =>

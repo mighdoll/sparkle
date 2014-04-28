@@ -25,7 +25,7 @@ object ColumnTypes {
     }
     found.get.asInstanceOf[SerializeInfo[T, U]]
   }
-  
+
   /** return some serialization info for the types provided */
   private def createSerializationInfo[T: CanSerialize, U: CanSerialize](): SerializeInfo[T, U] = {
     val domainSerializer = implicitly[CanSerialize[T]]
@@ -45,17 +45,17 @@ object ColumnTypes {
 
 
 /** extractors for type pairs of supported column types */
-object LongDoubleSerializers extends SerializerExtractor[Long, Double] 
+object LongDoubleSerializers extends SerializerExtractor[Long, Double]
 object LongLongSerializers extends SerializerExtractor[Long, Long]
 object LongIntSerializers extends SerializerExtractor[Long, Int]
 object LongBooleanSerializers extends SerializerExtractor[Long, Boolean]
 object LongStringSerializers extends SerializerExtractor[Long, String]
 
-/** a pair of cassandra serializers for key and value */ 
+/** a pair of cassandra serializers for key and value */
 case class KeyValueSerializers[T, U](keySerializer: CanSerialize[T], valueSerializer: CanSerialize[U])
 
 /** support for writing an extractor from TaggedKeyValue to a KeyValueSerializer */
-class SerializerExtractor[T: CanSerialize :TypeTag, U: CanSerialize :TypeTag] 
+class SerializerExtractor[T: CanSerialize :TypeTag, U: CanSerialize :TypeTag]
     extends TaggedKeyValueExtractor[T, U, KeyValueSerializers[T, U]] {
   def cast: KeyValueSerializers[T, U] = KeyValueSerializers(implicitly[CanSerialize[T]], implicitly[CanSerialize[U]])
 }

@@ -19,9 +19,9 @@ import spray.json.DefaultJsonProtocol._
 
 trait StreamRequestor {
   self: TestStore =>
-    
+
   var currentRequestId = 0
-  
+
   /** return a request id and trace id for a new protocol request */
   def nextRequestIds(): (Int, String) = synchronized {
     currentRequestId = currentRequestId + 1

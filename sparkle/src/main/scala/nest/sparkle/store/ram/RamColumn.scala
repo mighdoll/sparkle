@@ -41,7 +41,7 @@ abstract class RamColumn[T: TypeTag: Ordering, U: TypeTag](val name: String) ext
     ???
   }
 
-  /** read a slice of events from the column, inclusive of the start and end values.  
+  /** read a slice of events from the column, inclusive of the start and end values.
    *  If start is missing, read from the first element in the column.  If end is missing
    *  read from the last element in the column.  */  // SCALA just inherit description from trait?
   def readRange(start: Option[T] = None, end: Option[T] = None) // format: OFF
@@ -97,12 +97,12 @@ class WriteableRamColumn[T: TypeTag: Ordering, U: TypeTag](name: String)
     }
     Future.successful()
   }
-  
+
   /** does nothing, for compatibility with the WriteableColumn interface */
   def create(description: String)(implicit executionContext: ExecutionContext): Future[Unit] = {
     Future.successful()
   }
-  
+
   def erase()(implicit executionContext:ExecutionContext): Future[Unit] = {
     keys.clear()
     values.clear()

@@ -28,7 +28,7 @@ import java.io.ByteArrayInputStream
 
 /** encoders, decoders and utilities for working with avro encoded data in kafka */
 object AvroSupport {
-  
+
   /** Return an avro schema parsed from an avro json schema string */
   def schemaFromString(json: String): Schema = {
     val parser = new Parser()
@@ -61,7 +61,7 @@ object AvroSupport {
       }
     }
   }
-  
+
   // LATER add genericDecoder where the writer and reader schemas are different
-  
+
 }

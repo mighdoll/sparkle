@@ -14,41 +14,41 @@ import nest.sparkle.util.Log
 
 /**
  * An entry in the DataSetCatalog table is a 'sub-folder' or column for a path.
- * 
+ *
  * @param parentPath One or more part dataset name of the parent, e.g. a/b/c
  * @param childPath Full path of the child contained in the parent, e.g. a/b/c/column1
  * @param isColumn True if the child path is a columnPath and not an intermediate dataSet component (folder).
  */
 case class DataSetCatalogEntry(parentPath: String, childPath: String, isColumn: Boolean)
 
-case class DataSetCatalogStatements(addChildPath: PreparedStatement, 
+case class DataSetCatalogStatements(addChildPath: PreparedStatement,
                                     childrenOfParentPath: PreparedStatement)
 
 /**
  * The DataSetCatalog stores the immediate children of a dataSet path.
  * Children may be a component of a DataSet 'path' or a columnPath.
- * 
+ *
  * This is needed by the Cassandra store so that efficient queries
  * for child elements can be made, e.g. all of the columns for a DataSet.
- * 
+ *
  * catalog:
  *   a/b1/col1
  *   a/b1/col2
  *   a/b2/col1
  *   a/b2/col2
- * 
+ *
  * datsets: storage view:
  *   a    -> a/b1:false, a/b2:false
  *   a/b1 -> a/b1/col1:true, a/b1/col2:true
  *   a/b2 -> a/b2/col1:true, a/b2/col2:true
  */
-case class DataSetCatalog(session:Session) 
+case class DataSetCatalog(session:Session)
   extends PreparedStatements[DataSetCatalogStatements] with Log
-{  
+{
   val tableName = DataSetCatalog.tableName
-  
+
   val addChildPathStatement = s"""
-      INSERT INTO $tableName 
+      INSERT INTO $tableName
       (parentPath, childPath, isColumn)
       VALUES (?, ?, ?);
     """
@@ -62,8 +62,8 @@ case class DataSetCatalog(session:Session)
     preparedStatements(makeStatements)
   }
 
-  /** 
-   * Return prepared statements 
+  /**
+   * Return prepared statements
    */
   def makeStatements(): DataSetCatalogStatements = {
     DataSetCatalogStatements(
@@ -92,9 +92,9 @@ case class DataSetCatalog(session:Session)
     val futures = pairs.dropRight(1).map { pair =>
       addChildPath(pair(0), pair(1), false)
     }.toList
-    
+
     val last = addChildPath(pairs.last(0), pairs.last(1), true)
-    
+
     val result = Future.sequence(last :: futures).map {_ => ()}
     result.onFailure{ case error => log.error("add ColumnPath failed", error)}
     result
@@ -107,7 +107,7 @@ case class DataSetCatalog(session:Session)
    * @param parentPath Full path to parent
    * @param childPath Full path to child
    * @param isColumn True if the child is the path to a column. If false the child is a part of a dataSet.
-   * @param executionContext 
+   * @param executionContext
    * @return Future to wait on for success or failure.
    */
   private def addChildPath(parentPath: String, childPath: String, isColumn: Boolean)
@@ -119,18 +119,18 @@ case class DataSetCatalog(session:Session)
   /**
    * Return all of children of a dataset path.
    * The children may be intermediate dataset levels or columnPaths.
-   * 
+   *
    * Note some DataSets may have a large number of children specifically
    * multilevel datasets, e.g. sapphire with all devices under it.
-   * 
+   *
    * @param parentPath Path to get children for
-   * @param executionContext 
+   * @param executionContext
    * @return Observable of DataSetCatalogEntry item.
    */
   def childrenOfParentPath(parentPath: String) // format: OFF
       (implicit executionContext: ExecutionContext):Observable[DataSetCatalogEntry] = { // format: ON
     val statement = catalogStatements.childrenOfParentPath.bind(parentPath)
-    
+
     // result will be a zero or more rows for each child.
     val rows = session.executeAsync(statement).observerableRows
     rows map rowDecoder
@@ -138,7 +138,7 @@ case class DataSetCatalog(session:Session)
 
   /**
    * Convert a row from the datasetCatalog table into a DataSetCatalogEntry.
-   * 
+   *
    * @param row Cassandra row from the dataset catalog table.
    * @return DataSetCatalogEntry from the row
    */
@@ -151,12 +151,12 @@ case class DataSetCatalog(session:Session)
 }
 
 object DataSetCatalog {
-  
+
   val tableName = "dataset_catalog"
-    
+
   /**
    * Create the DataSetCatalog table.
-   * 
+   *
    * @param session Session to use.
    */
   def create(session:Session) {
@@ -168,7 +168,7 @@ object DataSetCatalog {
         PRIMARY KEY(parentPath, childPath)
       );"""
     )
-    
+
   }
-  
+
 }

@@ -48,7 +48,7 @@ class TestCors extends TestStore with StreamRequestor with TestDataService with 
         "Host", "Referer", "User-Agent", "Authorization", "DNT", "Cache-Control", "Keep-Alive", "X-Requested-With"
       )
       if (allowed != expected) {
-        println(s"""failing TestCors.Access-Control-Allow-Headers: 
+        println(s"""failing TestCors.Access-Control-Allow-Headers:
             allowed: $allowed
             expected: $expected""")
       }

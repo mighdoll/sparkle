@@ -29,8 +29,8 @@ import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.server.RichComplete
 import nest.sparkle.util.ObservableFuture._
 
-/** 
- * Provides the v1 sparkle data api 
+/**
+ * Provides the v1 sparkle data api
  */
 trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
   implicit def executionContext: ExecutionContext
@@ -68,7 +68,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
           }
         }
     } // format: ON
-  
+
   private lazy val columnsRequest =
     path("columns" / Rest) { dataSetName =>
         if (dataSetName.isEmpty) {
@@ -79,12 +79,12 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
             dataSet.childColumns.map { columnPath =>
               val (_, columnName) = Store.setAndColumn(columnPath)
               columnName
-            }.toFutureSeq 
+            }.toFutureSeq
           }
           richComplete(futureColumnNames)
         }
     }
-  
+
   private lazy val dataSetsRequest =
     path("datasets" / Rest) { dataSetName =>
         if (dataSetName.isEmpty) {
@@ -95,7 +95,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
             dataSet.childDataSets.map { dataSet =>
               val (_, childName) = Store.setAndColumn(dataSet.name)
               childName
-            }.toFutureSeq 
+            }.toFutureSeq
           }
           richComplete(futureNames)
         }

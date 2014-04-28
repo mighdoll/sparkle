@@ -22,11 +22,11 @@ import rx.lang.scala.Subject
 import rx.lang.scala.Observable
 
 /** Manages a set of filters watching an Observable stream of source data. Clients register
-  * a filter by calling watch() on a Watch object. Results matching the filter are reported 
+  * a filter by calling watch() on a Watch object. Results matching the filter are reported
   * to an Observable in the Watch object.
   */
 trait Watched[T] extends Log {
-  // raw data stream that we for watchers 
+  // raw data stream that we for watchers
   private val publishedData = PublishSubject[T]()
 
   // currently active watches
@@ -35,7 +35,7 @@ trait Watched[T] extends Log {
   /** subclasses should publish data events to this stream */
   protected def watchedData: Observer[T] = publishedData
 
-  // The idea here is to use a single executor for both the subscribe requests and the data 
+  // The idea here is to use a single executor for both the subscribe requests and the data
   // pipeline to provide mutual exclusion. It doesn't work though..
   private val trampolineScheduler = TrampolineScheduler()
 
@@ -43,7 +43,7 @@ trait Watched[T] extends Log {
   // TODO fix me based on reviewer feedback
   publishedData.subscribeOn(trampolineScheduler).subscribe(processEvent _, handleError _, complete _)
 
-  
+
   /** Events sent over the data stream and matching the watch's filter will
     * be sent to the watch's Observerable report stream.  */
   def watch(watch: Watch[T]): Unit = {
@@ -54,8 +54,8 @@ trait Watched[T] extends Log {
     // TODO implement mutual exclusion scheme between watches and event processing
     processWatch(watch)
   }
-  
-  
+
+
   /** client filtering request */
   private def processWatch(watch: Watch[T]) {
     watches += watch
@@ -67,7 +67,7 @@ trait Watched[T] extends Log {
     validSubscriptions().foreach { subscribe =>
       subscribe.filter match {
         case Some(filter) if !filter(event) => // skip, filter didn't match
-        case _                              => 
+        case _                              =>
           log.trace(s"processEvent: $event")
           subscribe.fullReport.onNext(WatchData(event))
       }
@@ -90,7 +90,7 @@ trait Watched[T] extends Log {
 
     val now = System.currentTimeMillis()
     val oldSet = watches.filter { _.expires <= now }
-    
+
     (deadSet ++ oldSet).foreach { done =>
       done.fullReport.onCompleted()
       watches.remove(done)

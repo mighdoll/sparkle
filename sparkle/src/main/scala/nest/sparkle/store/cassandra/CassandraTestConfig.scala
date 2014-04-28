@@ -21,25 +21,25 @@ import com.typesafe.config.{Config, ConfigFactory}
 import akka.actor._
 import nest.sparkle.util.{ConfigUtil, ConfigureLogback}
 
-/** a test jig for running tests using cassandra. 
+/** a test jig for running tests using cassandra.
  *  (In the main project to make it easy to share between tests and integration tests) */
 trait CassandraTestConfig {
   /** subclasses should define their own keyspace so that tests don't interfere with each other  */
   def testKeySpace:String
-  
+
   /** subclasses may override to modify the Config for particular tests */
   def configOverrides:List[(String,String)] = List()
 
   /** the outermost Config object */
   lazy val rootConfig:Config = {
     val root = ConfigFactory.load()
-    val overrides = ("sparkle-time-server.sparkle-store-cassandra.key-space" -> testKeySpace) :: configOverrides 
+    val overrides = ("sparkle-time-server.sparkle-store-cassandra.key-space" -> testKeySpace) :: configOverrides
     val modifiedRoot = ConfigUtil.modifiedConfig(root, overrides:_*)
     val sparkleConfig = modifiedRoot.getConfig("sparkle-time-server")
     ConfigureLogback.configureLogging(sparkleConfig)
     modifiedRoot
   }
-  
+
   /** the 'sparkle' level Config, one down from the outermost */
   lazy val sparkleConfig = {
     rootConfig.getConfig("sparkle-time-server")
@@ -59,7 +59,7 @@ trait CassandraTestConfig {
 //      CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
     }
   }
-  
+
   /** run a function within a test actor system */
   def withTestActors[T](fn: ActorSystem => T): T = {
     val system = ActorSystem("test-config")

@@ -32,7 +32,7 @@ class TestCsvLoad extends FunSuite with Matchers {
     dataSet.time.length should be (78)
     dataSet.dataColumns.size should be (15)
   }
-  
+
   test("load csv file with numeric timestamps") {
     import ExecutionContext.Implicits.global
     val loadedFuture = FileLoadedDataSet.loadAsync(Paths.get("sparkle/src/test/resources/epochs.csv"))
@@ -40,7 +40,7 @@ class TestCsvLoad extends FunSuite with Matchers {
     dataSet.time.length should be (2751)
     dataSet.dataColumns.size should be (3)
   }
-  
+
   test("load csv file with numeric timestamps and no header") {
     import ExecutionContext.Implicits.global
     val loadedFuture = FileLoadedDataSet.loadAsync(Paths.get("sparkle/src/test/resources/just-time.csv"))

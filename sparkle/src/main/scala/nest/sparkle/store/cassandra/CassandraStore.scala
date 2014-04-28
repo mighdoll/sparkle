@@ -119,7 +119,7 @@ class ConfiguredCassandra(config: Config) extends CassandraStore {
   override val storeKeySpace = storeConfig.getString("key-space")
 }
 
-/** a Storage data access object for Cassandra. Supports the Store and WriteableStore apis for 
+/** a Storage data access object for Cassandra. Supports the Store and WriteableStore apis for
  *  reading/writing columns and column metadata.  */
 trait CassandraStore extends Store with WriteableStore with Log {
   lazy val columnCatalog = ColumnCatalog(session)

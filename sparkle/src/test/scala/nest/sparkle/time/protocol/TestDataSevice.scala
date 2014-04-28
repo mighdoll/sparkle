@@ -27,7 +27,7 @@ trait TestDataService extends DataService with ScalatestRouteTest {
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   def executionContext = system.dispatcher
 
-// Members declared in nest.sparkle.time.server.DataService   
-  def registry: DataRegistry = ???      
+// Members declared in nest.sparkle.time.server.DataService
+  def registry: DataRegistry = ???
 
 }

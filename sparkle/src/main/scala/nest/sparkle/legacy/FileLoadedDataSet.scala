@@ -293,7 +293,7 @@ object FileLoadedDataSet {
     * or None if no matching key is found.
     */
   private def containsPartialKey[V](map: Map[String, V], keys: String*): Option[V] = {
-    // iterator that walks through the provided keys 
+    // iterator that walks through the provided keys
     val matchingKeys = keys.toIterator flatMap { key =>
       // looking for a partial match in the map's keys
       map.keys.collect { case mapKey if mapKey.contains(key) => map(mapKey) }

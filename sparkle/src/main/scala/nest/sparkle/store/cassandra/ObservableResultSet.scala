@@ -29,7 +29,7 @@ import rx.lang.scala.Subscriber
 import nest.sparkle.util.Log
 
 object ObservableResultSet {
-  /** a ResultSetFuture that can be converted into an Observable for asynchronously 
+  /** a ResultSetFuture that can be converted into an Observable for asynchronously
    *  working with the stream of Rows as the arrive from the database */
   implicit class WrappedResultSet(val resultSetFuture: ResultSetFuture) extends Log {
 
@@ -37,12 +37,12 @@ object ObservableResultSet {
     def observerableRows(implicit executionContext: ExecutionContext): Observable[Row] = {
 
       val asScalaFuture = resultSetFuture.toFuture
-      
+
       /** A constructor function for making an Observable.  The function takes an Observer to which it
         * feeds rows as they arrive.  It returns a Subscription so that the Observer can can abort the stream
         * early if necessary.
         */
-     Observable {subscriber:Subscriber[Row] => 
+     Observable {subscriber:Subscriber[Row] =>
         asScalaFuture.foreach { resultSet =>
           /** Iterate through the rows as they arrive from the network, calling observer.onNext for each row.
             *
@@ -54,7 +54,7 @@ object ObservableResultSet {
               val iterator = resultSet.iterator().asScala
               val availableNow = resultSet.getAvailableWithoutFetching()
 
-              iterator.take(availableNow).foreach { row => 
+              iterator.take(availableNow).foreach { row =>
                 subscriber.onNext(row) // note blocks the thread here if consumer is slow. RX
               }
 
@@ -63,7 +63,7 @@ object ObservableResultSet {
               } else {
                 subscriber.onCompleted()
               }
-            } 
+            }
           }
 
           rowChunk()
