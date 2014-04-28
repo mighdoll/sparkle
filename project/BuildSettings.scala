@@ -16,13 +16,13 @@ import sbt._
 import sbt.Keys._
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseKeys
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
-import sbtassembly.Plugin.AssemblyKeys._
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseKeys
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
 import sbtassembly.Plugin.AssemblyKeys._
 import spray.revolver.RevolverPlugin._
 import sbtrelease.ReleasePlugin
 import bintray.Plugin._
+import org.sbtidea.SbtIdeaPlugin._
 
 object BuildSettings {
 
@@ -31,6 +31,7 @@ object BuildSettings {
     orgSettings ++
     compileSettings ++
     eclipseSettings ++
+    ideaSettings ++
     itSettingsWithEclipse ++
     slf4jSettings ++
     testSettings ++
@@ -52,6 +53,10 @@ object BuildSettings {
   lazy val eclipseSettings = Seq(
     EclipseKeys.withSource := true,
     EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource
+  )
+
+  lazy val ideaSettings = Seq(
+    ideaExcludeFolders := ".idea" :: ".idea_module" :: Nil
   )
 
   lazy val itSettingsWithEclipse = Defaults.itSettings ++ Seq(
