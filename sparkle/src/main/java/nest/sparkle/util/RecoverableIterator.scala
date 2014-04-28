@@ -1,11 +1,11 @@
 package nest.sparkle.util
 import scala.util.control.Exception._
 
-/** @define recoverable Return an iterator that will recreate a base iterator on exceptions.
+/** @define recoverable An iterator that will recreate a base iterator on exceptions.
   * A RecoverableIterator can be used to wrap an underlying iterator
-  * that may produce timeout exceptions. The Recoverable iterator can
-  * encapsulate the retry logic, producing a single iterable on the
-  * outside even if it needs to create multiple iterators on in the inside.
+  * that may produce timeout exceptions. The Recoverable iterator allows the
+  * caller to encapsulate the retry logic, and explose a single iterable to
+  * it the callers users needs to create multiple iterators on in the inside.
   *
   * @define threadSafety The Iterator api expects that hasNext() and next() will be called sequentially
   * (not concurrently). Accordingly, the createIterator and recoverError
@@ -18,8 +18,9 @@ import scala.util.control.Exception._
   *
   * @define recoverErrors partial function that catches expected errors during
   * the iteration (e.g. timeouts).
+  *
+  * $recoverable
   */
-/** $recoverable */
 object RecoverableIterator {
   /** $recoverable
     * @param createIterator $createIterator
@@ -31,7 +32,25 @@ object RecoverableIterator {
   }
 }
 
-/** $recoverable
+/** @define recoverable An iterator that will recreate a base iterator on exceptions.
+  * A RecoverableIterator can be used to wrap an underlying iterator
+  * that may produce timeout exceptions. The Recoverable iterator allows the
+  * caller to encapsulate the retry logic, and explose a single iterable to
+  * it the callers users needs to create multiple iterators on in the inside.
+  *
+  * @define threadSafety The Iterator api expects that hasNext() and next() will be called sequentially
+  * (not concurrently). Accordingly, the createIterator and recoverError
+  * functions will not be called concurrently from multiple threads if the
+  * Iterator api is properly used.
+  *
+  * @define createIterator function that produces an iterator. This function is
+  * called as the RecoverableIterator is instantiated, and again after errors
+  * are caught.
+  *
+  * @define recoverErrors partial function that catches expected errors during
+  * the iteration (e.g. timeouts).
+  *
+  * $recoverable
   * @param createIterator $createIterator
   * @param recoverErrors $recoverErrors
   * $threadSafety
@@ -70,4 +89,3 @@ class RecoverableIterator[T](createIterator: () => Iterator[T]) // format: OFF
     currentIterator = createIterator()
   }
 }
-
