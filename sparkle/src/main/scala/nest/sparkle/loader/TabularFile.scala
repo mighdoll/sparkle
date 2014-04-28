@@ -132,12 +132,15 @@ object TabularFile {
     }
   }
 
+  // reader reset will fail if first line length exceeds this value
+  private val maxFirstLineLength = 10000
+
   /** Returns an iterator that returns an array of the
     * comma or tab separated values in the file.  The separator (tab or comma)
     * is guessed by looking at the first line in the file.
     */
   private def lineTokens(reader: BufferedReader): Try[Iterator[Array[String]]] = { // Observable or other stream construct
-    reader.mark(10000) // mark our spot, so we can reset back to the beginning
+    reader.mark(maxFirstLineLength) // mark our spot, so we can reset back to the beginning
     val firstLine = reader.readLine()
     val tried = Try[Iterator[Array[String]]] {
       reader.reset() // back to the beginning

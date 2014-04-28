@@ -63,7 +63,7 @@ object FileLoadedDataSet {
   }
 
   /** load a csv/tsv file from the filesytem.  The returned data set will be named
-   *  as provided by nameOpt, or by the trailing portionof the filename if that's
+   *  as provided by nameOpt, or by the trailing portion of the filename if that's
    *  not provided.  */
   private def load(path: Path, nameOpt: Opt[String] = None): Try[FileLoadedDataSet] = {
     val name = nameOpt.getOrElse {
@@ -169,9 +169,12 @@ object FileLoadedDataSet {
     }
   }
 
+  // reader reset will fail if first line length exceeds this value
+  private val maxFirstLineLength = 10000
+
   /** read lines into columns using either tsv or csv format */
   private def readLines(reader: BufferedReader): Try[Iterator[Array[String]]] = {
-    reader.mark(10000)
+    reader.mark(maxFirstLineLength)
     val firstLine = reader.readLine()
     val tried = Try[Iterator[Array[String]]] {
       reader.reset()

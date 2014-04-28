@@ -43,6 +43,11 @@ object CassandraStore extends Log {
   /** return a Storage DAO for cassandra.  */
   def apply(config: Config): CassandraStore = new ConfiguredCassandra(config)
 
+  // Cassandra table name length limit per http://cassandra.apache.org/doc/cql3/CQL.html#createTableStmt
+  private val maxTableNameLength = 32
+  private val sanitizedTableNamePrefixLength = 16
+  private val randomTableNameSuffixLength = maxTableNameLength - sanitizedTableNamePrefixLength
+
   /** Convert a proposed name into a name that's safe to use as a cassandra table name (aka column family).
     * illegal characters are removed.  too long names are partially replaced with a random string
     * e.g. my.server.name.is.too.long.what.shall.i.store.latency.p99 will be replaced with
@@ -55,10 +60,10 @@ object CassandraStore extends Log {
         case c if c.isLetterOrDigit => c
         case _                      => 'v'
       }
-    if (sanitized.length < 32) {
+    if (sanitized.length < maxTableNameLength) {
       sanitized.mkString
     } else {
-      sanitized.take(16).mkString + RandomUtil.randomAlphaNum(16)
+      sanitized.take(sanitizedTableNamePrefixLength).mkString + RandomUtil.randomAlphaNum(randomTableNameSuffixLength)
     }
   }
 

@@ -57,7 +57,8 @@ class DirectoryDataRegistryActor(path:Path, glob:String = "**")
 
   private val self = TypedActor.self[DirectoryDataRegistryApi]
   private val files = mutable.HashSet[String]()
-  private val loadedSets = LruCache[DataSetOld](maxCapacity = 100)
+  private val defaultMaxCapacity = 100
+  private val loadedSets = LruCache[DataSetOld](maxCapacity = defaultMaxCapacity)
   private val watcher = WatchPath(path, glob)
 
   def preStart() {

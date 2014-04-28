@@ -94,7 +94,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
         try {
           FilesLoader(pathString, writeableStore, strip)
         } catch {
-          case LoadPathDoesNotExist(path) => sys.exit(4)
+          case LoadPathDoesNotExist(path) => sys.exit(1)
         }
       }
     }

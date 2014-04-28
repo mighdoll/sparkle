@@ -21,6 +21,8 @@ import scala.collection.JavaConverters._
 
 object FileSystemScan {
 
+  private val maxDirectoryDepth = 1000
+
   /** Scan a filesystem subtree and report directories and matching files */
   protected[util]
   def scanFileSystem(path: Path, glob: String = "**"): (mutable.ArrayBuffer[Path], mutable.ArrayBuffer[Path]) = {
@@ -46,7 +48,7 @@ object FileSystemScan {
     }
 
     val visitor = new MatchingVisitor(glob)
-    Files.walkFileTree(path, Set(FileVisitOption.FOLLOW_LINKS).asJava, 1000, visitor)
+    Files.walkFileTree(path, Set(FileVisitOption.FOLLOW_LINKS).asJava, maxDirectoryDepth, visitor)
     val relativeFiles = files.map {path.relativize(_)}
     (relativeFiles, directories)
   }

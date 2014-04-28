@@ -27,16 +27,18 @@ import scala.util.Failure
 import java.util.concurrent.TimeoutException
 
 object RepeatingRequest {
-  def get(uri: String, maxAttempts: Int = 4)(implicit refFactory: ActorRefFactory,
+  private val defaultMaxAttempts = 4
+
+  def get(uri: String, maxAttempts: Int = defaultMaxAttempts)(implicit refFactory: ActorRefFactory,
                                              executionContext: ExecutionContext,
                                              futureTimeout: Timeout = 5.seconds): Future[String] = {
     val pipeline = sendReceive
 
-    retryingFuture(pipeline(Get(uri))) map {_.entity.asString}
+    retryingFuture(pipeline(Get(uri)), maxAttempts) map {_.entity.asString}
   }
 
   /** Call a function that returns a future.  If the future times out, try again (repeating up to maxAttempts times). */
-  def retryingFuture[T](fn: => Future[T], maxAttempts: Int = 4)(implicit executionContext: ExecutionContext,
+  def retryingFuture[T](fn: => Future[T], maxAttempts: Int = defaultMaxAttempts)(implicit executionContext: ExecutionContext,
                                                                 futureTimeout: Timeout = 10.seconds):Future[T] = {
     def retry(attemptsRemaining: Int): Future[T] = {
       if (attemptsRemaining <= 0) {

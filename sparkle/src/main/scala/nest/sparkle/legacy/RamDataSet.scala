@@ -35,12 +35,14 @@ trait RamDataSet extends DataSetOld {
   def time: Array[Long]
   def dataColumns: Iterable[RamDataColumn]
 
+  private val defaultMaxData = 10000
+
   /** return an array of time-stamped data extracted from specified data column */
   def data(metricName: String, start: Opt[DateTime], end: Opt[DateTime],
            max: Opt[Int], edgeExtra: Opt[Boolean], summarize: Opt[String],
            valueFilter: Opt[Array[Double]]): Future[Array[Datum]] = {
 
-    val approxMaxData = max.getOrElse(10000)
+    val approxMaxData = max.getOrElse(defaultMaxData)
     if (timeColumn(metricName)) {
       timeData(start, end, approxMaxData, summarize)
     } else {
