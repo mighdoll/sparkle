@@ -37,10 +37,12 @@ class TestExporter extends FunSuite with CassandraTestConfig with Matchers with 
 
   def testKeySpace = "testexporter"
 
-  override lazy val configOverrides = List(
-    ("exporter.timeout" -> "10s"),
-    ("exporter.output" -> "/tmp/testexporter")
-  )
+  override def configOverrides = 
+    super.configOverrides ++ 
+    List(
+      "exporter.timeout" -> "10s",
+      "exporter.output" -> "/tmp/testexporter"
+    )
 
   /** return a future that completes when the loader reports that loading is complete */
   def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
