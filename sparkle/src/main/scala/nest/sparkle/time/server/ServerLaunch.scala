@@ -47,6 +47,10 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     "sparkle-server"
   )
 
+  /* Note that nothing may be specified to be auto-start but we started an
+   * actor system so the main process will not end. This will disappear when
+   * each component gets their own Main/ServerLaunch.
+   */
   possiblyErase()
   startFilesLoader()
   startServer(service, webPort)
@@ -73,10 +77,11 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     * This call will block until the server is ready to accept incoming requests.
     */
   private def startServer(serviceActor: ActorRef, port: Int)(implicit system: ActorSystem) {
-    // LATER start only if api-server.auto-start is true
-    implicit val timeout = Timeout(10.seconds)
-    val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = port)
-    started.await // wait until server is started
+    if (config.getBoolean("auto-start")) {
+      implicit val timeout = Timeout(10.seconds)
+      val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = port)
+      started.await // wait until server is started
+    }
   }
 
   /** Erase and reformat the storage system if requested */
