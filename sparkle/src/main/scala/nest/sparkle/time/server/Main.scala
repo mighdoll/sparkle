@@ -20,7 +20,6 @@ import org.clapper.argot.ArgotConverters._
 import akka.actor.ActorSystem
 
 import nest.sparkle.util.ArgotApp
-import nest.sparkle.util.ConfigUtil.optionModifiedConfig
 
 /** Main launcher for Sparkle application */
 object Main extends ArgotApp {

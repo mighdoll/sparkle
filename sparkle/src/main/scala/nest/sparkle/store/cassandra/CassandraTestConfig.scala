@@ -26,7 +26,7 @@ trait CassandraTestConfig extends SparkleTestConfig {
   /** subclasses should define their own keyspace so that tests don't interfere with each other  */
   def testKeySpace:String
 
-  override def configOverrides:List[(String,String)] =
+  override def configOverrides:List[(String,Any)] =
     super.configOverrides :+
     ("sparkle-time-server.sparkle-store-cassandra.key-space" -> testKeySpace)
 

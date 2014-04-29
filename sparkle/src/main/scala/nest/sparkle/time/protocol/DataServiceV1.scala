@@ -15,19 +15,16 @@
 package nest.sparkle.time.protocol
 
 import scala.concurrent.ExecutionContext
-
 import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
-
 import spray.json.DefaultJsonProtocol._
-
 import spray.routing.Directives
-
 import nest.sparkle.store.Store
 import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.server.RichComplete
 import nest.sparkle.util.ObservableFuture._
+import com.typesafe.config.Config
 
 /**
  * Provides the v1 sparkle data api
@@ -35,8 +32,9 @@ import nest.sparkle.util.ObservableFuture._
 trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
   implicit def executionContext: ExecutionContext
   def store: Store
+  def rootConfig:Config
 
-  val api = DataRequestApi(store)
+  val api = StreamRequestApi(store, rootConfig)
 
   lazy val v1protocol = {
     cors {
@@ -53,7 +51,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective {
         post {
           entity(as[StreamRequestMessage]) {
             request =>
-              val futureStreams = api.handleStreamRequest(request.message)
+              val futureStreams = api.httpStreamRequest(request.message)
               val futureMessage = futureStreams.map {
                 streams =>
                   StreamsMessage(

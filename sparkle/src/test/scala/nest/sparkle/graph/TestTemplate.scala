@@ -22,13 +22,10 @@ import nest.sparkle.legacy.PreloadedStore
 import nest.sparkle.legacy.PreloadedRegistry
 import nest.sparkle.legacy.SampleData
 import nest.sparkle.time.protocol.TestDataService
-import nest.sparkle.time.server.ConfigureSparkle
 
 /** test serving a custom webroot */
 class TestTemplate extends FunSuite with Matchers with ScalatestRouteTest
     with TestDataService {
-  override def testConfig = ConfigureSparkle.loadConfig()
-
   override val registry = PreloadedRegistry(Nil)
   val store = PreloadedStore(List(SampleData))
   override def webRoot = Some("sparkle/src/test/resources/subdir")

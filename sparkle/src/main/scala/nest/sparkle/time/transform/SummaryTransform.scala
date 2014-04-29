@@ -37,7 +37,8 @@ abstract class ColumnTransform {
 
 object StandardColumnTransform {
   /** Given an untyped future Column, call a transform function with the type specific column
-   *  when the future completes. */
+    * when the future completes.
+    */
   def executeTypedTransform(futureColumns: Future[Seq[Column[_, _]]], // format: OFF
       columnTransform:ColumnTransform, transformParameters:JsObject)
       (implicit execution: ExecutionContext):Future[Seq[JsonDataStream]] = { // format: ON
@@ -71,6 +72,16 @@ object SummaryTransform {
       }
     } else {
       None
+    }
+  }
+}
+
+/** match the "Raw" transform */
+object RawTransform {
+  def unapply(transform: String): Option[ColumnTransform] = {
+    transform.toLowerCase match {
+      case "raw" => Some(JustCopy)
+      case _     => None
     }
   }
 }

@@ -9,7 +9,7 @@ trait SparkleTestConfig {
   var loggingInitialized = false
 
   /** subclasses may override to modify the Config for particular tests */
-  def configOverrides: List[(String, String)] = List()
+  def configOverrides: List[(String, Any)] = List()
 
   /** return the outermost Config object. Also triggers logging initialization */
   lazy val rootConfig: Config = {

@@ -28,7 +28,6 @@ import spray.testkit.ScalatestRouteTest
 
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.protocol.ResponseJson.{ StreamFormat, StreamsFormat, StreamsMessageFormat }
-import nest.sparkle.time.protocol.EventJson.EventFormat
 import nest.sparkle.time.protocol.ArbitraryColumn.arbitraryColumn
 import nest.sparkle.time.protocol.TestDomainRange.minMaxEvents
 import nest.sparkle.time.protocol.ArbitraryColumn.arbitraryEvent
@@ -43,23 +42,6 @@ import nest.sparkle.util.RandomUtil.randomAlphaNum
 
 class TestV1Api extends TestStore with StreamRequestor with TestDataService {
 
-  /** return the data array portion from a Streams response */
-  def streamData(response: HttpResponse): Seq[JsArray] = {
-    val streams = responseAs[StreamsMessage]
-    streams.message.streams.length shouldBe 1
-    val stream = streams.message.streams(0)
-    stream.data.isDefined shouldBe true
-    val data = stream.data.get
-    data
-  }
-
-  /** return the data array portion from a Streams response as a stream of Event objects */
-  def streamDataEvents(response: HttpResponse): Seq[Event[Long, Double]] = {
-    val data = streamData(response)
-    data.map { datum =>
-      datum.convertTo[Event[Long, Double]]
-    }
-  }
 
   test("summarizeMax two raw events") { // note that this test just copies input to output
     val requestMessage = streamRequest("SummarizeMax")
@@ -82,7 +64,7 @@ class TestV1Api extends TestStore with StreamRequestor with TestDataService {
   test("DomainRange calculates domain and range on arbitray long,double columns") {
     forAll { events: List[Event[Long, Double]] =>
       val columnName = makeColumn("V1Protocol.DomainRange", events)
-      val requestMessage = streamRequest("DomainRange", columnName)
+      val requestMessage = streamRequest("DomainRange", SelectString(columnName))
       Post("/v1/data", requestMessage) ~> v1protocol ~> check {
         val data = streamData(response)
         data.length shouldBe 1

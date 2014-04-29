@@ -22,26 +22,32 @@ import nest.sparkle.util.Exceptions.NYI
 import scala.concurrent.ExecutionContext
 import nest.sparkle.store.Column
 import nest.sparkle.store.Store
+import nest.sparkle.store.Column
+import com.typesafe.config.Config
 
-/** return a list of columns given a set of source selectors */
-object SourceSelector {
 
-  /** return a collection of columns for the request*/
-  def sourceColumns(sources: Array[JsValue], store: Store) // Format: OFF
-      (implicit execution:ExecutionContext): Future[Seq[Column[_, _]]] = {  // Format: ON
-    val columnFutures:Array[Future[Column[_,_]]] =
-      sources.map { jsValue =>
-        def errorValue:String = s"source: ${jsValue.prettyPrint}"
-        jsValue match {
-          case JsString(columnPath) => store.column(columnPath)
-          case JsObject(fields)     => NYI("custom selector:  $errorValue")
-          case _                    => throw new IllegalArgumentException(s"source: $errorValue")
-        }
-      }
+trait CustomSourceSelector {
+  /** a name used to match the `source` field in the StreamRequest message to identify when
+    * this record should be used. The namespace of `source` selector strings is shared
+    * across all requests, subclasses are advised to override this with a unique name.
+    */
+  def name: String = this.getClass.getSimpleName
 
-    val futureColumns = Future.sequence(columnFutures.toSeq)
-
-    futureColumns
-  }
-
+  /** Parse the `selectorParameters` field in the RequestMessage and produce one or
+   *  more Columns that the transforms can operate on.  If the selectorParameters 
+   *  are invalid, custom selectors should return a failed future containing a
+   *  MalformedSourceSelector exception.
+    */
+  def selectColumns(selectorParameters:JsObject):Seq[Future[Column[_,_]]] = ???
 }
+
+/** Implementors of CustomSourceSelector should have a constructor that takes a Config and a Store
+  * and must extend CustomSourceSelector
+  */
+class ExampleCustomSelector(rootConfig: Config, store: Store) extends CustomSourceSelector {
+  override def name = "UseMyExample"
+    
+  def columns(sources: Array[JsValue]) // format: OFF
+    (implicit execution: ExecutionContext): Seq[Future[Column[_, _]]] = ??? // format: ON
+}
+

@@ -15,19 +15,52 @@
 package nest.sparkle.time.protocol
 
 import org.scalatest.Suite
-
 import spray.testkit.ScalatestRouteTest
-
 import nest.sparkle.time.server.DataService
 import nest.sparkle.legacy.DataRegistry
+import nest.sparkle.util.ConfigureLogback.configureLogging
+import com.typesafe.config.ConfigFactory
+import spray.http.HttpResponse
+import spray.json._
+import nest.sparkle.store.Event
+import nest.sparkle.time.protocol.EventJson.EventFormat
+import spray.httpx.SprayJsonSupport._
+import spray.json.DefaultJsonProtocol._
+import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat }
+import org.scalatest.Matchers
+import nest.sparkle.test.SparkleTestConfig
 
-trait TestDataService extends DataService with ScalatestRouteTest {
+trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig with Matchers {
   self: Suite =>
   override lazy val corsHosts = List("*")
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   def executionContext = system.dispatcher
 
-// Members declared in nest.sparkle.time.server.DataService
+  // tell spray test config about our configuration (and trigger logging initialization)
+  override def testConfig = rootConfig.getConfig("sparkle-time-server")
+
+  // TODO legacy, delete soon
   def registry: DataRegistry = ???
+
+  /** return the data array portion from a Streams response as a stream of Event objects */
+  def streamDataEvents(response: HttpResponse): Seq[Event[Long, Double]] = {
+    val data = streamData(response)
+    data.map { datum =>
+      datum.convertTo[Event[Long, Double]]
+    }
+  }
+
+  /** return the data array portion from a Streams response.
+    * 
+    * Expects that there will be exactly one nonempty data stream in response.
+    */
+  def streamData(response: HttpResponse): Seq[JsArray] = {
+    val streams = responseAs[StreamsMessage]
+    streams.message.streams.length shouldBe 1
+    val stream = streams.message.streams(0)
+    stream.data.isDefined shouldBe true
+    val data = stream.data.get
+    data
+  }
 
 }

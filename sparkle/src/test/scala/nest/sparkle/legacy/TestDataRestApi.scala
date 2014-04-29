@@ -20,13 +20,10 @@ import spray.testkit.ScalatestRouteTest
 import spray.httpx.SprayJsonSupport._
 import nest.sparkle.legacy.DataServiceJson._
 import spray.http.DateTime
-import nest.sparkle.time.server.ConfigureSparkle
 import nest.sparkle.time.server.DataService
 import nest.sparkle.time.protocol.TestDataService
 
 class TestRestApi extends FunSuite with Matchers with ScalatestRouteTest with TestDataService {
-  override def testConfig = ConfigureSparkle.loadConfig()
-
   override val registry = new PreloadedRegistry(List(SampleData))(system.dispatcher)
   val store = PreloadedStore(List(SampleData))
 

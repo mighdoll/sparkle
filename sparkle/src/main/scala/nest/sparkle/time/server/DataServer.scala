@@ -24,10 +24,10 @@ import scala.concurrent.ExecutionContextExecutor
 /** An actor serving data DataRegistry data via a spray based REST api.  The
   * server is configured with user provided extensions extracted from the config file.
   */
-class ConfiguredDataServer(val registry: DataRegistry, val store: Store, val config: Config) // format: OFF
+class ConfiguredDataServer(val registry: DataRegistry, val store: Store, val rootConfig: Config) // format: OFF
     extends Actor with ConfiguredDataService { // format: ON
   def actorRefFactory: ActorRefFactory = context
   def receive: Receive = runRoute(route)
   def executionContext: ExecutionContextExecutor = context.dispatcher
-  override lazy val webRoot = Some(config.getString("web-root"))
+  override lazy val webRoot = Some(rootConfig.getString("sparkle-time.server.web-root"))
 }

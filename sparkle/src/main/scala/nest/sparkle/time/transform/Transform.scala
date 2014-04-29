@@ -21,7 +21,10 @@ import nest.sparkle.time.protocol.JsonDataStream
 import nest.sparkle.store.Column
 import nest.sparkle.time.transform.StandardColumnTransform.executeTypedTransform
 
+case class TransformNotFound(msg: String) extends RuntimeException(msg)
+
 /** apply transforms (to help respond to StreamRequest messages) */
+
 object Transform {
 
   /** apply requested StreamRequest transforms, returning OutputStreams that generate results on demand */
@@ -35,13 +38,14 @@ object Transform {
         executeTypedTransform(futureColumns, columnTransform, transformParameters)
       case DomainRangeTransform(columnTransform) =>
         executeTypedTransform(futureColumns, columnTransform, transformParameters)
+      case RawTransform(columnTransform) =>
+        executeTypedTransform(futureColumns, columnTransform, transformParameters)
       // LATER handle application-pluggable custom transforms
-      case _ => ???
+      case _ => Future.failed(TransformNotFound(transform))
     }
 
     futureStreams
   }
-
 
 }
 

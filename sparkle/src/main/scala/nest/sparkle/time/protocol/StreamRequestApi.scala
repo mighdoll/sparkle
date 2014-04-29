@@ -14,26 +14,27 @@
 
 package nest.sparkle.time.protocol
 
-import scala.concurrent.Future
-import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.util.TryToFuture._
-import scala.concurrent.ExecutionContext
-import nest.sparkle.util.ObservableFuture._
+import scala.concurrent.{ExecutionContext, Future}
+
+import com.typesafe.config.Config
+
 import spray.json._
-import spray.json.DefaultJsonProtocol._
+
 import nest.sparkle.store.Store
 import nest.sparkle.time.transform.Transform
+import nest.sparkle.util.ObservableFuture.WrappedObservable
 
-/** Handle transformation requests from a v1 protocol DataRequest. */
-case class DataRequestApi(store: Store) {
+/** Handle transformation requests from a v1 protocol StreamRequest. */
+case class StreamRequestApi(val store: Store, val rootConfig:Config) extends SelectingSources {
 
-  /** Process a StreamRequest message from the client, and return a future that completes with a Streams json object */
-  def handleStreamRequest(streamRequest: StreamRequest)(implicit context: ExecutionContext): Future[Streams] = {
+  /** Process a StreamRequest message from the client, and return a future that completes with a Streams json object
+   *  with the entire result set */
+  def httpStreamRequest(streamRequest: StreamRequest)(implicit context: ExecutionContext): Future[Streams] = {
     case class StreamAndData(outputStream: JsonDataStream, data: Seq[JsArray])
 
     /** return a future that completes with the stream and data string together when the data string is ready */
     def streamWithFutureData[T](outputStream: JsonDataStream): Future[StreamAndData] = {
-      outputStream.dataStream.toFutureSeq.map {seqChunks =>
+      outputStream.dataStream.toFutureSeq.map { seqChunks =>
         StreamAndData(outputStream, seqChunks.flatten)
       }
     }
@@ -42,15 +43,15 @@ case class DataRequestApi(store: Store) {
     def makeStream[T](streamAndData: StreamAndData): Stream = {
       Stream(
         streamId = 1L, // LATER make a real stream id
-        source = "TBD".toJson,  // LATER match up source with requesting source
-        label = streamAndData.outputStream.label.map{ _.asJson },
+        metadata = streamAndData.outputStream.metadata.map{ _.asJson },
         data = Some(streamAndData.data),
         streamType = streamAndData.outputStream.streamType,
         end = Some(true)
       )
     }
 
-    val futureColumns = SourceSelector.sourceColumns(streamRequest.sources, store)
+    // await all the source columns, since we're processing over http
+    val futureColumns = Future.sequence(sourceColumns(streamRequest.sources))
     val futureOutputStreams = // completes with Observable output streams
       Transform.connectTransform(streamRequest.transform, streamRequest.transformParameters, futureColumns)
 
@@ -61,7 +62,7 @@ case class DataRequestApi(store: Store) {
         Future.sequence(futureStreamAndDatas)
       }
 
-    val futureStreamArray:Future[Array[Stream]] =
+    val futureStreamArray: Future[Array[Stream]] =
       futureStreamAndData map { seq =>
         seq.toArray.map { makeStream(_) }
       }

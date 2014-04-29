@@ -75,13 +75,13 @@ object DomainRangeJson extends DefaultJsonProtocol {
       def read(value: JsValue): DomainRangeLimits[T, U] = {
         value match {
           case JsArray(
-                    JsArray(JsString("domain") :: List(domainJs))
-                 :: JsArray(JsString("range") :: List(rangeJs))
-                 :: Nil
-               ) =>
+            JsArray(JsString("domain") :: List(domainJs))
+              :: JsArray(JsString("range") :: List(rangeJs))
+              :: Nil
+            ) =>
             val domain = domainJs.convertTo[MinMax[T]]
             val range = rangeJs.convertTo[MinMax[U]]
-            DomainRangeLimits(domain,range)
+            DomainRangeLimits(domain, range)
           case x => throw new DeserializationException(s"DomainRangeLimits expected, got $x")
         }
       }
@@ -133,6 +133,7 @@ object DomainRangeTransform {
   def unapply(transform: String): Option[ColumnTransform] = {
     transform.toLowerCase match {
       case "domainrange" => Some(DomainRange)
+      case _             => None
     }
   }
 }

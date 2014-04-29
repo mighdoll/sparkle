@@ -43,7 +43,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
 
   val fixmeRegistry = PreloadedRegistry(Nil)(system.dispatcher) // TODO delete this once we drop v0 protocol
   val service = system.actorOf(Props(
-    new ConfiguredDataServer(fixmeRegistry, store, config)),
+    new ConfiguredDataServer(fixmeRegistry, store, rootConfig)),
     "sparkle-server"
   )
 

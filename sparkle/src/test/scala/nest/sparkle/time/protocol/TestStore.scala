@@ -36,7 +36,6 @@ trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
     val store = new WriteableRamStore()
     val writeColumn = store.writeableColumn[Long, Double](testColumnPath).await
     writeColumn.write(Seq(Event(100L, 1), Event(200L, 2))).await
-
     store
   }
 

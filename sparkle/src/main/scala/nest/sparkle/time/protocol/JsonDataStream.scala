@@ -26,7 +26,6 @@ case class JsonDataStream(
   streamType: JsonStreamType,
 
   /** Optional name for the stream so that transforms that return multiple streams can label each stream */
-  label: Option[String] = None // format: OFF
-  // TODO: label should be metadata
+  metadata: Option[String] = None // format: OFF
 ) // format: ON
 
