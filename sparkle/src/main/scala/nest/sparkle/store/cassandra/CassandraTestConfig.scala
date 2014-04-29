@@ -25,13 +25,13 @@ import nest.sparkle.test.SparkleTestConfig
 trait CassandraTestConfig extends SparkleTestConfig {
   /** subclasses should define their own keyspace so that tests don't interfere with each other  */
   def testKeySpace:String
-  
-  override def configOverrides = 
-    super.configOverrides :+ 
+
+  override def configOverrides:List[(String,String)] =
+    super.configOverrides :+
     ("sparkle-time-server.sparkle-store-cassandra.key-space" -> testKeySpace)
-    
+
   /** the 'sparkle' level Config, one down from the outermost */
-  lazy val sparkleConfig = {
+  lazy val sparkleConfig:Config = {
     rootConfig.getConfig("sparkle-time-server")
   }
 

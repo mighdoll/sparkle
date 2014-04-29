@@ -65,7 +65,7 @@ object ObservableIterator extends Log {
         */
       def startBackgroundIterator() {
         val runnable = new Runnable {
-          def run() { // run in a background thread. 
+          def run() { // run in a background thread.
             iterator.takeWhile { value =>
               currentSubscribers().foreach { _.onNext(value) }
               stillActiveSubscribers

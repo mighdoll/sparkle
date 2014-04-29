@@ -7,7 +7,7 @@ import nest.sparkle.util.ConfigureLogback
 
 trait SparkleTestConfig {
   var loggingInitialized = false
-  
+
   /** subclasses may override to modify the Config for particular tests */
   def configOverrides: List[(String, String)] = List()
 
