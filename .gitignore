@@ -8,3 +8,4 @@ target/
 *.sc
 *.log
 .idea/
+.idea_modules/
