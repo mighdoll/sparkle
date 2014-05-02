@@ -48,7 +48,7 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
     val properties = {
       val loaderConfig = rootConfig.getConfig("sparkle-time-server.kafka-loader")
 
-      // extract the kafka-client settings verbatim, send directly to kafka 
+      // extract the kafka-client settings verbatim, send directly to kafka
       val props = ConfigUtil.properties(loaderConfig.getConfig("kafka-reader"))
 
       val groupPrefix = consumerGroupPrefix.getOrElse { loaderConfig.getString("reader.consumer-group-prefix") }
@@ -105,15 +105,15 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
   }
 
   /** shutdown current connection and reconnect */
-  private def reconnect(): ConsumerConnector = synchronized { 
+  private def reconnect(): ConsumerConnector = synchronized {
     currentConnection.map(_.shutdown())
     currentConnection = None
     connection
   }
 
-  /** Return an iterator over the incoming kafka data. 
-   *  
-   *  For now, we only create one raw iterator per reader, but in the future, we may 
+  /** Return an iterator over the incoming kafka data.
+   *
+   *  For now, we only create one raw iterator per reader, but in the future, we may
    *  want to recreate iterators after some kafka errors. */
   private def rawIterator(): Iterator[T] = {
     val decoder = implicitly[Decoder[T]]

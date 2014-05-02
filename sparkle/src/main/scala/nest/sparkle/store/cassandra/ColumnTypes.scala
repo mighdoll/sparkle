@@ -36,7 +36,16 @@ object ColumnTypes {
     val valueStoreType = rangeSerializer.columnType
     val tableName = argumentStoreType + "0" + valueStoreType
 
+    assert(validateTableName(tableName), s"invalid table name $tableName")
+
     SerializeInfo(domainSerializer, rangeSerializer, tableName)
+  }
+
+  // Cassandra table name length limit per http://cassandra.apache.org/doc/cql3/CQL.html#createTableStmt
+  private final val maxTableNameLength = 32
+
+  private[cassandra] def validateTableName(tableName: String): Boolean = {
+    !tableName.isEmpty && (tableName.length <= maxTableNameLength) && tableName.forall(_.isLetterOrDigit)
   }
 
   /** holder for serialization info for given domain and range types */

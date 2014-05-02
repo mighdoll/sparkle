@@ -70,7 +70,6 @@ object SparseColumnWriter extends PrepareTableOperations {
     val argumentStoreType = serialInfo.domain.columnType
     val valueStoreType = serialInfo.range.columnType
     val tableName = serialInfo.tableName
-    assert(tableName == CassandraStore.sanitizeTableName(tableName))
 
     val createTable = s"""
       CREATE TABLE IF NOT EXISTS "$tableName" (
