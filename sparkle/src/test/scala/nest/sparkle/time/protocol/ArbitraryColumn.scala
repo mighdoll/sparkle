@@ -29,7 +29,7 @@ import org.scalacheck.Gen
 
 /** Utility for using scalacheck properties to generate Events */
 object ArbitraryColumn extends PropertyChecks {
-  def eventGenerator[T: Arbitrary, U:Arbitrary]() = {
+  private def eventGenerator[T: Arbitrary, U: Arbitrary]() = {
     for {
       key <- arbitrary[T]
       value <- arbitrary[U]
@@ -39,10 +39,11 @@ object ArbitraryColumn extends PropertyChecks {
   }
 
   /** import this to allow generating Events in scalacheck generators */
-  implicit def arbitraryEvent[T:Arbitrary, U:Arbitrary] = Arbitrary(eventGenerator[T,U]())
+  implicit def arbitraryEvent[T: Arbitrary, U: Arbitrary] = Arbitrary(eventGenerator[T, U]())
 
   /** (currently unused, causes compiler problems in 2.10.3.  retry in 2.10.4 or 2.11) */
-  def arbitraryColumn[T: TypeTag: Ordering: Arbitrary, U: TypeTag: Arbitrary](prefix: String, storage: WriteableRamStore) // format: OFF
+  def arbitraryColumn[T: TypeTag: Arbitrary, U: TypeTag: Arbitrary] // format: OFF
+      (prefix: String, storage: WriteableRamStore) 
       (implicit execution: ExecutionContext): (String, Seq[Event[T, U]]) = { // format: ON
     val eventListGenerator = arbitrary[List[Event[T, U]]]
     val eventsGenerator = eventListGenerator.asInstanceOf[Gen[List[Event[T, U]]]]

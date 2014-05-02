@@ -45,7 +45,7 @@ class WriteableRamStore extends Store {
 
   /** return a WriteableColumn for the given columnPath.  (returned as a future
    *  for compatibility with other slower Storage types) */
-  def writeableColumn[T: TypeTag: Ordering, U: TypeTag](columnPath: String) // format: OFF
+  def writeableColumn[T: TypeTag, U: TypeTag](columnPath: String) // format: OFF
       : Future[WriteableColumn[T, U]] = { // format: ON
     val ramColumn = new WriteableRamColumn[T, U]("foo")
     columns += columnPath -> ramColumn

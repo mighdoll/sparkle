@@ -16,27 +16,31 @@ package nest.sparkle.time.server
 
 import java.awt.Desktop
 import java.net.URI
+
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
 import scala.util.{ Failure, Success }
+
 import com.typesafe.config.Config
+
 import akka.actor.{ ActorRef, ActorSystem, Props }
 import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
+
 import spray.can.Http
 import spray.util._
+
 import nest.sparkle.legacy.PreloadedRegistry
 import nest.sparkle.loader.{ FilesLoader, LoadPathDoesNotExist }
 import nest.sparkle.store.Store
 import nest.sparkle.util.{ Log, RepeatingRequest }
-import nest.sparkle.util.ConfigUtil.modifiedConfig
 import nest.sparkle.util.ConfigUtil
+import nest.sparkle.util.ConfigUtil.modifiedConfig
 import nest.sparkle.util.ConfigureLogback.configureLogging
 
 protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorSystem) extends Log {
   val config = rootConfig.getConfig("sparkle-time-server")
-  configureLogging(config)
   val store = Store.instantiateStore(config)
   lazy val webPort = config.getInt("port")
   lazy val writeableStore = Store.instantiateWritableStore(config)
@@ -111,9 +115,14 @@ object ServerLaunch {
     * optionally specifying a .conf file and optionally specifying overrides to the configuration
     */
   def apply(configFile: Option[String], configOverrides: (String, Any)*): ServerLaunch = {
-    val config = ConfigUtil.configFromFile(configFile)
-    val overriddenConfig = modifiedConfig(config, configOverrides: _*)
-    implicit val system = ActorSystem("sparkle", overriddenConfig)
+    val overriddenConfig = {
+      val config = ConfigUtil.configFromFile(configFile)
+      modifiedConfig(config, configOverrides: _*)
+    }
+    val sparkleConfig = overriddenConfig.getConfig("sparkle-time-server")
+    configureLogging(sparkleConfig)
+
+    implicit val system = ActorSystem("sparkle", sparkleConfig)
 
     new ServerLaunch(overriddenConfig)
   }

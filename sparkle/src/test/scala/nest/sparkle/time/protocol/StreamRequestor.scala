@@ -14,7 +14,7 @@
 
 package nest.sparkle.time.protocol
 import spray.json._
-import nest.sparkle.time.protocol.TransformParametersJson.SummarizeParamsFormat
+import nest.sparkle.time.protocol.TransformParametersJson.RangeParamsFormat
 import nest.sparkle.time.protocol.RequestJson.CustomSelectorFormat
 import spray.json.DefaultJsonProtocol._
 
@@ -33,18 +33,19 @@ trait StreamRequestor {
     (currentRequestId, "trace-" + currentRequestId.toString)
   }
 
-  /** return a new StreamRequestMessage */
-  def streamRequest(transform: String, selector: TestSelector = SelectString(testColumnPath), maxResults: Int = 10): StreamRequestMessage = {
-    val summarizeParams = SummarizeParams[Long](maxResults = maxResults)
+  private val defaultRange = RangeParameters[Long](maxResults = 10)
 
+  /** return a new StreamRequestMessage */
+  def streamRequest[T: JsonFormat](transform: String, selector: TestSelector = SelectString(testColumnPath), // format: OFF
+      range: RangeParameters[T] = defaultRange): StreamRequestMessage = {  // format: ON
     val (requestId, traceId) = nextRequestIds()
-    val paramsJson = summarizeParams.toJson(SummarizeParamsFormat[Long](LongJsonFormat)).asJsObject // SCALA (spray-json) can this be less explicit?
+    val paramsJson = range.toJson.asJsObject 
 
     val sources = selector match {
       case SelectString(columnPath) => Array(columnPath.toJson)
       case SelectCustom(custom)     => Array(custom.toJson)
     }
-    
+
     val streamRequest = StreamRequest(sendUpdates = None, itemLimit = None, sources = sources, transform = transform, paramsJson)
 
     StreamRequestMessage(requestId = Some(requestId),

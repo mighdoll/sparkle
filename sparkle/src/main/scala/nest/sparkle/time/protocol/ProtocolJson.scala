@@ -7,7 +7,7 @@ import nest.sparkle.store.cassandra.MilliTime
 
 /** Spray json converters for transform parameters */
 object TransformParametersJson extends DefaultJsonProtocol {
-  implicit def SummarizeParamsFormat[T: JsonFormat]: RootJsonFormat[SummarizeParams[T]] = jsonFormat4(SummarizeParams.apply[T])
+  implicit def RangeParamsFormat[T: JsonFormat]: RootJsonFormat[RangeParameters[T]] = jsonFormat4(RangeParameters.apply[T])
 }
 
 /** Spray json encoder/decoder for JsonStreamType */

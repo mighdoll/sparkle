@@ -6,15 +6,17 @@ import scala.concurrent.ExecutionContext
 import spray.json.{ JsObject, JsonWriter }
 import spray.httpx.SprayJsonSupport._
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
+import spray.json.DefaultJsonProtocol._
 import nest.sparkle.store.Column
 import nest.sparkle.time.transform.CustomTransform
 import com.typesafe.config.Config
 import nest.sparkle.store.Event
+import spray.json.JsonFormat
 
 class DoublingTransform(rootConfig: Config) extends CustomTransform {
   override def name: String = this.getClass.getSimpleName
 
-  def apply[T: JsonWriter: Ordering, U: JsonWriter: Ordering]  // format: OFF
+  override def apply[T: JsonFormat, U: JsonWriter]  // format: OFF
       (column: Column[T, U], transformParameters: JsObject)
       (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
     val events = column.readRange(None, None)
@@ -25,7 +27,7 @@ class DoublingTransform(rootConfig: Config) extends CustomTransform {
         Event(key, double)
     }
     JsonDataStream(
-      dataStream = JsonEventWriter(doubled),
+      dataStream = JsonEventWriter.fromObservable(doubled),
       streamType = KeyValueType
     )
 

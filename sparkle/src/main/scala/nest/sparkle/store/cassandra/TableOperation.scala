@@ -17,13 +17,13 @@ trait PrepareTableOperations {
     val session = initialSession.getOrElse{ throw SessionInitializationError() }
     val list: List[(TableOperation, PreparedStatement)] =
       for {
-        (tableOp, statementFn) <- prepareStatements
+        (tableOperation, statementFn) <- prepareStatements
         serialInfo <- ColumnTypes.supportedColumnTypes
         tableName = serialInfo.tableName
       } yield {
         val statementText = statementFn(tableName)
         val statement = session.prepare(statementText)
-        tableOp(tableName) -> statement
+        tableOperation(tableName) -> statement
       }
 
     list.toMap

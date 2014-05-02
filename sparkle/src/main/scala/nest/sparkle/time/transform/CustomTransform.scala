@@ -4,7 +4,7 @@ import scala.concurrent.ExecutionContext
 
 import com.typesafe.config.Config
 
-import spray.json.{ JsObject, JsonWriter }
+import spray.json._
 
 import nest.sparkle.store.Column
 import nest.sparkle.time.protocol.JsonDataStream
@@ -27,7 +27,7 @@ class ExampleCustomTransform(rootConfig: Config) extends CustomTransform {
 
   override def name: String = "MyStuff.MyCoolTransform"
 
-  def apply[T: JsonWriter: Ordering, U: JsonWriter: Ordering]  // format: OFF
+  override def apply[T: JsonFormat, U: JsonWriter]  // format: OFF
       (column: Column[T, U], transformParameters: JsObject)
       (implicit execution: ExecutionContext): JsonDataStream = ??? // format: ON
 } 

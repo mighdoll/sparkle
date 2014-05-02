@@ -15,42 +15,16 @@
 package nest.sparkle.time.transform
 
 import scala.concurrent.ExecutionContext
-import nest.sparkle.time.protocol.KeyValueType
-import nest.sparkle.time.protocol.JsonEventWriter
-import nest.sparkle.time.protocol.JsonDataStream
+import spray.json._
 import nest.sparkle.store.Column
+import nest.sparkle.time.protocol.{ JsonDataStream, JsonEventWriter, KeyValueType, RangeParameters }
+import scala.util.Try
+import scala.util.Failure
+import scala.util.Success
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.store.Event
-import spray.json._
-import spray.json.DefaultJsonProtocol._
-import scala.concurrent.Future
-import nest.sparkle.store.LongDoubleColumn
-import nest.sparkle.store.LongLongColumn
-
-/** A function that constructs a JsonDataStream.  The JsonDataStream will transform a single
-  * source column into a json output column when it s called.
-  */
-trait ColumnTransform {
-  def apply[T: JsonWriter: Ordering, U: JsonWriter: Ordering]  // format: OFF
-      (column: Column[T, U], transformParameters: JsObject)
-      (implicit execution: ExecutionContext): JsonDataStream // format: ON
-}
-
-object StandardColumnTransform {
-  /** Given an untyped future Column, call a transform function with the type specific column
-    * when the future completes.
-    */
-  def executeTypedTransform(futureColumns: Future[Seq[Column[_, _]]], // format: OFF
-      columnTransform:ColumnTransform, transformParameters:JsObject)
-      (implicit execution: ExecutionContext):Future[Seq[JsonDataStream]] = { // format: ON
-    futureColumns.map { columns =>
-      columns.map {
-        case LongDoubleColumn(castColumn) => columnTransform(castColumn, transformParameters)
-        case LongLongColumn(castColumn)   => columnTransform(castColumn, transformParameters)
-      }
-    }
-  }
-}
+import nest.sparkle.util.RecoverOrdering
+import rx.lang.scala.Observable
 
 /** match a SummaryTransform string selector, and return a ColumnTransform to be applied to each source column */
 object SummaryTransform {
@@ -58,7 +32,7 @@ object SummaryTransform {
     val lowerCase = transform.toLowerCase
     if (lowerCase.startsWith("summarize")) {
       lowerCase.stripPrefix("summarize") match {
-        case "max"     => Some(JustCopy) // TODO replace with an actual summary
+        case "max"     => Some(SummarizeMax) // TODO replace with an actual summary
         case "min"     => ???
         case "linear"  => ???
         case "mean"    => ???
@@ -77,29 +51,59 @@ object SummaryTransform {
   }
 }
 
-/** match the "Raw" transform */
-object RawTransform {
-  def unapply(transform: String): Option[ColumnTransform] = {
-    transform.toLowerCase match {
-      case "raw" => Some(JustCopy)
-      case _     => None
-    }
-  }
-}
-
-/** a transform that copies the array of source columns to json encodable output streams */
-object JustCopy extends ColumnTransform {
-  override def apply[T: JsonWriter: Ordering, U: JsonWriter: Ordering]( // format: OFF
+/** Initial implementation of the SummaryMax transform
+  * TODO support multiple summary transforms
+  */
+object SummarizeMax extends ColumnTransform {
+  override def apply[T: JsonFormat, U: JsonWriter]( // format: OFF
        column: Column[T, U],
        transformParameters: JsObject
      ) (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
-    /** return an outputStream that can produce a column */
-    val events = column.readRange() // just copy the entire source column to the output
-    JsonDataStream(
-      dataStream = JsonEventWriter(events),
-      streamType = KeyValueType
-    )
+    /** order events by the order of their values */
+    implicit object ValueOrderEvents extends Ordering[Event[T, U]] {
+      implicit val valueOrdering = RecoverOrdering.ordering[U](column.valueType)
+      def compare(x: Event[T, U], y: Event[T, U]): Int = {
+        valueOrdering.compare(x.value, y.value)
+      }
+    }
+
+    /** find the maximum valued Event in a group of events */
+    def max(data: Seq[Event[T, U]]): Seq[Event[T, U]] = {
+      Seq(data.max)
+    }
+    // TODO handle edgeExtra
+
+    /** read a range of column data, divide it into blocks, reduce each block
+     *  into a summarized value, and return the result as a json stream */
+    def summarize(params: RangeParameters[T], column: Column[T, U]): JsonDataStream = {
+      val eventStream = column.readRange(params.start, params.end)
+      val summarizedEvents = eventStream.toFutureSeq.map { events =>
+        val groupSize = partitionSize(events, params)
+        val groups = events.grouped(groupSize)
+        groups.flatMap{ group => max(group) }.toSeq
+      }
+      val observableEvents = Observable.from(summarizedEvents)
+
+      JsonDataStream(
+        dataStream = JsonEventWriter.fromObservableSeq(observableEvents),
+        streamType = KeyValueType
+      )
+    }
+
+    Transform.rangeParameters(transformParameters) match {
+      case Success(params) => summarize(params, column)
+      case Failure(err)    => JsonDataStream.error(err)
+    }
   }
+
+  private def partitionSize[T, U](events: Seq[Event[T, U]], params: RangeParameters[T]): Int = {
+    if (events.length < params.maxResults) {
+      1
+    } else {
+      events.length / params.maxResults
+    }
+  }
+
 }
 

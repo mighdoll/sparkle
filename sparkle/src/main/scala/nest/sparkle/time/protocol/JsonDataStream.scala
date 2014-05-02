@@ -29,3 +29,9 @@ case class JsonDataStream(
   metadata: Option[String] = None // format: OFF
 ) // format: ON
 
+object JsonDataStream {
+  /** return a stream that immediately generates an error (and no other data) */
+  def error(err:Throwable):JsonDataStream = {
+    JsonDataStream(Observable.error(err), KeyValueType)
+  }
+}

@@ -23,9 +23,10 @@ import rx.lang.scala.Observable
 import nest.sparkle.store.Event
 import scala.collection.mutable.ArrayBuffer
 import nest.sparkle.store.cassandra.WriteableColumn
+import nest.sparkle.util.RecoverOrdering
 
 /** A readable Column backed by a collection in the internal heap.  */
-abstract class RamColumn[T: TypeTag: Ordering, U: TypeTag](val name: String) extends Column[T, U] {
+abstract class RamColumn[T: TypeTag, U: TypeTag](val name: String) extends Column[T, U] {
   def keys: Seq[T]
   def values: Seq[U]
   def keyType: TypeTag[T] = typeTag[T]
@@ -59,7 +60,7 @@ abstract class RamColumn[T: TypeTag: Ordering, U: TypeTag](val name: String) ext
     * If the last index is 0, no elements are available (no index is before 0).
     */
   private def keyRange(start: Option[T], end: Option[T]): (Int, Int) = {
-    val ordering = Ordering[T]
+    val ordering = RecoverOrdering.ordering[T](keyType)
     val startDex: Int = {
       start map { startValue =>
         keys.indexWhere(ordering.gteq(_, startValue))
@@ -67,7 +68,7 @@ abstract class RamColumn[T: TypeTag: Ordering, U: TypeTag](val name: String) ext
     }
     val afterEnd: Int = {
       end map { endValue =>
-        keys.length - keys.reverseIterator.indexWhere(ordering.lteq(_, endValue))
+        keys.length - keys.reverseIterator.indexWhere(ordering.lt(_, endValue))
       } getOrElse keys.length
     }
     (startDex, afterEnd)
@@ -76,12 +77,12 @@ abstract class RamColumn[T: TypeTag: Ordering, U: TypeTag](val name: String) ext
 
 /** Create a Writeable Column backed by an ArrayBuffer.  */
 object WriteableRamColumn {
-  def apply[T: TypeTag: Ordering, U: TypeTag](name: String): WriteableRamColumn[T, U] =
+  def apply[T: TypeTag, U: TypeTag](name: String): WriteableRamColumn[T, U] =
     new WriteableRamColumn(name)
 }
 
 /** A Writeable Column backed by an ArrayBuffer.  */
-class WriteableRamColumn[T: TypeTag: Ordering, U: TypeTag](name: String)
+class WriteableRamColumn[T: TypeTag, U: TypeTag](name: String)
     extends RamColumn[T, U](name) with WriteableColumn[T, U] {
   val keys = ArrayBuffer[T]()
   val values = ArrayBuffer[U]()

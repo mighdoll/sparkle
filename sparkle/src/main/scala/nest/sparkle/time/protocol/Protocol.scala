@@ -58,8 +58,8 @@ case class Status(code: Long, description: String)
 /** an element in the sources array of a StreamRequest message that specifies a custom source selector */
 case class CustomSelector(selector:String, selectorParameters:JsObject)
 
-/** Parameters for summarize transforms */
-case class SummarizeParams[T](
+/** Transform Parameters for transforms that specify a range of data to load (e.g. SummaryTransforms) */
+case class RangeParameters[T](
   maxResults: Int,
   start: Option[T] = None,
   end: Option[T] = None,

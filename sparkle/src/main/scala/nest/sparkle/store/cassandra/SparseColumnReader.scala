@@ -25,11 +25,14 @@ import com.datastax.driver.core.PreparedStatement
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import scala.reflect.runtime.universe._
 import nest.sparkle.util._
-
 import nest.sparkle.util.Log
+
+import SparseColumnReader.{ log, statement, ReadAll, ReadRange }
+import com.datastax.driver.core.BoundStatement
 
 object SparseColumnReader extends PrepareTableOperations with Log {
   case class ReadAll(override val tableName: String) extends TableOperation
+  case class ReadRange(override val tableName: String) extends TableOperation
 
   def instance[T, U](dataSetName: String, columnName: String, catalog: ColumnCatalog) // format: OFF
       (implicit session: Session, execution: ExecutionContext): Future[SparseColumnReader[T,U]] = { // format: ON
@@ -63,15 +66,21 @@ object SparseColumnReader extends PrepareTableOperations with Log {
     }
   }
 
-  override val prepareStatements = (ReadAll -> readAllStatement _) :: Nil
+  override val prepareStatements =
+    (ReadAll -> readAllStatement _) ::
+      (ReadRange -> readRangeStatement _) ::
+      Nil
 
   def readAllStatement(tableName: String): String = s"""
       SELECT argument, value FROM $tableName
       WHERE dataSet = ? AND column = ? AND rowIndex = ?
       """
-}
 
-import SparseColumnReader._
+  def readRangeStatement(tableName: String): String = s"""
+      SELECT argument, value FROM $tableName
+      WHERE dataSet = ? AND column = ? AND rowIndex = ? AND argument >= ? AND argument < ?
+      """
+}
 
 /** read only access to a cassandra source event column */
 class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: String, // format: OFF
@@ -91,10 +100,10 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
   /** read a slice of events from the column */      // format: OFF
   def readRange(start:Option[T] = None, end:Option[T] = None)
       (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON
-    if (start.isEmpty && end.isEmpty) {
-      readAll()
-    } else {
-      ???
+    (start, end) match {
+      case (None, None)             => readAll()
+      case (Some(start), Some(end)) => readRange(start, end)
+      case _                        => ???
     }
   }
 
@@ -112,18 +121,33 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
 
   /** read all the column values from the column */
   private def readAll()(implicit executionContext: ExecutionContext): Observable[Event[T, U]] = { // format: ON
+    log.trace(s"readAll from $tableName $columnPath")
     val readStatement = statement(ReadAll(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
 
-    log.trace(s"readAll from $tableName $columnPath")
-    def rowDecoder(row: Row): Event[T, U] = {
-      log.trace(s"rowDecoder: $row")
-      val argument = keySerializer.fromRow(row, 0)
-      val value = valueSerializer.fromRow(row, 1)
-      Event(argument.asInstanceOf[T], value.asInstanceOf[U])
-    }
+    readEventRows(readStatement)
+  }
 
-    val rows = session.executeAsync(readStatement).observerableRows
+  def rowDecoder(row: Row): Event[T, U] = {
+    log.trace(s"rowDecoder: $row")
+    val argument = keySerializer.fromRow(row, 0)
+    val value = valueSerializer.fromRow(row, 1)
+    Event(argument.asInstanceOf[T], value.asInstanceOf[U])
+  }
+
+  private def readEventRows(statement: BoundStatement) // format: OFF
+      (implicit execution:ExecutionContext): Observable[Event[T, U]] = { // format: ON
+    val rows = session.executeAsync(statement).observerableRows
     rows map rowDecoder
+  }
+
+  private def readRange(start: T, end: T) // format: OFF
+      (implicit execution:ExecutionContext): Observable[Event[T, U]] = { // format: ON
+    log.trace(s"readRange from $tableName $columnPath $start $end")
+    val readStatement = statement(ReadRange(tableName)).bind(
+      Seq[AnyRef](dataSetName, columnName, rowIndex,
+        start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
+
+    readEventRows(readStatement)
   }
 }

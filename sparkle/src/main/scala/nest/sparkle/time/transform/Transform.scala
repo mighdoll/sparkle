@@ -20,11 +20,15 @@ import spray.json._
 import nest.sparkle.time.protocol.JsonDataStream
 import nest.sparkle.store.Column
 import nest.sparkle.time.transform.StandardColumnTransform.executeTypedTransform
+import scala.util.Try
+import scala.util.control.Exception._
+import nest.sparkle.time.protocol.RangeParameters
+import nest.sparkle.time.protocol.TransformParametersJson.RangeParamsFormat
+import rx.lang.scala.Observable
 
 case class TransformNotFound(msg: String) extends RuntimeException(msg)
 
-/** apply transforms (to help respond to StreamRequest messages) */
-
+/** apply transforms (to respond to StreamRequest messages) */
 object Transform {
 
   /** apply requested StreamRequest transforms, returning OutputStreams that generate results on demand */
@@ -46,6 +50,14 @@ object Transform {
 
     futureStreams
   }
+
+  /** return typed RangeParameters from the untyped json transform parameters (in a StreamRequest message) */
+  def rangeParameters[T: JsonFormat](transformParameters: JsObject): Try[RangeParameters[T]] = {
+    catching(classOf[RuntimeException]).withTry {
+      transformParameters.convertTo[RangeParameters[T]]
+    }
+  }
+  
 
 }
 

@@ -52,5 +52,4 @@ trait Column[T, U] {
 // . possibly a typeclass that covers all single, sequence, and typed list cases?
 // LATER name this something else: Item?  Datum?
 /** an single item in the datastore, e.g. a timestamp and value */
-case class Event[T, V](argument: T, value: V)
-
+case class Event[T, V](argument: T, value: V) 

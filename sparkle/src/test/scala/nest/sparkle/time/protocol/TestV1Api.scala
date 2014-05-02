@@ -16,8 +16,6 @@ package nest.sparkle.time.protocol
 
 import scala.reflect.runtime.universe._
 import scala.concurrent.ExecutionContext
-
-
 import spray.util._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -25,7 +23,6 @@ import spray.http.HttpResponse
 import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
 import spray.testkit.ScalatestRouteTest
-
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.protocol.ResponseJson.{ StreamFormat, StreamsFormat, StreamsMessageFormat }
 import nest.sparkle.time.protocol.ArbitraryColumn.arbitraryColumn
@@ -39,9 +36,20 @@ import nest.sparkle.store.Event
 import nest.sparkle.store.Store
 import nest.sparkle.store.ram.WriteableRamStore
 import nest.sparkle.util.RandomUtil.randomAlphaNum
+import spray.http.DateTime
+import nest.sparkle.store.Event
 
 class TestV1Api extends TestStore with StreamRequestor with TestDataService {
 
+  test("Raw transform two raw events") {
+    val requestMessage = streamRequest[Long]("Raw")
+    Post("/v1/data", requestMessage) ~> v1protocol ~> check {
+      val events = streamDataEvents(response)
+      events.length shouldBe 2
+      events(0).value shouldBe 1
+      events(1).value shouldBe 2
+    }
+  }
 
   test("summarizeMax two raw events") { // note that this test just copies input to output
     val requestMessage = streamRequest("SummarizeMax")
@@ -52,9 +60,32 @@ class TestV1Api extends TestStore with StreamRequestor with TestDataService {
       events(1).value shouldBe 2
     }
   }
+  
+  test("summarizeMax simple set of events to one") { 
+    val requestMessage = streamRequest("SummarizeMax", selector = SelectString(simpleColumnPath), 
+        range = RangeParameters[Long](maxResults=1))
+    Post("/v1/data", requestMessage) ~> v1protocol ~> check {
+      val events = streamDataEvents(response)
+      events.length shouldBe 1
+      events.head shouldBe Event(simpleMidpointMillis, 32)
+    }
+  }
+  
+  test("raw simple range") { 
+    val start = Some("2013-01-19T22:13:30".toMillis)
+    val end = Some("2013-01-19T22:14:00".toMillis)
+    val range = RangeParameters[Long](maxResults = 100, start = start, end=end)
+    val requestMessage = streamRequest("Raw", selector = SelectString(simpleColumnPath), range = range)
+    Post("/v1/data", requestMessage) ~> v1protocol ~> check {
+      val events = streamDataEvents(response)
+      events.length shouldBe 3
+      events(0).argument shouldBe start.get
+      events(2).argument shouldBe "2013-01-19T22:13:50".toMillis
+    }
+  }
 
   /** create a new column in the test RAM store and return its columnPath */
-  def makeColumn[T: TypeTag: Ordering, U: TypeTag](prefix: String, events: List[Event[T, U]]): String = {
+  def makeColumn[T: TypeTag, U: TypeTag](prefix: String, events: List[Event[T, U]]): String = {
     val columnName = prefix + "/" + randomAlphaNum(4)
     val column = store.writeableColumn[T, U](columnName).await
     column.write(events)
@@ -85,8 +116,8 @@ class TestV1Api extends TestStore with StreamRequestor with TestDataService {
     val path = s"/v1/columns/$testId"
     Get(path) ~> v1protocol ~> check {
       val columns = responseAs[Seq[String]]
-      columns.length shouldBe 1
-      columns(0) shouldBe testColumn
+      columns.length shouldBe 2
+      columns should contain(testColumnName)
     }
   }
 

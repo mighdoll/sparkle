@@ -23,20 +23,52 @@ import nest.sparkle.store.ram.WriteableRamStore
 import spray.util._
 import scala.concurrent.ExecutionContext
 import nest.sparkle.store.Event
+import spray.http.DateTime
+import scala.reflect.runtime.universe._
 
 /** (for unit tests) a ram based Store with a sample column */
 trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
     with PropertyChecks with BeforeAndAfterAll {
-
-  lazy val testColumn = "latency.p99"
   lazy val testId = "server1"
-  lazy val testColumnPath = s"$testId/$testColumn"
 
-  lazy val store: WriteableRamStore = {
-    val store = new WriteableRamStore()
-    val writeColumn = store.writeableColumn[Long, Double](testColumnPath).await
-    writeColumn.write(Seq(Event(100L, 1), Event(200L, 2))).await
-    store
+  lazy val testColumnName = "testColumn"
+  lazy val testColumnPath = s"$testId/$testColumnName"
+  lazy val testEvents = Seq(Event(100L, 1d), Event(200L, 2d))
+
+  lazy val simpleColumnPath = s"$testId/simple"
+  lazy val simpleMidpointMillis = DateTime.fromIsoDateTimeString("2013-01-19T22:13:40").get.clicks
+  lazy val simpleEvents:Seq[Event[Long,Double]] = {
+    val simpleData = Seq(  
+      "2013-01-19T22:13:10" -> 25, 
+      "2013-01-19T22:13:20" -> 26, 
+      "2013-01-19T22:13:30" -> 31,
+      "2013-01-19T22:13:40" -> 32, 
+      "2013-01-19T22:13:50" -> 28, 
+      "2013-01-19T22:14:00" -> 25, 
+      "2013-01-19T22:14:10" -> 20)
+    simpleData.map { case (time, value) =>
+      val millis = DateTime.fromIsoDateTimeString(time).get.clicks
+      Event(millis, value.toDouble)  
+    }
   }
 
+  lazy val store: WriteableRamStore = {
+    val ramStore = new WriteableRamStore()
+    addTestColumn(ramStore, testColumnPath, testEvents)
+    addTestColumn(ramStore, simpleColumnPath, simpleEvents)    
+    ramStore
+  }
+
+  private def addTestColumn[T:TypeTag,U:TypeTag](testStore:WriteableRamStore, 
+      columnPath:String, events:Seq[Event[T,U]]) {
+    val column = testStore.writeableColumn[T,U](columnPath).await
+    column.write(events).await
+  }
+  
+  implicit class IsoDateString(isoDateString:String) {
+    def toMillis = {
+      DateTime.fromIsoDateTimeString(isoDateString).get.clicks
+    }
+  }
+  
 }

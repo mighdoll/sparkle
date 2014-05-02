@@ -24,7 +24,7 @@ import nest.sparkle.store.Event
 
 /** Utility for using scalacheck properties to generate Events */
 object ArbitraryColumn2 extends PropertyChecks {
-  def eventGenerator[T: Arbitrary, U:Arbitrary]() = {
+  def eventGenerator[T: Arbitrary, U: Arbitrary]() = {
     for {
       key <- arbitrary[T]
       value <- arbitrary[U]
@@ -32,7 +32,7 @@ object ArbitraryColumn2 extends PropertyChecks {
       Event(key, value)
     }
   }
-  
+
   /** import this to allow generating Events in scalacheck generators */
-  implicit def arbitraryEvent[T:Arbitrary, U:Arbitrary] = Arbitrary(eventGenerator[T,U]())
+  implicit def arbitraryEvent[T: Arbitrary, U: Arbitrary] = Arbitrary(eventGenerator[T, U]())
 }
