@@ -55,6 +55,7 @@ case class StreamDrop(streamId: Long)
 /** Report errors and other status events.  Sent from server to client. */
 case class Status(code: Long, description: String)
 
+/** an element in the sources array of a StreamRequest message that specifies a custom source selector */
 case class CustomSelector(selector:String, selectorParameters:JsObject)
 
 /** Parameters for summarize transforms */

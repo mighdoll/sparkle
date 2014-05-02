@@ -29,5 +29,5 @@ class ConfiguredDataServer(val registry: DataRegistry, val store: Store, val roo
   def actorRefFactory: ActorRefFactory = context
   def receive: Receive = runRoute(route)
   def executionContext: ExecutionContextExecutor = context.dispatcher
-  override lazy val webRoot = Some(rootConfig.getString("sparkle-time.server.web-root"))
+  override lazy val webRoot = Some(rootConfig.getString("sparkle-time-server.web-root"))
 }

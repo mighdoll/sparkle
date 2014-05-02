@@ -25,11 +25,12 @@ import nest.sparkle.store.Store
 import nest.sparkle.store.Column
 import com.typesafe.config.Config
 
-
+/** Trait for developer provided subclasses that identify source columns
+ *  in response to protocol StreamRequests */
 trait CustomSourceSelector {
   /** a name used to match the `source` field in the StreamRequest message to identify when
     * this record should be used. The namespace of `source` selector strings is shared
-    * across all requests, subclasses are advised to override this with a unique name.
+    * across all requests, so subclasses are advised to override this with a unique name.
     */
   def name: String = this.getClass.getSimpleName
 
@@ -45,7 +46,7 @@ trait CustomSourceSelector {
   * and must extend CustomSourceSelector
   */
 class ExampleCustomSelector(rootConfig: Config, store: Store) extends CustomSourceSelector {
-  override def name = "UseMyExample"
+  override def name = "MyStuff.MySelectorName"
     
   def columns(sources: Array[JsValue]) // format: OFF
     (implicit execution: ExecutionContext): Seq[Future[Column[_, _]]] = ??? // format: ON

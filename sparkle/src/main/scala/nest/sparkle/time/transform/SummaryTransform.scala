@@ -28,11 +28,12 @@ import nest.sparkle.store.LongDoubleColumn
 import nest.sparkle.store.LongLongColumn
 
 /** A function that constructs a JsonDataStream.  The JsonDataStream will transform a single
-  * source column into a json output column on demand.
+  * source column into a json output column when it s called.
   */
-abstract class ColumnTransform {
-  def apply[T: JsonWriter: Ordering, U: JsonWriter: Ordering](column: Column[T, U],
-                                                              transformParameters: JsObject)(implicit execution: ExecutionContext): JsonDataStream
+trait ColumnTransform {
+  def apply[T: JsonWriter: Ordering, U: JsonWriter: Ordering]  // format: OFF
+      (column: Column[T, U], transformParameters: JsObject)
+      (implicit execution: ExecutionContext): JsonDataStream // format: ON
 }
 
 object StandardColumnTransform {

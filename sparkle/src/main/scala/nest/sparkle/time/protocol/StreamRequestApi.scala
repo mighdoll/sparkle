@@ -14,7 +14,7 @@
 
 package nest.sparkle.time.protocol
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 
 import com.typesafe.config.Config
 
@@ -25,10 +25,12 @@ import nest.sparkle.time.transform.Transform
 import nest.sparkle.util.ObservableFuture.WrappedObservable
 
 /** Handle transformation requests from a v1 protocol StreamRequest. */
-case class StreamRequestApi(val store: Store, val rootConfig:Config) extends SelectingSources {
+case class StreamRequestApi(val store: Store, val rootConfig: Config) // format: OFF
+    extends SelectingSources with SelectingTransforms { // format: ON
 
   /** Process a StreamRequest message from the client, and return a future that completes with a Streams json object
-   *  with the entire result set */
+    * with the entire result set
+    */
   def httpStreamRequest(streamRequest: StreamRequest)(implicit context: ExecutionContext): Future[Streams] = {
     case class StreamAndData(outputStream: JsonDataStream, data: Seq[JsArray])
 
@@ -53,7 +55,7 @@ case class StreamRequestApi(val store: Store, val rootConfig:Config) extends Sel
     // await all the source columns, since we're processing over http
     val futureColumns = Future.sequence(sourceColumns(streamRequest.sources))
     val futureOutputStreams = // completes with Observable output streams
-      Transform.connectTransform(streamRequest.transform, streamRequest.transformParameters, futureColumns)
+      selectTransform(streamRequest.transform, streamRequest.transformParameters, futureColumns)
 
     val futureStreamAndData = // completes when output streams are finished
       futureOutputStreams.flatMap { outputStreams =>
