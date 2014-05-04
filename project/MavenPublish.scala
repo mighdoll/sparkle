@@ -106,25 +106,50 @@ object MavenPublishTasks {
     }
   }
 
-  // read the maven repo host,user,password off disk
-  private val credentialsPath = Path.userHome / ".maven" / ".credentials"
-  lazy val mavenCredentials = Credentials(credentialsPath)
-
   case class RepositoryPaths(repoUrl: String, releases: String, snapshots: String)
 
-  /** get the host and paths to release and snapshot directories */
-  lazy val repositoryPaths: Option[RepositoryPaths] = {
-    if (credentialsPath.exists()) {
-      val properties = readProperties(credentialsPath)
-      val repoUrl = "http://" + properties("host") + "/"
-      Some(RepositoryPaths(repoUrl = repoUrl,
-        releases = properties.get("releasesPath").getOrElse("artifactory/libs-release-local"),
-        snapshots = properties.get("snapshotsPath").getOrElse("artifactory/libs-snapshot-local")
-      ))
-    } else {
-      None
+  lazy val (mavenCredentials, repositoryPaths) =
+    credentialsFromEnvironment match {
+      case Some(credentials) => (credentials, repositoryPathsFromEnv)
+      case None => (credentialsFromFile, repositoryPathsFromFile)
     }
-  }
+
+  lazy val valuesFromEnvironment =
+    for {   // Must have all four defined 
+      realm     <- sys.env.get("MAVEN_PUBLISH_REALM")
+      host      <- sys.env.get("MAVEN_PUBLISH_HOST")
+      user      <- sys.env.get("MAVEN_PUBLISH_USER")
+      pswd      <- sys.env.get("MAVEN_PUBLISH_PASSWORD")
+    } yield (realm, host, user, pswd)
+
+  private def credentialsFromEnvironment =
+    for {
+      (realm, host, user, pswd) <- valuesFromEnvironment
+    } yield Credentials(realm, host, user, pswd)
+
+  private def repositoryPathsFromEnvironment: Option[RepositoryPaths] =
+    for {   // Must have all four defined to match source of credentials
+      (realm, host, user, pswd) <- valuesFromEnvironment
+    } yield {
+      val releases  = sys.env.get("MAVEN_PUBLISH_RELEASES_PATH").getOrElse("artifactory/libs-release-local")
+      val snapshots = sys.env.get("MAVEN_PUBLISH_SNAPSHOTS_PATH").getOrElse("artifactory/libs-snapshot-local")
+      RepositoryPaths(s"http://$host/", releases, snapshots)
+    }
+
+  private lazy val credentialsPath = Path.userHome / ".maven" / ".credentials"
+
+  private def credentialsFromFile = Credentials(credentialsPath)
+
+  private def repositoryPathsFromFile: Option[RepositoryPaths] =
+      if (credentialsPath.exists()) {
+        val properties = readProperties(credentialsPath)
+        val repoUrl = "http://" + properties("host") + "/"
+        val releases = properties.get("releasesPath").getOrElse("artifactory/libs-release-local")
+        val snapshots = properties.get("snapshotsPath").getOrElse("artifactory/libs-snapshot-local")
+        Some(RepositoryPaths(repoUrl, releases, snapshots))
+      } else {
+        None
+      }
 
   /** read a java properties file */
   private def readProperties(file: File): Map[String, String] = {
