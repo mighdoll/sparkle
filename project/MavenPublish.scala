@@ -110,7 +110,7 @@ object MavenPublishTasks {
 
   lazy val (mavenCredentials, repositoryPaths) =
     credentialsFromEnvironment match {
-      case Some(credentials) => (credentials, repositoryPathsFromEnv)
+      case Some(credentials) => (credentials, repositoryPathsFromEnvironment)
       case None => (credentialsFromFile, repositoryPathsFromFile)
     }
 
