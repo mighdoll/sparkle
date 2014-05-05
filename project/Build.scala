@@ -41,7 +41,7 @@ object SparkleTimeBuild extends Build {
       )
 
   lazy val kafkaLoader =
-    Project(id = "kafka-loader", base = file("kafka"))
+    Project(id = "sparkle-kafka-loader", base = file("kafka"))
       .dependsOn(sparkleTime)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
