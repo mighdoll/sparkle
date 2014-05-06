@@ -46,7 +46,7 @@ trait CustomSourceSelector {
   * and must extend CustomSourceSelector
   */
 class ExampleCustomSelector(rootConfig: Config, store: Store) extends CustomSourceSelector {
-  override def name = "MyStuff.MySelectorName"
+  override val name = "MyStuff.MySelectorName"
     
   def columns(sources: Array[JsValue]) // format: OFF
     (implicit execution: ExecutionContext): Seq[Future[Column[_, _]]] = ??? // format: ON
