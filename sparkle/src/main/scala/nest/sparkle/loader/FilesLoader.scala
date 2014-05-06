@@ -77,7 +77,7 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
   }
 
   /** called when a file is changed in the directory we're watching */
-  private def fileChange(change: Change, store: WriteableStore) {
+  private def fileChange(change: Change, store: WriteableStore): Unit = {
     change match {
       case Added(path) =>
         loadFile(path, store)
@@ -88,7 +88,7 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
     }
   }
 
-  private def loadFile(fullPath: Path, store: WriteableStore) {
+  private def loadFile(fullPath: Path, store: WriteableStore): Unit = {
     fullPath match {
       case ParseableFile(format) if Files.isRegularFile(fullPath) =>
         log.info(s"Started loading $fullPath into the sparkle store")

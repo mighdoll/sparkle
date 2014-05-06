@@ -49,7 +49,7 @@ object ObservableResultSet {
             * rowChunk() is called once for each available group ('chunk') of resultSet rows.  It
             * recursively calls itself to process the next fetched set of rows until there are now more rows left.
             */
-          def rowChunk() {
+          def rowChunk(): Unit = {
             if (!subscriber.isUnsubscribed) {
               val iterator = resultSet.iterator().asScala
               val availableNow = resultSet.getAvailableWithoutFetching()

@@ -17,9 +17,9 @@ package nest.sparkle.util
 object Debug {
 
   /** handy for inserting a pause e.g. while debugging memory usage */
-  def waitForKey() {
+  def waitForKey(): Unit = {
     Console.println("press any key to continue")
-    System.in.read();
+    System.in.read()
     Console.println("..continuing")
   }
 

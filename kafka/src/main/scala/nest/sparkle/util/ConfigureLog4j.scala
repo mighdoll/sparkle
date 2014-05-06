@@ -26,7 +26,7 @@ import scala.collection.JavaConverters._
 object ConfigureLog4j {
 
   /** configure log4j logging based on a .conf file */
-  def configure(config: Config) {
+  def configure(config: Config): Unit = {
     val log4jConfig = config.getConfig("log4j")
     val file = log4jConfig.getString("file")
     val append = log4jConfig.getBoolean("append")

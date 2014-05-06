@@ -7,7 +7,7 @@ import java.io.Closeable
 /** Bundle a cassandra cluster connection and session on that cluster together,
  *  so we can close them together.  */
 case class ClusterSession(cluster:Cluster, session:Session) extends Closeable {
-  def close() {
+  def close(): Unit = {
     cluster.close()
     session.close()
   }

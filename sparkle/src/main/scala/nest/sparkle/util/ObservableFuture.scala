@@ -36,11 +36,11 @@ object ObservableFuture {
     /** return an Future that will return a single sequence for the observable stream */
     def toFutureSeq: Future[Seq[T]] = {
       val promise = Promise[Seq[T]]()
-      def onNext(value:Seq[T]) {
+      def onNext(value:Seq[T]): Unit = {
         promise.complete(Success(value))
       }
 
-      def onError(error:Throwable) {
+      def onError(error:Throwable): Unit = {
         promise.complete(Failure(error))
       }
 

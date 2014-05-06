@@ -38,7 +38,7 @@ object ObservableIterator extends Log {
       var running = false // true if the iteration thread is running
 
       /** start the background iterator if unstarted */
-      def start() {
+      def start(): Unit = {
         synchronized {
           if (!running) {
             startBackgroundIterator()
@@ -63,9 +63,9 @@ object ObservableIterator extends Log {
       /** a single execution thread reads from the iterable. iteration continues
         * until all the current subscribers unsubscribe.
         */
-      def startBackgroundIterator() {
+      def startBackgroundIterator(): Unit = {
         val runnable = new Runnable {
-          def run() { // run in a background thread.
+          def run(): Unit = { // run in a background thread.
             iterator.takeWhile { value =>
               currentSubscribers().foreach { _.onNext(value) }
               stillActiveSubscribers

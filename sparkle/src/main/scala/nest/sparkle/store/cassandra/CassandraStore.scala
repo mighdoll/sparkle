@@ -49,7 +49,7 @@ object CassandraStore extends Log {
     * @param contactHosts Cassandra host to create session for.
     * @param keySpace keyspace to drop.
     */
-  def dropKeySpace(contactHosts: Seq[String], keySpace: String) {
+  def dropKeySpace(contactHosts: Seq[String], keySpace: String): Unit = {
     val clusterSession = getClusterSession(contactHosts)
     try {
       log.info(s"dropping keySpace: $keySpace")
@@ -65,7 +65,7 @@ object CassandraStore extends Log {
     * @param contactHost Cassandra host to create session for.
     * @param keySpace keyspace to drop.
     */
-  def dropKeySpace(contactHost: String, keySpace: String) {
+  def dropKeySpace(contactHost: String, keySpace: String): Unit = {
     dropKeySpace(Seq(contactHost), keySpace)
   }
 
@@ -130,7 +130,7 @@ trait CassandraStore extends Store with WriteableStore with Log {
     *
     * Blocks the calling thread until the session is closed
     */
-  def close() { clusterSession.close() }
+  def close(): Unit = { clusterSession.close() }
 
   /** Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
     *
@@ -167,7 +167,7 @@ trait CassandraStore extends Store with WriteableStore with Log {
     *
     * This call is synchronous.
     */
-  def format() {
+  def format(): Unit = {
     format(session)
   }
 
@@ -177,7 +177,7 @@ trait CassandraStore extends Store with WriteableStore with Log {
     * @param session The session to use. This shadows the instance variable
     *            because the instance variable may not be initialized yet.
     */
-  private def useKeySpace(session: Session) {
+  private def useKeySpace(session: Session): Unit = {
     val keySpacesRows = session.executeAsync(s"""
         SELECT keyspace_name FROM system.schema_keyspaces""").observerableRows
 
@@ -193,7 +193,7 @@ trait CassandraStore extends Store with WriteableStore with Log {
   }
 
   /** create a keyspace (db) in cassandra */
-  private def createKeySpace(session: Session, keySpace: String) {
+  private def createKeySpace(session: Session, keySpace: String): Unit = {
     session.execute(s"""
         CREATE KEYSPACE $keySpace
         with replication = {'class': 'SimpleStrategy', 'replication_factor': 1}"""
@@ -206,7 +206,7 @@ trait CassandraStore extends Store with WriteableStore with Log {
     * The session's keyspace itself must already exist.
     * Any existing tables are deleted.
     */
-  protected def format(session: Session) {
+  protected def format(session: Session): Unit = {
     dropTables(session)
 
     SparseColumnWriter.createColumnTables(session).await

@@ -63,7 +63,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     * Normally, there'll be dashboard at this page.  (either the default sparkle dashboard,
     * or one provided by the user with the --root command line option.)
     */
-  def launchDesktopBrowser() {
+  def launchDesktopBrowser(): Unit = {
     val uri = new URI(s"http://localhost:$webPort/")
     import system.dispatcher
     RepeatingRequest.get(uri + "health").onComplete {
@@ -80,7 +80,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     *
     * This call will block until the server is ready to accept incoming requests.
     */
-  private def startServer(serviceActor: ActorRef, port: Int)(implicit system: ActorSystem) {
+  private def startServer(serviceActor: ActorRef, port: Int)(implicit system: ActorSystem): Unit = {
     if (config.getBoolean("auto-start")) {
       implicit val timeout = Timeout(10.seconds)
       val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = port)
@@ -89,14 +89,14 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   }
 
   /** Erase and reformat the storage system if requested */
-  private def possiblyErase() {
+  private def possiblyErase(): Unit = {
     if (config.getBoolean("erase-store")) {
       writeableStore.format()
     }
   }
 
   /** launch a FilesLoader for each configured directory */
-  private def startFilesLoader() {
+  private def startFilesLoader(): Unit = {
     if (config.getBoolean("files-loader.auto-start")) {
       val strip = config.getInt("files-loader.directory-strip")
       config.getStringList("files-loader.directories").asScala.foreach { pathString =>

@@ -28,7 +28,7 @@ object ConfigureLogback extends Log {
 
   /** configure logging based on the .conf file */
   var configured = false
-  def configureLogging(sparkleConfig: Config) {
+  def configureLogging(sparkleConfig: Config): Unit = {
     if (!configured) {
       slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) match {
         case rootLogger: Logger => configureLogBack(sparkleConfig, rootLogger)
@@ -39,7 +39,7 @@ object ConfigureLogback extends Log {
   }
 
   /** configure file based logger for logback, based on settings in the .conf file */
-  private def configureLogBack(config: Config, rootLogger: Logger) {
+  private def configureLogBack(config: Config, rootLogger: Logger): Unit = {
     val context = slf4j.LoggerFactory.getILoggerFactory().asInstanceOf[LoggerContext]
     val logConfig = config.getConfig("logback")
     val file = logConfig.getString("file")

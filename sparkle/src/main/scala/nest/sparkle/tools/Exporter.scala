@@ -87,7 +87,7 @@ case class Exporter(config: Config)
     processDataSet(dataSet)
   }
 
-  def close() {
+  def close(): Unit = {
     store.close()
   }
 

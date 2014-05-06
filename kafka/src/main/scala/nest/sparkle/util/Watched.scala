@@ -57,13 +57,13 @@ trait Watched[T] extends Log {
 
 
   /** client filtering request */
-  private def processWatch(watch: Watch[T]) {
+  private def processWatch(watch: Watch[T]): Unit = {
     watches += watch
     watch.fullReport.onNext(WatchStarted())
   }
 
   /** send new event on the data stream to any matching filters */
-  private def processEvent(event: T) {
+  private def processEvent(event: T): Unit = {
     validSubscriptions().foreach { subscribe =>
       subscribe.filter match {
         case Some(filter) if !filter(event) => // skip, filter didn't match
@@ -75,12 +75,12 @@ trait Watched[T] extends Log {
   }
 
   /** source data stream had an error, notify watchers */
-  private def handleError(error: Throwable) {
+  private def handleError(error: Throwable): Unit = {
     validSubscriptions().foreach { _.fullReport.onError(error) }
   }
 
   /** source data stream is finished, notify watchers */
-  private def complete() {
+  private def complete(): Unit = {
     validSubscriptions().foreach { _.fullReport.onCompleted() }
   }
 

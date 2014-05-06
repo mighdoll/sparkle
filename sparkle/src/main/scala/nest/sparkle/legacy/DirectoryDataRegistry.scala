@@ -46,7 +46,7 @@ object DirectoryDataRegistry {
 /** Internal API for the DirectoryDataRegistryActor proxy.  Includes both the public and protected
  *  proxied actor messages.  */
 protected trait DirectoryDataRegistryApi extends DataRegistry {
-  protected[legacy] def fileChange(change:WatchPath.Change)
+  protected[legacy] def fileChange(change:WatchPath.Change): Unit
 }
 
 /** A data registry backed by a filesystem subdirectory */
@@ -61,7 +61,7 @@ class DirectoryDataRegistryActor(path:Path, glob:String = "**")
   private val loadedSets = LruCache[DataSetOld](maxCapacity = defaultMaxCapacity)
   private val watcher = WatchPath(path, glob)
 
-  def preStart() {
+  def preStart(): Unit = {
     val initialFiles = watcher.watch(self.fileChange)
     val fileNames = initialFiles.await.map(_.toString)
     files ++= fileNames
@@ -86,7 +86,7 @@ class DirectoryDataRegistryActor(path:Path, glob:String = "**")
   }
 
   /** called when the filesystem watcher notices a change */
-  protected[legacy] def fileChange(change:WatchPath.Change) {
+  protected[legacy] def fileChange(change:WatchPath.Change): Unit = {
     import WatchPath._
 
     def localPath(fullPath:Path):String = {
@@ -105,7 +105,7 @@ class DirectoryDataRegistryActor(path:Path, glob:String = "**")
     }
   }
 
-  def postStop() {
+  def postStop(): Unit = {
     TypedActor(system).stop(watcher)
   }
 

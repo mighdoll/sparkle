@@ -34,24 +34,24 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log{
   }
 
   /** write an Observable stream to kafka.  */
-  def writeStream(stream: Observable[T]) {
+  def writeStream(stream: Observable[T]): Unit = {
     stream.subscribe { datum =>
       writeElement(datum)
     }
   }
 
   /** write a collection of items to kafka. Note that this blocks the calling thread until it is done. */
-  def write(data: Iterable[T]) {
+  def write(data: Iterable[T]): Unit = {
     data foreach writeElement
   }
 
   /** close the underlying kafka producer connection */
-  def close() {
+  def close(): Unit = {
     producer.close  // KAFKA should have parens on close
   }
 
   /** write a single item to a kafka topic. */
-  private def writeElement(item: T) {
+  private def writeElement(item: T): Unit = {
     log.trace(s"writing $item")
     val encoded = writer.toBytes(item)
     val message = new KeyedMessage[String, Array[Byte]](topic, encoded)

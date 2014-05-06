@@ -51,7 +51,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
     * Note that load() will consume a thread for each kafka topic
     * (there is no async api in kafka 0.8.1).
     */
-  def load() {
+  def load(): Unit = {
     val finder = decoderFinder()
 
     readers =
@@ -64,7 +64,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
   }
 
   /** terminate all readers */
-  def close() {
+  def close(): Unit = {
     readers.foreach{_.close()}
   }
 
@@ -75,7 +75,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
     * write the events to storage.
     */
   private def loadKeyValues(reader: KafkaReader[ArrayRecordColumns],
-                            decoder: KafkaKeyValues) {
+                            decoder: KafkaKeyValues): Unit = {
     val stream = reader.stream()
     stream.subscribe { record =>
       val id = typeTaggedToString(record.id, decoder.metaData.idType)
@@ -112,7 +112,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
   /** We have written one record's worth of data to storage. Per the batch policy, commit our
     * position in kafka and notify any watchers.
     */
-  private def recordComplete(reader: KafkaReader[_], updates: Seq[ColumnUpdate[K]]) {
+  private def recordComplete(reader: KafkaReader[_], updates: Seq[ColumnUpdate[K]]): Unit = {
     // TODO, commit is relatively slow. let's commit/notify only every N items and/or after a timeout
     reader.commit() // record the progress reading this kafka topic into zookeeper
 

@@ -33,7 +33,7 @@ object Managed { // LATER which SCALA ARM library to use?
   }
 
   class Resource[T <: Closeable](resource: T) {
-    def foreach(fn: T => Unit) {
+    def foreach(fn: T => Unit): Unit = {
       try {
         fn(resource)
       } finally {

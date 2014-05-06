@@ -88,14 +88,14 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
   /** Store the current reader position in zookeeper.  On restart (e.g. after a crash),
     * the reader will begin at the stored position for this topic and consumerGroup.
     */
-  def commit() {
+  def commit(): Unit = {
     connection.commitOffsets // KAFKA should have () on this side-effecting function
   }
 
   /** Close the connection, allowing another reader in the same consumerGroup to take
     * over reading from this topic/partition.
     */
-  def close() {
+  def close(): Unit = {
     connection.shutdown()
   }
 

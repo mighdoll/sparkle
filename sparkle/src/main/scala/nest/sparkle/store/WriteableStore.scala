@@ -31,5 +31,5 @@ trait WriteableStore {
    * This erases any existing data in the store. The store is in the same state
    * as if it was just created.
    */
-  def format()
+  def format(): Unit
 }

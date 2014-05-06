@@ -137,7 +137,7 @@ object ColumnCatalog {
     *
     * @param session Session to use.
     */
-  def create(session: Session) {
+  def create(session: Session): Unit = {
     session.execute(s"""
       CREATE TABLE IF NOT EXISTS $catalogTable (
         columnPath text,

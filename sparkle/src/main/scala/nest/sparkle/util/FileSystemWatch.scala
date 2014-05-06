@@ -47,11 +47,11 @@ protected[util] class PathWatcherActor(root: Path, glob: String) extends PathWat
   }
 
   /** called internally when the fileSystem watcher notices a change */
-  protected def change(change: WatchPath.Change) {
+  protected def change(change: WatchPath.Change): Unit = {
     watchers.foreach { watcher => watcher(change) }
   }
 
-  def postStop() {
+  def postStop(): Unit = {
     fsWatcher.foreach { _.cancel() }
   }
 }
@@ -67,7 +67,7 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
   paths foreach watchPath
 
   /** watch an additional path */
-  private def watchPath(path: Path) {
+  private def watchPath(path: Path): Unit = {
     val key = path.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY)
 
     watchKeys += (key -> path)
@@ -82,7 +82,7 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
   @volatile var done = false
 
   private val runner = new Runnable {
-    def run() {
+    def run(): Unit = {
       while (!done) {
         val key = watcher.take()
         val events = collectEvents(key)
@@ -102,7 +102,7 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
     }
 
     /** notify caller and internal state after an observed file system event */
-    def processEvents(watchedPath:Path, events: Iterable[WatchEvent[_]]) {
+    def processEvents(watchedPath:Path, events: Iterable[WatchEvent[_]]): Unit = {
       events.foreach { event =>
         event.kind match {
           case OVERFLOW => ??? // probably should rescan the directories

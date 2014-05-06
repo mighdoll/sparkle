@@ -22,7 +22,7 @@ trait SparkleTestConfig {
   /** setup logging for sparkle. Triggered automatically when the caller accesses
    *  rootConfig. Idempotent.
     */
-  def initializeLogging(root: Config) {
+  def initializeLogging(root: Config): Unit = {
     if (!loggingInitialized) {
       val sparkleConfig = root.getConfig("sparkle-time-server")
       ConfigureLogback.configureLogging(sparkleConfig)
