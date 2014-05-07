@@ -33,14 +33,13 @@ object RecoverOrdering {
     *
     * Throws OrderingNotFound if no Ordering is available
     */
-  def ordering[T](targetTag: TypeTag[_]) // format:OFF 
+  def ordering[T](targetTag: TypeTag[_]) // format: OFF 
       (implicit orderings: Map[TypeTag[_], Ordering[_]] = Implicits.standardOrderings)
       : Ordering[T] = { // format: ON
 
-    val untypedOrdering =
-      Implicits.standardOrderings.get(targetTag).getOrElse {
-        throw OrderingNotFound(targetTag.tpe.toString)
-      }
+    val untypedOrdering = orderings.get(targetTag).getOrElse { 
+      throw OrderingNotFound(targetTag.tpe.toString) 
+    }
     untypedOrdering.asInstanceOf[Ordering[T]]
   }
 }

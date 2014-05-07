@@ -34,6 +34,7 @@ object SparkleTimeBuild extends Build {
           scalaReflect,
           rxJavaCore,
           rxJavaScala,
+          spire,
           nScalaTime,
           argot,
           openCsv

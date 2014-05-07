@@ -34,6 +34,7 @@ object Dependencies {
 
   val argot                 = "org.clapper"               %% "argot"                  % "1.0.1"
   val nScalaTime            = "com.github.nscala-time"    %% "nscala-time"            % "0.4.2"
+  val spire                 = "org.spire-math"            %% "spire"                  % "0.7.4"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
   val cassandraAll          = "org.apache.cassandra"      % "cassandra-all"           % "2.0.3"
   val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.0.0"

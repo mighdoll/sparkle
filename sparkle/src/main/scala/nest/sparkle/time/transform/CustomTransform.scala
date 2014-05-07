@@ -10,7 +10,8 @@ import nest.sparkle.store.Column
 import nest.sparkle.time.protocol.JsonDataStream
 
 /** Trait for developer provided subclasses containing transforms that process columns
- *  of data */
+  * of data
+  */
 trait CustomTransform extends ColumnTransform {
   /** a name used to match the `transform` field in the StreamRequest message to identify when
     * this record should be used. The namespace of `transform` strings is shared
@@ -27,7 +28,7 @@ class ExampleCustomTransform(rootConfig: Config) extends CustomTransform {
 
   override def name: String = "MyStuff.MyCoolTransform"
 
-  override def apply[T: JsonFormat, U: JsonWriter]  // format: OFF
+  override def apply[T, U]  // format: OFF
       (column: Column[T, U], transformParameters: JsObject)
       (implicit execution: ExecutionContext): JsonDataStream = ??? // format: ON
 } 

@@ -29,6 +29,7 @@ import spray.json.DefaultJsonProtocol._
 import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat }
 import org.scalatest.Matchers
 import nest.sparkle.test.SparkleTestConfig
+import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig with Matchers {
   self: Suite =>
@@ -61,6 +62,13 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
     stream.data.isDefined shouldBe true
     val data = stream.data.get
     data
+  }
+  
+  def v1Request[T](message:StreamRequestMessage)(fn: Seq[Event[Long,Double]]=> T):T = {
+    Post("/v1/data", message) ~> v1protocol ~> check {
+      val events = streamDataEvents(response)
+      fn(events)
+    }
   }
 
 }

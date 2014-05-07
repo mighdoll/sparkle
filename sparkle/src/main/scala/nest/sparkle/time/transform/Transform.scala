@@ -14,42 +14,18 @@
 
 package nest.sparkle.time.transform
 
-import scala.concurrent.{ ExecutionContext, Future }
-import spray.json.DefaultJsonProtocol._
-import spray.json._
-import nest.sparkle.time.protocol.JsonDataStream
-import nest.sparkle.store.Column
-import nest.sparkle.time.transform.StandardColumnTransform.executeTypedTransform
 import scala.util.Try
-import scala.util.control.Exception._
+import scala.util.control.Exception.catching
+
+import spray.json._
+
 import nest.sparkle.time.protocol.RangeParameters
 import nest.sparkle.time.protocol.TransformParametersJson.RangeParamsFormat
-import rx.lang.scala.Observable
 
 case class TransformNotFound(msg: String) extends RuntimeException(msg)
 
-/** apply transforms (to respond to StreamRequest messages) */
+/** utility functions for transform implementations */
 object Transform {
-
-  /** apply requested StreamRequest transforms, returning OutputStreams that generate results on demand */
-  def connectTransform( // format: OFF
-        transform: String, transformParameters: JsObject,
-        futureColumns: Future[Seq[Column[_, _]]]
-      ) (implicit execution: ExecutionContext): Future[Seq[JsonDataStream]] = { // format: ON
-
-    val futureStreams = transform match {
-      case SummaryTransform(columnTransform) =>
-        executeTypedTransform(futureColumns, columnTransform, transformParameters)
-      case DomainRangeTransform(columnTransform) =>
-        executeTypedTransform(futureColumns, columnTransform, transformParameters)
-      case RawTransform(columnTransform) =>
-        executeTypedTransform(futureColumns, columnTransform, transformParameters)
-      // LATER handle application-pluggable custom transforms
-      case _ => Future.failed(TransformNotFound(transform))
-    }
-
-    futureStreams
-  }
 
   /** return typed RangeParameters from the untyped json transform parameters (in a StreamRequest message) */
   def rangeParameters[T: JsonFormat](transformParameters: JsObject): Try[RangeParameters[T]] = {
@@ -57,7 +33,6 @@ object Transform {
       transformParameters.convertTo[RangeParameters[T]]
     }
   }
-  
 
 }
 

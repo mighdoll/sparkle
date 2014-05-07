@@ -12,7 +12,7 @@ import nest.sparkle.time.protocol.JsonDataStream
   * source column into a json output column when it s called.
   */
 trait ColumnTransform {
-  def apply[T: JsonFormat, U: JsonWriter]  // format: OFF
+  def apply[T,U]  // format: OFF
       (column: Column[T, U], transformParameters: JsObject)
       (implicit execution: ExecutionContext): JsonDataStream // format: ON
 }
@@ -25,9 +25,8 @@ object StandardColumnTransform {
       columnTransform:ColumnTransform, transformParameters:JsObject)
       (implicit execution: ExecutionContext):Future[Seq[JsonDataStream]] = { // format: ON
     futureColumns.map { columns =>
-      columns.map {
-        case LongDoubleColumn(castColumn) => columnTransform(castColumn, transformParameters)
-        case LongLongColumn(castColumn)   => columnTransform(castColumn, transformParameters)
+      columns.map { column => 
+        columnTransform(column, transformParameters)
       }
     }
   }

@@ -25,6 +25,7 @@ import spray.json.DefaultJsonProtocol._
 import nest.sparkle.time.protocol.JsonEventWriter
 import nest.sparkle.time.protocol.KeyValueType
 import nest.sparkle.util.RecoverOrdering
+import nest.sparkle.util.RecoverJsonFormat
 
 /** Convert a MinMax to/from a two element json array */
 object MinMaxJson extends DefaultJsonProtocol {
@@ -106,7 +107,7 @@ case class DomainRangeLimits[T, U](domain: MinMax[T], range: MinMax[U])
 /** a transform that returns the min and max of the domain and range of a column */
 object DomainRange extends ColumnTransform {
   import DomainRangeJson._
-  override def apply[T: JsonFormat, U: JsonWriter] // format: OFF
+  override def apply[T,U] // format: OFF
         (column: Column[T, U], transformParameters: JsObject) 
         (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
@@ -114,6 +115,9 @@ object DomainRange extends ColumnTransform {
 
     implicit val keyOrdering = RecoverOrdering.ordering[T](column.keyType)
     implicit val valueOrdering = RecoverOrdering.ordering[U](column.valueType)
+    implicit val keyFormat = RecoverJsonFormat.jsonFormat[T](column.keyType)
+    implicit val valueFormat = RecoverJsonFormat.jsonFormat[U](column.valueType)
+    
     val dataStream = events.toSeq.map { seq =>
       if (!seq.isEmpty) {
         val domain = seq.map{ case Event(k, v) => k }

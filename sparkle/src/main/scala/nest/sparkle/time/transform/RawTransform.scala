@@ -5,6 +5,7 @@ import spray.json._
 import nest.sparkle.store.Column
 import nest.sparkle.time.protocol.{ JsonDataStream, JsonEventWriter, KeyValueType }
 import rx.lang.scala.Observable
+import nest.sparkle.util.RecoverJsonFormat
 
 /** match the "Raw" transform, and just copy the column input to the output */
 object RawTransform {
@@ -16,15 +17,19 @@ object RawTransform {
   }
 }
 
+
 /** a transform that copies the array of source columns to json encodable output streams */
-object JustCopy extends ColumnTransform {
-  override def apply[T: JsonFormat, U: JsonWriter]( // format: OFF
-       column: Column[T, U],
+object JustCopy extends ColumnTransform  {
+  override def apply[T,U] ( // format: OFF
+       column: Column[T,U],
        transformParameters: JsObject
      ) (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
+    implicit val keyFormat = RecoverJsonFormat.jsonFormat[T](column.keyType)
+    implicit val valueFormat = RecoverJsonFormat.jsonFormat[U](column.valueType)
+    
     val tryJsonDataStream = {
-      Transform.rangeParameters(transformParameters).map { range =>
+      Transform.rangeParameters(transformParameters)(keyFormat).map { range =>
         val events = column.readRange(range.start, range.end)
         val jsonData = JsonEventWriter.fromObservable(events)
         JsonDataStream(
@@ -37,4 +42,3 @@ object JustCopy extends ColumnTransform {
     tryJsonDataStream.recover { case err => JsonDataStream.error(err) } get
   }
 }
-

@@ -38,7 +38,7 @@ trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
   lazy val simpleColumnPath = s"$testId/simple"
   lazy val simpleMidpointMillis = DateTime.fromIsoDateTimeString("2013-01-19T22:13:40").get.clicks
   lazy val simpleEvents:Seq[Event[Long,Double]] = {
-    val simpleData = Seq(  
+    val data = Seq(  
       "2013-01-19T22:13:10" -> 25, 
       "2013-01-19T22:13:20" -> 26, 
       "2013-01-19T22:13:30" -> 31,
@@ -46,16 +46,35 @@ trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
       "2013-01-19T22:13:50" -> 28, 
       "2013-01-19T22:14:00" -> 25, 
       "2013-01-19T22:14:10" -> 20)
-    simpleData.map { case (time, value) =>
-      val millis = DateTime.fromIsoDateTimeString(time).get.clicks
+      
+    stringTimeEvents(data)
+  }
+  
+  private def stringTimeEvents(events:Seq[(String,Int)]):Seq[Event[Long,Double]] = {
+    events.map { case (time, value) =>
+      val millis = time.toMillis
       Event(millis, value.toDouble)  
     }
+  }
+  
+  lazy val unevenColumnPath = s"$testId/uneven"
+  lazy val unevenEvents:Seq[Event[Long,Double]] = {
+    val data = Seq(
+        "2013-01-19T22:13:10" -> 26, 
+        "2013-01-19T22:13:11" -> 26, 
+        "2013-01-19T22:13:12" -> 31,
+        "2013-01-19T22:13:40" -> 32,
+        "2013-01-19T22:13:50" -> 28, 
+        "2013-01-19T22:14:00" -> 25, 
+        "2013-01-19T22:14:10" -> 20)
+    stringTimeEvents(data)
   }
 
   lazy val store: WriteableRamStore = {
     val ramStore = new WriteableRamStore()
     addTestColumn(ramStore, testColumnPath, testEvents)
     addTestColumn(ramStore, simpleColumnPath, simpleEvents)    
+    addTestColumn(ramStore, unevenColumnPath, unevenEvents)    
     ramStore
   }
 
@@ -65,6 +84,8 @@ trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
     column.write(events).await
   }
   
+  /** for test convenience enhance String with a toMillis method that converts iso 8601 strings
+   *  into milliseconds */  
   implicit class IsoDateString(isoDateString:String) {
     def toMillis = {
       DateTime.fromIsoDateTimeString(isoDateString).get.clicks
