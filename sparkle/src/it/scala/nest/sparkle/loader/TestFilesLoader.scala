@@ -31,11 +31,12 @@ import nest.sparkle.util.ConfigUtil
 import nest.sparkle.store.cassandra.CassandraStore
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.util.Resources
 
 class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   val log = LoggerFactory.getLogger(classOf[TestFilesLoader])
 
-  def testKeySpace = "testfilesloader"
+  override def testKeySpace = "testfilesloader"
 
   /** return a future that completes when the loader reports that loading is complete */
   def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
@@ -47,12 +48,16 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   }
 
   /** try loading a known file and check the expected column for results */
-  def testLoadFile(filePath: String, columnPath: String, strip: Int = 0) {
+  def testLoadFile(resourcePath: String, columnPath: String, strip: Int = 0) {
+    val filePath = Resources.filePathString(resourcePath)
+    
     withTestDb { testDb =>
       withTestActors { implicit system =>
         import system.dispatcher
+        val complete = onLoadComplete(system, columnPath)
         FilesLoader(filePath, testDb, strip)
-        onLoadComplete(system, filePath).await
+        complete.await
+        
         val column = testDb.column[Long, Double](columnPath).await
         val read = column.readRange(None, None)
         val results = read.toBlockingObservable.toList
@@ -62,32 +67,19 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   }
 
   test("load csv file") {
-    testLoadFile("sparkle/src/test/resources/epochs.csv", "sparkle/src/test/resources/epochs.csv/count")
+    testLoadFile("epochs.csv", "epochs/count")
   }
 
   test("load csv file with leading underscore in filename") {
-    testLoadFile("sparkle/src/test/resources/_epochs.csv", "sparkle/src/test/resources/count")
+    testLoadFile("_epochs.csv", "default/count")
   }
 
   test("load csv file with leading underscore in directory path element") {
-    testLoadFile("sparkle/src/test/resources/_ignore/epochs2.csv", "sparkle/src/test/resources/epochs2.csv/count")
+    testLoadFile("_ignore/epochs2.csv", "epochs2/count")
   }
-
-  test("load csv file with stripping off 3 leading path elements for DataSet name") {
-    testLoadFile("sparkle/src/test/resources/epochs.csv", "resources/epochs.csv/count", 3)
-  }
-
-  test("load csv file with stripping off all directory elements") {
-    testLoadFile("sparkle/src/test/resources/epochs.csv", "epochs.csv/count", 4)
-  }
-
-  // Allowing more directory elements than exist to be specified.
-  test("load csv file specifying stripping more path elements than exist") {
-    testLoadFile("sparkle/src/test/resources/epochs.csv", "epochs.csv/count", 5)
-  }
-
-  ignore("can not load file that results in columns with no DataSet") {
-    testLoadFile("sparkle/src/test/resources/_epochs.csv", "count", 4)
+  
+  test("load csv file, skipping a directory path prefix") {
+    testLoadFile("skip/epochs.csv", "epochs/count", 1)
   }
 }
 

@@ -20,7 +20,7 @@ object TestingSelectorParamsFormat extends DefaultJsonProtocol {
 class TestingSelector(rootConfig: Config, store: Store) extends CustomSourceSelector {
   /** match selector parameters of the form: { columnPath: "myPath" } */
   object SelectorParameters {
-    def unapply(params: JsObject): Option[String] = {
+    def unapply(params: JsObject)(implicit execution: ExecutionContext): Option[String] = {
       params.fields.toList.headOption match {
         case Some((name, JsString(path))) if name == "columnPath" => Some(path)
         case _                                                    => None
@@ -28,7 +28,8 @@ class TestingSelector(rootConfig: Config, store: Store) extends CustomSourceSele
     }
   }
 
-  override def selectColumns(selectorParameters: JsObject): Seq[Future[Column[_, _]]] = {
+  override def selectColumns(selectorParameters:JsObject)(implicit execution: ExecutionContext) // format: OFF
+      :Seq[Future[Column[_,_]]] = {// format: ON
     selectorParameters match {
       case SelectorParameters(columnPath) => Seq(store.column(columnPath))
       case x                              => Seq(Future.failed(MalformedSourceSelector(x.toString)))
@@ -54,7 +55,7 @@ class TestCustomSelector extends TestStore with StreamRequestor with TestDataSer
     val customSelector = CustomSelector(testSelectorClassName, testSelectorJson)
     val requestMessage = streamRequest("Raw", SelectCustom(customSelector))
     Post("/v1/data", requestMessage) ~> v1protocol ~> check {
-      val events = streamDataEvents(response)
+      val events = TestDataService.streamDataEvents(response)
       events.length shouldBe 2
       events(0).value shouldBe 1
       events(1).value shouldBe 2

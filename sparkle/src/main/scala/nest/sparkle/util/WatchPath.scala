@@ -23,12 +23,19 @@ import WatchPath._
 import scala.collection.mutable
 import FileSystemScan.scanFileSystem
 import akka.actor.ActorRefFactory
+import akka.actor.PoisonPill
 
 trait PathWatcher {
   /** Return the current set of files in the WatchPath.  Report any future additions,
     * deletions, or modifications to matching files in the WatchPath.
     * Does not currently support symbolic links */
   def watch(fn: WatchPath.Change => Unit): Future[Iterable[Path]]
+  
+  def close()(implicit system: ActorSystem):Unit = {
+    println("stopping")
+    TypedActor(system).getActorRefFor(this) ! PoisonPill
+    println("stopped")
+  }
 }
 
 object WatchPath {
@@ -44,6 +51,8 @@ object WatchPath {
 
     actorProxy
   }
+  
+  
 
   /** Return matching files in a filesystem subtree (in the root directory or in any nested subdirectory) */
   def scan(root: Path, glob: String): Iterable[Path] = {

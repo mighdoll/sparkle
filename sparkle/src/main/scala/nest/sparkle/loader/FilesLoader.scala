@@ -30,15 +30,20 @@ import nest.sparkle.util.Exceptions.NYI
 import scala.concurrent.Promise
 import scala.util.Success
 import org.slf4j.LoggerFactory
-
 import scala.collection.JavaConversions._
+import nest.sparkle.util.PathWatcher
+import scala.util.Try
+import scala.util.Success
+import scala.util.Failure
+import nest.sparkle.util.TryToFuture._
+import nest.sparkle.util.Log
 
 /** emitted to the event stream when the file has been completely loaded */
-case class LoadComplete(filePath: String)
+case class LoadComplete(columnPath: String)
 
 case class LoadPathDoesNotExist(path: String) extends RuntimeException
 
-object FilesLoader {
+object FilesLoader extends Log {
   def apply(rootDirectory: String, store: WriteableStore, strip: Int = 0) // format: OFF
       (implicit system: ActorSystem): FilesLoader = { // format: ON
     new FilesLoader(rootDirectory, store, strip)
@@ -51,29 +56,53 @@ object FilesLoader {
   * @param loadPath Path to directory to load from/watch or a single file to load.
   * @param store Store to write data to.
   * @param strip Number of leading path elements to strip when
-  *              creating the DataSet name.
+  *    creating the DataSet name.
   */
-protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)(implicit system: ActorSystem) {
-  val log = LoggerFactory.getLogger(classOf[FilesLoader])
+protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int) // format: OFF
+    (implicit system: ActorSystem) { // format: ON
+  import FilesLoader.log
+  
   implicit val executor = system.dispatcher
-  val root = Paths.get(loadPath)
+  private val root: Path = Paths.get(loadPath)
+  private var closed = false
+  private var watcher: Option[PathWatcher] = None
 
   if (Files.notExists(root)) {
     log.error(s"$loadPath does not exist. Can not load data from this path")
     throw LoadPathDoesNotExist(loadPath)
   }
 
+  /** root to use in calculating the dataset. If we're loading a directory,
+    * the dataset begins with the subdirectory or file below the directory.
+    * If we're loading a single file, the dataset begins with the filename.
+    */
+  private val dataSetRoot: Path =
+    if (Files.isDirectory(root)) {
+      root
+    } else {
+      root.getParent()
+    }
+
   if (Files.isDirectory(root)) {
     log.info(s"Watching $loadPath for files to load into store")
-    val watcher = WatchPath(root)
-    val initialFiles = watcher.watch{ change => fileChange(change, store) }
+    val pathWatcher = WatchPath(root)
+    watcher = Some(pathWatcher)
+    val initialFiles = pathWatcher.watch{ change => fileChange(change, store) }
     initialFiles.foreach{ futureFiles =>
       futureFiles.foreach{ path =>
-        loadFile(root.resolve(path), store)
+        if (!closed) {
+          loadFile(root.resolve(path), store)
+        }
       }
     }
   } else {
     loadFile(root, store)
+  }
+
+  /** terminate the file loader */
+  def close() {
+    watcher.foreach { _.close() }
+    closed = true
   }
 
   /** called when a file is changed in the directory we're watching */
@@ -88,24 +117,40 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
     }
   }
 
+  /** load a single file into the store. Returns immediately, but the
+   *  loading is asynchronous.  */
   private def loadFile(fullPath: Path, store: WriteableStore): Unit = {
     fullPath match {
       case ParseableFile(format) if Files.isRegularFile(fullPath) =>
-        log.info(s"Started loading $fullPath into the sparkle store")
+        log.info(s"Started loading $fullPath into the Store")
+        val relativePath = dataSetRoot.relativize(fullPath)
         TabularFile.load(fullPath, format).map { rowInfo =>
-          loadRows(rowInfo, store, fullPath).andThen {
-            case _ => rowInfo.close()
-          } foreach { _ =>
-            log.info(s"Finished loading $fullPath into the sparkle store")
-            system.eventStream.publish(LoadComplete(fullPath.toString))
+          val dataSet = pathToDataSet(relativePath)
+          log.info(s"loading rows from $relativePath into dataSet: $dataSet")
+          val loaded = 
+            loadRows(rowInfo, store, dataSet).andThen {
+              case _ => rowInfo.close()
+            }.map { dataSet =>
+              if (!relativePath.getFileName.startsWith("_")) {
+                log.info(s"Finished loading dataSet: $dataSet into the store")
+                system.eventStream.publish(LoadComplete(dataSet))
+              }
+              // TODO should report on file complete too
+            }
+            
+          loaded.failed.foreach { failure =>
+            log.error(s"loading $fullPath failed", failure)
           }
+
         }
       case x => log.warn(s"$fullPath could not be parsed, ignoring")
     }
   }
 
-  private def loadRows(rowInfo: CloseableRowInfo, store: WriteableStore, path: Path): Future[Path] = {
-    val dsString = dataSetString(path)
+  /** store data rows into columns the Store, return a future that completes with
+    * the name of the dataset into which the columns were written
+    */
+  private def loadRows(rowInfo: CloseableRowInfo, store: WriteableStore, dataSet: String): Future[String] = {
 
     /** indices of RowData columns that we'll store (i.e. not the time column) */
     val valueColumnIndices = {
@@ -116,11 +161,16 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
       }
     }
 
+    val columnPaths = valueColumnIndices.map { index =>
+      val name = rowInfo.names(index)
+      dataSet + "/" + name
+    }
+
     /** collect up futures that complete with column write interface objects */
     val futureColumnsWithIndex: Seq[Future[(Int, WriteableColumn[Long, Double])]] =
       valueColumnIndices.map { index =>
         val name = rowInfo.names(index)
-        val columnPath = dsString + "/" + name
+        val columnPath = dataSet + "/" + name
         store.writeableColumn[Long, Double](columnPath) map { futureColumn =>
           (index, futureColumn)
         }
@@ -128,35 +178,42 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
 
     /** write all the row data into storage columns */
     def writeColumns[T, U](rowInfo: RowInfo,
-                           columnsWithIndex: Seq[(Int, WriteableColumn[T, U])]): Future[Unit] = {
+      columnsWithIndex: Seq[(Int, WriteableColumn[T, U])]): Future[Unit] = {
       rowInfo.keyColumn.isDefined || NYI("tables without key column")
 
       val rowFutures =
-        rowInfo.rows.flatMap { row =>
+        rowInfo.rows.flatMap { row => // TODO read rows in a block to improve performance
           for {
             (index, column) <- columnsWithIndex
             value <- row.values(index)
             key <- row.key(rowInfo)
           } yield {
             val event = Event(key.asInstanceOf[T], value.asInstanceOf[U])
-            column.write(Seq(event))
+            log.info(s"write event: $event")
+            column.write(Seq(event)).map { _ => () }
           }
         }
 
       Future.sequence(rowFutures).map { _ => () }
     }
 
-    val pathWritten:Future[Path] =
+    val pathWritten: Future[String] =
       for {
         columnsWithIndex <- Future.sequence(futureColumnsWithIndex)
         columns = columnsWithIndex map { case (index, column) => column }
         written <- writeColumns(rowInfo, columnsWithIndex)
       } yield {
-        path
+        columnPaths.foreach { columnPath =>
+          log.info(s"Finished loading $columnPath into the store")
+          system.eventStream.publish(LoadComplete(columnPath))
+        }
+        dataSet
       }
 
     pathWritten
   }
+
+  case class PathToDataSetFailed(msg: String) extends RuntimeException(msg)
 
   /** Make the DataSet string from the file's path.
     *
@@ -164,25 +221,40 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
     * underscore.
     *
     * Strips off leading path elements if strip > 0.
+    * Skips path elements beginning with an underscore.
+    * Strips off .tsv or .csv suffixes
+    *
+    * After stripping and skipping _ prefixed files, if no path components
+    * remain for the dataset, use "default" as the dataset.
     *
     * @param path Path of the tsv/csv file
     * @return The DataSet as a string.
     */
-  private def dataSetString(path: Path): String = {
-    val parent =
-      path.getParent.iterator.drop(strip)
-        .filterNot(p => p.toString.startsWith("_"))
-        .mkString("/")
-    val fileName = path.getFileName.toString match {
-      //case s if s.endsWith(".tsv") => s.stripSuffix(".tsv")
-      //case s if s.endsWith(".csv") => s.stripSuffix(".csv")
-      case s => s
+  private def pathToDataSet(path: Path): String = {
+    val parentOpt: Option[String] = Option(path.getParent).map { parent =>
+      val parentElements =
+        parent.iterator.drop(strip)
+          .filterNot(p => p.toString.startsWith("_"))
+      parentElements.mkString("/")
     }
 
-    (parent + (fileName match {
-      case s if s.startsWith("_") => ""
-      case _                      => "/" + fileName
-    })).stripPrefix("/")
+    val fileName = path.getFileName.toString
+
+    val combined =
+      if (fileName.startsWith("_")) {
+        parentOpt match {
+          case Some(parent) => parent
+          case None         => "default"
+        }
+      } else {
+        val strippedFileName = fileName.stripSuffix(".tsv").stripSuffix(".csv")
+        parentOpt match {
+          case Some(parent) => s"$parent/$strippedFileName"
+          case None         => strippedFileName
+        }
+      }
+
+    combined
   }
 
 }

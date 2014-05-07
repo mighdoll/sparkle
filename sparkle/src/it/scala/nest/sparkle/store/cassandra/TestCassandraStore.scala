@@ -36,7 +36,7 @@ import org.scalacheck.Arbitrary
 class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with CassandraTestConfig {
   import ExecutionContext.Implicits.global
 
-  def testKeySpace = "testcassandrastore"
+  override def testKeySpace = "testcassandrastore"
 
   def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStore) // format: OFF
       (fn: (WriteableColumn[T,U], String) => Unit): Unit = { // format: ON

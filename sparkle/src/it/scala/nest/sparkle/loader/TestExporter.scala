@@ -16,13 +16,13 @@ package nest.sparkle.loader
 
 import java.io.IOException
 import java.nio.charset.StandardCharsets
-import java.nio.file.{FileVisitResult, Files, Path, Paths, SimpleFileVisitor}
+import java.nio.file.{ FileVisitResult, Files, Path, Paths, SimpleFileVisitor }
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ Future, Promise }
 
-import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
+import org.scalatest.{ BeforeAndAfterAll, FunSuite, Matchers }
 import org.slf4j.LoggerFactory
 
 import akka.actor._
@@ -31,18 +31,19 @@ import spray.util._
 
 import nest.sparkle.store.cassandra.CassandraTestConfig
 import nest.sparkle.tools.Exporter
+import nest.sparkle.util.Resources
 
 class TestExporter extends FunSuite with CassandraTestConfig with Matchers with BeforeAndAfterAll {
   val log = LoggerFactory.getLogger(classOf[TestExporter])
 
-  def testKeySpace = "testexporter"
+  override def testKeySpace = "testexporter"
 
-  override def configOverrides = 
-    super.configOverrides ++ 
-    List(
-      "exporter.timeout" -> "10s",
-      "exporter.output" -> "/tmp/testexporter"
-    )
+  override def configOverrides =
+    super.configOverrides ++
+      List(
+        "exporter.timeout" -> "10s",
+        "exporter.output" -> "/tmp/testexporter"
+      )
 
   /** return a future that completes when the loader reports that loading is complete */
   def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
@@ -57,9 +58,11 @@ class TestExporter extends FunSuite with CassandraTestConfig with Matchers with 
     withTestDb { testDb =>
       withTestActors { implicit system =>
         // First load some data
-        val filePath = "sparkle/src/test/resources/epochs.csv"
+        val filePath = Resources.filePathString("epochs.csv")
+        val dataSet = "epochs"
+        val complete = onLoadComplete(system, dataSet)
         FilesLoader(filePath, testDb)
-        onLoadComplete(system, filePath).await
+        complete.await
 
         val output = Paths.get(rootConfig.getString("exporter.output"))
         output match {
@@ -71,14 +74,14 @@ class TestExporter extends FunSuite with CassandraTestConfig with Matchers with 
         val timeout = rootConfig.getDuration("exporter.timeout", TimeUnit.MILLISECONDS)
         val exporter = Exporter(rootConfig)
         try {
-          exporter.processDataSet(filePath).await(timeout)
+          exporter.processDataSet(dataSet).await(timeout)
 
-          val dataset = output.resolve(filePath)
-          Files.exists(dataset.resolve("_count.tsv")) shouldBe true
-          Files.exists(dataset.resolve("_p90.tsv")) shouldBe true
-          Files.exists(dataset.resolve("_p99.tsv")) shouldBe true
+          val dataSetPath = output.resolve(dataSet)
+          Files.exists(dataSetPath.resolve("_count.tsv")) shouldBe true
+          Files.exists(dataSetPath.resolve("_p90.tsv")) shouldBe true
+          Files.exists(dataSetPath.resolve("_p99.tsv")) shouldBe true
 
-          val lines = Files.readAllLines(dataset.resolve("_count.tsv"), StandardCharsets.UTF_8)
+          val lines = Files.readAllLines(dataSetPath.resolve("_count.tsv"), StandardCharsets.UTF_8)
           lines.size shouldBe 2752
           lines.get(0) shouldBe "time\tcount"
           lines.get(2751) shouldBe "1357713357000\t570.0"

@@ -18,7 +18,6 @@ import org.scalatest.Suite
 import spray.testkit.ScalatestRouteTest
 import nest.sparkle.time.server.DataService
 import nest.sparkle.legacy.DataRegistry
-import nest.sparkle.util.ConfigureLogback.configureLogging
 import com.typesafe.config.ConfigFactory
 import spray.http.HttpResponse
 import spray.json._
@@ -42,7 +41,20 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 
   // TODO legacy, delete soon
   def registry: DataRegistry = ???
+  
+  
+  def v1Request[T](message:StreamRequestMessage)(fn: Seq[Event[Long,Double]]=> T):T = {
+    Post("/v1/data", message) ~> v1protocol ~> check {
+      val events = TestDataService.streamDataEvents(response)
+      fn(events)
+    }
+  }
 
+}
+
+
+object TestDataService {
+  
   /** return the data array portion from a Streams response as a stream of Event objects */
   def streamDataEvents(response: HttpResponse): Seq[Event[Long, Double]] = {
     val data = streamData(response)
@@ -50,25 +62,20 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
       datum.convertTo[Event[Long, Double]]
     }
   }
-
+  
   /** return the data array portion from a Streams response.
     * 
     * Expects that there will be exactly one nonempty data stream in response.
-    */
+    */  
   def streamData(response: HttpResponse): Seq[JsArray] = {
-    val streams = responseAs[StreamsMessage]
-    streams.message.streams.length shouldBe 1
+    import spray.httpx.unmarshalling._
+    val streams = response.as[StreamsMessage].right.get
+
+    assert(streams.message.streams.length == 1)
     val stream = streams.message.streams(0)
-    stream.data.isDefined shouldBe true
+    assert(stream.data.isDefined)
     val data = stream.data.get
     data
-  }
-  
-  def v1Request[T](message:StreamRequestMessage)(fn: Seq[Event[Long,Double]]=> T):T = {
-    Post("/v1/data", message) ~> v1protocol ~> check {
-      val events = streamDataEvents(response)
-      fn(events)
-    }
   }
 
 }

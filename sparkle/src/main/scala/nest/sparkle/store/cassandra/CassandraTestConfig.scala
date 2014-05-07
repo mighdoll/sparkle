@@ -24,7 +24,7 @@ import nest.sparkle.test.SparkleTestConfig
  *  (In the main project to make it easy to share between tests and integration tests) */
 trait CassandraTestConfig extends SparkleTestConfig {
   /** subclasses should define their own keyspace so that tests don't interfere with each other  */
-  def testKeySpace:String
+  def testKeySpace:String = getClass.getSimpleName
 
   override def configOverrides:List[(String,Any)] =
     super.configOverrides :+

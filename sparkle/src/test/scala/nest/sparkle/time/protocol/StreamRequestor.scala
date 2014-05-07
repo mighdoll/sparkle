@@ -23,10 +23,8 @@ case class SelectString(columnPath: String) extends TestSelector
 case class SelectCustom(customSelector: CustomSelector) extends TestSelector
 
 trait StreamRequestor {
-  self: TestStore =>
-
   var currentRequestId = 0
-
+  def defaultColumnPath:String = "defaultTestColumn"
   /** return a request id and trace id for a new protocol request */
   def nextRequestIds(): (Int, String) = synchronized {
     currentRequestId = currentRequestId + 1
@@ -36,7 +34,7 @@ trait StreamRequestor {
   private val defaultRange = RangeParameters[Long](maxResults = 10)
 
   /** return a new StreamRequestMessage */
-  def streamRequest[T: JsonFormat](transform: String, selector: TestSelector = SelectString(testColumnPath), // format: OFF
+  def streamRequest[T: JsonFormat](transform: String, selector: TestSelector = SelectString(defaultColumnPath), // format: OFF
       range: RangeParameters[T] = defaultRange): StreamRequestMessage = {  // format: ON
     val (requestId, traceId) = nextRequestIds()
     val paramsJson = range.toJson.asJsObject 

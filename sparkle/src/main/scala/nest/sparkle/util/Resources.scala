@@ -10,6 +10,7 @@ import java.net.URLDecoder
 import scala.collection.JavaConverters._
 import java.io.File
 import java.net.URL
+import java.nio.file.Path
 
 case class ResourceNotFound(msg: String) extends RuntimeException(msg)
 
@@ -20,13 +21,21 @@ object Resources {
     * (works whether the resource is mapped to the file system or to .jar file
     */
   def byDirectory(resourcePath: String,
-                  classLoader: ClassLoader = Thread.currentThread().getContextClassLoader()): Iterable[String] = {
+    classLoader: ClassLoader = Thread.currentThread().getContextClassLoader()): Iterable[String] = {
     val url = Option(classLoader.getResource(resourcePath)).getOrElse { throw new ResourceNotFound(resourcePath) }
 
     url.getProtocol match {
       case "file" => childrenFromFile(url)
       case "jar"  => childrenFromJar(url, resourcePath)
     }
+  }
+
+  /** (for testing) return a string for the fileystem path to a given resource. Only works
+   *  on resources in the filesystem (jar resources will throw an exception) */
+  def filePathString(resourcePath:String): String = {
+    val resource = Thread.currentThread.getContextClassLoader.getResource(resourcePath)
+    val file = new File(resource.toURI)
+    file.getPath()
   }
 
   /** load children of a path from a file resource */

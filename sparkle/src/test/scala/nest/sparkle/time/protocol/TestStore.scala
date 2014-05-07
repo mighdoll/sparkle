@@ -28,12 +28,13 @@ import scala.reflect.runtime.universe._
 
 /** (for unit tests) a ram based Store with a sample column */
 trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
-    with PropertyChecks with BeforeAndAfterAll {
+    with PropertyChecks with BeforeAndAfterAll with StreamRequestor {
   lazy val testId = "server1"
 
   lazy val testColumnName = "testColumn"
   lazy val testColumnPath = s"$testId/$testColumnName"
   lazy val testEvents = Seq(Event(100L, 1d), Event(200L, 2d))
+  override def defaultColumnPath:String = testColumnPath
 
   lazy val simpleColumnPath = s"$testId/simple"
   lazy val simpleMidpointMillis = "2013-01-19T22:13:40Z".toMillis

@@ -41,7 +41,7 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
     with CassandraTestConfig with Log {
 
   def expectedPath(id: String): String = s"sample-data/path/$id/Latency/value"
-  val testKeySpace = "testStreamLoadAvroKafka"
+  override def testKeySpace:String = "testStreamLoadAvroKafka"
   val kafkaLoaderConfig = rootConfig.getConfig("sparkle-time-server.kafka-loader")
     ConfigureLog4j.configure(kafkaLoaderConfig)
 

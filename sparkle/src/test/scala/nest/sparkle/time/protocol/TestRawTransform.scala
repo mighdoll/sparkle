@@ -7,7 +7,7 @@ class TestRawTransform extends TestStore with StreamRequestor with TestDataServi
   test("Raw transform two raw events") {
     val message = streamRequest[Long]("Raw")
     v1Request(message){ events =>
-      val events = streamDataEvents(response)
+      val events = TestDataService.streamDataEvents(response)
       events.length shouldBe 2
       events(0).value shouldBe 1
       events(1).value shouldBe 2
