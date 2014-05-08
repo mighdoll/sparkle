@@ -27,46 +27,46 @@ class TestSummarizeMax extends TestStore with StreamRequestor with TestDataServi
 
   test("summarizeMax, 3->2 events, selecting by start") {
     val message = streamRequest("SummarizeMax", SelectString(simpleColumnPath),
-      RangeParameters[Long](maxResults = 2, start = Some("2013-01-19T22:13:50".toMillis)))
+      RangeParameters[Long](maxResults = 2, start = Some("2013-01-19T22:13:50Z".toMillis)))
 
     v1Request(message){ events =>
       events.length shouldBe 2
-      events.head shouldBe Event("2013-01-19T22:13:50".toMillis, 28)
-      events.last shouldBe Event("2013-01-19T22:14:00".toMillis, 25)
+      events.head shouldBe Event("2013-01-19T22:13:50Z".toMillis, 28)
+      events.last shouldBe Event("2013-01-19T22:14:00Z".toMillis, 25)
     }
   }
 
   test("summarizeMax, selecting end") {
     val message = streamRequest("SummarizeMax", SelectString(simpleColumnPath),
-      RangeParameters[Long](maxResults = 2, end = Some("2013-01-19T22:13:50".toMillis)))
+      RangeParameters[Long](maxResults = 2, end = Some("2013-01-19T22:13:50Z".toMillis)))
     v1Request(message){ events =>
       events.length shouldBe 2
-      events.head shouldBe Event("2013-01-19T22:13:20".toMillis, 26)
-      events.last shouldBe Event("2013-01-19T22:13:40".toMillis, 32)
+      events.head shouldBe Event("2013-01-19T22:13:20Z".toMillis, 26)
+      events.last shouldBe Event("2013-01-19T22:13:40Z".toMillis, 32)
     }
   }
 
   test("summarizeMax, selecting start + end") {
     val message = streamRequest("SummarizeMax", SelectString(simpleColumnPath),
       RangeParameters[Long](maxResults = 3, 
-          start = Some("2013-01-19T22:13:30".toMillis),
-          end = Some("2013-01-19T22:14:20".toMillis)))
+          start = Some("2013-01-19T22:13:30Z".toMillis),
+          end = Some("2013-01-19T22:14:20Z".toMillis)))
     v1Request(message){ events =>
       events.length shouldBe 3
-      events.head shouldBe Event("2013-01-19T22:13:40".toMillis, 32)
-      events.last shouldBe Event("2013-01-19T22:14:10".toMillis, 20)
+      events.head shouldBe Event("2013-01-19T22:13:40Z".toMillis, 32)
+      events.last shouldBe Event("2013-01-19T22:14:10Z".toMillis, 20)
     }    
   }
   
   test("summarizeMax on uneven data") {
     val message = streamRequest("SummarizeMax", SelectString(unevenColumnPath),
       RangeParameters[Long](maxResults = 2, 
-          start = Some("2013-01-19T22:13:10".toMillis),
-          end = Some("2013-01-19T22:13:41".toMillis)))
+          start = Some("2013-01-19T22:13:10Z".toMillis),
+          end = Some("2013-01-19T22:13:41Z".toMillis)))
     v1Request(message){ events =>
       events.length shouldBe 2
-      events.head shouldBe Event("2013-01-19T22:13:12".toMillis, 31)
-      events.last shouldBe Event("2013-01-19T22:13:40".toMillis, 32)
+      events.head shouldBe Event("2013-01-19T22:13:12Z".toMillis, 31)
+      events.last shouldBe Event("2013-01-19T22:13:40Z".toMillis, 32)
     }    
   }
 

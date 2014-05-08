@@ -36,16 +36,16 @@ trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
   lazy val testEvents = Seq(Event(100L, 1d), Event(200L, 2d))
 
   lazy val simpleColumnPath = s"$testId/simple"
-  lazy val simpleMidpointMillis = DateTime.fromIsoDateTimeString("2013-01-19T22:13:40").get.clicks
+  lazy val simpleMidpointMillis = "2013-01-19T22:13:40Z".toMillis
   lazy val simpleEvents:Seq[Event[Long,Double]] = {
     val data = Seq(  
-      "2013-01-19T22:13:10" -> 25, 
-      "2013-01-19T22:13:20" -> 26, 
-      "2013-01-19T22:13:30" -> 31,
-      "2013-01-19T22:13:40" -> 32, 
-      "2013-01-19T22:13:50" -> 28, 
-      "2013-01-19T22:14:00" -> 25, 
-      "2013-01-19T22:14:10" -> 20)
+      "2013-01-19T22:13:10Z" -> 25, 
+      "2013-01-19T22:13:20Z" -> 26, 
+      "2013-01-19T22:13:30Z" -> 31,
+      "2013-01-19T22:13:40Z" -> 32, 
+      "2013-01-19T22:13:50Z" -> 28, 
+      "2013-01-19T22:14:00Z" -> 25, 
+      "2013-01-19T22:14:10Z" -> 20)
       
     stringTimeEvents(data)
   }
@@ -60,13 +60,13 @@ trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
   lazy val unevenColumnPath = s"$testId/uneven"
   lazy val unevenEvents:Seq[Event[Long,Double]] = {
     val data = Seq(
-        "2013-01-19T22:13:10" -> 26, 
-        "2013-01-19T22:13:11" -> 26, 
-        "2013-01-19T22:13:12" -> 31,
-        "2013-01-19T22:13:40" -> 32,
-        "2013-01-19T22:13:50" -> 28, 
-        "2013-01-19T22:14:00" -> 25, 
-        "2013-01-19T22:14:10" -> 20)
+        "2013-01-19T22:13:10Z" -> 26, 
+        "2013-01-19T22:13:11Z" -> 26, 
+        "2013-01-19T22:13:12Z" -> 31,
+        "2013-01-19T22:13:40Z" -> 32,
+        "2013-01-19T22:13:50Z" -> 28, 
+        "2013-01-19T22:14:00Z" -> 25, 
+        "2013-01-19T22:14:10Z" -> 20)
     stringTimeEvents(data)
   }
 
@@ -87,9 +87,10 @@ trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
   /** for test convenience enhance String with a toMillis method that converts iso 8601 strings
    *  into milliseconds */  
   implicit class IsoDateString(isoDateString:String) {
-    def toMillis = {
-      DateTime.fromIsoDateTimeString(isoDateString).get.clicks
-    }
+      import com.github.nscala_time.time.Implicits._
+
+    def toMillis = isoDateString.toDateTime.millis
+    
   }
   
 }
