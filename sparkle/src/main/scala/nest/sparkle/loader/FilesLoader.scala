@@ -189,7 +189,6 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
             key <- row.key(rowInfo)
           } yield {
             val event = Event(key.asInstanceOf[T], value.asInstanceOf[U])
-            log.info(s"write event: $event")
             column.write(Seq(event)).map { _ => () }
           }
         }

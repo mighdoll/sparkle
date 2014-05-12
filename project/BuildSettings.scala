@@ -28,15 +28,15 @@ object BuildSettings {
 
   lazy val allSettings =
     Defaults.defaultSettings ++
-    orgSettings ++
-    compileSettings ++
-    eclipseSettings ++
-    ideaSettings ++
-    itSettingsWithEclipse ++
-    slf4jSettings ++
-    testSettings ++
-    publishSettings ++
-    org.scalastyle.sbt.ScalastylePlugin.Settings
+      orgSettings ++
+      compileSettings ++
+      eclipseSettings ++
+      ideaSettings ++
+      itSettingsWithEclipse ++
+      slf4jSettings ++
+      testSettings ++
+      publishSettings ++
+      org.scalastyle.sbt.ScalastylePlugin.Settings
 
   lazy val orgSettings = Seq(
     organization := "nest",
@@ -46,7 +46,7 @@ object BuildSettings {
   lazy val compileSettings = Seq(
     scalaVersion := "2.10.4",
     scalaBinaryVersion := "2.10",
-    testOptions += Tests.Argument("-oF"),    // show full stack traces during test failures
+    testOptions += Tests.Argument("-oF"), // show full stack traces during test failures
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps", "-target:jvm-1.7")
   )
 
@@ -65,10 +65,9 @@ object BuildSettings {
   )
 
   lazy val testSettings = Seq(
-    parallelExecution in test in IntegrationTest:= false  // cassandra driver (2.0.[01]) seems to have trouble with multiple keyspaces..
-//    fork in IntegrationTest := true // LATER clean up tests better so that this is unnecessary
+    parallelExecution in test in IntegrationTest := false // cassandra driver (2.0.[01]) seems to have trouble with multiple keyspaces..
+  //    fork in IntegrationTest := true // LATER clean up tests better so that this is unnecessary
   )
-
 
   lazy val slf4jSettings = Seq(
     // see http://stackoverflow.com/questions/7898273/how-to-get-logging-working-in-scala-unit-tests-with-testng-slf4s-and-logback
@@ -82,8 +81,15 @@ object BuildSettings {
   lazy val publishSettings =
     // bintraySettings ++ // disabled pending https://github.com/softprops/bintray-sbt/issues/18
     sbtassembly.Plugin.assemblySettings ++
-    ReleasePlugin.releaseSettings ++
-    MavenPublish.settings ++
-    Revolver.settings
+      ReleasePlugin.releaseSettings ++
+      MavenPublish.settings ++
+      Revolver.settings
 
+  /** settings so that we launch our favorite Main by default */
+  def setMainClass(className: String): Seq[Setting[_]] = {
+    Seq(
+      mainClass in Revolver.reStart := Some("nest.sparkle.time.server.Main"),
+      mainClass in (Compile, run):= Some("nest.sparkle.time.server.Main")
+    )
+  }
 }

@@ -10,15 +10,15 @@ require( ["lib/d3", "sg/dashboard", "sg/sideAxis", "sg/palette", "sg/linePlot" ]
         { label: "seconds",
           axis: sideAxis(),
           named: [ 
-            { name: "src/test/resources/epochs.csv/p90" },
-            { name: "src/test/resources/epochs.csv/p99" }
+            { name: "epochs/p90" },
+            { name: "epochs/p99" }
           ]
         }, 
         { label: "request count",
           axis: sideAxis().orient("right"),
           colors: greyish,
           named: [
-            { name: "src/test/resources/epochs.csv/count",
+            { name: "epochs/count",
               plot: { plotter: thinLines } 
             }
           ]

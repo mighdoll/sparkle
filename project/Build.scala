@@ -29,6 +29,7 @@ object SparkleTimeBuild extends Build {
     Project(id = "sparkle-time", base = file("sparkle"))
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
+      .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
       .settings(
         libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ Seq(
           scalaReflect,
@@ -38,7 +39,8 @@ object SparkleTimeBuild extends Build {
           nScalaTime,
           argot,
           openCsv
-        )
+        ),
+        initialCommands in console := """import nest.sg.Plot._"""
       )
 
   lazy val kafkaLoader =

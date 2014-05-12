@@ -15,6 +15,7 @@
 package nest.sparkle.time.protocol
 
 import spray.json._
+import nest.sparkle.util.LogUtil.optionLog
 
 /** spray json converters for json objects we send or receive */
 
@@ -35,16 +36,31 @@ object MessageType {
 
 /** request a transformed stream.  sent from from client to server */
 case class StreamRequest(sendUpdates: Option[Boolean], itemLimit: Option[Long], sources: Array[JsValue],
-                         transform: String, transformParameters: JsObject)
+  transform: String, transformParameters: JsObject) {
+  def infoString = this.toJson(RequestJson.StreamRequestFormat).compactPrint
+}
 
 /** a StreamRequest inside a DistributionMessage */
 case class StreamRequestMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
-                                messageType: String, message: StreamRequest) extends DistributionMessage[StreamRequest]
-
+  messageType: String, message: StreamRequest) extends DistributionMessage[StreamRequest] {
+  def infoString = this.toJson(RequestJson.StreamRequestMessageFormat).compactPrint
+}
 
 /** a Stream inside a Distribution Message */
 case class StreamsMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
-                          messageType: String, message: Streams) extends DistributionMessage[Streams]
+    messageType: String, message: Streams) extends DistributionMessage[Streams] {
+  
+  /** (for debug logging) return a copy of the StreamsMessage with a maximum data size for each 
+   *  stream's data. */
+  def takeData(maxDataSize:Int):StreamsMessage = {
+    val sizeLimitedStreams = message.streams.map{orig => 
+      orig.copy(data = orig.data.map(_.take(maxDataSize)))
+    }
+    val sizeLimitedMessage =  message.copy(streams = sizeLimitedStreams)
+    val copy = this.copy(message = sizeLimitedMessage)
+    copy
+  }
+}
 
 /** Limit the flow of data over a stream temporarily.  Sent from client to Server */
 case class StreamControl(streamId: Long, maxItems: Long)
@@ -56,7 +72,7 @@ case class StreamDrop(streamId: Long)
 case class Status(code: Long, description: String)
 
 /** an element in the sources array of a StreamRequest message that specifies a custom source selector */
-case class CustomSelector(selector:String, selectorParameters:JsObject)
+case class CustomSelector(selector: String, selectorParameters: JsObject)
 
 /** Transform Parameters for transforms that specify a range of data to load (e.g. SummaryTransforms) */
 case class RangeParameters[T](
@@ -65,13 +81,13 @@ case class RangeParameters[T](
   end: Option[T] = None,
   edgeExtra: Option[Boolean] = None)
 
-
 /** Start some data streams.  Sent from server to client */
-case class Streams(streams: Array[Stream])
+case class Streams(streams: Array[Stream]) 
+
 
 /** Description of the head of a data stream.  Sent from server to client as part of a Streams message.  */
 case class Stream(streamId: Long, metadata: Option[JsValue], streamType: JsonStreamType,
-                  data: Option[Seq[JsArray]], end: Option[Boolean])
+    data: Option[Seq[JsArray]], end: Option[Boolean]) 
 
 /** Type of the json data stream: keyValue or just value */
 abstract class JsonStreamType(val name: String)

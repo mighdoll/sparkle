@@ -107,6 +107,13 @@ object serializers {
       row.getInt(index)
     }
   }
+  
+  implicit object ShortSerializer extends CanSerialize[Short] {
+    val columnType = "int"
+    def fromRow(row: Row, index: Int): Short = {
+      row.getInt(index).toShort
+    }
+  }
 
   implicit object BooleanSerializer extends CanSerialize[Boolean] {
     val columnType = "boolean"

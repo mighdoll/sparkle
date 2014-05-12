@@ -16,23 +16,22 @@ package nest.sparkle.time.transform
 
 import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.universe.typeTag
-import scala.util.{Failure, Success}
-
+import scala.util.{ Failure, Success }
 import spray.json._
-
-import nest.sparkle.store.{Column, Event}
-import nest.sparkle.time.protocol.{JsonDataStream, JsonEventWriter, KeyValueType, RangeParameters}
-import nest.sparkle.util.{RecoverJsonFormat, RecoverNumeric, RecoverOrdering}
+import nest.sparkle.store.{ Column, Event }
+import nest.sparkle.time.protocol.{ JsonDataStream, JsonEventWriter, KeyValueType, RangeParameters }
+import nest.sparkle.util.{ RecoverJsonFormat, RecoverNumeric, RecoverOrdering }
 import nest.sparkle.util.ObservableFuture.WrappedObservable
-
 import rx.lang.scala.Observable
 import scala.reflect.runtime.universe._
-import spire.math.Numeric
+import spire.math.{ Numeric, max }
 import spire.implicits._
+import spire.algebra.Order
+import nest.sparkle.util.RecoverFractional
 
 object SummaryTransform {
   /** a handy alias for a block of events */
-  type Events[T, U] = Seq[Event[T, U]]
+  type Events[T, U] = Seq[Event[T, U]]  // TODO move to another package
 }
 
 /** summarize a block of event data */
@@ -42,7 +41,7 @@ protected abstract class PartitionSummarizer[T: TypeTag, U: TypeTag] {
 
 /** holds typeclasses based on the runtime type of the column */
 protected case class ColumnMetadata[T: TypeTag, U: TypeTag]() {
-  
+
   /** order events by the order of their values */
   lazy val valueOrderEvents = new Ordering[Event[T, U]] {
     implicit val valueOrdering = RecoverOrdering.ordering[U](typeTag[U])
@@ -50,7 +49,11 @@ protected case class ColumnMetadata[T: TypeTag, U: TypeTag]() {
       valueOrdering.compare(x.value, y.value)
     }
   }
-  
+
+  lazy val optNumericKey = RecoverNumeric.optNumeric[T](typeTag[T])
+  lazy val optNumericValue = RecoverNumeric.optNumeric[U](typeTag[U])
+  def keyType = typeTag[T]
+  def valueType = typeTag[U]
 }
 
 /** We ultimately need an object that will support the ColumnTransform interface.
@@ -82,7 +85,7 @@ trait SummaryTransform extends ColumnTransform {
 
   // TODO make column types independent of output format 
   // e.g. column of double values but we write long counts
-  
+
   /** transform column data and produce a stream of json-encoded data */
   override def apply[T, U]( // format: OFF  
        column: Column[T, U],
@@ -113,7 +116,7 @@ trait SummaryTransform extends ColumnTransform {
     * with each block replaced with a summarized value
     */
   def summarizeColumn[T, U](column: Column[T, U], summarizePartition: PartitionSummarizer[T, U],
-                            range: RangeParameters[T])(implicit execution: ExecutionContext): Observable[Seq[Event[T, U]]] = {
+    range: RangeParameters[T])(implicit execution: ExecutionContext): Observable[Seq[Event[T, U]]] = {
     val eventStream = column.readRange(range.start, range.end)
     val summarizedEvents = eventStream.toFutureSeq.map { events =>
       partitionEvents(events, range, column.keyType).flatMap { part =>
@@ -126,22 +129,24 @@ trait SummaryTransform extends ColumnTransform {
   }
 
   /** Partition the incoming events based on a division of the key range (e.g. time)
-   *  so that we can summarize each partition individually. */
+    * so that we can summarize each partition individually.
+    */
   private def partitionEvents[T, U](events: Seq[Event[T, U]], params: RangeParameters[T],
-                                    keyType: TypeTag[_]): Seq[Seq[Event[T, U]]] = {
+    keyType: TypeTag[_]): Seq[Seq[Event[T, U]]] = {
     if (events.isEmpty) {
       Seq()
     } else {
       RecoverNumeric.optNumeric[T](keyType) map { implicit numeric =>
-        partitionIterator(events, params).toSeq
+        partitionIterator(events, params)(keyType.asInstanceOf[TypeTag[T]], numeric).toSeq
       } getOrElse {
         partitionEventsByCount(events, params.maxResults)
       }
     }
   }
 
-  /** partition the incoming events based on a count of the events so that we can 
-   *  summarize each partition individually */
+  /** partition the incoming events based on a count of the events so that we can
+    * summarize each partition individually
+    */
   private def partitionEventsByCount[T, U](events: Seq[Event[T, U]], maxPartitions: Int): Seq[Seq[Event[T, U]]] = {
     val partitionCount =
       if (events.length < maxPartitions) { 1 } else { events.length / maxPartitions }
@@ -159,7 +164,7 @@ trait SummaryTransform extends ColumnTransform {
     * Requested ranges are exclusive of the end value, but end values discovered from
     * the data are inclusive of the end value.
     */
-  private def partitionIterator[T: Numeric, U](events: Seq[Event[T, U]], params: RangeParameters[T])// format: OFF
+  private def partitionIterator[T: TypeTag: Numeric, U](events: Seq[Event[T, U]], params: RangeParameters[T])// format: OFF
       :Iterator[Seq[Event[T,U]]] =  { // format: ON
     val start = params.start.getOrElse { events.head.argument }
     val (end, includeEnd) = params.end match {
@@ -168,7 +173,7 @@ trait SummaryTransform extends ColumnTransform {
     }
     val range = end - start
     val parts = params.maxResults
-    val step = range / parts
+    val step = stepSize(range, parts)
 
     /** portion of the event sequence not yet consumed by the iterator */
     var remaining = events
@@ -178,7 +183,7 @@ trait SummaryTransform extends ColumnTransform {
 
     // return an iterator that walks through the event sequence, one partition at a time
     new Iterator[Seq[Event[T, U]]] {
-      override def hasNext():Boolean = !remaining.isEmpty
+      override def hasNext(): Boolean = !remaining.isEmpty
       override def next(): Seq[Event[T, U]] = {
         val (inPartition, remainder) = {
           if (partEnd >= end && includeEnd) {
@@ -192,6 +197,20 @@ trait SummaryTransform extends ColumnTransform {
         inPartition
       }
     }
+  }
+
+  /** return the partition step size, rounding appropriately to a minimum partition size of 1 for
+    * integral domain types
+    */
+  private def stepSize[T: Numeric: TypeTag](range: T, parts: Int): T = {
+    val numeric = implicitly(Numeric[T])
+    val fractionalOpt = RecoverFractional.optFractional[T](typeTag[T])
+    val step: T =
+      fractionalOpt match {
+        case Some(fractional) => range / parts
+        case None             => max(numeric.fromInt(1), range / parts)
+      }
+    step
   }
 
 }

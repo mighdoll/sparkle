@@ -6,7 +6,7 @@ require( ["sg/dashboard", "sg/sideAxis"],
     groups: [ { 
       label: "seconds",
       axis: sideAxis(),
-      named: [ { name: "src/test/resources/epochs.csv/p90" } ]
+      named: [ { name: "epochs/p90" } ]
     } ]
   }];
 

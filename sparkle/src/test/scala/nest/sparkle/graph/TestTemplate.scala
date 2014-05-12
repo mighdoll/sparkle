@@ -14,23 +14,23 @@
 
 package nest.sparkle.graph
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import spray.testkit.ScalatestRouteTest
+import org.scalatest.{FunSuite, Matchers}
 import spray.http.StatusCodes
-import nest.sparkle.legacy.PreloadedStore
-import nest.sparkle.legacy.PreloadedRegistry
-import nest.sparkle.legacy.SampleData
+import spray.testkit.ScalatestRouteTest
+import nest.sparkle.legacy.{PreloadedRegistry, PreloadedStore, SampleData}
 import nest.sparkle.time.protocol.TestDataService
+import nest.sparkle.time.server.FileLocation
+import nest.sparkle.util.Resources
 
 /** test serving a custom webroot */
 class TestTemplate extends FunSuite with Matchers with ScalatestRouteTest
     with TestDataService {
   override val registry = PreloadedRegistry(Nil)
   val store = PreloadedStore(List(SampleData))
-  override def webRoot = Some("sparkle/src/test/resources/subdir")
+  lazy val subdirPath = Resources.filePathString("subdir")
+  override def webRoot = Some(FileLocation(subdirPath))
 
-  test("serve index from custom webRoot") {
+  test("serve index from custom web-root directory") {
     Get("/") ~> route ~> check {
       status shouldEqual StatusCodes.OK
       responseAs[String] shouldEqual "template boo\n"

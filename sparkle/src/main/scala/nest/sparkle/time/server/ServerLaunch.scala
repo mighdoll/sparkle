@@ -76,7 +76,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     }
   }
 
-  /** Launch the http server for sparkle api requests.
+  /** Launch the http server for sparkle API requests.
     *
     * This call will block until the server is ready to accept incoming requests.
     */

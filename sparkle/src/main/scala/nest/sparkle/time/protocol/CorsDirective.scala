@@ -72,7 +72,7 @@ trait CorsDirective {
   }
 
   /** convert a route to a route that responds with CORS headers
-    * if a valid origin header is presented by the requestor
+    * if a valid origin header is in the request
     */
   private def corsWrap(inner: Route): Route = {
     corsOriginMatch { origin =>

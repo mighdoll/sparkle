@@ -36,7 +36,7 @@ object Main extends ArgotApp {
 
   app(parser, help) {
     val portMapping = port.value.toList.map { ("sparke-time-server.port", _) }
-    val rootMapping = root.value.toList.map { ("sparkle-time-server.web-root", _) }
+    val rootMapping = root.value.toList.map { value => ("sparkle-time-server.web-root.directory", List(value)) }
     val eraseOverride = erase.value.toList.map { ("sparkle-time-server.erase-store", _) }
     val strip = filesStrip.value.getOrElse(0)
     val filesOverride = filesPath.value.toList.flatMap { path =>

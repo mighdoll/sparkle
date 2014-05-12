@@ -20,14 +20,12 @@ js
 . button to pop out graph into new window and resize with the window (make it easy to go full screen on a graph in presentations)
 
 data server
-. support alternate data backends (set in application.conf like .api)
 . send hover highlight info down along with data (or separate feed?)
 . progress indicator when large data sets are being loaded
 . REST endpoint for summary region UI
 . simple subcription/notification api so web page can refresh when data changes
 . stream data from stdin pipe (cat file | awk | sg)
 . api for quick graphs from the REPL (import SG._;  plot(myList); plot(myList, myDashboard) )
-. try adding spire or saddle 
 . stream data to javascript (optimization instead of refreshing the whole graph)
 . publish sg script (that uses pre-built binary)
 
@@ -62,3 +60,5 @@ data server
 * add local api to serve data from javascript array 
 * start on cassandra backend
 . bump to sbt 13
+. support alternate data backends (set in application.conf like .api)
+. try adding spire or saddle 

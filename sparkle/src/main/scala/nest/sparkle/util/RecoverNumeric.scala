@@ -12,7 +12,7 @@ case class NumericNotFound(msg: String) extends RuntimeException(msg)
   */
 object RecoverNumeric {
   object Implicits {
-    /** mapping from typeTag to Ordering for standard types */
+    /** mapping from typeTag to Numeric for standard types */
     implicit val standardNumeric: Map[TypeTag[_], Numeric[_]] = Map(
       typeToNumeric[Double],
       typeToNumeric[Long],

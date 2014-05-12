@@ -14,7 +14,7 @@ case class JsonFormatNotFound(msg: String) extends RuntimeException(msg)
   */
 object RecoverJsonFormat {
   object Implicits {
-    /** mapping from typeTag to Ordering for standard types */
+    /** mapping from typeTag to JsonFormat for standard types */
     implicit val standardFormats: Map[TypeTag[_], JsonFormat[_]] = Map(
       typeToFormat[Double],
       typeToFormat[Long],

@@ -26,7 +26,7 @@ import spray.util._
 import scala.util.Failure
 import java.util.concurrent.TimeoutException
 
-object RepeatingRequest {
+object RepeatingRequest extends Log {
   private val defaultMaxAttempts = 4
 
   def get(uri: String, maxAttempts: Int = defaultMaxAttempts)(implicit refFactory: ActorRefFactory,
@@ -46,7 +46,7 @@ object RepeatingRequest {
       } else {
         fn recoverWith {
           case t: TimeoutException =>
-            Console.println("retryingFuture retrying.  Remaining attempts: $attemptsRemaining")
+            log.info(s"retryingFuture retrying.  Remaining attempts: $attemptsRemaining")
             retry(attemptsRemaining - 1)
         }
       }
