@@ -96,7 +96,6 @@ object SparseColumnWriter extends PrepareTableOperations {
       (dataSet, column, rowIndex, argument, value)
       VALUES (?, ?, ?, ?, ?)
       """
-
 }
 
 /** Manages a column of (argument,value) data pairs.  The pair is typically

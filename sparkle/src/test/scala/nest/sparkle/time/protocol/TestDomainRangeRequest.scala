@@ -1,18 +1,19 @@
 package nest.sparkle.time.protocol
 
-import scala.reflect.runtime.universe.TypeTag.{Double, Long}
+import scala.reflect.runtime.universe.TypeTag.{ Double, Long }
 
 import spray.httpx.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
 import spray.util._
+import spray.json._
 
 import nest.sparkle.store.Event
 import nest.sparkle.time.protocol.ArbitraryColumn.arbitraryEvent
 import nest.sparkle.time.protocol.TestDomainRange.minMaxEvents
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
-import nest.sparkle.time.transform.{DomainRangeLimits, MinMax}
+import nest.sparkle.time.transform.{ DomainRange, MinMax }
 import nest.sparkle.time.transform.DomainRangeJson
-import nest.sparkle.time.transform.DomainRangeJson.DomainRangeReader
+import nest.sparkle.time.transform.DomainRangeJson.DomainRangeFormat
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 
 import scala.reflect.runtime.universe._
@@ -30,18 +31,16 @@ class TestDomainRangeRequest extends TestStore with StreamRequestor with TestDat
   test("DomainRange calculates domain and range on arbitray long,double columns") {
     forAll { events: List[Event[Long, Double]] =>
       val columnName = makeColumn("V1Protocol.DomainRange", events)
-      val requestMessage = streamRequest("DomainRange", SelectString(columnName))
-      Post("/v1/data", requestMessage) ~> v1protocol ~> check {
+      val requestMessage = streamRequest("DomainRange", JsObject(), SelectString(columnName))
+      Post("/v1/data", requestMessage)(StreamRequestMessageFormat) ~> v1protocol ~> check {
         val data = TestDataService.streamData(response)
-        data.length shouldBe 1
-        data.foreach { datum =>
-          if (events.length > 0) {
-            val limits = datum.convertTo[DomainRangeLimits[Long, Double]]
-            val (domainMin, domainMax, rangeMin, rangeMax) = minMaxEvents(events)
-            limits shouldBe DomainRangeLimits(domain = MinMax(domainMin, domainMax), range = MinMax(rangeMin, rangeMax))
-          } else {
-            datum shouldBe DomainRangeJson.EmptyJson
-          }
+        data.length shouldBe 2
+        if (events.isEmpty) {
+          data shouldBe DomainRangeJson.Empty
+        } else {
+          val domainRange = data.toJson.convertTo[DomainRange[Long, Double]]
+          val (domainMin, domainMax, rangeMin, rangeMax) = minMaxEvents(events)
+          domainRange shouldBe DomainRange(domain = MinMax(domainMin, domainMax), range = MinMax(rangeMin, rangeMax))
         }
       }
     }

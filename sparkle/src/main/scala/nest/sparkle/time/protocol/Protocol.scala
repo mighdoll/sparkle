@@ -30,37 +30,43 @@ trait DistributionMessage[T] {
 
 /** distribution layer message type */
 object MessageType {
-  val StreamRequest = "StreamRequest"
+  val StreamRequest2 = "StreamRequest"
   val Streams = "Streams"
+  val Status = "Status"
 }
 
 /** request a transformed stream.  sent from from client to server */
 case class StreamRequest(sendUpdates: Option[Boolean], itemLimit: Option[Long], sources: Array[JsValue],
-  transform: String, transformParameters: JsObject) {
+    transform: String, transformParameters: JsObject) {
   def infoString = this.toJson(RequestJson.StreamRequestFormat).compactPrint
 }
 
 /** a StreamRequest inside a DistributionMessage */
 case class StreamRequestMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
-  messageType: String, message: StreamRequest) extends DistributionMessage[StreamRequest] {
+    messageType: String, message: StreamRequest) extends DistributionMessage[StreamRequest] {
   def infoString = this.toJson(RequestJson.StreamRequestMessageFormat).compactPrint
 }
 
 /** a Stream inside a Distribution Message */
 case class StreamsMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
     messageType: String, message: Streams) extends DistributionMessage[Streams] {
-  
-  /** (for debug logging) return a copy of the StreamsMessage with a maximum data size for each 
-   *  stream's data. */
-  def takeData(maxDataSize:Int):StreamsMessage = {
-    val sizeLimitedStreams = message.streams.map{orig => 
+
+  /** (for debug logging) return a copy of the StreamsMessage with a maximum data size for each
+    * stream's data.
+    */
+  def takeData(maxDataSize: Int): StreamsMessage = {
+    val sizeLimitedStreams = message.streams.map{ orig =>
       orig.copy(data = orig.data.map(_.take(maxDataSize)))
     }
-    val sizeLimitedMessage =  message.copy(streams = sizeLimitedStreams)
+    val sizeLimitedMessage = message.copy(streams = sizeLimitedStreams)
     val copy = this.copy(message = sizeLimitedMessage)
     copy
   }
 }
+
+// TODO find a way to do less copy-pasting on encoding various message types
+case class StatusMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
+  messageType: String, message: Status)
 
 /** Limit the flow of data over a stream temporarily.  Sent from client to Server */
 case class StreamControl(streamId: Long, maxItems: Long)
@@ -74,20 +80,26 @@ case class Status(code: Long, description: String)
 /** an element in the sources array of a StreamRequest message that specifies a custom source selector */
 case class CustomSelector(selector: String, selectorParameters: JsObject)
 
-/** Transform Parameters for transforms that specify a range of data to load (e.g. SummaryTransforms) */
-case class RangeParameters[T](
-  maxResults: Int,
+/** transformParameters element for transforms that specify a range of data to load (e.g. SummaryTransforms) */
+case class RangeInterval[T](
   start: Option[T] = None,
-  end: Option[T] = None,
-  edgeExtra: Option[Boolean] = None)
+  until: Option[T] = None,
+  limit: Option[Int] = None)
+
+/** transformParameters for SummaryTransforms */
+case class SummaryParameters[T](
+  ranges: Option[Seq[RangeInterval[T]]] = None,
+  maxPartitions: Option[Int])
+
+/** transformParameters for the RawTransform */
+case class RawParameters[T](ranges: Option[Seq[RangeInterval[T]]] = None)
 
 /** Start some data streams.  Sent from server to client */
-case class Streams(streams: Array[Stream]) 
-
+case class Streams(streams: Array[Stream])
 
 /** Description of the head of a data stream.  Sent from server to client as part of a Streams message.  */
 case class Stream(streamId: Long, metadata: Option[JsValue], streamType: JsonStreamType,
-    data: Option[Seq[JsArray]], end: Option[Boolean]) 
+  data: Option[Seq[JsArray]], end: Option[Boolean])
 
 /** Type of the json data stream: keyValue or just value */
 abstract class JsonStreamType(val name: String)

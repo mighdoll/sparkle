@@ -20,7 +20,6 @@ define(["lib/when/when", "sg/data"], function(when, dataApi) {
   return function(dataArray) {
     
     returnFn.millisToDates = dataApi.millisToDates;
-    returnFn.toObject = dataApi.toObject;
     return returnFn;
 
     /* return data points within the domain from a local RAM array.

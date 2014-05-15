@@ -5,8 +5,7 @@ import nest.sparkle.store.Event
 
 class TestSummarizeRandom extends TestStore with StreamRequestor with TestDataService {
   test("summarize random simple data set") {
-    val message = streamRequest("SummarizeRandom", selector = SelectString(simpleColumnPath),
-      range = RangeParameters[Long](maxResults = 1))
+    val message = summaryRequestOne[Long]("SummarizeRandom", selector = SelectString(simpleColumnPath))
 
     val found = mutable.HashSet[Event[Long,Double]]()
     (1 to 100).foreach { _ => 

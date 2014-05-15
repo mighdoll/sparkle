@@ -21,7 +21,9 @@ define(["lib/d3", "sg/util", "sg/maxLock"], function(_d3, _util, maxLock) {
   *  sizing - sizes axis range based on a length and orientation
   *
   *  bind to a richAxisData:
-  *    {maxLockData: {locked:true, maxValue:"3.3"}}
+  *    { maxLockData: {locked:true, maxValue:"3.3"}
+  *      showAxis:Boolean
+  *    }
   */
 return function() {
   var axis = d3.svg.axis(),   // wrapped d3.axis
@@ -30,6 +32,7 @@ return function() {
       lockMaxEnabled = true,  // lockMax feature enabled
       maxLockHeight = 40,
       maxLockOutdentY = 20,
+      _showAxis = true,
       label = "";
 
   /** Creator function the displayScale component.  
@@ -44,6 +47,7 @@ return function() {
         dy,
         labelTransform = "rotate(-90)",
         anchorStyle = "end",
+        showAxis = ("showAxis" in richAxisData) ? richAxisData.showAxis : _showAxis,
         orient = axis.orient(),
         displayLockControl = lockMaxEnabled && (orient == "left" || orient == "right");
 
@@ -55,7 +59,7 @@ return function() {
     } else if (orient == "right") {
       dy = "-.7em";
       range = verticalRange();
-    } else if (orient == "bottom") { 
+    } else if (orient == "bottom") {
       labelTransform = "";
       range = [0, displayLength];
       dy = "4em";
@@ -64,7 +68,7 @@ return function() {
 
     function verticalRange() {
       if (maxLocked) { 
-        return [displayLength, maxLockHeight - maxLockOutdentY];    
+        return [displayLength, maxLockHeight - maxLockOutdentY];
       } else {
         return [displayLength, 0];
       }
@@ -72,34 +76,36 @@ return function() {
 
     axis.scale().rangeRound(range);
 
-    var labelUpdate = g.selectAll(".label").data([0]),
-        labelEnter = labelUpdate.enter(),
-        labelExit = labelUpdate.exit();
+    if (showAxis) {
+      var labelUpdate = g.selectAll(".label").data([0]),
+          labelEnter = labelUpdate.enter(),
+          labelExit = labelUpdate.exit();
 
-    labelEnter
-      .append("text")
-        .attr("class", "label") 
-        .attr("transform", labelTransform) 
-        .attr("dy", dy)
-        .style("text-anchor", anchorStyle)
-        .style("fill", labelColor);
+      labelEnter
+        .append("text")
+          .attr("class", "label") 
+          .attr("transform", labelTransform)
+          .attr("dy", dy)
+          .style("text-anchor", anchorStyle)
+          .style("fill", labelColor);
 
-    if (displayLockControl) {
-      var attached = attachComponent(g, maxLock, "max-lock", [0, -maxLockOutdentY]);
-      attached.component
-        .height(maxLockHeight)
-        .orient(orient);
+      if (displayLockControl) {
+        var attached = attachComponent(g, maxLock, "max-lock", [0, -maxLockOutdentY]);
+        attached.component
+          .height(maxLockHeight)
+          .orient(orient);
 
-      attached.bind(richAxisData.maxLockData);
-    }
+        attached.bind(richAxisData.maxLockData);
+      }
       
-    labelUpdate
-      .text(label);
+      labelUpdate
+        .text(label);
 
-    labelExit.remove();
+      labelExit.remove();
 
-    g
-      .call(axis);
+      g
+        .call(axis);
+    }
   }
 
   republishAxisApi();
@@ -146,6 +152,12 @@ return function() {
   returnFn.labelColor = function(value) {
     if (!arguments.length) return labelColor;
     labelColor = value;
+    return returnFn;
+  };
+
+  returnFn.show = function(value) {
+    if (!arguments.length) return _show;
+    _show = value;
     return returnFn;
   };
 

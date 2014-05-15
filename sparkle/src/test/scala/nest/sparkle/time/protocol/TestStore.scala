@@ -34,64 +34,66 @@ trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
   lazy val testColumnName = "testColumn"
   lazy val testColumnPath = s"$testId/$testColumnName"
   lazy val testEvents = Seq(Event(100L, 1d), Event(200L, 2d))
-  override def defaultColumnPath:String = testColumnPath
+  override def defaultColumnPath: String = testColumnPath
 
   lazy val simpleColumnPath = s"$testId/simple"
   lazy val simpleMidpointMillis = "2013-01-19T22:13:40Z".toMillis
-  lazy val simpleEvents:Seq[Event[Long,Double]] = {
-    val data = Seq(  
-      "2013-01-19T22:13:10Z" -> 25, 
-      "2013-01-19T22:13:20Z" -> 26, 
+  lazy val simpleEvents: Seq[Event[Long, Double]] = {
+    val data = Seq(
+      "2013-01-19T22:13:10Z" -> 25,
+      "2013-01-19T22:13:20Z" -> 26,
       "2013-01-19T22:13:30Z" -> 31,
-      "2013-01-19T22:13:40Z" -> 32, 
-      "2013-01-19T22:13:50Z" -> 28, 
-      "2013-01-19T22:14:00Z" -> 25, 
+      "2013-01-19T22:13:40Z" -> 32,
+      "2013-01-19T22:13:50Z" -> 28,
+      "2013-01-19T22:14:00Z" -> 25,
       "2013-01-19T22:14:10Z" -> 20)
-      
+
     stringTimeEvents(data)
   }
-  
-  private def stringTimeEvents(events:Seq[(String,Int)]):Seq[Event[Long,Double]] = {
-    events.map { case (time, value) =>
-      val millis = time.toMillis
-      Event(millis, value.toDouble)  
+
+  private def stringTimeEvents(events: Seq[(String, Int)]): Seq[Event[Long, Double]] = {
+    events.map {
+      case (time, value) =>
+        val millis = time.toMillis
+        Event(millis, value.toDouble)
     }
   }
-  
+
   lazy val unevenColumnPath = s"$testId/uneven"
-  lazy val unevenEvents:Seq[Event[Long,Double]] = {
+  
+  lazy val unevenEvents: Seq[Event[Long, Double]] = {
     val data = Seq(
-        "2013-01-19T22:13:10Z" -> 26, 
-        "2013-01-19T22:13:11Z" -> 26, 
-        "2013-01-19T22:13:12Z" -> 31,
-        "2013-01-19T22:13:40Z" -> 32,
-        "2013-01-19T22:13:50Z" -> 28, 
-        "2013-01-19T22:14:00Z" -> 25, 
-        "2013-01-19T22:14:10Z" -> 20)
+      "2013-01-19T22:13:10Z" -> 26,
+      "2013-01-19T22:13:11Z" -> 26,
+      "2013-01-19T22:13:12Z" -> 31,
+      "2013-01-19T22:13:40Z" -> 32,
+      "2013-01-19T22:13:50Z" -> 28,
+      "2013-01-19T22:14:00Z" -> 25,
+      "2013-01-19T22:14:10Z" -> 20)
     stringTimeEvents(data)
   }
 
   lazy val store: WriteableRamStore = {
     val ramStore = new WriteableRamStore()
     addTestColumn(ramStore, testColumnPath, testEvents)
-    addTestColumn(ramStore, simpleColumnPath, simpleEvents)    
-    addTestColumn(ramStore, unevenColumnPath, unevenEvents)    
+    addTestColumn(ramStore, simpleColumnPath, simpleEvents)
+    addTestColumn(ramStore, unevenColumnPath, unevenEvents)
     ramStore
   }
 
-  private def addTestColumn[T:TypeTag,U:TypeTag](testStore:WriteableRamStore, 
-      columnPath:String, events:Seq[Event[T,U]]) {
-    val column = testStore.writeableColumn[T,U](columnPath).await
+  private def addTestColumn[T: TypeTag, U: TypeTag](testStore: WriteableRamStore,
+                                                    columnPath: String, events: Seq[Event[T, U]]) {
+    val column = testStore.writeableColumn[T, U](columnPath).await
     column.write(events).await
   }
-  
+
   /** for test convenience enhance String with a toMillis method that converts iso 8601 strings
-   *  into milliseconds */  
-  implicit class IsoDateString(isoDateString:String) {
-      import com.github.nscala_time.time.Implicits._
+    * into milliseconds
+    */
+  implicit class IsoDateString(isoDateString: String) {
+    import com.github.nscala_time.time.Implicits._
 
     def toMillis = isoDateString.toDateTime.millis
-    
   }
-  
+
 }

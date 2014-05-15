@@ -98,7 +98,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
   val tableName = serialInfo.tableName
 
   /** read a slice of events from the column */      // format: OFF
-  def readRange(start:Option[T] = None, end:Option[T] = None)
+  def readRange(start:Option[T] = None, end:Option[T] = None, limit:Long = Long.MaxValue)
       (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON
     (start, end) match {
       case (None, None)             => readAll()
@@ -150,4 +150,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
 
     readEventRows(readStatement)
   }
+  
+  
+  
 }

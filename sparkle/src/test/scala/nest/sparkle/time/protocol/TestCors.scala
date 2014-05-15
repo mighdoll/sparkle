@@ -14,7 +14,6 @@
 
 package nest.sparkle.time.protocol
 
-import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import spray.httpx.SprayJsonSupport._
 import spray.http.HttpHeaders._
 import spray.http.HttpHeaders
@@ -22,6 +21,8 @@ import spray.http.HttpHeader
 import nest.sparkle.util.ExpectHeaders
 import spray.testkit.ScalatestRouteTest
 import spray.json.DefaultJsonProtocol._
+import spray.json._
+import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 
 /** handy for tests to use localhost as an origin */
 trait LocalHostOrigin {
@@ -62,7 +63,7 @@ class TestCors extends TestStore with StreamRequestor with TestDataService with 
       expectCorsHeaders()
     }
 
-    val requestMessage = streamRequest("Raw")
+    val requestMessage = streamRequest("Raw", JsObject())
     Post("/v1/data", requestMessage) ~> addOriginLocalHost ~> v1protocol ~> check {
       expectCorsHeaders()
     }
@@ -84,7 +85,7 @@ class TestCorsOff extends TestStore with StreamRequestor with TestDataService
       expectNoCorsHeaders()
     }
 
-    val requestMessage = streamRequest("Raw")
+    val requestMessage = streamRequest("Raw", JsObject())
     Post("/v1/data", requestMessage) ~> addOriginLocalHost ~> v1protocol ~> check {
       expectNoCorsHeaders()
     }
@@ -105,7 +106,7 @@ class TestCorsHosts extends TestStore with StreamRequestor with TestDataService
       expectCorsHeaders()
     }
 
-    val requestMessage = streamRequest("Raw")
+    val requestMessage = streamRequest("Raw", JsObject())
     Post("/v1/data", requestMessage) ~> addOriginLocalHost ~> v1protocol ~> check {
       expectCorsHeaders()
     }

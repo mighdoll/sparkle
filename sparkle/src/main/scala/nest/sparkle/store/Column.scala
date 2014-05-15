@@ -30,17 +30,7 @@ trait Column[T, U] {
   /** read a slice of events from the column, inclusive of the start and end values.
    *  If start is missing, read from the first element in the column.  If end is missing
    *  read from the last element in the column.  */      // format: OFF
-  def readRange(start:Option[T] = None, end:Option[T] = None)
-      (implicit execution: ExecutionContext): Observable[Event[T,U]] // format: ON
-
-  /** read a range of events from the column, in reverse order,
-   *  starting with the first event before the start value (exclusive of the start value) */      // format: OFF
-  def readBefore(start:T, maxResults:Long = Long.MaxValue)
-      (implicit execution: ExecutionContext): Observable[Event[T,U]] // format: ON
-
-  /** read a range of events from the column if forwards order
-   *  starting with the first event after the start value (exclusive of the start value) */      // format: OFF
-  def readAfter(start:T, maxResults:Long = Long.MaxValue)
+  def readRange(start:Option[T] = None, end:Option[T] = None, limit:Long = Long.MaxValue)
       (implicit execution: ExecutionContext): Observable[Event[T,U]] // format: ON
 
   // LATER add authorization hook, to validate permission to read a range
@@ -50,6 +40,7 @@ trait Column[T, U] {
 // . a sequence?  values:Seq[V].  e.g. if we want to store:  [1:[123, 134], 2:[100]]
 // . an hlist?  e.g. if we want to store a csv file with multiple separately typed columns per row
 // . possibly a typeclass that covers all single, sequence, and typed list cases?
-// LATER name this something else: Item?  Datum?
+// TODO name this something else: Item?  Datum?
+// TODO rename argument to key, for consistency with other key-value terminology
 /** an single item in the datastore, e.g. a timestamp and value */
 case class Event[T, V](argument: T, value: V) 

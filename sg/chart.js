@@ -34,6 +34,9 @@ function chart() {
       _transitionTime = 500,
       _plotter = linePlot(),
       _dataApi = dataApi,  
+      _showXAxis = true,  
+      _xScale = d3.time.scale.utc(),
+      _timeSeries = true,  
       emptyGroups = [{label:"", series:[]}];
 
   /** Add chart components to the dom element selection. */
@@ -71,6 +74,9 @@ function chart() {
         titleMargin = chartData.titleMargin || _titleMargin,
         groups = chartData.groups || emptyGroups,
         allSeries = collectSeries(groups),
+        timeSeries = ("timeSeries" in chartData) ? chartData.timeSeries : _timeSeries,
+        showXAxis = ("showXAxis" in chartData) ? chartData.showXAxis: _showXAxis,
+        xScale = chartData.xScale || _xScale,
         chartId = domCache.saveIfEmpty(node, "chartId", function() {
             return randomAlphaNum(8);
           });
@@ -90,8 +96,7 @@ function chart() {
 
     var redraw = function() { bind.call(node, chartData); };
 
-    fetchData(dataApi, allSeries, domain, plotSize[0]).then(dataReady).otherwise(rethrow); 
-
+    fetchData(dataApi, allSeries, domain, timeSeries, plotSize[0]).then(dataReady).otherwise(rethrow); 
     function dataReady() {
       var transition = useTransition(inheritedTransition);
       // data plot drawing area
@@ -105,12 +110,12 @@ function chart() {
 
       // x axis
       var xAxisSpot = [plotSpot[0], 
-                       plotSpot[1] + plotSize[1]],
-          xScaleAxis = timeAxis(transition, domain, xAxisSpot, plotSize[0]),
-          xScale = xScaleAxis.scale();
+                       plotSpot[1] + plotSize[1] + padding[1]];
+      
+      keyAxis(transition, domain, timeSeries, xAxisSpot, plotSize[0], xScale, showXAxis);
 
-      attachSideAxes(groups, transition, plotSize, paddedPlotSize, margin); 
-      selection.on("toggleMaxLock", transitionRedraw);    
+      attachSideAxes(groups, transition, plotSize, paddedPlotSize, margin);
+      selection.on("toggleMaxLock", transitionRedraw);
       selection.on("zoomBrush", brushed);
 
       // setup clip so we can draw lines that extend a bit past the edge 
@@ -156,7 +161,15 @@ function chart() {
       if (d3.event.detail.zoomReset) {
         chartData.displayDomain = chartData.maxDomain;  
       } else if (d3.event.detail.extent) {
-        chartData.displayDomain = d3.event.detail.extent.slice(0);  // consider: make a setDomain interface? 
+        // convert date back to millis if necessary
+        var newDomain = d3.event.detail.extent.map( function(maybeDate) {
+          if (isDate(maybeDate)) {
+            return maybeDate.getTime();
+          } else {
+            return maybeDate;
+          }
+        });
+        chartData.displayDomain = newDomain;  // consider: make a setDomain interface? 
       } else {  
         return;
       }
@@ -228,7 +241,7 @@ function chart() {
 
   /** If the caller didn't provide some overall time domain, set it now */
   function initializeDomain(chartData, series) {
-    domain = timeDomain(series);
+    domain = keyRange(series);
     chartData.displayDomain = chartData.displayDomain || domain;
     chartData.maxDomain = chartData.maxDomain || domain;
     return domain;
@@ -406,34 +419,29 @@ function chart() {
     *   dataSeries - data descriptors array, a .data field will be added to each 
     *   domain - time range of data requested
     *   maxResults - number of data points requested from the server 
+    *   timeSeries - true if the incoming data should be converted to Date objects
     *   completeFn - called when all data has been received
     */
-  function fetchData(dataApi, dataSeries, domain, maxResults) {
+  function fetchData(dataApi, dataSeries, domain, timeSeries, maxResults) {
     var allFetched = 
       dataSeries.map( function(series) {
-        var summary, 
-            filter,
-            categories = series.categories;
-        if (categories) {
-          summary = "uniques";    // LATER let plotter decide whether this is needed
-          if (categories.length > 0) {
-            filter = categories.map(function(category) { 
-                return decodeValue(series, category);
-            });
-          }
-        }
-        
-        var dataParams = {
-            domain: domain,
-            edgeExtra: true,    // LATER edge is only needed for linePlot..
-            maxResults: maxResults,
-            summary: series.summary || summary,
-            transform: "SummarizeMax", // LATER override per dataset
-            filter: filter
+        var transformParams = {
+            ranges: [
+              { start: domain[0],
+                until: domain[1] + 1  // +1 to be inclusive of last element 
+              }
+            ],
+            maxPartitions: maxResults
           };
-        var fetched = dataApi(series.set, series.name, dataParams);
+
+        // LATER tranform should be adjustable per dataset..
+        var fetched = dataApi.columnRequest("SummarizeMax", transformParams, series.set, series.name);
         fetched.then(function(data) {
-          series.data = dataApi.millisToDates(data);
+          if (timeSeries) {
+            series.data = dataApi.millisToDates(data);
+          } else {
+            series.data = data;
+          }
         });
         return fetched;
       });
@@ -441,37 +449,6 @@ function chart() {
     return when.all(allFetched);
   }
 
-  /** Get a map that inverts the valueCodes table, caching in the series object. */
-  function invertedCodes(series) {
-    if (!series._invertedCodes) {
-      var inverted = d3.map();
-      codeMap(series).forEach(function(code, value) { 
-        inverted.set(value, code); 
-      });
-      series._invertedCodes = inverted;
-    }
-    return series._invertedCodes;
-  }
-
-  /** Get a the valueCodes as a map, caching in the series object. */
-  function codeMap(series) {
-    if (series._codeMap) return series._codeMap;
-    if (!series.valueCodes) return undefined;
-
-    var codes = d3.map(series.valueCodes);
-    series._codeMap = codes;
-
-    return codes;
-  }
-
-  /** Return the code for a possibly-encoded value.  If no valueCodes table is provided,
-   *  returns the original unchanged.  */
-  function decodeValue(series, value) {
-    if (!series.valueCodes) return value;
-    var inverted = invertedCodes(series);
-    return inverted.get(value);
-  }
-  
   /** add title text elements to the svg */
   function showTitle(title, selection, plotWidth, chartMargin, titleMargin) {
     var center = chartMargin.left + plotWidth/2,
@@ -489,26 +466,40 @@ function chart() {
   }
 
 
-  /** add time axis */
-  function timeAxis(selection, domain, position, width) {
-    var axis = richAxis()
+  /** add x axis, typically for time */
+  function keyAxis(selection, domain, timeSeries, position, width, scale, show) {
+    var axis = richAxis();
+
+    var labeler = function() {
+      if (timeSeries) {
+        return function() {return timeLabel(axis);};
+      } else {
+        return function() {return rawLabel(axis); };
+      }
+    }
+
+    var translatedDomain = (timeSeries 
+        ? domain.map( function(millis) { return new Date(millis); }) 
+        : domain);
+
+    axis
       .displayLength(width)
-      .label(function() {return timeLabel(axis);})
-      .scale(d3.time.scale.utc())
+      .label(labeler())
+      .scale(scale)
       .orient("bottom");
 
-    axis.scale().domain(domain);
+    axis.scale(scale).domain(translatedDomain);
 
-    bindComponents(selection, [{component:axis, position:position, data: {}}], "bottom.axis");
+    bindComponents(selection, [{component:axis, position:position, data: {showAxis: show}}], "bottom.axis");
 
     return axis;
   }
 
 
   /** return the min and max time from an array of DataSeries */
-  function timeDomain(series) {
+  function keyRange(series) {
     if (series.length == 0) {
-      return [new Date(0), new Date(0)];
+      return [0, 0];
     }
 
     var min = series.reduce(function(prevValue, item) {
@@ -519,15 +510,20 @@ function chart() {
       return Math.max(item.domain[1], prevValue);
     }, series[0].domain[1]);
 
-    return [new Date(min), new Date(max)];
+    return [min, max];
   }
 
   var dateFormat = d3.time.format.utc("%H:%M %Y-%m-%d");  // LATER format configurable, and display optional
 
-  /** return the label for the time axis (current minimum displayed time) */
+  /** return the label for a time axis (current minimum displayed time) */
   function timeLabel(displayAxis) {
     var currentMin = displayAxis.domain()[0];
     return dateFormat(new Date(currentMin));
+  }
+
+  /** return the label for a key axis */
+  function rawLabel(displayAxis) {
+    return displayAxis.domain()[0];
   }
 
   //
@@ -582,8 +578,43 @@ function chart() {
     return returnFn;
   };
 
+  returnFn.timeSeries = function(value) {
+    if (!arguments.length) return _timeSeries;
+    _timeSeries = value;
+    return returnFn;
+  };
+
+  returnFn.showXAxis = function(value) {
+    if (!arguments.length) return _showXAxis;
+    _showXAxis = value;
+    return returnFn;
+  };
+
+  returnFn.xScale = function(value) {
+    if (!arguments.length) return _xScale;
+    _xScale = value;
+    return returnFn;
+  };
+
   return returnFn;
 }
 
 return chart;
 });
+
+/* Margins and padding: 
+ 
+|                 |                   |
+|                 |                   |
+|                 |                   |
+|                 |                   |
+    chartMargin         padding
+      margin 
+^size <->         ^paddedPlotSize <->
+^outerSize <->    
+                  ^clip()             ^plotArea()
+
+                                      ^plotSize
+                                      ^plotSpot
+
+*/

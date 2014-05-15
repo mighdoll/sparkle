@@ -45,7 +45,7 @@ abstract class RamColumn[T: TypeTag, U: TypeTag](val name: String) extends Colum
   /** read a slice of events from the column, inclusive of the start and end values.
    *  If start is missing, read from the first element in the column.  If end is missing
    *  read from the last element in the column.  */  // SCALA just inherit description from trait?
-  def readRange(start: Option[T] = None, end: Option[T] = None) // format: OFF
+  def readRange(start: Option[T] = None, end: Option[T] = None, limit:Long) // format: OFF
       (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON
     val (startDex, endDex) = keyRange(start, end)
     val results = keys.slice(startDex, endDex) zip values.slice(startDex, endDex)

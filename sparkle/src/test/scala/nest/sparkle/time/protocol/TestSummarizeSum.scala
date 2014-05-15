@@ -4,8 +4,7 @@ import nest.sparkle.store.Event
 
 class TestSummarizeSum extends TestStore with StreamRequestor with TestDataService {
   test("summarizeSum simple set to one") {
-    val message = streamRequest("SummarizeSum", selector = SelectString(simpleColumnPath),
-      range = RangeParameters[Long](maxResults = 1))
+    val message = summaryRequestOne[Long]("SummarizeSum", selector = SelectString(simpleColumnPath))
 
     val sum = simpleEvents.map{case Event(k,v) => v}.sum
     v1Request(message){ events =>
@@ -14,8 +13,7 @@ class TestSummarizeSum extends TestStore with StreamRequestor with TestDataServi
     }
   }
   test("summarizeSum uneven set to one") {
-    val message = streamRequest("SummarizeSum", selector = SelectString(unevenColumnPath),
-      range = RangeParameters[Long](maxResults = 1))
+    val message = summaryRequestOne[Long]("SummarizeSum", selector = SelectString(unevenColumnPath))
 
     val sum = unevenEvents.map{case Event(k,v) => v}.sum
     val sumTime = unevenEvents.map{case Event(k,v) => k}.sum

@@ -17,9 +17,10 @@ package nest.sparkle.time.transform
 import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.universe.typeTag
 import scala.util.{ Failure, Success }
+import scala.util.control.Exception._
 import spray.json._
 import nest.sparkle.store.{ Column, Event }
-import nest.sparkle.time.protocol.{ JsonDataStream, JsonEventWriter, KeyValueType, RangeParameters }
+import nest.sparkle.time.protocol.{ JsonDataStream, JsonEventWriter, KeyValueType, RangeInterval, SummaryParameters }
 import nest.sparkle.util.{ RecoverJsonFormat, RecoverNumeric, RecoverOrdering }
 import nest.sparkle.util.ObservableFuture.WrappedObservable
 import rx.lang.scala.Observable
@@ -28,10 +29,13 @@ import spire.math.{ Numeric, max }
 import spire.implicits._
 import spire.algebra.Order
 import nest.sparkle.util.RecoverFractional
+import nest.sparkle.time.protocol.SummaryParameters
+import nest.sparkle.time.protocol.TransformParametersJson.SummaryParametersFormat
+import scala.util.Try
 
 object SummaryTransform {
   /** a handy alias for a block of events */
-  type Events[T, U] = Seq[Event[T, U]]  // TODO move to another package
+  type Events[T, U] = Seq[Event[T, U]] // TODO move to another package
 }
 
 /** summarize a block of event data */
@@ -56,29 +60,34 @@ protected case class ColumnMetadata[T: TypeTag, U: TypeTag]() {
   def valueType = typeTag[U]
 }
 
-/** We ultimately need an object that will support the ColumnTransform interface.
-  * The calling code will a selected column (derived from the StreamRequest's source selector),
-  * a json data stream for sending back to the client.
+/** A SummaryTransform is a kind of ColumnTransform that handles the details of summarizing
+  * a column by running a summary function on partitions of input data. The SummaryTransform
+  * is handed a column and a json object (transformParameters) describing the slice of data
+  * to summarize and the number of output elements desired.
   *
-  * We need to create a bunch of these SummaryTransform objects, one for
+  * Subclasses of SummaryTransform provide a function that summarizes the data in each partition.
+  *
+  * The calling code provides a Column (derived from the StreamRequest's source selector),
+  * The SummaryTrnasform returns a json data stream for sending back to the client as part
+  * of the Streams response.
+  *
+  * There are a number of subclasses of SummaryTransform objects, one for
   * each type of summary (min, max, etc.).
   *
-  * Furthermore, each SummaryTransform will need to dynamically adapt at runtime to the
+  * Each SummaryTransform dynamically adapts at runtime to the
   * type of parameters in the columns based on the type requirements of the transform
   * itself. For example a Long,String column does not support the SummaryMax
   * transform.
   *
-  * We recover the necessary type information to do this validation in two stages.
-  * In the first stage, we recover typetag and json format typeclasses based on the
-  * typetag in the column (the type of each column's data is stored persistently with
-  * the column).
+  * The necessary type information to do type validation is recovered
+  * in two stages. In the first stage, SummaryTransform collects typetag and
+  * json format typeclasses based on the typetag in the column (the type of each
+  * column's data is stored persistently in the Store metadata).
   *
   * In the second stage, each individual transform recovers the
   * typeclasses that are needed for that particular transform, (again using the
   * typeTags deserialized from the column's metadata). For example, typical
-  * transforms might expect that keys or values are Numeric, or at least Ordered.
-  */
-/**
+  * transforms might expect that keys or values are Numeric.
   */
 trait SummaryTransform extends ColumnTransform {
   protected def createPartitionSummarizer[T: TypeTag, U: TypeTag](): PartitionSummarizer[T, U]
@@ -99,28 +108,57 @@ trait SummaryTransform extends ColumnTransform {
 
     val summarizePartition = createPartitionSummarizer[T, U]()
 
-    // TODO handle edgeExtra
-
-    Transform.rangeParameters(transformParameters)(keyFormat) match {
-      case Success(range) =>
-        val summaryEvents = summarizeColumn(column, summarizePartition, range)
+    parseSummaryParameters(transformParameters)(keyFormat) match {
+      case Success(summaryParameters) =>
+        val summaryEvents = summarizeColumn(column, summarizePartition, summaryParameters)
         JsonDataStream(
           dataStream = JsonEventWriter.fromObservableSeq(summaryEvents),
           streamType = KeyValueType
         )
-      case Failure(err) => JsonDataStream.error(err)
+      case Failure(err) =>
+        JsonDataStream.error(err)
     }
+  }
+
+  private def parseSummaryParameters[T: JsonFormat](transformParameters: JsObject): Try[SummaryParameters[T]] = {
+    nonFatalCatch.withTry { transformParameters.convertTo[SummaryParameters[T]] }
   }
 
   /** read a range of column data, divide it into blocks, returning an observable
     * with each block replaced with a summarized value
     */
-  def summarizeColumn[T, U](column: Column[T, U], summarizePartition: PartitionSummarizer[T, U],
-    range: RangeParameters[T])(implicit execution: ExecutionContext): Observable[Seq[Event[T, U]]] = {
-    val eventStream = column.readRange(range.start, range.end)
-    val summarizedEvents = eventStream.toFutureSeq.map { events =>
-      partitionEvents(events, range, column.keyType).flatMap { part =>
+  def summarizeColumn[T, U](column: Column[T, U], summarizePartition: PartitionSummarizer[T, U], // format: OFF
+       params: SummaryParameters[T])(implicit execution: ExecutionContext)
+       : Observable[Seq[Event[T, U]]] = { // format: ON
+
+    val eventsIntervals = SelectRanges.fetchRanges(column, params.ranges)
+    implicit val keyTag = column.keyType.asInstanceOf[TypeTag[T]]
+    val numericResults = {
+      val optResults =
+        RecoverNumeric.optNumeric[T](column.keyType) map { implicit numeric =>
+          eventsIntervals.map { case IntervalAndEvents(intervalOpt, events) =>
+            summarizeOneNumericInterval(events, params.maxPartitions.get, intervalOpt, summarizePartition)
+          }
+        }
+      optResults.map { results =>
+        results.reduce{ (a, b) => a ++ b }
+      }
+    }
+    
+    numericResults.getOrElse {
+        //          partitionEventsByCount(events, partitions) // TODO fix me
+      ???
+    }
+  }
+
+  def summarizeOneNumericInterval[T: TypeTag: Numeric, U](events: Observable[Event[T, U]], // format: OFF
+      partitions: Int, intervalOpt:Option[RangeInterval[T]], summarizePartition: PartitionSummarizer[T, U])
+      (implicit execution: ExecutionContext): Observable[Seq[Event[T, U]]] = { // format: ON
+    val summarizedEvents = events.toFutureSeq.map { events =>
+      partitionNumericEvents(events, partitions, intervalOpt).flatMap { part =>
         if (part.nonEmpty) {
+          // TODO pass along the partition boundaries too, so that summarizers can report summary values
+          // aligned to the the bounds of the partition range (e.g. at the midpoint) 
           summarizePartition.summarizePart(part)
         } else { Seq() }
       }
@@ -131,16 +169,13 @@ trait SummaryTransform extends ColumnTransform {
   /** Partition the incoming events based on a division of the key range (e.g. time)
     * so that we can summarize each partition individually.
     */
-  private def partitionEvents[T, U](events: Seq[Event[T, U]], params: RangeParameters[T],
-    keyType: TypeTag[_]): Seq[Seq[Event[T, U]]] = {
+  private def partitionNumericEvents[T: Numeric: TypeTag, U](events: Seq[Event[T, U]], partitions: Int, // format: OFF
+      intervalOpt: Option[RangeInterval[T]]): Seq[Seq[Event[T, U]]] = { // format: ON
     if (events.isEmpty) {
       Seq()
     } else {
-      RecoverNumeric.optNumeric[T](keyType) map { implicit numeric =>
-        partitionIterator(events, params)(keyType.asInstanceOf[TypeTag[T]], numeric).toSeq
-      } getOrElse {
-        partitionEventsByCount(events, params.maxResults)
-      }
+      val interval = intervalOpt.getOrElse {RangeInterval()}
+      partitionIterator(events, interval, partitions).toSeq
     }
   }
 
@@ -164,36 +199,37 @@ trait SummaryTransform extends ColumnTransform {
     * Requested ranges are exclusive of the end value, but end values discovered from
     * the data are inclusive of the end value.
     */
-  private def partitionIterator[T: TypeTag: Numeric, U](events: Seq[Event[T, U]], params: RangeParameters[T])// format: OFF
+  private def partitionIterator[T: TypeTag: Numeric, U]( // format: OFF
+      events: Seq[Event[T, U]], interval: RangeInterval[T], partitions:Int)
       :Iterator[Seq[Event[T,U]]] =  { // format: ON
-    val start = params.start.getOrElse { events.head.argument }
-    val (end, includeEnd) = params.end match {
+    val start = interval.start.getOrElse { events.head.argument }
+    val (end, includeEnd) = interval.until match {
       case Some(explicitEnd) => (explicitEnd, false)
       case None              => (events.last.argument, true)
     }
     val range = end - start
-    val parts = params.maxResults
-    val step = stepSize(range, parts)
+    val step = stepSize(range, partitions)
 
     /** portion of the event sequence not yet consumed by the iterator */
-    var remaining = events
+    var remaining = events.filter(_.argument >= start) // filter in case the source data contains some extras
 
     /** end of the next partition to be consumed */
-    var partEnd = start + step
+    var partStart = start
 
     // return an iterator that walks through the event sequence, one partition at a time
     new Iterator[Seq[Event[T, U]]] {
-      override def hasNext(): Boolean = !remaining.isEmpty
+      override def hasNext(): Boolean = !remaining.isEmpty && (partStart < end || (partStart == end && includeEnd)) 
       override def next(): Seq[Event[T, U]] = {
+        val partEnd = partStart + step
         val (inPartition, remainder) = {
-          if (partEnd >= end && includeEnd) {
+          if (partEnd >= end && includeEnd) { // last part
             remaining.span { event => event.argument <= partEnd }
           } else {
             remaining.span { event => event.argument < partEnd }
           }
         }
         remaining = remainder
-        partEnd = partEnd + step
+        partStart = partStart + step
         inPartition
       }
     }

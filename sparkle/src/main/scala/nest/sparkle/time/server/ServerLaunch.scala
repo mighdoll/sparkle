@@ -59,12 +59,11 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   startFilesLoader()
   startServer(service, webPort)
 
-  /** (for desktop use) Open the web browser to the root page of the sparkle http server.
-    * Normally, there'll be dashboard at this page.  (either the default sparkle dashboard,
-    * or one provided by the user with the --root command line option.)
+  /** (for desktop use) Open the web browser to the sparkle http server.
+    *
     */
-  def launchDesktopBrowser(): Unit = {
-    val uri = new URI(s"http://localhost:$webPort/")
+  def launchDesktopBrowser(path: String = ""): Unit = {
+    val uri = new URI(s"http://localhost:$webPort/$path")
     import system.dispatcher
     RepeatingRequest.get(uri + "health").onComplete {
       case Success(_) =>

@@ -290,7 +290,7 @@ function fetchSeriesInfo(dataApi, namedSeries) {
       lastSlash = setAndColumn.lastIndexOf("/"),
       dataSetName = setAndColumn.slice(0, lastSlash),
       column = setAndColumn.slice(lastSlash+1, setAndColumn.length),
-      futureDomainRange = dataApi(dataSetName, column, {transform:"DomainRange"});
+      futureDomainRange = dataApi.columnRequest("DomainRange", {}, dataSetName, column);
 
   /** plotter that will be used to plot this series */
   function plotter() {
@@ -299,12 +299,12 @@ function fetchSeriesInfo(dataApi, namedSeries) {
 
   /** now that we have the series metadata from the server, fill in the Series */
   function received(data) {
-    var domainRange = dataApi.toObject(data);
+    var domainRange = arrayToObject(data); 
     var series = {
       set: dataSetName,
       name: column,
       range: domainRange.range,
-      domain: millisToDates(domainRange.domain)
+      domain: domainRange.domain
     };
 
     /** LATER support unique value coding via server transform
@@ -324,12 +324,6 @@ function fetchSeriesInfo(dataApi, namedSeries) {
   }
 
   return futureDomainRange.then(received).otherwise(rethrow);
-}
-
-
-/** convert an array of millis to an array of Date objects */
-function millisToDates(millis) {
-  return millis.map(function(fromEpoch) { return new Date(fromEpoch); } );
 }
 
 

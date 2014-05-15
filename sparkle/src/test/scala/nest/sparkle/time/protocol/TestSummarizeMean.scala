@@ -20,22 +20,20 @@ class TestSummarizeMean extends TestStore with StreamRequestor with TestDataServ
   }
 
   test("summarizeMean simple set to one") {
-    val message = streamRequest("SummarizeMean", selector = SelectString(simpleColumnPath),
-      range = RangeParameters[Long](maxResults = 1))
+    val message = summaryRequestOne[Long]("SummarizeMean", selector = SelectString(simpleColumnPath))
 
     v1Request(message){ events =>
       events.length shouldBe 1
-      events.head shouldBe mean[Long, Double](events)
+      events.head shouldBe mean[Long, Double](simpleEvents)
     }
   }
 
   test("summarizeMean uneven set to one") {
-    val message = streamRequest("SummarizeSum", selector = SelectString(unevenColumnPath),
-      range = RangeParameters[Long](maxResults = 1))
+    val message = summaryRequestOne[Long]("SummarizeMean", selector = SelectString(unevenColumnPath))
 
     v1Request(message){ events =>
       events.length shouldBe 1
-      events.head shouldBe mean(events)
+      events.head shouldBe mean(unevenEvents)
     }
   }
 

@@ -19,20 +19,20 @@ import scala.util.control.Exception.catching
 
 import spray.json._
 
-import nest.sparkle.time.protocol.RangeParameters
-import nest.sparkle.time.protocol.TransformParametersJson.RangeParamsFormat
+//import nest.sparkle.time.protocol.RangeParameters
+//import nest.sparkle.time.protocol.TransformParametersJson.RangeParamsFormat
 
 case class TransformNotFound(msg: String) extends RuntimeException(msg)
 
 /** utility functions for transform implementations */
 object Transform {
 
-  /** return typed RangeParameters from the untyped json transform parameters (in a StreamRequest message) */
-  def rangeParameters[T: JsonFormat](transformParameters: JsObject): Try[RangeParameters[T]] = {
-    catching(classOf[RuntimeException]).withTry {
-      transformParameters.convertTo[RangeParameters[T]]
-    }
-  }
+//  /** return typed RangeParameters from the untyped json transform parameters (in a StreamRequest message) */
+//  def rangeParameters[T: JsonFormat](transformParameters: JsObject): Try[RangeParameters[T]] = {
+//    catching(classOf[RuntimeException]).withTry {
+//      transformParameters.convertTo[RangeParameters[T]]
+//    }
+//  }
 
 }
 

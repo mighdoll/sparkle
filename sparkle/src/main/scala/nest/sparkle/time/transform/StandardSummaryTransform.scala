@@ -2,7 +2,7 @@ package nest.sparkle.time.transform
 import SummaryTransform.Events
 import nest.sparkle.store.Event
 import spire.implicits._
-import StandardSummaryTransform.{sumKeyValue, withNumericKeyValue}
+import SummaryTransformUtil._
 import spire.math._
 import scala.util.Random
 
@@ -24,7 +24,7 @@ object StandardSummaryTransform {
         case "sample"  => Some(SummarizeRandom)
         case "uniques" => ???
         case "sum"     => Some(SummarizeSum)
-        case "count"   => ???
+        case "count"   => Some(SummarizeCount)
         case "rate"    => ???
         case _         => None
       }
@@ -32,36 +32,56 @@ object StandardSummaryTransform {
       None
     }
   }
+}
 
+protected[transform] object SummaryTransformUtil {
   /** return the middle value from a sequence.  (the median if the sequence is sorted) */
   protected[transform] def middle[T](seq: IndexedSeq[T]): T = {
     require(seq.length > 0)
     seq(seq.length / 2)
   }
 
-  protected[transform] def sumKeyValue[T:Numeric, U:Numeric](data: Events[T, U],
-    columnMetadata: ColumnMetadata[T, U]): Event[T, U] = {
+  protected[transform] def sumKeyValue[T: Numeric, U: Numeric](data: Events[T, U]): Event[T, U] = {
     data.reduceLeft{ (a, b) => Event[T, U](a.argument + b.argument, a.value + b.value) }
   }
-  
-  protected[transform] def withNumericKeyValue[T,U,V](metadata:ColumnMetadata[T,U]) // format: OFF
-    (fn:(Numeric[T],Numeric[U])=>V):V = {
+
+  protected[transform] def sumKeys[T: Numeric, U](data: Events[T, U]): T = {
+    val keys = data.map{ case Event(k, v) => k }
+    keys.reduceLeft { _ + _ }
+  }
+
+  protected[transform] def withNumericKeyValue[T, U, V](metadata: ColumnMetadata[T, U]) // format: OFF
+    (fn:(Numeric[T],Numeric[U])=>V):V = { // format: ON
+    withNumericKey(metadata) { numericKey =>
+      withNumericValue(metadata) { numericValue =>
+        fn(numericKey.asInstanceOf[Numeric[T]], numericValue.asInstanceOf[Numeric[U]])
+      }
+    }
+  }
+
+  protected[transform] def withNumericKey[T, U, V](metadata: ColumnMetadata[T, U]) // format: OFF
+    (fn:Numeric[T]=>V):V = { // format: ON
     val numericKey = metadata.optNumericKey.getOrElse {
       throw IncompatibleTransform(s"${metadata.keyType}")
     }
+
+    fn(numericKey.asInstanceOf[Numeric[T]])
+  }
+
+  protected[transform] def withNumericValue[T, U, V](metadata: ColumnMetadata[T, U]) // format: OFF
+    (fn:Numeric[U]=>V):V = { // format: ON
     val numericValue = metadata.optNumericValue.getOrElse {
       throw IncompatibleTransform(s"${metadata.valueType}")
     }
 
-    fn(numericKey.asInstanceOf[Numeric[T]], numericValue.asInstanceOf[Numeric[U]])
+    fn(numericValue.asInstanceOf[Numeric[U]])
   }
-
 }
 
 /** summarize the maximum value in each partition */
 object SummarizeMax extends OneSummarizer {
   def summarizeEvents[T, U](data: Events[T, U],
-    columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
+                            columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
     Seq(data.max(columnMetadata.valueOrderEvents))
   }
 }
@@ -69,7 +89,7 @@ object SummarizeMax extends OneSummarizer {
 /** summarize the minimum value in the partition */
 object SummarizeMin extends OneSummarizer {
   def summarizeEvents[T, U](data: Events[T, U],
-    columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
+                            columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
     Seq(data.min(columnMetadata.valueOrderEvents))
   }
 }
@@ -79,10 +99,11 @@ object SummarizeMin extends OneSummarizer {
   */
 object SummarizeMean extends OneSummarizer {
   def summarizeEvents[T, U](data: Events[T, U],
-    columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
+                            columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
+    require(data.length > 0)
     withNumericKeyValue(columnMetadata) { (numericKey, numericValue) =>
-      implicit val (k,v) = (numericKey, numericValue)
-      val summed = sumKeyValue(data,columnMetadata)    
+      implicit val (k, v) = (numericKey, numericValue)
+      val summed = sumKeyValue(data)
       val meanEvent = Event(summed.argument / data.length, summed.value / data.length)
       Seq(meanEvent)
     }
@@ -94,12 +115,13 @@ object SummarizeMean extends OneSummarizer {
   */
 object SummarizeSum extends OneSummarizer {
   def summarizeEvents[T, U](data: Events[T, U],
-    columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
-    
+                            columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
+    require(data.length > 0)
+
     // use the mean key (e.g. time) of the elements in the partition
     withNumericKeyValue(columnMetadata) { (numericKey, numericValue) =>
-      implicit val (k,v) = (numericKey, numericValue)
-      val summed = sumKeyValue(data,columnMetadata)    
+      implicit val (k, v) = (numericKey, numericValue)
+      val summed = sumKeyValue(data)
       val sumEvent = Event(summed.argument / data.length, summed.value)
       Seq(sumEvent)
     }
@@ -109,12 +131,24 @@ object SummarizeSum extends OneSummarizer {
 /** summarize the minimum value in the partition */
 object SummarizeRandom extends OneSummarizer {
   def summarizeEvents[T, U](data: Events[T, U],
-    columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
+                            columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
     require(data.length > 0)
     val pick = Random.nextInt(data.length)
     Seq(data(pick))
   }
 }
 
-
+/** summarize the minimum value in the partition */
+object SummarizeCount extends OneSummarizer {
+  def summarizeEvents[T, U](data: Events[T, U],
+                            columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {
+    require(data.length > 0)
+    withNumericKeyValue(columnMetadata) { (numericKey, numericValue) =>
+      implicit val (_k, _v) = (numericKey, numericValue)
+      val key = sumKeys(data) / data.length
+      val value = numericValue.fromInt(data.length)
+      Seq(Event(key, value)) // TODO this should return values of type Int, not type U..
+    }
+  }
+}
 

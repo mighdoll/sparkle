@@ -36,11 +36,13 @@ return function() {
   
     // bind the richAxis at the right position
     var position;
+    var paddingY = (axisGroup.paddedPlotSize[1] - axisGroup.plotSize[1]) / 2;
     if (orient == "left") {
-      position = [axisGroup.chartMargin.left, axisGroup.chartMargin.top];
+      position = [axisGroup.chartMargin.left, 
+                  axisGroup.chartMargin.top + paddingY];
     } else {
       position = [axisGroup.chartMargin.left + axisGroup.paddedPlotSize[0], 
-                  axisGroup.chartMargin.top];
+                  axisGroup.chartMargin.top + paddingY];
     }
     var axisTransition = attachGroup(transition, orient + ".axis", position),
         axisNode = axisTransition.node(),

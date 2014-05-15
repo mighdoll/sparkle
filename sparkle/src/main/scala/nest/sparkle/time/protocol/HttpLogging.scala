@@ -1,12 +1,10 @@
 package nest.sparkle.time.protocol
 
-import spray.routing.Directives
-import spray.routing.Directive0
-import spray.routing.Directive1
-import spray.http.HttpMessage
+import spray.http.{HttpMessage, HttpRequest, HttpResponse}
+import spray.routing.{Directive1, Directives, Directive0}
+import spray.routing.Directive.SingleValueModifiers
+
 import nest.sparkle.util.Log
-import spray.http.HttpRequest
-import spray.http.HttpResponse
 
 /** Mix in to a Directives route structure to add the withRequestResponseLog directive.
   * Wrap a route in the logwithRequestResponseLog directive and it will log requests and

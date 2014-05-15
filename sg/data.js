@@ -15,20 +15,28 @@
 define(["lib/when/monitor/console", "sg/request"], 
     function(_console, request) {
 
+   var nextRequestId = 0;
+   function requestId() {
+     return nextRequestId++;
+   }
+
 /** Fetch data points from the server.  Return a When that completes with the raw data 
   * array from the server sent Streams message.  
   *
   * Utility functions are available to convert incoming streams to convenient forms:
-  *   * [Milliseconds,Value] to [Date, Value].  millisToDates()
-  *   * [String,Value] to {name1: value1, name2: value2}. toObject()
+  *   * millisToDates() [Milliseconds,Value] to [Date, Value].  
+  *   * toObject() [String,Value] to {name1: value1, name2: value2}. 
   *
   * params: 
   *   .transform:String  -- server transformation/summarization function to use
   *   ?.domain:[Date, Date] -- time range to fetch
-  *   ?.edgeExtra:Boolean -- server should return an extra point before and after the domain
-  *   ?.maxResults:Number -- server should return no more than this many points
   */
-  var returnFn = function(setName, column, params) {
+  function columnRequest(transform, transformParameters, dataSet, column) {
+    var sourceSelector = [dataSet + "/" + column];
+    return streamRequest(transform, transformParameters, sourceSelector);
+  }
+
+  function streamRequest(transform, transformParameters, sourceSelector) {
     var uri = "/v1/data"; 
 
     return request.jsonPost(uri, streamRequestMessage()).then(streamsResponse);
@@ -37,39 +45,30 @@ define(["lib/when/monitor/console", "sg/request"],
     function streamsResponse(message) {
       var streamsMessage = JSON.parse(message);
       return streamsMessage.message.streams[0].data;
-      // TODO: Handle more than one stream
+      // TODO: Handle more than one stream of data in response
     }
 
     /** Construct a StreamRequest to request a transform from the server */
-    function streamRequest() {
-      // we send millis over the wire, so convert from the Date objects we use locally
-      var start = params.domain ? params.domain[0].getTime() : null,
-          end = params.domain ? params.domain[1].getTime() : null;
-
-      var transformParameters = {
-          maxResults: params.maxResults,
-          start: start,
-          end: end,
-          edgeExtra: params.edgeExtra
-      };
-
+    function createStreamRequest() {
       return {
-//        sendUpdates:false,  // for websockets
-//        itemLimit: 0,       // for websockets
-        sources: [setName + "/" + column],  
-        transform: params.transform,
+        sources: sourceSelector,  
+        sendUpdates: false, // TODO fix for websockets
+//        itemLimit: 0,     // for websockets
+        requestMore: 1000,
+        transform: transform,
         transformParameters: copyDefined(transformParameters)
       };
     }
 
     /** Return a StreamRequestMessage json string, suitable for sending a StreamRequest to the server */
     function streamRequestMessage() {
+      var messageId = requestId();
       var distributionMessage = {
-        requestId: 11,
-        realm: "foo",
+        requestId: messageId,
+        realm: "sparkle",
         messageType: "StreamRequest",
-        message: streamRequest(),
-        traceId: "13"
+        message: createStreamRequest(),
+        traceId: "trace-" + messageId
       };
       return JSON.stringify(distributionMessage);
     }
@@ -84,15 +83,6 @@ define(["lib/when/monitor/console", "sg/request"],
     return data;
   }
 
-  /** convert [String,Value] to {name1: value1, name2: value2}.  */
-  function toObject(jsonArray) {
-    var result = {};
-    jsonArray[0].forEach( function(element) {
-      result[element[0]] = element[1];
-    });
-    return result;
-  }
-        
   /**
    * Get the columnPath names for named DataSet 
    * @param dataSetName
@@ -111,11 +101,12 @@ define(["lib/when/monitor/console", "sg/request"],
       return request.jsonWhen(url);
   }
 
-  returnFn.millisToDates = millisToDates;
-  returnFn.toObject = toObject;
-  returnFn.getDataSetColumns = getDataSetColumns;
-  returnFn.getDataSetChildren = getDataSetChildren;
-      
-  return returnFn;
+  return {
+    columnRequest:columnRequest,
+    streamRequest:streamRequest,
+    millisToDates:millisToDates,
+    getDataSetColumns:getDataSetColumns,
+    getDataSetChildren:getDataSetChildren
+  };
 
 });

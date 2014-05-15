@@ -47,7 +47,7 @@ function linePlot() {
         yScale = dataSeries.yScale;
 
     // save old dataSeries in to use for transitions
-    var thisSeries = { data: dataSeries.data, xScale:xScale, yScale:yScale }, 
+    var thisSeries = { xScale:xScale.copy(), yScale:yScale.copy() }, 
         oldSeries = this.__series || thisSeries;
     this.__series = thisSeries;
     
@@ -62,7 +62,8 @@ function linePlot() {
       d3.svg.line()
         .interpolate(interpolate);
 
-    function tweener(scaleName, newDomain) {
+    /** return functions that are called at each scale and range functions that */
+    var tweener = function(scaleName, newDomain) {
       var oldScale = oldSeries[scaleName],
           newScale = dataSeries[scaleName],
           newRange = dataSeries[scaleName].range(),
@@ -98,16 +99,14 @@ function linePlot() {
 
     function scaledLine() {
       return function(tween) {
+        // adjust the x,y scales at each tween in the animation
+        // the scales change their range at each time step, such that the
+        // fully drawn line fits in the expanding/contracting highlight area
         xTween.scale.rangeRound(xTween.rangeInterpolate(tween));
         yTween.scale.rangeRound(yTween.rangeInterpolate(tween));
         return line(dataSeries.data);
       };
     }
-  }
-
-  /** convert an array of Date objects to an array of milliseconds */
-  function datesToMillis(array) {
-    return array.map( function(date) {return date.getTime();} ); 
   }
 
   returnFn.interpolate = function(value) {
@@ -133,4 +132,3 @@ function linePlot() {
 
 return linePlot;
 });
-

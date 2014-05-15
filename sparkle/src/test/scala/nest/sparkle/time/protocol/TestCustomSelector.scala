@@ -53,7 +53,7 @@ class TestCustomSelector extends TestStore with StreamRequestor with TestDataSer
   test("custom source selector") {
     val testSelectorJson = TestingSelectorParams(testColumnPath).toJson.asInstanceOf[JsObject]
     val customSelector = CustomSelector(testSelectorClassName, testSelectorJson)
-    val requestMessage = streamRequest("Raw", SelectCustom(customSelector))
+    val requestMessage = streamRequest("Raw", JsObject(), SelectCustom(customSelector))
     Post("/v1/data", requestMessage) ~> v1protocol ~> check {
       val events = TestDataService.streamDataEvents(response)
       events.length shouldBe 2

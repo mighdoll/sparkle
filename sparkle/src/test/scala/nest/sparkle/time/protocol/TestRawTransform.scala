@@ -1,11 +1,12 @@
 package nest.sparkle.time.protocol
 
 import spray.json.DefaultJsonProtocol._
+import nest.sparkle.time.protocol.TransformParametersJson.RawParametersFormat
 
 class TestRawTransform extends TestStore with StreamRequestor with TestDataService {
 
   test("Raw transform two raw events") {
-    val message = streamRequest[Long]("Raw")
+    val message = streamRequest("Raw", params = RawParameters[Long]())
     v1Request(message){ events =>
       val events = TestDataService.streamDataEvents(response)
       events.length shouldBe 2
@@ -15,13 +16,16 @@ class TestRawTransform extends TestStore with StreamRequestor with TestDataServi
   }
 
   test("raw simple range") {
-    val start = Some("2013-01-19T22:13:30Z".toMillis)
-    val end = Some("2013-01-19T22:14:00Z".toMillis)
-    val range = RangeParameters[Long](maxResults = 100, start = start, end = end)
-    val message = streamRequest("Raw", selector = SelectString(simpleColumnPath), range = range)
+    val range = RangeInterval(
+      start = Some("2013-01-19T22:13:30Z".toMillis),
+      until = Some("2013-01-19T22:14:00Z".toMillis)
+    )
+
+    val params = RawParameters[Long](ranges = Some(Seq(range)))
+    val message = streamRequest("Raw", params = params, selector = SelectString(simpleColumnPath))
     v1Request(message) { events =>
       events.length shouldBe 3
-      events(0).argument shouldBe start.get
+      events(0).argument shouldBe range.start.get
       events(2).argument shouldBe "2013-01-19T22:13:50Z".toMillis
     }
   }

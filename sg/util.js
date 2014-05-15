@@ -267,11 +267,22 @@ function optionalPosition(selection) {
   });
 }
 
-/** Use the bound data and a supplied function to translate the selection.  */
+/** Use the bound data 1d array and a supplied function to translate 
+ * the selection horizontally.  */
 function translateX(selection, fn) {
   selection.attr("transform", function(d) {
     return "translate(" + fn(d) + ",0)";
   });
+}
+
+/** Use the bound data 2d array and a supplied function to translate the 
+ * selection in both X and Y.  */
+function translateXY(selection, fn) {
+  selection.attr("transform", function(d) {
+    var spot = fn(d);
+    return "translate(" + spot[0] + "," + spot[1] + ")";
+  });
+
 }
 
 /**  Report error to developer by rethrowing on a separate stack.  
@@ -485,4 +496,26 @@ function toTransition(selection, modelTransition) {
 
   return transition;
 }
+
+/** convert [[String,Value],[String,Value]] to {name1: value1, name2: value2}.  */
+function arrayToObject(array) {
+  var obj = {}; 
+  array.forEach(function(pair) {
+    obj[pair[0]] = pair[1];
+  });
+  return obj;
+}
+
+/** return an hash of the query parameters in a url */
+function urlParameters(url) {
+  var parameters = url.slice(1).split('&');
+  var keyValues = parameters.map(function(parameter) {
+    var keyValue = parameter.split('=').map(function(kv) { return decodeURIComponent(kv); });
+    if (keyValue[1] === undefined) { keyValue[1] = true; }
+    return keyValue;
+  });
+
+  return arrayToObject(keyValues);
+}
+
 

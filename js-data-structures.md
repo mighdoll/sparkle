@@ -15,6 +15,9 @@ ChartData
     ?.plotter:PlotInfo
     ?.showLegend:Boolean       -- display a 'key' describing the color of each data series
                                   (true by default)
+    ?.timeSeries:Boolean       -- x axis is in epoch milliseconds, display as time strings 
+    ?.xScale:d3.scale          -- scale to use for the xAxis, (utc time by default)
+    ?.showAxis:Boolean         -- display the x axis at the bottom of the chart (true by default)
 
 SeriesGroup 
    .label: String              
@@ -96,7 +99,7 @@ Categorized
 SymbolMark  (constructed by adding fields to a Categorized)
   .color:String               -- color to draw the marks and label for this category
   ?.plot: {                   -- optional options 
-    ?.symbol:D3.svg.symbol    -- d3 symbol if 
+    ?.symbol:D3.svg.symbol    -- d3 symbol 
     ?.size:Number             -- size in __square__ pixels.  (i.e. height is sqrt(size))
     ?.type:String             -- d3.symbol.type (e.g. "circle", "diamond", "cross")
   } 
