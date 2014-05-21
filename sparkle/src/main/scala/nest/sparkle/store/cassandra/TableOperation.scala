@@ -1,6 +1,6 @@
 package nest.sparkle.store.cassandra
 
-import com.datastax.driver.core.{PreparedStatement, Session}
+import com.datastax.driver.core.{ PreparedStatement, Session }
 
 trait TableOperation { def tableName: String }
 
@@ -15,16 +15,28 @@ trait PrepareTableOperations {
 
   private lazy val prepared: Map[TableOperation, PreparedStatement] = {
     val session = initialSession.getOrElse{ throw SessionInitializationError() }
-    val list: List[(TableOperation, PreparedStatement)] =
-      for {
-        (tableOperation, statementFn) <- prepareStatements
-        serialInfo <- ColumnTypes.supportedColumnTypes
-        tableName = serialInfo.tableName
-      } yield {
-        val statementText = statementFn(tableName)
-        val statement = session.prepare(statementText)
-        tableOperation(tableName) -> statement
-      }
+    val list: List[(TableOperation, PreparedStatement)] = {
+      val tableNames:Seq[String] =
+        for {
+          serialInfo <- ColumnTypes.supportedColumnTypes
+          tableName = serialInfo.tableName
+        } yield {
+          tableName
+        }
+      val uniqueTables = tableNames.toSet
+      
+      val opStatements:List[(TableOperation, PreparedStatement)] =
+        for {
+          (tableOperation, statementFn) <- prepareStatements
+          tableName <- uniqueTables
+        } yield {
+          val statementText = statementFn(tableName)
+          val statement = session.prepare(statementText)
+          tableOperation(tableName) -> statement
+        }
+        
+      opStatements
+    }
 
     list.toMap
   }

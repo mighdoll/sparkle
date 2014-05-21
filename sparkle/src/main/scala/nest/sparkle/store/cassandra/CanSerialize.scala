@@ -19,18 +19,21 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.concurrent.duration.NANOSECONDS
 import com.datastax.driver.core.Row
+import spray.json._
+import nest.sparkle.util.Exceptions.NYI
 
 /** utilities for converting between typeTags and cassandra serialized nativeType strings */
 object CanSerialize {
   /** return a TypeTag from cassandra serialized nativeType string */
   def stringToTypeTag(typeString: String): TypeTag[_] = {
     typeString match {
-      case "Double"  => typeTag[Double]
-      case "Long"    => typeTag[Long]
-      case "String"  => typeTag[String]
-      case "Boolean" => typeTag[Boolean]
-      case "Int"     => typeTag[Int]
-      case _         => ???
+      case "Double"             => typeTag[Double]
+      case "Long"               => typeTag[Long]
+      case "String"             => typeTag[String]
+      case "Boolean"            => typeTag[Boolean]
+      case "Int"                => typeTag[Int]
+      case "spray.json.JsValue" => typeTag[JsValue]
+      case x                    => NYI(s"unsupported storage type $x")
     }
   }
 
@@ -55,7 +58,7 @@ abstract class CanSerialize[T: TypeTag] {
   def fromRow(row: Row, index: Int): T
 
   /** return the TypeTag for the type we CanSerialize */
-  def typedTag:TypeTag[T] = typeTag[T]
+  def typedTag: TypeTag[T] = typeTag[T]
 }
 
 /** standard serializers for cassandra data types */
@@ -107,7 +110,7 @@ object serializers {
       row.getInt(index)
     }
   }
-  
+
   implicit object ShortSerializer extends CanSerialize[Short] {
     val columnType = "int"
     def fromRow(row: Row, index: Int): Short = {
@@ -134,6 +137,17 @@ object serializers {
     def fromRow(row: Row, index: Int): AsciiString = {
       AsciiString(row.getString(index))
     }
+  }
+
+  implicit object JsonSerializer extends CanSerialize[JsValue] {
+    val columnType = "text"
+      
+    def fromRow(row: Row, index: Int): JsValue = {
+      row.getString(index).asJson
+    }
+    
+    override def serialize(value: JsValue): AnyRef =
+      value.prettyPrint
   }
 
 }

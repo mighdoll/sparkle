@@ -20,22 +20,26 @@ define(["lib/when/monitor/console", "sg/request"],
      return nextRequestId++;
    }
 
-/** Fetch data points from the server.  Return a When that completes with the raw data 
-  * array from the server sent Streams message.  
+/** Fetch data items from the server. Return a When that completes with the raw data 
+  * array from the server-sent Streams message.  
   *
-  * Utility functions are available to convert incoming streams to convenient forms:
-  *   * millisToDates() [Milliseconds,Value] to [Date, Value].  
-  *   * toObject() [String,Value] to {name1: value1, name2: value2}. 
-  *
-  * params: 
-  *   .transform:String  -- server transformation/summarization function to use
-  *   ?.domain:[Date, Date] -- time range to fetch
+  *   transform:String  -- server transformation/summarization function to use
+  *   transformParamsters:Object -- server transformation parameters
+  *   dataSet:String -- 'path' to the column on the server
+  *   column:String -- name of the column on the server
   */
   function columnRequest(transform, transformParameters, dataSet, column) {
     var sourceSelector = [dataSet + "/" + column];
     return streamRequest(transform, transformParameters, sourceSelector);
   }
 
+/** Fetch data items from the server. Return a When that completes with the raw data 
+  * array from the server-sent Streams message.  
+  *
+  *   transform:String  -- server transformation/summarization function to use
+  *   transformParamsters:Object -- server transformation parameters
+  *   sourceSelector:Array  -- one or more columnPaths or custom source selector objects
+  */
   function streamRequest(transform, transformParameters, sourceSelector) {
     var uri = "/v1/data"; 
 

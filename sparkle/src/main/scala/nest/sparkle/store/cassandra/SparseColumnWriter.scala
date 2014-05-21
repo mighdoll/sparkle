@@ -140,21 +140,26 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     session.executeAsync(deleteAll).toFuture.map { _ => () }
   }
 
+  private val matchBatchSize = 50000 // cql driver has a match batch size of 64K
 
   /** write a bunch of column values in a batch */ // format: OFF
   private def writeMany(events:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
-    val group = events.map { event =>
-      val (argument, value) = serializeEvent(event)
-      statement(InsertOne(tableName)).bind(
-        Seq[AnyRef](dataSetName, columnName, rowIndex, argument, value): _*
-      )
+    val batches = events.grouped(matchBatchSize).map { eventGroup =>
+      val insertGroup = eventGroup.map { event =>
+        val (argument, value) = serializeEvent(event)
+        statement(InsertOne(tableName)).bind(
+          Seq[AnyRef](dataSetName, columnName, rowIndex, argument, value): _*
+        )
+      }
+
+      val batch = new BatchStatement()
+      batch.addAll(insertGroup.toSeq.asJava)
+
+      session.executeAsync(batch).toFuture
     }
 
-    val batch = new BatchStatement()
-    batch.addAll(group.toSeq.asJava)
-
-    session.executeAsync(batch).toFuture.map { _ => () }
+    Future.sequence(batches).map { _ => }
   }
 
   /** return a tuple of cassandra serializable objects for an event */

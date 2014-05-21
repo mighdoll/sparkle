@@ -25,7 +25,7 @@ case class PlotParameterError(msg: String) extends RuntimeException
   */
 object Plot extends Log {
   val sessionId = RandomUtil.randomAlphaNum(5)
-  
+
   private def configOverrides: List[(String, Any)] = List(
     "sparkle-time-server.port" -> 2323,
     "sparkle-time-server.web-root.resource" -> List("web/sg/plot-default"),
@@ -36,35 +36,22 @@ object Plot extends Log {
   private lazy val store = server.writeableStore
   import server.system.dispatcher
 
+  var launched = false
   def plot[T: TypeTag](iterable: Iterable[T], name: String = nowString(), dashboard: String = "",
-                       title: Opt[String] = None) {
+    title: Opt[String] = None, units: Opt[String] = None) {
     val stored =
       for {
         a <- store(iterable, name)
-        b <- storeParameters(name, title)
+        b <- storeParameters(name, title, units)
       } yield {
-        server.launchDesktopBrowser(dashboard + s"?sessionId=$sessionId")
+        if (!launched) {
+          launched = true
+          server.launchDesktopBrowser(dashboard + s"?sessionId=$sessionId")
+        }
       }
 
     stored.failed.foreach{ failure =>
       log.error("unable to store data for plotting", failure)
-    }
-  }
-
-  private def nameToPath(name: String): String = s"plot/$sessionId/$name"
-  private val plotParametersPath = "_plotParameters"
-
-  private def storeParameters(name: String, title: Option[String]): Future[Unit] = {
-    val parametersColumnPath = s"plot/$sessionId/$plotParametersPath"
-    val source = PlotSource(nameToPath(name), name)
-    val plotParameters = PlotParameters(Array(source), title)
-    val plotParametersJson: String = plotParameters.toJson.prettyPrint
-    val futureColumn = store.writeableColumn[Long, String](parametersColumnPath)
-    val entry = Event(System.currentTimeMillis, plotParametersJson)
-
-    log.trace(s"storeParameters: $plotParametersJson")
-    futureColumn.flatMap { column =>
-      column.write(List(entry))
     }
   }
 
@@ -80,12 +67,36 @@ object Plot extends Log {
           events = iterable.zipWithIndex.map { case (value, index) => Event(index.toLong, value) }
           written <- column.write(events)
         } yield {
+          println(s"wrote ${events.size} items to column: $columnPath")
           written
         }
 
       columnWritten
     }
   }
+  
+  def shutdown() {
+    server.shutdown()
+  }
+  
+  
+  private def nameToPath(name: String): String = s"plot/$sessionId/$name"
+  private val plotParametersPath = "_plotParameters"
+
+  private def storeParameters(name: String, title: Option[String], unitsLabel: Option[String]): Future[Unit] = {
+    val parametersColumnPath = s"plot/$sessionId/$plotParametersPath"
+    val source = PlotSource(nameToPath(name), name)
+    val plotParameters = PlotParameters(Array(source), title, unitsLabel)
+    val plotParametersJson: JsValue = plotParameters.toJson
+    val futureColumn = store.writeableColumn[Long, JsValue](parametersColumnPath)
+    val entry = Event(System.currentTimeMillis, plotParametersJson)
+
+    log.trace(s"storeParameters: $plotParametersJson")
+    futureColumn.flatMap { column =>
+      column.write(List(entry))
+    }
+  }
+
 
   private val plotDateFormat = DateTimeFormat.forPattern("HH:mm:ss")
   private def nowString(): String = {

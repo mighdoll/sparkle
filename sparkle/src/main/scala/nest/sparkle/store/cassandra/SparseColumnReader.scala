@@ -55,6 +55,7 @@ object SparseColumnReader extends PrepareTableOperations with Log {
         case LongIntSerializers(KeyValueSerializers(key, value))     => makeReader(key, value)
         case LongBooleanSerializers(KeyValueSerializers(key, value)) => makeReader(key, value)
         case LongStringSerializers(KeyValueSerializers(key, value))  => makeReader(key, value)
+        case LongJsValueSerializers(KeyValueSerializers(key, value)) => makeReader(key, value)
         case _                                                       => ???
       }
     }
@@ -150,7 +151,5 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
 
     readEventRows(readStatement)
   }
-  
-  
-  
+
 }

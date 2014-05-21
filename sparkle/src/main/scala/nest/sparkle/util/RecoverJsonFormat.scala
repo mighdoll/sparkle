@@ -3,6 +3,7 @@ package nest.sparkle.util
 import scala.reflect.runtime.universe._
 import spray.json.JsonFormat
 import spray.json.DefaultJsonProtocol._
+import spray.json.JsValue
 
 case class JsonFormatNotFound(msg: String) extends RuntimeException(msg)
 
@@ -19,7 +20,9 @@ object RecoverJsonFormat {
       typeToFormat[Double],
       typeToFormat[Long],
       typeToFormat[Int],
-      typeToFormat[Short]
+      typeToFormat[Short],
+      typeToFormat[String],
+      typeToFormat[JsValue]
     )
   }
 

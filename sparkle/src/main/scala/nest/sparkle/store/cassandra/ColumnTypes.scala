@@ -1,9 +1,9 @@
 package nest.sparkle.store.cassandra
 
 import scala.reflect.runtime.universe._
-
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.util.TaggedKeyValueExtractor
+import spray.json.JsValue
 
 object ColumnTypes {
   /** all columns types supported by this */
@@ -12,7 +12,8 @@ object ColumnTypes {
     createSerializationInfo[Long, Double](),
     createSerializationInfo[Long, Int](),
     createSerializationInfo[Long, Boolean](),
-    createSerializationInfo[Long, String]()
+    createSerializationInfo[Long, String](),
+    createSerializationInfo[Long, JsValue]()
   )
 
   /** retrieve the serialization info for one of the supported column types */
@@ -59,6 +60,7 @@ object LongLongSerializers extends SerializerExtractor[Long, Long]
 object LongIntSerializers extends SerializerExtractor[Long, Int]
 object LongBooleanSerializers extends SerializerExtractor[Long, Boolean]
 object LongStringSerializers extends SerializerExtractor[Long, String]
+object LongJsValueSerializers extends SerializerExtractor[Long, JsValue]
 
 /** a pair of cassandra serializers for key and value */
 case class KeyValueSerializers[T, U](keySerializer: CanSerialize[T], valueSerializer: CanSerialize[U])

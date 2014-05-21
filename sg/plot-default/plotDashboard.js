@@ -2,39 +2,56 @@ require( ["lib/when/when", "lib/d3", "sg/dashboard", "sg/sideAxis",
           "sg/palette", "sg/scatter", "sg/data", "sg/util" ], 
            function(when, _d3, dashboard, sideAxis, palette, scatter, data, util) {
 
+  var mohsBoard = dashboard().size([800, 400]); 
+
   function fetchParameters() {
+    function received(data) {
+      var last = data.length - 1;
+      var plotParameters = data[last][1]; // take the last parameters we received
+      console.log(plotParameters);
+      return plotParameters;
+    }
+
     var parameters = urlParameters(location.search);
     var sessionId = parameters.sessionId;
     if (!sessionId) console.error("sessionId not found");
     
-    var paramsWhen = data("raw", 
+    var farFuture = (new Date()).getTime * 2;
+    var columnPath = "plot/" + sessionId + "/_plotParameters";
+    var paramsWhen = data.streamRequest("raw", {until: farFuture, limit: 1}, [columnPath]);
 
-    // data(); 
+    return paramsWhen.then(received).otherwise(rethrow);
   }
 
-  fetchParameters();
 
-  var charts = [ 
-    { title: "Interactive Plot",
-      timeSeries: false,
-      xScale: d3.scale.linear(),
-      showXAxis: false,
-      padding:[5, 5],    // padding so that marks can extend past the edge of the plot area
-      groups: [
-        { label: "labelLeft",
-          plot: { plotter: scatter() },
-          axis: sideAxis(),
-          named: [ 
-            { name: "plot/test1" }
-          ]
-        }, 
-      ]
-    }
-  ];
 
-  var mohsBoard = dashboard().size([800, 400]), 
-      update = d3.selectAll("body").data([{charts:charts}]);
+  function drawChart(plotParameters) {
+    var namedColumns = plotParameters.sources.map(function(plotSource) {
+      return { name: plotSource.columnPath,
+               label: plotSource.label
+             };
+    });
 
-  mohsBoard(update);
+    var charts = [ 
+      { title: plotParameters.title,
+        timeSeries: false,
+        xScale: d3.scale.linear(),
+        showXAxis: false,
+        padding:[5, 5],    // padding so that marks can extend past the edge of the plot area
+        groups: [
+          { label: plotParameters.units,
+            plot: { plotter: scatter() },
+            axis: sideAxis(),
+            named: namedColumns
+          }
+        ]
+      }
+    ];
+
+    var update = d3.selectAll("body").data([{charts:charts}]);
+    mohsBoard(update);
+  }
+
+  fetchParameters().then(drawChart);
 
 });

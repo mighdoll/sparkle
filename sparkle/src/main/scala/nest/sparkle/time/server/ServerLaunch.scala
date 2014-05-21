@@ -44,6 +44,8 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   val store = Store.instantiateStore(config)
   lazy val webPort = config.getInt("port")
   lazy val writeableStore = Store.instantiateWritableStore(config)
+  
+  def actorSystem = system
 
   val fixmeRegistry = PreloadedRegistry(Nil)(system.dispatcher) // TODO delete this once we drop v0 protocol
   val service = system.actorOf(Props(
@@ -64,6 +66,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     */
   def launchDesktopBrowser(path: String = ""): Unit = {
     val uri = new URI(s"http://localhost:$webPort/$path")
+    println(s"browsing to: $uri")
     import system.dispatcher
     RepeatingRequest.get(uri + "health").onComplete {
       case Success(_) =>
@@ -73,6 +76,10 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
         Console.err.println(s"failed to launch server: ${err.getMessage}")
         sys.exit(1)
     }
+  }
+  
+  def shutdown() {
+    actorSystem.shutdown()
   }
 
   /** Launch the http server for sparkle API requests.
