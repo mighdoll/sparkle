@@ -16,9 +16,9 @@ Components
 Sparkle contains three core components:
 
 ###Sparkle-Time Server 
-**sparkle-time** is a mini web server that provides HTTP and websocket apis for data visualization. Sparkle-time data is stored in cassandra, and data can be streamed into sparkle-time from local .csv/.tsv data files or Apache Kafka. Sparkle-time also hosts an extensible set of data transformations that transform data as it is requested (for example to 
+**sparkle-time** is a mini web server that provides HTTP and websocket apis for data visualization. Sparkle-time collects data from an extensible set of inputs (Apache Kafka and .csv/.tsv data files, hadoop and netcat support coming soon). Sparkle-time stores data in Cassandra.  Sparkle-time also hosts an extensible set of data transformations that transform data on demand (downsampling for example).
 
-Sparkle-time is separated into layers - it designed to be included as a library in other servers, although it can run standalone.
+Sparkle-time can be run as a library inside another server, or it can run standalone if no customization is needed.
 
 ###sg.js 
 **sg.js** is a d3.js based javascript library for displaying interactive charts of potentially large data sets.  Charts are customizable with declarative javascript, and extensible with d3. sg.js currently offers support for line charts, scatter plots, bar charts, etc. and is easily extensible. All charts support a drag-based zooming UI. 
@@ -30,8 +30,9 @@ sg.js supports the sparkle-time api, enabling zooming charts of potentially huge
 (sg.js can be used as standalone charting library.) 
 
 ###Sparkle Data API
-To enable interoperation of multiple clients and servers, the sparkle-time server and sg.js javascript library speak a well-defined data protocol called the Sparke Data API which carries visualization data. 
-The api 
+To enable interoperation of multiple clients and servers, the sparkle-time server and sg.js javascript library speak a well-defined data protocol: the Sparkle Data Protocol. The protocol allows clients to request data transformations and data streams from a comformant server.
+
+See [Sparkle Data Protocol](https://docs.google.com/document/d/1OvRxFbTzjuLSh7J3NXEM3jNQKxCCiBEfKr5fE6EeBJk/pub) for details of the protocol. See [Sparkle Transforms](https://docs.google.com/document/d/1rz_7otdjla5d9990zdvM6Uev-5c_jqbZhepyLIKQO6U/pub) for the current set of built in transforms.
 
 
 Plans
@@ -42,7 +43,7 @@ Sparkle is being revised to:
 * include a pre-built 'sg' launcher 
 * a sample dashboard for streams
 
-More details in the [todo list](https://github.com/mighdoll/sparkle/blob/master/ToDo)
+More ideas in the [todo list](https://github.com/mighdoll/sparkle/blob/master/ToDo)
 
 Using sparkle 
 -------
