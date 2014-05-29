@@ -22,9 +22,12 @@ import nest.sparkle.store.ColumnNotFound
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.OptionConversion._
 import nest.sparkle.util.Log
+import nest.sparkle.store.cassandra.ObservableResultSet._
+
 import scala.language.existentials
 import scala.reflect.runtime.universe._
 import nest.sparkle.util.TaggedKeyValue
+import rx.lang.scala.Observable
 
 /** metadata about a column of data
   *
@@ -113,11 +116,25 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
     }
   }
 
+  def allColumns() // format:OFF
+  (implicit executionContext: ExecutionContext): Observable[String] = { // format: ON
+    val allColumnsStatement = s"""
+      SELECT columnPath FROM $catalogTable
+      LIMIT 50000000;
+    """
+
+    val rows = session.executeAsync(allColumnsStatement).observerableRows
+    // result should be rows containing a single string: the columnPath
+    rows.map { row =>
+      row.getString(0)
+    }
+  }
+
   lazy val catalogStatements: CatalogStatements = {
     preparedStatements(makeStatements)
   }
 
-  /** prepare the */
+  /** prepare some cql statements */
   def makeStatements(): CatalogStatements = {
     CatalogStatements(
       addCatalogEntry = session.prepare(addCatalogEntryStatement),

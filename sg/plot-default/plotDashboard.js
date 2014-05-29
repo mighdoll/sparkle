@@ -8,7 +8,6 @@ require( ["lib/when/when", "lib/d3", "sg/dashboard", "sg/sideAxis",
     function received(data) {
       var last = data.length - 1;
       var plotParameters = data[last][1]; // take the last parameters we received
-      console.log(plotParameters);
       return plotParameters;
     }
 
@@ -34,9 +33,9 @@ require( ["lib/when/when", "lib/d3", "sg/dashboard", "sg/sideAxis",
 
     var charts = [ 
       { title: plotParameters.title,
-        timeSeries: false,
-        xScale: d3.scale.linear(),
-        showXAxis: false,
+        timeSeries: plotParameters.timeSeries,
+        xScale: plotParameters.timeSeries ? d3.time.scale.utc() : d3.scale.linear(),
+        showXAxis: plotParameters.timeSeries,
         padding:[5, 5],    // padding so that marks can extend past the edge of the plot area
         groups: [
           { label: plotParameters.units,

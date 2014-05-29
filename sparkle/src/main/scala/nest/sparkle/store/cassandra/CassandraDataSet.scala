@@ -26,7 +26,7 @@ case class CassandraDataSet(store: CassandraStore, name: String) extends DataSet
 
   /** return a column in this dataset (or FileNotFound) */
   def column[T, U](columnName: String): Future[Column[T, U]] = {
-    ???
+    store.column(s"$name/$columnName")  // TODO untested    
   }
 
   /**

@@ -18,15 +18,33 @@ import scala.util.Try
 import scala.concurrent.Future
 import scala.util.Success
 import scala.util.Failure
+import scala.concurrent.Await
+import scala.concurrent.duration._
+import scala.util.Failure
+import java.util.concurrent.TimeoutException
 
 /** add a .toFuture method on Try */
 object TryToFuture {
   implicit class FutureTry[T](wrappedTry: Try[T]) {
-    def toFuture:Future[T] = {
+    def toFuture: Future[T] = {
       wrappedTry match {
-        case Success(result) => Future.successful(result)
+        case Success(result)    => Future.successful(result)
         case Failure(exception) => Future.failed(exception)
       }
     }
   }
+}
+
+/** add a .toTry method on Future */
+object FutureToTry {
+  implicit class TryFuture[T](wrappedFuture: Future[T]) {
+    def toTry()(implicit atMost: Duration = 30.seconds): Try[T] = {
+      val readyFuture = Await.ready(wrappedFuture, atMost)
+      readyFuture.value match {
+        case Some(tried) => tried
+        case None        => Failure(new TimeoutException)
+      }
+    }
+  }
+
 }
