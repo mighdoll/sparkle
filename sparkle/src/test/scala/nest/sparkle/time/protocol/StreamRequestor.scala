@@ -25,6 +25,7 @@ case class SelectCustom(customSelector: CustomSelector) extends TestSelector
 trait StreamRequestor {
   var currentRequestId = 0
   def defaultColumnPath: String = "defaultTestColumn"
+    
   /** return a request id and trace id for a new protocol request */
   def nextRequestIds(): (Int, String) = synchronized {
     currentRequestId = currentRequestId + 1

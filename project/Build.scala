@@ -40,7 +40,9 @@ object SparkleTimeBuild extends Build {
           argot,
           openCsv
         ),
-        initialCommands in console := """import nest.sg.Plot._"""
+        initialCommands in console := """
+          import nest.sg.Plot._
+          """
       )
 
   lazy val kafkaLoader =

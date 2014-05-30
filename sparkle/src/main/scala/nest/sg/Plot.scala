@@ -23,16 +23,9 @@ case class PlotParameterError(msg: String) extends RuntimeException
 /** Interim work on supporting the launching of graph from the repl..
   * TODO finish this.
   */
-object Plot extends Log {
+object Plot extends ConsoleServer with Log {
   val sessionId = RandomUtil.randomAlphaNum(5)
 
-  private def configOverrides: List[(String, Any)] = List(
-    "sparkle-time-server.port" -> 2323,
-    "sparkle-time-server.web-root.resource" -> List("web/sg/plot-default"),
-    "sparkle-time-server.sparkle-store-cassandra.key-space" -> "plot"
-  )
-
-  private lazy val server = ServerLaunch(None, configOverrides: _*)
   private lazy val store = server.writeableStore
   import server.system.dispatcher
 
