@@ -8,7 +8,6 @@ require( ["lib/when/when", "lib/d3", "sg/dashboard", "sg/sideAxis",
     function received(data) {
       var last = data.length - 1;
       var plotParameters = data[last][1]; // take the last parameters we received
-      console.log(plotParameters);
       return plotParameters;
     }
 
