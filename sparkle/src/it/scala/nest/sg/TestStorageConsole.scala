@@ -22,13 +22,13 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraTestConfig
     promise.future
   }
 
-  def withTestConsole[T](fn: StorageConsole => T): T = {    
+  def withTestConsole[T](fn: StorageConsoleAPI => T): T = {    
     withTestDb { testDb =>
       withTestActors{ implicit system =>
         val complete = onLoadComplete(system, "epochs/count")
         FilesLoader(filePath, testDb)
         complete.await
-        val storageConsole = new StorageConsole(testDb, system.dispatcher)
+        val storageConsole = new ConcreteStorageConsole(testDb, system.dispatcher)
         fn(storageConsole)
       }
     }

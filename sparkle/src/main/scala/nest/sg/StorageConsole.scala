@@ -13,8 +13,24 @@ import rx.lang.scala.Observable
 import scala.concurrent.ExecutionContext
 import nest.sparkle.store.Store
 
-class StorageConsole(store:Store, execution:ExecutionContext) extends Log {
-  case class ColumnEvents(name: String, events: Seq[Event[Long, Any]])
+/** a console for making queries to the store from the scala console */
+object StorageConsole extends ConsoleServer with StorageConsoleAPI with Log {
+  lazy val storageConsole = new ConcreteStorageConsole(server.store, server.actorSystem.dispatcher)
+  
+  override def eventsByDataSet(dataSet: String): Seq[ColumnEvents] = 
+    storageConsole.eventsByDataSet(dataSet)
+    
+  override def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]] =
+    storageConsole.eventsByColumnPath(columnPath)
+    
+  override def allColumns(): Observable[String] = storageConsole.allColumns()
+}
+
+
+case class ColumnEvents(name: String, events: Seq[Event[Long, Double]])
+
+/** a console for making queries to the store from the scala console */
+class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends StorageConsoleAPI with Log {
   implicit def _execution = execution
 
   /** Return events for all columns inside a dataset.
@@ -28,7 +44,7 @@ class StorageConsole(store:Store, execution:ExecutionContext) extends Log {
 
         val futureColumnEvents: Future[Seq[ColumnEvents]] = futureNames.flatMap { names =>
           val futureColumns = {
-            val seqFutureColumns = names.map { name => store.column[Long, Any](name) }
+            val seqFutureColumns = names.map { name => store.column[Long, Double](name) }
             Future.sequence(seqFutureColumns)
           }
 
@@ -57,10 +73,10 @@ class StorageConsole(store:Store, execution:ExecutionContext) extends Log {
   }
 
   /** Return events from a given column path */
-  def eventsByColumnPath(columnPath: String): Seq[Event[Long, Any]] = {
+  def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]] = {
     val futureEvents =
       for {
-        column <- store.column[Long, Any](columnPath)
+        column <- store.column[Long, Double](columnPath)
         events <- column.readRange(None, None).toFutureSeq
       } yield {
         events
@@ -82,6 +98,13 @@ class StorageConsole(store:Store, execution:ExecutionContext) extends Log {
         cassandraStore.columnCatalog.allColumns()
     }
   }
-  
+}
+
+
+/** console methods exposed by the StorageConsole */
+trait StorageConsoleAPI {
+  def eventsByDataSet(dataSet: String): Seq[ColumnEvents]
+  def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]]
+  def allColumns(): Observable[String]  
 }
 

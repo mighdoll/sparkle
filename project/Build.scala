@@ -42,6 +42,8 @@ object SparkleTimeBuild extends Build {
         ),
         initialCommands in console := """
           import nest.sg.Plot._
+          import nest.sg.StorageConsole._
+          import nest.sparkle.store.Event
           """
       )
 

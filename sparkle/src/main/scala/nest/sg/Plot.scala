@@ -17,6 +17,7 @@ import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.Opt
 import spray.json._
 import PlotParametersJson._
+import nest.sparkle.store.cassandra.CanSerialize
 
 case class PlotParameterError(msg: String) extends RuntimeException
 
@@ -31,11 +32,18 @@ object Plot extends ConsoleServer with Log {
 
   var launched = false
   def plot[T: TypeTag](iterable: Iterable[T], name: String = nowString(), dashboard: String = "",
-    title: Opt[String] = None, units: Opt[String] = None) {
+                       title: Opt[String] = None, units: Opt[String] = None) {
+
+    val events = iterable.zipWithIndex.map { case (value, index) => Event(index.toLong, value) }
+    plotEvents(events, name, dashboard, title, units, false)
+  }
+  
+  def plotEvents[T: TypeTag, U:TypeTag](events: Iterable[Event[T,U]], name: String = nowString(), dashboard: String = "",
+                       title: Opt[String] = None, units: Opt[String] = None, timeSeries:Boolean = true) {
     val stored =
       for {
-        a <- store(iterable, name)
-        b <- storeParameters(name, title, units)
+        a <- storeEvents(events, name)
+        b <- storeParameters(name, title, units, timeSeries)
       } yield {
         if (!launched) {
           launched = true
@@ -48,38 +56,51 @@ object Plot extends ConsoleServer with Log {
     }
   }
 
-  def store[T: TypeTag](iterable: Iterable[T], name: String = nowString()): Future[Unit] = {
-    val serialOpt = RecoverCanSerialize.optCanSerialize[T](typeTag[T])
-    val serialFuture = serialOpt.toFutureOr(PlotParameterError("can't serialize type: ${typeTag[T]}"))
-    serialFuture.flatMap { serialize =>
-      val columnPath = nameToPath(name)
-      val futureColumn = store.writeableColumn[Long, T](columnPath)(LongSerializer, serialize)
-      val columnWritten: Future[Unit] =
-        for {
-          column <- futureColumn
-          events = iterable.zipWithIndex.map { case (value, index) => Event(index.toLong, value) }
-          written <- column.write(events)
-        } yield {
-          println(s"wrote ${events.size} items to column: $columnPath")
-          written
-        }
 
-      columnWritten
+  def storeEvents[T: TypeTag, U: TypeTag](events: Iterable[Event[T, U]], name: String = nowString()): Future[Unit] = {
+    val optSerializers =
+      for {
+        serializeKey <- RecoverCanSerialize.optCanSerialize[T](typeTag[T])
+        serializeValue <- RecoverCanSerialize.optCanSerialize[U](typeTag[U])
+      } yield {
+        (serializeKey, serializeValue)
+      }
+
+    val futureSerializers = optSerializers.toFutureOr(PlotParameterError("can't serialize types: ${typeTag[T]} ${typeTag[U]} "))
+    futureSerializers.flatMap {
+      case (serializeKey, serializeValue) =>
+        val columnPath = nameToPath(name)
+        val futureColumn = store.writeableColumn[T, U](columnPath)(serializeKey, serializeValue)
+        val columnWritten: Future[Unit] =
+          for {
+            column <- futureColumn
+            written <- column.write(events)
+          } yield {
+            println(s"wrote ${events.size} items to column: $columnPath")
+            written
+          }
+        columnWritten
     }
   }
-  
+
+  def store[T: TypeTag](iterable: Iterable[T], name: String = nowString()): Future[Unit] = {
+    val events = iterable.zipWithIndex.map { case (value, index) => Event(index.toLong, value) }
+    storeEvents[Long, T](events, name)
+  }
+
   def shutdown() {
     server.shutdown()
   }
-  
-  
+
   private def nameToPath(name: String): String = s"plot/$sessionId/$name"
   private val plotParametersPath = "_plotParameters"
 
-  private def storeParameters(name: String, title: Option[String], unitsLabel: Option[String]): Future[Unit] = {
+  private def storeParameters(name: String, title: Option[String], unitsLabel: Option[String],
+      timeSeries:Boolean): Future[Unit] = {
     val parametersColumnPath = s"plot/$sessionId/$plotParametersPath"
     val source = PlotSource(nameToPath(name), name)
-    val plotParameters = PlotParameters(Array(source), title, unitsLabel)
+    val timeSeriesOpt = if (timeSeries) Some(true) else None
+    val plotParameters = PlotParameters(Array(source), title, unitsLabel, timeSeriesOpt)
     val plotParametersJson: JsValue = plotParameters.toJson
     val futureColumn = store.writeableColumn[Long, JsValue](parametersColumnPath)
     val entry = Event(System.currentTimeMillis, plotParametersJson)
@@ -89,7 +110,6 @@ object Plot extends ConsoleServer with Log {
       column.write(List(entry))
     }
   }
-
 
   private val plotDateFormat = DateTimeFormat.forPattern("HH:mm:ss")
   private def nowString(): String = {
