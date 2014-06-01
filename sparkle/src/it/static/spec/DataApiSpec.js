@@ -3,7 +3,7 @@ define(["jquery","sg/data"], function($, dataApi) {
 
     describe("DataApi Columns Test Suite", function () {
         it("should get columns", function (done) {
-            var promise = dataApi.getDataSetColumns("src/test/resources/epochs.csv");
+            var promise = dataApi.getDataSetColumns("epochs");
             promise.then(function (data) {
                 expect(data).toBeDefined();
                 expect($.isArray(data)).toBeTruthy();
@@ -47,12 +47,12 @@ define(["jquery","sg/data"], function($, dataApi) {
 
     describe("DataApi DataSet Children Test Suite", function () {
         it("should get epochs.csv as child", function (done) {
-            var promise = dataApi.getDataSetChildren("src/test/resources");
+            var promise = dataApi.getDataSetChildren("subdir");
             promise.then(function (data) {
                 expect(data).toBeDefined();
                 expect($.isArray(data)).toBeTruthy();
                 expect(data.length).toEqual(1);
-                expect(data[0]).toEqual("epochs.csv");
+                expect(data[0]).toEqual("epochs");
                 done();
             },
             function (err) {
