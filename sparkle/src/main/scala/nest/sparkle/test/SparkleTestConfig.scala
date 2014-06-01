@@ -13,7 +13,7 @@ trait SparkleTestConfig {
 
   /** return the outermost Config object. Also triggers logging initialization */
   lazy val rootConfig: Config = {
-    val root = ConfigFactory.load()
+    val root = ConfigFactory.load() // TODO consider explicitly choosing a resource path, so we get IT conf in eclipse
     val modifiedRoot = ConfigUtil.modifiedConfig(root, configOverrides: _*)
     initializeLogging(modifiedRoot)
     modifiedRoot

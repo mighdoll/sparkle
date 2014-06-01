@@ -290,7 +290,8 @@ function fetchSeriesInfo(dataApi, namedSeries) {
       lastSlash = setAndColumn.lastIndexOf("/"),
       dataSetName = setAndColumn.slice(0, lastSlash),
       column = setAndColumn.slice(lastSlash+1, setAndColumn.length),
-      futureDomainRange = dataApi.columnRequest("DomainRange", {}, dataSetName, column);
+      futureDomainRange = dataApi.columnRequestHttp("DomainRange", {}, 
+        dataSetName, column);
 
   /** plotter that will be used to plot this series */
   function plotter() {

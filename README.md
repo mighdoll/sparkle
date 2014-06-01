@@ -5,9 +5,11 @@ This is the 0.5.x version of Sparkle.
 
 Introduction
 -------
-**Sparkle** is a small suite of libraries for making interactive data visualizations. Sparkle includes a javascript client library, a scala/jvm server library and a well defined protocol for requesting and serving data or visualization.  
+**Sparkle** is a small suite of libraries for making interactive data visualizations. Sparkle includes a javascript client library, a scala/jvm server library and a well defined protocol for requesting and serving data for visualization. 
 
 As a standalone tool, sparkle gives users an easy way to make visualize data from a directory of .csv files. The graphs are interactively zoomable in a d3 based web interface. With some easy customization, graphs can be aggregated into dashboards, and customized with simple declarative javascript, and data read in from other sources such as Apache Kafka.
+
+See [Sparkle Intro Talk](https://docs.google.com/a/nestlabs.com/presentation/d/1yBgxGrqJ0TR2VONKN_Lfol49lyUb3CZ-o_JiEclO0aY/pub?start=false&loop=false&delayms=3000#slide=id.p) for an introduction presentation.
 
 [coming soon: links to example charts and dashboards]
 

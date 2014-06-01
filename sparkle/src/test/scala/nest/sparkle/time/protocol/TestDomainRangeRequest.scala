@@ -1,12 +1,10 @@
 package nest.sparkle.time.protocol
 
 import scala.reflect.runtime.universe.TypeTag.{ Double, Long }
-
 import spray.httpx.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
 import spray.util._
 import spray.json._
-
 import nest.sparkle.store.Event
 import nest.sparkle.time.protocol.ArbitraryColumn.arbitraryEvent
 import nest.sparkle.time.protocol.TestDomainRange.minMaxEvents
@@ -15,10 +13,11 @@ import nest.sparkle.time.transform.{ DomainRange, MinMax }
 import nest.sparkle.time.transform.DomainRangeJson
 import nest.sparkle.time.transform.DomainRangeJson.DomainRangeFormat
 import nest.sparkle.util.RandomUtil.randomAlphaNum
-
 import scala.reflect.runtime.universe._
+import nest.sparkle.util.InitializeReflection
 
 class TestDomainRangeRequest extends TestStore with StreamRequestor with TestDataService {
+  nest.sparkle.util.InitializeReflection.init
 
   /** create a new column in the test RAM store and return its columnPath */
   def makeColumn[T: TypeTag, U: TypeTag](prefix: String, events: List[Event[T, U]]): String = {
@@ -28,7 +27,7 @@ class TestDomainRangeRequest extends TestStore with StreamRequestor with TestDat
     columnName
   }
 
-  test("DomainRange calculates domain and range on arbitray long,double columns") {
+  test("DomainRange calculates domain and range on arbitrary long,double columns") {
     forAll { events: List[Event[Long, Double]] =>
       val columnName = makeColumn("V1Protocol.DomainRange", events)
       val requestMessage = streamRequest("DomainRange", JsObject(), SelectString(columnName))

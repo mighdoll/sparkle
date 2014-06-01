@@ -24,6 +24,7 @@ import nest.sparkle.store.Event
 import scala.collection.mutable.ArrayBuffer
 import nest.sparkle.store.cassandra.WriteableColumn
 import nest.sparkle.util.RecoverOrdering
+import nest.sparkle.store.OngoingEvents
 
 /** A readable Column backed by a collection in the internal heap.  */
 abstract class RamColumn[T: TypeTag, U: TypeTag](val name: String) extends Column[T, U] {
@@ -32,27 +33,17 @@ abstract class RamColumn[T: TypeTag, U: TypeTag](val name: String) extends Colum
   def keyType: TypeTag[T] = typeTag[T]
   def valueType: TypeTag[U] = typeTag[U]
 
-  def readBefore(start: T, maxResults: Long = Long.MaxValue) // format: OFF
-      (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON
-    ???
-  }
-
-  def readAfter(start: T, maxResults: Long = Long.MaxValue) // format: OFF
-      (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON
-    ???
-  }
-
   /** read a slice of events from the column, inclusive of the start and end values.
    *  If start is missing, read from the first element in the column.  If end is missing
    *  read from the last element in the column.  */  // SCALA just inherit description from trait?
-  def readRange(start: Option[T] = None, end: Option[T] = None, limit:Long) // format: OFF
-      (implicit execution: ExecutionContext): Observable[Event[T,U]] = { // format: ON
+  override def readRange(start: Option[T] = None, end: Option[T] = None, limit:Option[Long]) // format: OFF
+      (implicit execution: ExecutionContext): OngoingEvents[T,U] = { // format: ON
     val (startDex, endDex) = keyRange(start, end)
     val results = keys.slice(startDex, endDex) zip values.slice(startDex, endDex)
     val events = results.map { case (key, value) => Event(key, value) }
     val result = Observable.from(events)
 
-    result
+    OngoingEvents(result, Observable.empty)
   }
 
   /** Return the indices in the time array for the specified time bounds.

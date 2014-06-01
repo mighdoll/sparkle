@@ -30,9 +30,10 @@ trait DistributionMessage[T] {
 
 /** distribution layer message type */
 object MessageType {
-  val StreamRequest2 = "StreamRequest"
+  val StreamRequest = "StreamRequest"
   val Streams = "Streams"
   val Status = "Status"
+  val Update = "Update"
 }
 
 /** request a transformed stream.  sent from from client to server */
@@ -67,6 +68,18 @@ case class StreamsMessage(requestId: Option[Long], realm: Option[String], traceI
 // TODO find a way to do less copy-pasting on encoding various message types
 case class StatusMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
   messageType: String, message: Status)
+  
+case class UpdateMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
+  messageType: String, message: Update) {
+    /** (for debug logging) return a copy of the UpdateMessage with a maximum data size for each
+    * stream's data.
+    */
+  def takeData(maxDataSize: Int): UpdateMessage = {
+    val smallerData = message.data.map { data => data.take(maxDataSize)}
+    val sizeLimitedUpdate = message.copy(data = smallerData)
+    this.copy(message = sizeLimitedUpdate)
+  }
+}
 
 /** Limit the flow of data over a stream temporarily.  Sent from client to Server */
 case class StreamControl(streamId: Long, maxItems: Long)
@@ -84,7 +97,7 @@ case class CustomSelector(selector: String, selectorParameters: JsObject)
 case class RangeInterval[T](
   start: Option[T] = None,
   until: Option[T] = None,
-  limit: Option[Int] = None)
+  limit: Option[Long] = None)
 
 /** transformParameters for SummaryTransforms */
 case class SummaryParameters[T](
@@ -94,8 +107,10 @@ case class SummaryParameters[T](
 /** transformParameters for the RawTransform */
 case class RawParameters[T](ranges: Option[Seq[RangeInterval[T]]] = None)
 
+sealed trait ServerResponse
 /** Start some data streams.  Sent from server to client */
-case class Streams(streams: Array[Stream])
+case class Streams(streams: Seq[Stream]) extends ServerResponse
+case class Update(streamId:Long, data: Option[Seq[JsArray]], end: Option[Boolean]) extends ServerResponse
 
 /** Description of the head of a data stream.  Sent from server to client as part of a Streams message.  */
 case class Stream(streamId: Long, metadata: Option[JsValue], streamType: JsonStreamType,

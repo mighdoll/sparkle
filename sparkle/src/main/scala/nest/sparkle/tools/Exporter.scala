@@ -5,22 +5,17 @@ import java.nio.file.{ Paths, Files }
 import java.nio.file.StandardOpenOption._
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
-
 import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.concurrent.duration._
-
 import org.clapper.argot._
 import org.clapper.argot.ArgotConverters._
-
 import com.typesafe.config.{ Config, ConfigFactory }
-
 import spray.util._
-
 import rx.lang.scala.Observable
-
 import nest.sparkle.store.{ Store, DataSet, Column }
 import nest.sparkle.util.{ ArgotApp, Log }
 import nest.sparkle.util.ObservableFuture._
+import nest.sparkle.store.cassandra.WriteNotification
 
 /** Main program to run Exporter.
   */
@@ -64,7 +59,8 @@ case class Exporter(config: Config)
     extends Log {
   implicit val executor = ExecutionContext.global
 
-  lazy val store = Store.instantiateStore(config.getConfig("sparkle-time-server"))
+  val notification = new WriteNotification
+  lazy val store = Store.instantiateStore(config.getConfig("sparkle-time-server"), notification)
   lazy val outputPath = {
     val output = config.getString("exporter.output")
     val path = Paths.get(output)
@@ -143,7 +139,7 @@ case class Exporter(config: Config)
 
     val promise = Promise[Unit]()
 
-    val rows = column.readRange() doOnEach { event =>
+    val rows = column.readRange().initial.doOnEach { event =>
       val line = s"${event.argument}\t${event.value}\n"
       writer.write(line, 0, line.length)
     } finallyDo { () =>

@@ -30,15 +30,17 @@ import nest.sparkle.time.server.RichComplete
 import nest.sparkle.util.Log
 import nest.sparkle.util.ObservableFuture.WrappedObservable
 import spray.routing.RequestContext
+import akka.actor.ActorSystem
 
 /** Provides the v1 sparkle data api
   */
 trait DataServiceV1 extends Directives with RichComplete with CorsDirective with Log {
+  def actorSystem:ActorSystem
   implicit def executionContext: ExecutionContext
   def store: Store
   def rootConfig: Config
 
-  val api = StreamRequestApi(store, rootConfig)
+  val api = StreamRequestApi(store, rootConfig)(actorSystem)
 
   lazy val v1protocol = {
     cors {

@@ -15,7 +15,7 @@
 define(["lib/d3", "lib/when/monitor/console", "lib/when/when", 
         "sg/data", "sg/util", "sg/zoom", "sg/resizable", "sg/linePlot", "sg/richAxis", 
         "sg/legend", "sg/timeClip", "sg/domCache"], 
-   function(_d3, _console, when, dataApi, _util, zoomBrush, resizable, linePlot, richAxis, 
+   function(_d3, _console, when, sgData, _util, zoomBrush, resizable, linePlot, richAxis, 
             legend, timeClip, domCache) {
 
 /** Draw a chart graph containing possibly multiple data series and one or two Y axes 
@@ -33,8 +33,9 @@ function chart() {
       _showLegend = true,
       _transitionTime = 500,
       _plotter = linePlot(),
-      _dataApi = dataApi,  
+      _dataApi = sgData,  
       _showXAxis = true,  
+      _transformName = "Raw",  
       _xScale = d3.time.scale.utc(),
       _timeSeries = true,  
       emptyGroups = [{label:"", series:[]}];
@@ -50,11 +51,11 @@ function chart() {
     return d3.merge(nested);
   }
 
-
   /** attach line graph dom elements and subcomponents: title, axes, line sets, 
    * etc. inside one dom container. */ 
   function bind(chartData) {
     var node = this,
+        transformName = chartData.transformName || _transformName,
         title = chartData.title || _title,
         margin = chartData.margin || _margin,
         outerSize = chartData.size || _size,
@@ -95,8 +96,29 @@ function chart() {
     selection.on("resize", resize);
 
     var redraw = function() { bind.call(node, chartData); };
+    
+    var requestUntil = domain[1] == chartData.maxDomain[1] ? 
+        undefined        // unspecified end (half bounded range) if selection is max range
+        : domain[1] + 1; // +1 to be inclusive of last element 
+    var requestDomain = [ domain[0], requestUntil ];
 
-    fetchData(dataApi, allSeries, domain, timeSeries, plotSize[0]).then(dataReady).otherwise(rethrow); 
+    allSeries.forEach(function (series) {    
+      series.transformName = series.transformName ? series.transformName : transformName;
+    });
+    var fetched = fetchData(dataApi, allSeries, requestDomain, timeSeries, plotSize[0], moreData);
+    fetched.then(dataReady).otherwise(rethrow);
+
+    function moreData(series, data) {
+      if (data.length) {
+        var lastKey = data[data.length-1][0];
+        var newEnd = Math.max(lastKey, domain[1]);
+        var newDomain = [domain[0], newEnd];
+        series.data = series.data.concat(data); // TODO overwrite existing keys not just append
+        chartData.displayDomain = newDomain;  
+        transitionRedraw();
+      }
+    }
+
     function dataReady() {
       var transition = useTransition(inheritedTransition);
       // data plot drawing area
@@ -183,7 +205,8 @@ function chart() {
       node.dispatchEvent(new CustomEvent("chartZoom", eventInfo));
     }
 
-    /** trigger our own transition and redraw. */
+    /** trigger our own transition and redraw. return the transition so
+     * that other animations can share our transition timing. */
     function transitionRedraw() {
       var transition = selection.transition()
         .duration(transitionTime);
@@ -413,37 +436,51 @@ function chart() {
 
   /** Update the .data field of each dataSeries by requesting data from the
     * server for the current time domain.
-    * calls a provided function when complete 
+    * returns a when that completes with the first set of data
+    * calls a provided function when subsequent data is available
     *
     * parameters:
+    *   dataApi - access to the sg/data module
     *   dataSeries - data descriptors array, a .data field will be added to each 
     *   domain - time range of data requested
     *   maxResults - number of data points requested from the server 
     *   timeSeries - true if the incoming data should be converted to Date objects
-    *   completeFn - called when all data has been received
+    *   moreData - called with data updates subsequent to the initial data
     */
-  function fetchData(dataApi, dataSeries, domain, timeSeries, maxResults) {
+  function fetchData(dataApi, dataSeries, domain, timeSeries, maxResults, moreData) {
     var allFetched = 
-      dataSeries.map( function(series) {
+      dataSeries.map(function(series) {
+        var fetched = when.defer();
+
         var transformParams = {
             ranges: [
               { start: domain[0],
-                until: domain[1] + 1  // +1 to be inclusive of last element 
+                until: domain[1]  
               }
             ],
             maxPartitions: maxResults
           };
 
         // LATER tranform should be adjustable per dataset..
-        var fetched = dataApi.columnRequest("SummarizeMax", transformParams, series.set, series.name);
-        fetched.then(function(data) {
+        dataApi.columnRequestSocket(series.transformName, transformParams, series.set, series.name, received);
+        function received(data) {
+          var translatedData;
           if (timeSeries) {
-            series.data = dataApi.millisToDates(data);
+            translatedData = dataApi.millisToDates(data);
           } else {
-            series.data = data;
+            translatedData = data;
           }
-        });
-        return fetched;
+
+          // update when for first set of data, call fn for subsequent updates
+          // TODO fix race: we shouldn't update stream 1 if stream2 head hasn't arrived
+          if (fetched.promise.inspect().state === "pending") {
+            series.data = translatedData;
+            fetched.resolve();
+          } else {
+            moreData(series, translatedData);
+          }
+        }
+        return fetched.promise;
       });
 
     return when.all(allFetched);
@@ -587,6 +624,12 @@ function chart() {
   returnFn.showXAxis = function(value) {
     if (!arguments.length) return _showXAxis;
     _showXAxis = value;
+    return returnFn;
+  };
+
+  returnFn.transformName = function(value) {
+    if (!arguments.length) return _transformName;
+    _transformName = value;
     return returnFn;
   };
 

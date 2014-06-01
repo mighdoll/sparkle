@@ -15,7 +15,6 @@
 package nest.sparkle.time.protocol
 
 import scala.concurrent.duration._
-
 import org.scalatest.Suite
 import spray.testkit.ScalatestRouteTest
 import nest.sparkle.time.server.DataService
@@ -31,13 +30,14 @@ import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat }
 import org.scalatest.Matchers
 import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
+import nest.sparkle.util.InitializeReflection
+import spray.routing.RoutingSettings
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig with Matchers {
   self: Suite =>
-    // uncomment when debugging
-//  implicit lazy val routeTestTimeout = RouteTestTimeout(1.hour)
-  
+
   override lazy val corsHosts = List("*")
+  override def actorSystem = system
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   def executionContext = system.dispatcher
 
@@ -47,8 +47,9 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   // TODO legacy, delete soon
   def registry: DataRegistry = ???
 
-  
-  def v1Request[T](message:StreamRequestMessage)(fn: Seq[Event[Long,Double]]=> T):T = {
+  def v1Request[T](message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => T): T = {
+    // uncomment when debugging
+    implicit val timeout: RouteTestTimeout = { println("setting timeout to 1 hour"); RouteTestTimeout(1.hour) }
     Post("/v1/data", message) ~> v1protocol ~> check {
       val events = TestDataService.streamDataEvents(response)
       fn(events)
@@ -57,9 +58,8 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 
 }
 
-
 object TestDataService {
-  
+
   /** return the data array portion from a Streams response as a stream of Event objects */
   def streamDataEvents(response: HttpResponse): Seq[Event[Long, Double]] = {
     val data = streamData(response)
@@ -67,11 +67,11 @@ object TestDataService {
       datum.convertTo[Event[Long, Double]]
     }
   }
-  
+
   /** return the data array portion from a Streams response.
-    * 
+    *
     * Expects that there will be exactly one nonempty data stream in response.
-    */  
+    */
   def streamData(response: HttpResponse): Seq[JsArray] = {
     import spray.httpx.unmarshalling._
     val streams = response.as[StreamsMessage].right.get

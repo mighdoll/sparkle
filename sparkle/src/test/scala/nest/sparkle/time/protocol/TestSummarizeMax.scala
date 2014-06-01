@@ -5,6 +5,8 @@ import spray.json.DefaultJsonProtocol._
 import nest.sparkle.store.Event
 
 class TestSummarizeMax extends TestStore with StreamRequestor with TestDataService {
+  nest.sparkle.util.InitializeReflection.init
+
   test("summarizeMax two raw events") { // note that this test just copies input to output
     val message = summaryRequest[Long]("SummarizeMax", params = SummaryParameters(maxPartitions = Some(2)))
     v1Request(message){ events =>

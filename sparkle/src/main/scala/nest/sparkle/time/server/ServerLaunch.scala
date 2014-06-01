@@ -34,6 +34,7 @@ import spray.util._
 import nest.sparkle.legacy.PreloadedRegistry
 import nest.sparkle.loader.{ FilesLoader, LoadPathDoesNotExist }
 import nest.sparkle.store.Store
+import nest.sparkle.store.cassandra.WriteNotification
 import nest.sparkle.util.{ Log, RepeatingRequest }
 import nest.sparkle.util.ConfigUtil
 import nest.sparkle.util.ConfigUtil.modifiedConfig
@@ -41,9 +42,10 @@ import nest.sparkle.util.ConfigureLogback.configureLogging
 
 protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorSystem) extends Log {
   val config = rootConfig.getConfig("sparkle-time-server")
-  val store = Store.instantiateStore(config)
+  val notification = new WriteNotification()
+  val store = Store.instantiateStore(config, notification)
   lazy val webPort = config.getInt("port")
-  lazy val writeableStore = Store.instantiateWritableStore(config)
+  lazy val writeableStore = Store.instantiateWritableStore(config, notification)
   
   def actorSystem = system
 
@@ -60,6 +62,8 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   possiblyErase()
   startFilesLoader()
   startServer(service, webPort)
+  val webSocket = new DataWebSocket(store, rootConfig)
+  
 
   /** (for desktop use) Open the web browser to the sparkle http server.
     *

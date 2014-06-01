@@ -19,6 +19,8 @@ import scala.concurrent.Future
 import rx.lang.scala.Observable
 import scala.reflect.runtime.universe._
 
+case class OngoingEvents[T,U](initial:Observable[Event[T,U]], ongoing:Observable[Event[T,U]])
+
 /** a readable column of data that supports simple range queries.  */
 trait Column[T, U] {
   /** name of this column */
@@ -30,8 +32,8 @@ trait Column[T, U] {
   /** read a slice of events from the column, inclusive of the start and end values.
    *  If start is missing, read from the first element in the column.  If end is missing
    *  read from the last element in the column.  */      // format: OFF
-  def readRange(start:Option[T] = None, end:Option[T] = None, limit:Long = Long.MaxValue)
-      (implicit execution: ExecutionContext): Observable[Event[T,U]] // format: ON
+  def readRange(start:Option[T] = None, end:Option[T] = None, limit:Option[Long] = None)
+      (implicit execution: ExecutionContext): OngoingEvents[T,U] // format: ON
 
   // LATER add authorization hook, to validate permission to read a range
 }

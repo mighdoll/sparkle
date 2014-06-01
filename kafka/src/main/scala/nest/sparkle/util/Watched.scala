@@ -45,7 +45,7 @@ trait Watched[T] extends Log {
 
 
   /** Events sent over the data stream and matching the watch's filter will
-    * be sent to the watch's Observerable report stream.  */
+    * be sent to the watch's Observable report stream.  */
   def watch(watch: Watch[T]): Unit = {
     // RX how ought this work?
     //    trampolineScheduler.schedule {inner =>

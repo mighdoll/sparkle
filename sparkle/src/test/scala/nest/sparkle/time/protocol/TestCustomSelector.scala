@@ -42,6 +42,7 @@ class TestingSelector(rootConfig: Config, store: Store) extends CustomSourceSele
 class TestCustomSelector extends TestStore with StreamRequestor with TestDataService {
   import TestingSelectorParamsFormat._
   import scala.collection.JavaConverters._
+  nest.sparkle.util.InitializeReflection.init
 
   lazy val testSelectorClassName = classOf[TestingSelector].getName
   

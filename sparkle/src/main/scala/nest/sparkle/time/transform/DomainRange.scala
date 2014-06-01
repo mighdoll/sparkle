@@ -44,7 +44,7 @@ object DomainRangeTransform extends ColumnTransform {
     implicit val keyFormat = RecoverJsonFormat.jsonFormat[T](column.keyType)
     implicit val valueFormat = RecoverJsonFormat.jsonFormat[U](column.valueType)
 
-    val dataStream = events.toSeq.map { seq =>
+    val dataStream = events.initial.toSeq.map { seq =>
       if (!seq.isEmpty) {
         val domain = seq.map{ case Event(k, v) => k }
         val range = seq.map{ case Event(k, v) => v }

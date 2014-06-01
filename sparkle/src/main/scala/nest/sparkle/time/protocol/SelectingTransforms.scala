@@ -15,25 +15,20 @@ import nest.sparkle.time.transform.StandardSummaryTransform
 import nest.sparkle.time.transform.StandardObjectTransform
 
 /** Identify the transform from a StreamRequest, including built in and custom
- *  transforms specified in the .conf file. */
+  * transforms specified in the .conf file.
+  */
 trait SelectingTransforms extends Log {
   protected def rootConfig: Config
   private lazy val customTransforms: Map[String, CustomTransform] = createCustomTransforms()
 
-  /** return the transform selected by the `transform` field in a StreamsRequest message
-   *  or TransformNotFound */
+  /** return the results of the transform selected by the `transform` field in a StreamsRequest message
+    * or TransformNotFound
+    */
   protected def selectTransform( // format: OFF
         transform: String, transformParameters: JsObject,
         futureColumns: Future[Seq[Column[_, _]]]
       ) (implicit execution: ExecutionContext): Future[Seq[JsonDataStream]] = { // format: ON
 
-    /** match a custom transform by name */
-    object MatchCustom {
-      def unapply(transform:String):Option[CustomTransform] = {
-        customTransforms.get(transform)
-      }
-    }
-    
     val futureStreams = transform match {
       case StandardSummaryTransform(columnTransform) =>
         runTransform(futureColumns, columnTransform, transformParameters)
@@ -41,8 +36,8 @@ trait SelectingTransforms extends Log {
         runTransform(futureColumns, columnTransform, transformParameters)
       case RawTransform(columnTransform) =>
         runTransform(futureColumns, columnTransform, transformParameters)
-      case MatchCustom(customTransform) =>
-        runTransform(futureColumns, customTransform, transformParameters)        
+      case MatchCustomName(customTransform) =>
+        runTransform(futureColumns, customTransform, transformParameters)
       case _ => Future.failed(TransformNotFound(transform))
     }
 
@@ -58,6 +53,13 @@ trait SelectingTransforms extends Log {
       val transform: CustomTransform = Instance.byName(className)(rootConfig)
       (transform.name, transform)
     }.toMap
+  }
+
+  /** match a custom transform by name */
+  private object MatchCustomName {
+    def unapply(transform: String): Option[CustomTransform] = {
+      customTransforms.get(transform)
+    }
   }
 
 }

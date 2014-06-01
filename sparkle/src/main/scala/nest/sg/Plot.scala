@@ -11,6 +11,7 @@ import scala.reflect.runtime.universe._
 import spray.json.JsObject
 import scala.concurrent.Future
 import nest.sparkle.util.OptionConversion.OptionFuture
+import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.Log
 import spray.json.DefaultJsonProtocol
 import nest.sparkle.util.RandomUtil
@@ -18,6 +19,7 @@ import nest.sparkle.util.Opt
 import spray.json._
 import PlotParametersJson._
 import nest.sparkle.store.cassandra.CanSerialize
+import rx.lang.scala.Observable
 
 case class PlotParameterError(msg: String) extends RuntimeException
 
@@ -32,23 +34,20 @@ object Plot extends ConsoleServer with Log {
 
   var launched = false
   def plot[T: TypeTag](iterable: Iterable[T], name: String = nowString(), dashboard: String = "",
-                       title: Opt[String] = None, units: Opt[String] = None) {
+    title: Opt[String] = None, units: Opt[String] = None) {
 
     val events = iterable.zipWithIndex.map { case (value, index) => Event(index.toLong, value) }
     plotEvents(events, name, dashboard, title, units, false)
   }
-  
-  def plotEvents[T: TypeTag, U:TypeTag](events: Iterable[Event[T,U]], name: String = nowString(), dashboard: String = "",
-                       title: Opt[String] = None, units: Opt[String] = None, timeSeries:Boolean = true) {
+
+  def plotEvents[T: TypeTag, U: TypeTag](events: Iterable[Event[T, U]], name: String = nowString(), dashboard: String = "",
+    title: Opt[String] = None, units: Opt[String] = None, timeSeries: Boolean = true) {
     val stored =
       for {
         a <- storeEvents(events, name)
         b <- storeParameters(name, title, units, timeSeries)
       } yield {
-        if (!launched) {
-          launched = true
-          server.launchDesktopBrowser(dashboard + s"?sessionId=$sessionId")
-        }
+        launchBrowser(dashboard)
       }
 
     stored.failed.foreach{ failure =>
@@ -56,6 +55,59 @@ object Plot extends ConsoleServer with Log {
     }
   }
 
+  def plotStream[T: TypeTag](observable: Observable[T], name: String = nowString(), dashboard: String = "",
+    title: Opt[String] = None, units: Opt[String] = None) {
+
+    val events = observable.timestamp.map { case (time, value) => Event(time, value) }
+    plotEventStream(events, name, dashboard, title, units, false)
+    println(s"http://localhost:2323?sessionId=$sessionId")
+  }
+
+  def launchBrowser(dashboard: String) {
+    if (!launched) {
+      launched = true
+      server.launchDesktopBrowser(dashboard + s"?sessionId=$sessionId")
+    }
+  }
+
+  def plotEventStream[T: TypeTag, U: TypeTag](events: Observable[Event[T, U]], name: String = nowString(), dashboard: String = "",
+    title: Opt[String] = None, units: Opt[String] = None, timeSeries: Boolean = true) {
+    val storing = storeEventStream(events, name)
+    for {
+      _ <- storing.head.toFutureSeq
+      _ <- storeParameters(name, title, units, timeSeries)
+    } {
+      storing.subscribe() // pull the remainder of the events into storage
+      launchBrowser(dashboard)
+    }
+  }
+
+  def storeEventStream[T: TypeTag, U: TypeTag](events: Observable[Event[T, U]], name: String = nowString()): Observable[Unit] = {
+    val optSerializers =
+      for {
+        serializeKey <- RecoverCanSerialize.optCanSerialize[T](typeTag[T])
+        serializeValue <- RecoverCanSerialize.optCanSerialize[U](typeTag[U])
+      } yield {
+        (serializeKey, serializeValue)
+      }
+
+    val obsSerializers = Observable.from(optSerializers)
+    obsSerializers.flatMap {
+      case (serializeKey, serializeValue) =>
+        val columnPath = nameToPath(name)
+        val futureColumn = store.writeableColumn[T, U](columnPath)(serializeKey, serializeValue).toObservable
+        val columnWritten: Observable[Unit] =
+          for {
+            column <- futureColumn
+            event <- events
+            written <- column.write(List(event)).toObservable
+          } yield {
+            log.trace(s"wrote $event to column: $columnPath")
+            written
+          }
+        columnWritten
+    }
+  }
 
   def storeEvents[T: TypeTag, U: TypeTag](events: Iterable[Event[T, U]], name: String = nowString()): Future[Unit] = {
     val optSerializers =
@@ -76,7 +128,7 @@ object Plot extends ConsoleServer with Log {
             column <- futureColumn
             written <- column.write(events)
           } yield {
-            println(s"wrote ${events.size} items to column: $columnPath")
+            log.debug(s"wrote ${events.size} items to column: $columnPath")
             written
           }
         columnWritten
@@ -96,7 +148,7 @@ object Plot extends ConsoleServer with Log {
   private val plotParametersPath = "_plotParameters"
 
   private def storeParameters(name: String, title: Option[String], unitsLabel: Option[String],
-      timeSeries:Boolean): Future[Unit] = {
+    timeSeries: Boolean): Future[Unit] = {
     val parametersColumnPath = s"plot/$sessionId/$plotParametersPath"
     val source = PlotSource(nameToPath(name), name)
     val timeSeriesOpt = if (timeSeries) Some(true) else None
