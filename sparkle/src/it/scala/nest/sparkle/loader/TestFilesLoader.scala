@@ -60,7 +60,7 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
         
         val column = testDb.column[Long, Double](columnPath).await
         val read = column.readRange(None, None)
-        val results = read.toBlockingObservable.toList
+        val results = read.initial.toBlocking.toList
         results.length shouldBe 2751
       }
     }

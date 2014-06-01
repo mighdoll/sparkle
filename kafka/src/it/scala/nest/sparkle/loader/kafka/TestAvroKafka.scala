@@ -34,7 +34,7 @@ class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with Kafk
           testTopic.writer.write(records)
           withTestReader(testTopic){ reader =>
             val stream = reader.stream()
-            val results = stream.take(records.length).toBlockingObservable.toList
+            val results = stream.take(records.length).toBlocking.toList
             results.length shouldBe records.length
             records zip results foreach {
               case (record, result) =>

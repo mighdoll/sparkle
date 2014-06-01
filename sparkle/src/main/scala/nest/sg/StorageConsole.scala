@@ -12,6 +12,7 @@ import scala.util.Failure
 import rx.lang.scala.Observable
 import scala.concurrent.ExecutionContext
 import nest.sparkle.store.Store
+import nest.sparkle.store.cassandra.CassandraStoreReader
 
 /** a console for making queries to the store from the scala console */
 object StorageConsole extends ConsoleServer with StorageConsoleAPI with Log {
@@ -50,7 +51,7 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
 
           val futureEvents = futureColumns.flatMap { columns =>
             val seqFutureEvents = columns.map { column =>
-              column.readRange(None, None).toFutureSeq
+              column.readRange(None, None).initial.toFutureSeq
             }
 
             Future.sequence(seqFutureEvents)
@@ -77,7 +78,7 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
     val futureEvents =
       for {
         column <- store.column[Long, Double](columnPath)
-        events <- column.readRange(None, None).toFutureSeq
+        events <- column.readRange(None, None).initial.toFutureSeq
       } yield {
         events
       }
@@ -94,7 +95,7 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
   /** return an observable of _all_ columns in the store */
   def allColumns(): Observable[String] = {
     store match {
-      case cassandraStore: CassandraStore =>
+      case cassandraStore: CassandraStoreReader =>
         cassandraStore.columnCatalog.allColumns()
     }
   }

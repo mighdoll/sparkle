@@ -33,6 +33,8 @@ object ResponseJson extends DefaultJsonProtocol {
   implicit val StreamsMessageFormat = jsonFormat5(StreamsMessage)
   implicit val StatusFormat = jsonFormat2(Status)
   implicit val StatusMessageFormat = jsonFormat5(StatusMessage)
+  implicit val UpdateFormat = jsonFormat3(Update)
+  implicit val UpdateMessageFormat = jsonFormat5(UpdateMessage)
 }
 
 /** spray json converters for request messages */

@@ -32,7 +32,7 @@ class TestObservableFuture extends FunSuite with Matchers {
     val failed = Future.failed(MyException())
     val observable = failed.toObservable
 
-    val tried = Try {observable.toBlockingObservable.single}
+    val tried = Try {observable.toBlocking.single}
     tried match {
       case Failure(MyException()) =>
       case x => fail(s"expected a failure with MyException, got: $x")
@@ -43,7 +43,7 @@ class TestObservableFuture extends FunSuite with Matchers {
     val success = Future.successful("foo")
     val observable = success.toObservable
 
-    observable.toBlockingObservable.single shouldBe "foo"
+    observable.toBlocking.single shouldBe "foo"
   }
 
 

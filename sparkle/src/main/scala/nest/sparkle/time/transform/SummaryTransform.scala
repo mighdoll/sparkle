@@ -137,13 +137,15 @@ trait SummaryTransform extends ColumnTransform {
       val optResults =
         RecoverNumeric.optNumeric[T](column.keyType) map { implicit numeric =>
           eventsIntervals.map { case IntervalAndEvents(intervalOpt, events) =>
-            summarizeOneNumericInterval(events, params.maxPartitions.get, intervalOpt, summarizePartition)
+            summarizeOneNumericInterval(events.initial, params.maxPartitions.get, intervalOpt, summarizePartition)
           }
         }
       optResults.map { results =>
         results.reduce{ (a, b) => a ++ b }
       }
     }
+
+    // TODO summarize ongoing event data as well
     
     numericResults.getOrElse {
         //          partitionEventsByCount(events, partitions) // TODO fix me

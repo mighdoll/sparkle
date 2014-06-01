@@ -28,12 +28,16 @@ case class ConfigurationError(msg: String) extends RuntimeException
   */
 class ConfiguredDataServer(val registry: DataRegistry, val store: Store, val rootConfig: Config) // format: OFF
     extends Actor with ConfiguredDataService { // format: ON
-  def actorRefFactory: ActorRefFactory = context
+  override def actorRefFactory: ActorRefFactory = context
+  override def actorSystem = context.system
   def receive: Receive = runRoute(route)
   def executionContext: ExecutionContextExecutor = context.dispatcher
 
-  override lazy val webRoot: Option[FileOrResourceLocation] = {
-
+  override lazy val webRoot: Option[FileOrResourceLocation] = configuredWebRoot()
+  
+  /** Return the configured web-root from the configured settings for web-root.directory and
+   *  web-root.resource */
+  private def configuredWebRoot():Option[FileOrResourceLocation] = {
     def oneConfiguredString(configPath: String): Option[String] = {
       val list = rootConfig.getStringList(s"sparkle-time-server.$configPath").asScala
       if (list.size > 1) {
@@ -52,5 +56,6 @@ class ConfiguredDataServer(val registry: DataRegistry, val store: Store, val roo
       case (None, file@Some(_))      => file
       case (None, None)              => None
     }
+  
   }
 }

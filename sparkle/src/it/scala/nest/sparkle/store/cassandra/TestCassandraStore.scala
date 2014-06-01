@@ -38,7 +38,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
   override def testKeySpace = "testcassandrastore"
 
-  def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStore) // format: OFF
+  def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStoreWriter) // format: OFF
       (fn: (WriteableColumn[T,U], String) => Unit): Unit = { // format: ON
     val testColumn = s"latency.p99.${randomAlphaNum(3)}"
     val testId = "server1"
@@ -97,7 +97,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
         val readColumn = store.column[T, U](testColumnPath).await
         val read = readColumn.readRange(None, None)
-        val results = read.toBlockingObservable.single
+        val results = read.initial.toBlocking.single
         results shouldBe event
       }
     }
@@ -128,7 +128,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
           writeColumn.write(events).await
           val read = readColumn.readRange(None, None)
-          val results = read.toBlockingObservable.toList
+          val results = read.initial.toBlocking.toList
           results.length shouldBe rowCount
           results.zipWithIndex.foreach {
             case (item, index) =>
@@ -152,7 +152,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
       paths.dropRight(1).sliding(2).foreach {
         case Array(parent, child) =>
           val root = store.dataSet(parent).await
-          val childDataSets = root.childDataSets.toBlockingObservable.toList
+          val childDataSets = root.childDataSets.toBlocking.toList
           childDataSets.length shouldBe 1
           childDataSets(0).name shouldBe child
       }
@@ -161,7 +161,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
       paths.takeRight(2).sliding(2).foreach {
         case Array(parent, child) =>
           val root = store.dataSet(parent).await
-          val columns = root.childColumns.toBlockingObservable.toList
+          val columns = root.childColumns.toBlocking.toList
           columns.length shouldBe 1
           columns(0) shouldBe child
       }
@@ -188,7 +188,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
       paths1.dropRight(1).sliding(2).foreach {
         case Array(parent, child) =>
           val root = store.dataSet(parent).await
-          val childDataSets = root.childDataSets.toBlockingObservable.toList
+          val childDataSets = root.childDataSets.toBlocking.toList
           childDataSets.length shouldBe 1
           childDataSets(0).name shouldBe child
       }
@@ -196,7 +196,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
       // The last dataset path should have two children that are columns
       paths1.takeRight(2).dropRight(1).foreach { parent =>
         val root = store.dataSet(parent).await
-        val columns = root.childColumns.toBlockingObservable.toList
+        val columns = root.childColumns.toBlocking.toList
         columns.length shouldBe 2
         // Note that writeColumn1 should sort *after* writeColumn2.
         columns(0) shouldBe paths2.last
@@ -223,7 +223,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
       // "a/b" should have two children, "a/b/c1" and "a/b/c2"
       val root = store.dataSet("a/b").await
-      val childDataSets = root.childDataSets.toBlockingObservable.toList
+      val childDataSets = root.childDataSets.toBlocking.toList
       childDataSets.length shouldBe 2
       childDataSets(0).name shouldBe "a/b/c1"
       childDataSets(1).name shouldBe "a/b/c2"
@@ -231,7 +231,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
       // Ensure c level datasets have one child column
       Array("a/b/c1", "a/b/c2").foreach { parent =>
         val root = store.dataSet(parent).await
-        val columns = root.childColumns.toBlockingObservable.toList
+        val columns = root.childColumns.toBlocking.toList
         columns.length shouldBe 1
         columns(0) shouldBe (parent + "/" + parts1.last)
       }

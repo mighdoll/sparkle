@@ -25,19 +25,20 @@ class DoublingTransform(rootConfig: Config) extends CustomTransform {
     implicit val keyFormat = RecoverJsonFormat.jsonFormat[T](column.keyType)
     implicit val valueFormat = RecoverJsonFormat.jsonFormat[U](column.valueType)
 
-    val doubled = events.map {
+    val doubled = events.initial.map {
       case Event(key, value: Double) =>
         val double = (value * 2).asInstanceOf[U]
         Event(key, double)
     }
     JsonDataStream(
-      dataStream = JsonEventWriter.fromObservable(doubled),
+      dataStream = JsonEventWriter.fromObservableSingle(doubled),
       streamType = KeyValueType
     )
 
   }
 }
 class TestCustomTransform extends TestStore with StreamRequestor with TestDataService {
+  nest.sparkle.util.InitializeReflection.init
   lazy val transformClassName = classOf[DoublingTransform].getCanonicalName
   override def configOverrides = {
     val transforms = Seq(s"$transformClassName").asJava

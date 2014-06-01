@@ -23,7 +23,7 @@ class TestKafkaSlowResponse extends FunSuite with Matchers with KafkaTestConfig 
       
       val stream = kafka.reader.stream()
       val committing = stream.doOnEach{ _ => kafka.reader.commit() }
-      val result = committing.take(3).toBlockingObservable.toList
+      val result = committing.take(3).toBlocking.toList
       result shouldBe Seq("0", "1", "2")
     }
   }

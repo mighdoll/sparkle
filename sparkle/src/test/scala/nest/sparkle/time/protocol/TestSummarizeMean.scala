@@ -7,6 +7,7 @@ import spire.math._
 import spire.implicits._
 
 class TestSummarizeMean extends TestStore with StreamRequestor with TestDataService {
+  nest.sparkle.util.InitializeReflection.init
 
   def mean[T: Numeric, U: Numeric](events: Events[T, U]): Event[T, U] = {
     val keys = events.map { case Event(k, v) => k }

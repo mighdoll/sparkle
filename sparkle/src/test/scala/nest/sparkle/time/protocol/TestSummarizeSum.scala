@@ -3,6 +3,8 @@ import spray.json.DefaultJsonProtocol._
 import nest.sparkle.store.Event
 
 class TestSummarizeSum extends TestStore with StreamRequestor with TestDataService {
+  nest.sparkle.util.InitializeReflection.init
+  
   test("summarizeSum simple set to one") {
     val message = summaryRequestOne[Long]("SummarizeSum", selector = SelectString(simpleColumnPath))
 

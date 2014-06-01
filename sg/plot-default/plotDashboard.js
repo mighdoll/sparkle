@@ -2,13 +2,18 @@ require( ["lib/when/when", "lib/d3", "sg/dashboard", "sg/sideAxis",
           "sg/palette", "sg/scatter", "sg/data", "sg/util" ], 
            function(when, _d3, dashboard, sideAxis, palette, scatter, data, util) {
 
-  var mohsBoard = dashboard().size([800, 400]); 
+  var mohsBoard = dashboard().size([500, 300]); 
 
-  function fetchParameters() {
+  function fetchParameters(paramsFn) {
     function received(data) {
-      var last = data.length - 1;
-      var plotParameters = data[last][1]; // take the last parameters we received
-      return plotParameters;
+      if (data.length != 0) {
+        var last = data.length - 1;
+        var plotParameters = data[last][1]; // take the last parameters we received
+        paramsFn(plotParameters);
+      } else {
+        // TODO - why are these being sent?
+        // console.log("plotDashboard.parameters: ignoring empty data array");
+      }
     }
 
     var parameters = urlParameters(location.search);
@@ -16,12 +21,9 @@ require( ["lib/when/when", "lib/d3", "sg/dashboard", "sg/sideAxis",
     if (!sessionId) console.error("sessionId not found");
     
     var farFuture = (new Date()).getTime * 2;
-    var columnPath = "plot/" + sessionId + "/_plotParameters";
-    var paramsWhen = data.streamRequest("raw", {until: farFuture, limit: 1}, [columnPath]);
-
-    return paramsWhen.then(received).otherwise(rethrow);
+    data.columnRequestSocket("raw", {until: farFuture, limit: 1}, 
+        "plot/" + sessionId, "_plotParameters", received);
   }
-
 
 
   function drawChart(plotParameters) {
@@ -51,6 +53,6 @@ require( ["lib/when/when", "lib/d3", "sg/dashboard", "sg/sideAxis",
     mohsBoard(update);
   }
 
-  fetchParameters().then(drawChart);
+  fetchParameters(drawChart);
 
 });

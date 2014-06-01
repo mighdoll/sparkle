@@ -4,6 +4,7 @@ import spray.json.DefaultJsonProtocol._
 import nest.sparkle.time.protocol.TransformParametersJson.RawParametersFormat
 
 class TestRawTransform extends TestStore with StreamRequestor with TestDataService {
+  nest.sparkle.util.InitializeReflection.init
 
   test("Raw transform two raw events") {
     val message = streamRequest("Raw", params = RawParameters[Long]())

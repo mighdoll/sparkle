@@ -4,6 +4,7 @@ import scala.collection.mutable
 import nest.sparkle.store.Event
 
 class TestSummarizeRandom extends TestStore with StreamRequestor with TestDataService {
+  nest.sparkle.util.InitializeReflection.init
   test("summarize random simple data set") {
     val message = summaryRequestOne[Long]("SummarizeRandom", selector = SelectString(simpleColumnPath))
 

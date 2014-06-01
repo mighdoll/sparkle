@@ -19,7 +19,7 @@ object Dependencies {
     val scalaTest = "2.1.0"
     val akka = "2.3.0"
     val spray = "1.3.1"
-    val rxJava = "0.17.6"
+    val rxJava = "0.19.0"
   }
 
   // Spray + Akka
@@ -53,6 +53,9 @@ object Dependencies {
                                   exclude("com.sun.jmx", "jmxri")
                                   exclude("org.slf4j", "slf4j-simple")
                               )
+
+  val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.0" 
+  val nettyAll              = "io.netty"                  % "netty-all"               % "4.0.19.Final" 
 
   object Runtime {
     val logback              = "ch.qos.logback"            % "logback-classic"         % "1.0.9"

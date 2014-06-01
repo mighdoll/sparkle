@@ -14,7 +14,7 @@
 
 define(["lib/d3", "sg/domCache"], function(_d3, domCache) {
 
-/** Add an svg clipping rectangle to a selection.   If called within a transition, animate the 
+/** Add an svg clipping rectangle to a selection. If called within a transition, animate the 
   * clip rectangle to the it's new size. */
 return function(selection, id, size, spot, domain, xScale) {
   var transition = d3.transition(selection),

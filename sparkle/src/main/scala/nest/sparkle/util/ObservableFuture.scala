@@ -24,11 +24,11 @@ import scala.util.Failure
 /** convert a scala Future to an Observable and back */
 object ObservableFuture {
 
-  implicit class WrappedFuture[T](val futureValue: Future[T]) {
+  implicit class WrappedFuture[T](val future: Future[T]) {
 
     /** return an observable that will return a single value when the future completes */
     def toObservable(implicit executionContext: ExecutionContext): Observable[T] =
-      Observable.from(futureValue)(executionContext)
+      Observable.from(future)(executionContext)
   }
 
   implicit class WrappedObservable[T](val observable: Observable[T]) {

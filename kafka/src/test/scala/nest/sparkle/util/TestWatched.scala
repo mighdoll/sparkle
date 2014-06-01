@@ -40,8 +40,8 @@ class TestWatched extends FunSuite with Matchers {
 
   test("get all items") {
     withTestSubscription() { watch =>
-      watch.report.toBlockingObservable.toList shouldBe List(1, 2, 3)
-      watch.fullReport.toBlockingObservable.toList shouldBe List(WatchStarted(), WatchData(1), WatchData(2), WatchData(3))
+      watch.report.toBlocking.toList shouldBe List(1, 2, 3)
+      watch.fullReport.toBlocking.toList shouldBe List(WatchStarted(), WatchData(1), WatchData(2), WatchData(3))
     }
   }
 
@@ -49,8 +49,8 @@ class TestWatched extends FunSuite with Matchers {
     def filter(a: Int): Boolean = { a == 2 }
 
     withTestSubscription(Some(filter _)) { watch =>
-      watch.report.toBlockingObservable.toList shouldBe List(2)
-      watch.fullReport.toBlockingObservable.toList shouldBe List(WatchStarted(), WatchData(2))
+      watch.report.toBlocking.toList shouldBe List(2)
+      watch.fullReport.toBlocking.toList shouldBe List(WatchStarted(), WatchData(2))
     }
   }
 
@@ -59,7 +59,7 @@ class TestWatched extends FunSuite with Matchers {
     val watch = TestWatch().copy(duration = 10.milliseconds)
     watchable.watch(watch)
     watchable.items.delay(11.milliseconds).subscribe(watchable.publicData)
-    watch.fullReport.toBlockingObservable.toList shouldBe List(WatchStarted())
+    watch.fullReport.toBlocking.toList shouldBe List(WatchStarted())
   }
 
   test("subscriptions can be cancelled") {
@@ -70,7 +70,7 @@ class TestWatched extends FunSuite with Matchers {
     watch.subscription.unsubscribe()
 
     watchable.start()
-    watch.fullReport.toBlockingObservable.toList shouldBe List(WatchStarted())
+    watch.fullReport.toBlocking.toList shouldBe List(WatchStarted())
   }
 
   test("example") {

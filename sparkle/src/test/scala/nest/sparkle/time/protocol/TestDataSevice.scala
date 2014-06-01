@@ -15,7 +15,6 @@
 package nest.sparkle.time.protocol
 
 import scala.concurrent.duration._
-
 import org.scalatest.Suite
 import spray.testkit.ScalatestRouteTest
 import nest.sparkle.time.server.DataService
@@ -31,6 +30,7 @@ import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat }
 import org.scalatest.Matchers
 import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
+import nest.sparkle.util.InitializeReflection
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig with Matchers {
   self: Suite =>
@@ -38,6 +38,7 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 //  implicit lazy val routeTestTimeout = RouteTestTimeout(1.hour)
   
   override lazy val corsHosts = List("*")
+  override def actorSystem = system
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   def executionContext = system.dispatcher
 

@@ -19,22 +19,34 @@ import spray.json.JsonWriter
 import spray.json._
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.store.Event
+import scala.concurrent.duration._
 
 /** returns an observable that produces one sequence of json arrays when the provided event stream completes */
 object JsonEventWriter {
-  /** returns an observable that produces one sequence of json arrays when the provided event stream completes */
-  def fromObservable[T: JsonWriter, U: JsonWriter](events: Observable[Event[T, U]]): Observable[Seq[JsArray]] = {
+  /** returns an observable that produces a one item containing a sequence of json arrays 
+   *  when the provided Event stream completes */
+  def fromObservableSingle[T: JsonWriter, U: JsonWriter](events: Observable[Event[T, U]])
+    : Observable[Seq[JsArray]] = {
 
     // LATER It would be nice to return all the available data here, but AFAICT the Observable api only gives
     // the choice of buffering by time or count, or getting all of the data.
-    events.map{ eventToJsArray(_) }.toSeq
+    events.map{ eventToJsArray(_) }.toSeq // .toSeq returns an observable with a single item
+  }
+
+  /** returns an observable that produces multiple sequences of json arrays, when new data is available
+   *  on the incoming event stream */
+  def fromObservableMulti[T: JsonWriter, U: JsonWriter](events: Observable[Event[T, U]]): Observable[Seq[JsArray]] = {
+    // TODO should pass in Observable[Seq[Event]] rather than buffer
+    val buffered = events.buffer(50.milliseconds).filter{ events => !events.isEmpty} 
+    fromObservableSeq(buffered)
   }
 
   /** return an Observable containing sequence-chunks of json data from an Observable containing sequence-chunks
-   *  of event data */
-  def fromObservableSeq[T: JsonWriter, U: JsonWriter](observed: Observable[Seq[Event[T, U]]]): Observable[Seq[JsArray]] = {    
+    * of event data
+    */
+  def fromObservableSeq[T: JsonWriter, U: JsonWriter](observed: Observable[Seq[Event[T, U]]]): Observable[Seq[JsArray]] = {
     observed.map { eventSeq =>
-      eventSeq map { event => 
+      eventSeq map { event =>
         eventToJsArray(event)
       }
     }

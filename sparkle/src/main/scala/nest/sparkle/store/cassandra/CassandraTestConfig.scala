@@ -36,11 +36,12 @@ trait CassandraTestConfig extends SparkleTestConfig {
   }
 
   /** recreate the database and a test column */
-  def withTestDb[T](fn: CassandraStore => T): T = {
+  def withTestDb[T](fn: CassandraReaderWriter => T): T = {
     val storeConfig = sparkleConfig.getConfig("sparkle-store-cassandra")
     val testContactHosts = storeConfig.getStringList("contact-hosts").asScala.toSeq
     CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
-    val store = CassandraStore(sparkleConfig)
+    val notification = new WriteNotification
+    val store = CassandraStore.readerWriter(sparkleConfig, notification)
 
     try {
       fn (store)

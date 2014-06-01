@@ -23,7 +23,6 @@ import com.typesafe.config.ConfigValue
 import com.typesafe.config.ConfigValueFactory
 import scala.collection.JavaConverters._
 import nest.sparkle.util.ConfigUtil.modifiedConfig
-import nest.sparkle.store.cassandra.ConfiguredCassandra
 import nest.sparkle.util.Watch
 import nest.sparkle.util.PublishSubject
 import rx.lang.scala.Observer
@@ -36,6 +35,7 @@ import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.store.cassandra.CassandraStore
 import nest.sparkle.store.cassandra.CassandraTestConfig
 import nest.sparkle.util.ConfigureLog4j
+import nest.sparkle.store.cassandra.CassandraReaderWriter
 
 class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
     with CassandraTestConfig with Log {
@@ -89,11 +89,11 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
     }
 
     /** verify that the correct data is in cassandra */
-    def checkCassandra(testStore:CassandraStore, generatedRecords: List[GeneratedRecord[Long, Double]]) {
+    def checkCassandra(testStore:CassandraReaderWriter, generatedRecords: List[GeneratedRecord[Long, Double]]) {
       // verify matching data in cassandra
       generatedRecords.foreach { generated =>
         val column = testStore.column[Long, Double](expectedPath(generated.id)).await
-        val results = column.readRange(None, None).toBlockingObservable.toList
+        val results = column.readRange(None, None).initial.toBlocking.toList
         generated.events.size shouldBe results.length
         generated.events zip results map {
           case ((time, value), event) =>

@@ -33,6 +33,8 @@ import org.slf4j.LoggerFactory
 import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.Executors
+import akka.event.EventStream
+import com.datastax.driver.core.ResultSet
 
 object SparseColumnWriter extends PrepareTableOperations {
   case class InsertOne(override val tableName: String) extends TableOperation
@@ -47,10 +49,10 @@ object SparseColumnWriter extends PrepareTableOperations {
 
   /** constructor to create a SparseColumnWriter */
   def instance[T: CanSerialize, U: CanSerialize](dataSetName: String, columnName: String, // format: OFF
-      catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog)
+      catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog, writeNotifier:WriteNotifier)
       (implicit session: Session, execution:ExecutionContext):Future[SparseColumnWriter[T,U]] = { // format: ON
 
-    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog)
+    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier)
     writer.updateCatalog().map { _ => writer }
   }
 
@@ -103,7 +105,8 @@ object SparseColumnWriter extends PrepareTableOperations {
   */
 protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
     val dataSetName: String, val columnName: String,
-    catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog)(implicit session: Session)
+    catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog, 
+    writeNotifier:WriteNotifier)(implicit session: Session)
   extends WriteableColumn[T, U] with ColumnSupport with Log { // format: ON
 
   val serialInfo = serializationInfo[T, U]()
@@ -131,7 +134,14 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
     val events = items.toSeq
     log.trace(s"write() to $tableName $columnPath  events: $events ")
-    writeMany(events)
+    val written = writeMany(events)
+    written.map { _ =>
+      items.headOption.foreach { head =>
+        val start = head.argument
+        val end = items.last.argument
+        writeNotifier.notify(columnPath, ColumnUpdate(start, end))
+      }
+    }
   }
 
   /** delete all the column values in the column */
@@ -140,12 +150,12 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     session.executeAsync(deleteAll).toFuture.map { _ => () }
   }
 
-  private val matchBatchSize = 50000 // cql driver has a match batch size of 64K
-
+  private val batchSize = 25000 // CQL driver has a match batch size of 64K
+  
   /** write a bunch of column values in a batch */ // format: OFF
   private def writeMany(events:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
-    val batches = events.grouped(matchBatchSize).map { eventGroup =>
+    val batches = events.grouped(batchSize).map { eventGroup =>
       val insertGroup = eventGroup.map { event =>
         val (argument, value) = serializeEvent(event)
         statement(InsertOne(tableName)).bind(
@@ -156,10 +166,22 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       val batch = new BatchStatement()
       batch.addAll(insertGroup.toSeq.asJava)
 
-      session.executeAsync(batch).toFuture
+      batch
     }
 
-    Future.sequence(batches).map { _ => }
+    val resultsIterator =
+      batches.map { batch =>
+        val result = session.executeAsync(batch).toFuture
+        val resultUnit = result.map { _ => }
+        resultUnit
+      }
+    
+    val allDone: Future[Unit] =
+      resultsIterator.fold(Future.successful()) { (a, b) =>
+        a.flatMap(_ => b)
+      }
+    
+    allDone
   }
 
   /** return a tuple of cassandra serializable objects for an event */

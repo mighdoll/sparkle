@@ -24,6 +24,7 @@ import spray.httpx.SprayJsonSupport._
 
 class TestV1Api extends TestStore with StreamRequestor with TestDataService {
 //  implicit val routeTestTimeout = RouteTestTimeout(1.hour)
+  nest.sparkle.util.InitializeReflection.init
 
   test("List columns for known dataset") {
     val path = s"/v1/columns/$testId"

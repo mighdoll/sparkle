@@ -39,6 +39,7 @@ class TestCors extends TestStore with StreamRequestor with TestDataService with 
     with LocalHostOrigin {
   lazy val anyHost = "*"
   override lazy val corsHosts = List(anyHost)
+  nest.sparkle.util.InitializeReflection.init
 
   def expectCorsHeaders() {
     expectHeader(`Access-Control-Allow-Origin`) { _ == localhost } // or should we return *

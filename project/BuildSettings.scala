@@ -19,6 +19,7 @@ import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseKeys
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
 import sbtassembly.Plugin.AssemblyKeys._
+import sbtassembly.Plugin._
 import spray.revolver.RevolverPlugin._
 import sbtrelease.ReleasePlugin
 import bintray.Plugin._
@@ -77,6 +78,16 @@ object BuildSettings {
         invoke(null, "ROOT")
     )
   )
+
+  lazy val sparkleAssemblySettings = assemblySettings ++ Seq(
+    defaultMergeStrategy
+  )
+
+  lazy val defaultMergeStrategy =
+    mergeStrategy in assembly <<= (mergeStrategy in assembly) { old => {
+        case "META-INF/io.netty.versions.properties" => MergeStrategy.first
+     }
+  }
 
   lazy val publishSettings =
     // bintraySettings ++ // disabled pending https://github.com/softprops/bintray-sbt/issues/18

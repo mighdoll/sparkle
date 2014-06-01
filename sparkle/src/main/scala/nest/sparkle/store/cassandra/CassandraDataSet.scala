@@ -21,7 +21,7 @@ import rx.lang.scala.Observable
 import nest.sparkle.store.DataSet
 import nest.sparkle.store.Column
 
-case class CassandraDataSet(store: CassandraStore, name: String) extends DataSet {
+case class CassandraDataSet(store: CassandraStoreReader, name: String) extends DataSet {
   implicit def execution: ExecutionContext = store.execution
 
   /** return a column in this dataset (or FileNotFound) */

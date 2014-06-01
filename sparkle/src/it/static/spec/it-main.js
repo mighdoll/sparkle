@@ -24,7 +24,7 @@ requirejs.config({
 });
 
 require(['boot'], function() {
-    require(['spec/DataApiSpec'], function() {
+    require(['spec/DataApiSpec', 'spec/webSocketSpec'], function() {
         // onload has already happened by time require executes. Run fcn boot.js setup.
         window.onload();
     });

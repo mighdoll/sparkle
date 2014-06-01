@@ -34,7 +34,6 @@ function jsonWhen(request) {
   return promise;
 }
 
-
 /** Make a POST request and returns a when.js promise */
 function jsonPost(url, json) {
   var deferred = when.defer(),

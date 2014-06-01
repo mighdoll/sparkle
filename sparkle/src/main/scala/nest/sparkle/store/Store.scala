@@ -17,6 +17,8 @@ package nest.sparkle.store
 import scala.concurrent.Future
 import com.typesafe.config.Config
 import nest.sparkle.util.Instance
+import nest.sparkle.store.cassandra.WriteListener
+import nest.sparkle.store.cassandra.WriteNotifier
 
 /** An abstraction for a datastore that holds readable columns */
 trait Store {
@@ -31,15 +33,16 @@ trait Store {
 
 object Store {
   /** return an instance of Store, based on the store class specified in the config file */
-  def instantiateStore(config: Config): Store = {
+  def instantiateStore(config: Config, writeListener:WriteListener): Store = {
     val storeClass = config.getString("store")
-    val store = Instance.byName[Store](storeClass)(config)
+    val store = Instance.byName[Store](storeClass)(config, writeListener)
     store
   }
+  
   /** return an instance of Store, based on the store class specified in the config file */
-  def instantiateWritableStore(config: Config): WriteableStore = {
+  def instantiateWritableStore(config: Config, writeNotifier:WriteNotifier): WriteableStore = {
     val storeClass = config.getString("writeable-store")
-    val store = Instance.byName[WriteableStore](storeClass)(config)
+    val store = Instance.byName[WriteableStore](storeClass)(config, writeNotifier)
     store
   }
 

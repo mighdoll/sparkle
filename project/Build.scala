@@ -29,8 +29,10 @@ object SparkleTimeBuild extends Build {
     Project(id = "sparkle-time", base = file("sparkle"))
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
+      .settings(BuildSettings.sparkleAssemblySettings: _*) 
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
       .settings(
+        resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases",
         libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ Seq(
           scalaReflect,
           rxJavaCore,
@@ -38,12 +40,16 @@ object SparkleTimeBuild extends Build {
           spire,
           nScalaTime,
           argot,
+          unfiltered,
+          nettyAll,
           openCsv
         ),
         initialCommands in console := """
           import nest.sg.Plot._
           import nest.sg.StorageConsole._
           import nest.sparkle.store.Event
+          import rx.lang.scala.Observable
+          import scala.concurrent.duration._
           """
       )
 
