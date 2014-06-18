@@ -2,7 +2,7 @@ require( ["lib/when/when", "lib/d3", "sg/dashboard", "sg/sideAxis",
           "sg/palette", "sg/scatter", "sg/data", "sg/util" ], 
            function(when, _d3, dashboard, sideAxis, palette, scatter, data, util) {
 
-  var mohsBoard = dashboard().size([500, 300]); 
+  var mohsBoard = dashboard().size([700, 300]); 
 
   function fetchParameters(paramsFn) {
     function received(data) {

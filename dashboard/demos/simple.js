@@ -11,7 +11,7 @@ require( ["sg/dashboard", "sg/sideAxis"],
     } ]
   };
 
-  var simpleBoard = dashboard().size([800, 300]), 
+  var simpleBoard = dashboard().size([700, 300]), 
       update = d3.selectAll("body").data([{charts:[basicChart]}]);
 
   simpleBoard(update);

@@ -27,7 +27,7 @@ require( ["lib/d3", "sg/dashboard", "sg/sideAxis", "sg/palette", "sg/linePlot" ]
     ]
   };
 
-  var mohsBoard = dashboard().size([800, 300]), 
+  var mohsBoard = dashboard().size([700, 300]), 
       update = d3.selectAll("body").data([{charts:[multiLine]}]);
 
   mohsBoard(update);

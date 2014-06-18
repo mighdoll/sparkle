@@ -37,7 +37,7 @@ require( ["lib/d3", "sg/dashboard", "sg/sideAxis", "sg/palette", "sg/linePlot" ]
     ]
   };
 
-  var mohsBoard = dashboard().size([800, 250]).zoomTogether(true), 
+  var mohsBoard = dashboard().size([700, 220]).zoomTogether(true), 
       update = d3.selectAll("body").data([{charts:[basicChart, multiLine]}]);
 
   mohsBoard(update);
