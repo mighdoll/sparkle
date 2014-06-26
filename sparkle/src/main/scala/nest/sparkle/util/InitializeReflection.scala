@@ -4,7 +4,7 @@ import nest.sparkle.store.cassandra.RecoverCanSerialize
 
 /** workaround for reflection concurrency bug in scala 2.10.x
   * When running the unit tests, I've seen intermittent failures like:
-  *  java.lang.NoClassDefFoundError: Could not initialize class nest.sparkle.util.RecoverJsonFormat$Implicits$
+  *  java.lang.NoClassDefFoundError: Could not initialize class nest.sparkle.util.RecoverJsonFormatDollarImplicitsDollar
   * This seems to fix things.
   */
 object InitializeReflection {
