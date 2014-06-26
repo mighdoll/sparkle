@@ -49,7 +49,10 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 
   def v1Request[T](message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => T): T = {
     // uncomment when debugging
-    implicit val timeout: RouteTestTimeout = { println("setting timeout to 1 hour"); RouteTestTimeout(1.hour) }
+//    implicit val timeout: RouteTestTimeout = {
+//      println("setting timeout to 1 hour for debugging")
+//      RouteTestTimeout(1.hour)
+//    }
     Post("/v1/data", message) ~> v1protocol ~> check {
       val events = TestDataService.streamDataEvents(response)
       fn(events)

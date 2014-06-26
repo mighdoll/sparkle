@@ -32,9 +32,7 @@ trait PathWatcher {
   def watch(fn: WatchPath.Change => Unit): Future[Iterable[Path]]
   
   def close()(implicit system: ActorSystem):Unit = {
-    println("stopping")
     TypedActor(system).getActorRefFor(this) ! PoisonPill
-    println("stopped")
   }
 }
 
@@ -51,8 +49,6 @@ object WatchPath {
 
     actorProxy
   }
-  
-  
 
   /** Return matching files in a filesystem subtree (in the root directory or in any nested subdirectory) */
   def scan(root: Path, glob: String): Iterable[Path] = {

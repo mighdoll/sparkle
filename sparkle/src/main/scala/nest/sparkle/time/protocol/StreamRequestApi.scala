@@ -161,7 +161,9 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
 
     /** return a future that completes with the stream and data string together when the data string is ready */
     def streamWithFutureData[T](outputStream: JsonDataStream): Future[StreamAndData] = {
-      outputStream.dataStream.toFutureSeq.map { seqChunks =>
+      // over http, we don't want ongoing updates, just the initial data
+      val initial = outputStream.dataStream.first
+      initial.toFutureSeq.map { seqChunks =>
         StreamAndData(outputStream, seqChunks.flatten)
       }
     }
@@ -176,15 +178,14 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
 
     val futureStreamArray: Future[Array[Stream]] =
       futureStreamAndData map { seq =>
-              println("got seq")
         seq.toArray.map { data => makeStream(data, end = true) }
       }
 
-    futureStreamArray map { array => 
-              println("got array")
-              Streams(streams = array) }
+    futureStreamArray map { array =>
+      Streams(streams = array)
+    }
   }
-  
+
   /** construct a Stream object from StreamAndData */
   private def makeStream[T](streamAndData: StreamAndData, end: Boolean): Stream = {
     Stream(

@@ -28,9 +28,7 @@ object JsonEventWriter {
   def fromObservableSingle[T: JsonWriter, U: JsonWriter](events: Observable[Event[T, U]])
     : Observable[Seq[JsArray]] = {
 
-    // LATER It would be nice to return all the available data here, but AFAICT the Observable api only gives
-    // the choice of buffering by time or count, or getting all of the data.
-    events.map{ eventToJsArray(_) }.toSeq // .toSeq returns an observable with a single item
+   events.map{ eventToJsArray(_) }.toSeq // .toSeq returns an observable with a single item
   }
 
   /** returns an observable that produces multiple sequences of json arrays, when new data is available

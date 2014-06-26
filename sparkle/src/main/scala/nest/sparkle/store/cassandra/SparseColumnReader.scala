@@ -157,42 +157,6 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
     * Return an observable that never completes (except if there's an error).
     */
   private def ongoingRead()(implicit executionContext: ExecutionContext): Observable[Event[T, U]] = {
-    //    val result = Subject[Event[T, U]]
-    //    writeListener.listen(columnPath).subscribe { columnUpdate: ColumnUpdate[T] =>
-    //      println(s"ongoingRead. got listen: $columnUpdate")
-    //      //      val events = handleColumnUpdate(columnUpdate)
-    //      val events = Observable.interval(100.milliseconds).map{ _ =>
-    //        val x = Random.nextInt(20).toLong
-    //        Event(x, x).asInstanceOf[Event[T, U]]
-    //      }.take(1)
-    //      
-    //      events.subscribe { event =>
-    //        println(s"got event: $event");
-    //        result.onNext(event)
-    //      }
-    //      
-    //    }
-    //    println(s"ongoingRead.result: $result")
-    //    Thread.dumpStack()
-
-    // works
-    //    val result = Observable.interval(1.second).flatMap { _ =>
-    //      Observable.interval(500.milliseconds).take(3).map{ _ =>
-    //        val x = Random.nextInt(20).toLong
-    //        Event(x, x).asInstanceOf[Event[T, U]]
-    //      }
-    //    }
-
-    //    val result =
-    //      writeListener.listen(columnPath).flatMap { columnUpdate: ColumnUpdate[T] =>
-    //        println(s"ongoingRead. got listen: $columnUpdate")
-    //        Observable.interval(500.milliseconds).take(3).map{ _ =>
-    //          val x = Random.nextInt(20).toLong
-    //          Event(x, x).asInstanceOf[Event[T, U]]
-    //        }
-    //      }
-
-    //    result.subscribe{ x => println(s"ongoing0 $x") }
     writeListener.listen(columnPath).flatMap { columnUpdate: ColumnUpdate[T] =>
       handleColumnUpdate(columnUpdate)
     }

@@ -102,3 +102,5 @@ class WriteableRamColumn[T: TypeTag, U: TypeTag](name: String)
   }
 // SCALA TypedActor for this?
 }
+
+// TODO support notification in RamColumn, to get proper testing
