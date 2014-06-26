@@ -41,7 +41,6 @@ object SparkleTimeBuild extends Build {
           nScalaTime,
           argot,
           unfiltered,
-          nettyAll,
           openCsv
         ),
         initialCommands in console := """
