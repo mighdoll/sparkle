@@ -18,14 +18,15 @@ import scala.util.Try
 import scala.util.Success
 import java.util.zip.DataFormatException
 import nest.sparkle.util.OptionConversion._
+import nest.sparkle.util.Log
 
 /** results from attempting to parse the first line as column headers */
 case class ColumnHeaderMatch(val columnMap: Try[ColumnMap], matched: Boolean)
 
 /** map column names to column index */
-case class ColumnMap(time: Int, data: Map[String, Int])
+case class ColumnMap(key: Int, data: Map[String, Int]) // LATER support loading files w/o a key field
 
-object ColumnHeaders {
+object ColumnHeaders extends Log {
   /** Parse the first line into a column map, synthesizing a map if the first line doesn't look like a header */
   def parseColumnHeader(line: Array[String]): ColumnHeaderMatch = {
     line.headOption match {
@@ -44,14 +45,16 @@ object ColumnHeaders {
       timeColumn <- findTimeColumn(header)
       dataHeaders: Map[String, Int] = (header filter { case (_, index) => index != timeColumn }).toMap
     } yield {
-      ColumnMap(timeColumn, dataHeaders)
+      val columnMap = ColumnMap(timeColumn, dataHeaders)
+      log.info("found columns: $columnMap")
+      columnMap
     }
   }
 
   /** return a ColumnMap naming first column "time", and the other columns "1", "2", "3" */
   private def syntheticColumnHeaders(line: Array[String]): ColumnMap = {
     val dataMap = Iterator.range(1, line.tail.length).map{ index => index.toString -> index }.toMap
-    ColumnMap(time = 0, data = dataMap)
+    ColumnMap(key = 0, data = dataMap)
   }
 
   /** return true if it seems like the first field is a header.  Current heuristic: if it starts with a letter */
@@ -76,7 +79,7 @@ object ColumnHeaders {
 
   /** Find a column for timestamps */
   private def findTimeColumn(header: Map[String, Int]): Try[Int] = {
-    val optColumn = containsKey(header, "time", "Time", "startDate", "startTime") orElse
+    val optColumn = containsKey(header, "time", "Time", "epoch", "startDate", "startTime") orElse
       containsPartialKey(header, "time", "TIME", "Time", "date", "Date", "DATE")
 
     optColumn.toTryOr(new DataFormatException(s"time column not found in:  [${header.keys.mkString(", ")}]"))

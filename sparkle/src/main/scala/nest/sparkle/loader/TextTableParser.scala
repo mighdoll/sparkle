@@ -36,16 +36,13 @@ object TextTableParser {
       sorted.map { case (value, index) => value }
     }
 
-    val rowNames: Seq[String] = {
-      val withTime = ("key" -> columnMap.time) :: columnMap.data.toList
-      sortAndDiscardIndex(withTime)
-    }
+    val rowNames: Seq[String] = sortAndDiscardIndex(columnMap.data.toList)
 
     val columnTypes: Seq[TypeTag[_]] = {
       // TODO support other column value types
       // for now, assume everything's a double except the index which is a long
       val doubleTags = columnMap.data.toList map { case (name, index) => (typeTag[Double], index) }
-      val indexTag = typeTag[Long] -> columnMap.time
+      val indexTag = typeTag[Long] -> columnMap.key
       sortAndDiscardIndex(indexTag :: doubleTags)
     }
 
@@ -54,7 +51,7 @@ object TextTableParser {
     Try {
       ConcreteRowInfo(names = rowNames,
         types = columnTypes,
-        keyColumn = Some(columnMap.time),
+        keyColumn = true, // LATER support loading files w/o a key column
         rows = rowIterator
       )
     }
@@ -69,7 +66,7 @@ object TextTableParser {
       def hasNext: Boolean = rows.hasNext
       def next(): RowData = {
         val row = rows.next()
-        val timeString = row(columnMap.time)
+        val timeString = row(columnMap.key)
         val key = parseTime(timeString).getOrElse {
           formatError(s"couldn't parse the time in line ${row.mkString(",")}")
         }
@@ -79,7 +76,8 @@ object TextTableParser {
                                                      // TODO handle string values and log unhandled types
           doubleValue
         }
-        RowData(Some(key) +: values)
+        val rowData = RowData(Some(key) +: values)
+        rowData
       }
     }
 

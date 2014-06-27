@@ -83,7 +83,7 @@ case class DataSetCatalog(session:Session)
   def addColumnPath(columnPath: String)
       (implicit executionContext: ExecutionContext): Future[Unit] = {
 
-    // @dkorz what do you think we ought do with leading slashes?  (null key on insert if allowed)
+    // TODO @dkorz what do you think we ought do with leading slashes?  (null key on insert if allowed)
     val pairs = columnPath.stripPrefix("/").split("/").scanLeft("") {
       case ("", x)   => x
       case (last, x) => last + "/" + x

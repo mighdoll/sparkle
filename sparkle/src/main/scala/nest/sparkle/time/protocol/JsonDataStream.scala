@@ -19,7 +19,10 @@ import spray.json._
 
 /** Contains an observable stream of json encoded arrays suitable for use in a protocol json data stream.  */
 case class JsonDataStream(
-  /** An observable that produces json encoded data to send in Streams or Update messages */
+  /** An observable that produces json encoded data to send in Streams or Update messages 
+   *  Each JsArray corresponds to one Datum, ready to serialize to a protocol message.
+   *  Each Seq is normally sent in separate protocol message. The first Seq is sent
+   *  in a Streams message, and each subsequent Seq in an Update message. */
   dataStream: Observable[Seq[JsArray]],
 
   /** Format of the produced JsArrays */

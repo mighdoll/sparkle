@@ -153,39 +153,31 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
   private def loadRows(rowInfo: CloseableRowInfo, store: WriteableStore, dataSet: String): Future[String] = {
 
     /** indices of RowData columns that we'll store (i.e. not the time column) */
-    val valueColumnIndices = {
-      val indices = Range(0, rowInfo.names.size)
-      rowInfo.keyColumn match {
-        case None           => indices
-        case Some(rowIndex) => indices.filterNot(_ == rowIndex)
-      }
-    }
+    val firstValueColumn = if (rowInfo.keyColumn) 1 else 0
 
-    val columnPaths = valueColumnIndices.map { index =>
-      val name = rowInfo.names(index)
+    val columnPaths = rowInfo.names map { name =>
       dataSet + "/" + name
     }
 
     /** collect up futures that complete with column write interface objects */
-    val futureColumnsWithIndex: Seq[Future[(Int, WriteableColumn[Long, Double])]] =
-      valueColumnIndices.map { index =>
-        val name = rowInfo.names(index)
-        val columnPath = dataSet + "/" + name
+    val futureColumns: Seq[Future[WriteableColumn[Long, Double]]] =
+      columnPaths.map { columnPath =>
         store.writeableColumn[Long, Double](columnPath) map { futureColumn =>
-          (index, futureColumn)
+          futureColumn
         }
       }
 
     /** write all the row data into storage columns */
     def writeColumns[T, U](rowInfo: RowInfo,
-      columnsWithIndex: Seq[(Int, WriteableColumn[T, U])]): Future[Unit] = {
-      rowInfo.keyColumn.isDefined || NYI("tables without key column")
+      columns: Seq[WriteableColumn[T, U]]): Future[Unit] = {
+      rowInfo.keyColumn || NYI("tables without key column")
 
       val rowFutures =
         rowInfo.rows.flatMap { row => // TODO read rows in a block to improve performance
           for {
-            (index, column) <- columnsWithIndex
-            value <- row.values(index)
+            (column,index) <- columns.zipWithIndex
+            rowIndex = if (rowInfo.keyColumn) index +1 else index
+            value <- row.values(rowIndex)
             key <- row.key(rowInfo)
           } yield {
             val event = Event(key.asInstanceOf[T], value.asInstanceOf[U])
@@ -198,9 +190,8 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
 
     val pathWritten: Future[String] =
       for {
-        columnsWithIndex <- Future.sequence(futureColumnsWithIndex)
-        columns = columnsWithIndex map { case (index, column) => column }
-        written <- writeColumns(rowInfo, columnsWithIndex)
+        columns <- Future.sequence(futureColumns)
+        written <- writeColumns(rowInfo, columns)
       } yield {
         columnPaths.foreach { columnPath =>
           log.info(s"Finished loading $columnPath into the store")

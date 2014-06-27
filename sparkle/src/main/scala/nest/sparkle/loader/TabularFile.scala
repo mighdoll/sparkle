@@ -38,34 +38,35 @@ import scala.language.existentials
 import nest.sparkle.util.PeekableIterator
 import nest.sparkle.loader.ColumnHeaders._
 import java.io.Closeable
+import nest.sparkle.util.BooleanOption.BooleanToOption
 
 /** row metadata.  names and types include the key column */
 trait RowInfo {
-  val names: Seq[String]
-  val types: Seq[TypeTag[_]]
-  val keyColumn: Option[Int]
-  val rows: Iterator[RowData]
+  val names: Seq[String]      // names of value columns (not the key column)
+  val types: Seq[TypeTag[_]]  // types of all columns (including the key column first)
+  val keyColumn: Boolean      // true if there is a key column
+  val rows: Iterator[RowData] // produces a RowData for each row in the input file
 }
 
-case class ConcreteRowInfo(names: Seq[String], types: Seq[TypeTag[_]], keyColumn: Option[Int], rows: Iterator[RowData])
+case class ConcreteRowInfo(names: Seq[String], types: Seq[TypeTag[_]], keyColumn: Boolean, rows: Iterator[RowData])
   extends RowInfo
 
-case class CloseableRowInfo(names: Seq[String], types: Seq[TypeTag[_]], keyColumn: Option[Int], rows: Iterator[RowData], closeable: Closeable)
+case class CloseableRowInfo(names: Seq[String], types: Seq[TypeTag[_]], keyColumn: Boolean, rows: Iterator[RowData], closeable: Closeable)
     extends RowInfo with Closeable {
   def close(): Unit = {
     closeable.close()
   }
 }
 
-/** row contents.  Rows typically contain a key value (typically time), and zero or more other values */
+/** row contents. Rows typically contain a key value (typically time), and zero or more other values 
+ *  The key value will be the first element. The other elements appear in the order that
+ *  they appear in RowInfo.names (which is the same as their order in the source .csv file) */
 case class RowData(values: Seq[Option[Any]]) {
-
   def key(rowInfo: RowInfo): Option[Any] = {
-    rowInfo.keyColumn map { column =>
-      values(column).get
+    rowInfo.keyColumn.toOption.map { _ =>
+      values(0).get
     }
   }
-
 }
 
 object TabularFile {
@@ -85,7 +86,7 @@ object TabularFile {
   private def loadFromReader(reader: BufferedReader): Try[RowInfo] = {
     lineTokens(reader) flatMap { lines =>
       if (lines.isEmpty) {
-        Success(ConcreteRowInfo(Nil, Nil, None, Iterator.empty))
+        Success(ConcreteRowInfo(Nil, Nil, false, Iterator.empty))
       } else {
         loadNonEmpty(lines)
       }
@@ -107,7 +108,7 @@ object TabularFile {
   /** Returns an Iterator that incrementally reads from a BufferedReader
     * and reports arrays of strings from comma or tab separated lines.
     */
-  private def csvIterator(reader: BufferedReader, separator: Char = ','): Iterator[Array[String]] = {
+  private def lineIterator(reader: BufferedReader, separator: Char = ','): Iterator[Array[String]] = {
     val csvReader = new CSVReader(reader, separator)
 
     new Iterator[Array[String]] {
@@ -143,13 +144,13 @@ object TabularFile {
     reader.mark(maxFirstLineLength) // mark our spot, so we can reset back to the beginning
     val firstLine = reader.readLine()
     val tried = Try[Iterator[Array[String]]] {
-      reader.reset() // back to the beginning
+      reader.reset() // back to the beginning, we were just checking the format of the first line, not parsing it
       firstLine match {
         case null => Iterator()
         case _ if firstLine.contains('\t') =>
-          csvIterator(reader, '\t')
+          lineIterator(reader, '\t')
         case _ =>
-          csvIterator(reader)
+          lineIterator(reader)
       }
     }
     tried
