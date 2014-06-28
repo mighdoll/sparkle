@@ -24,7 +24,16 @@ import nest.sparkle.util.Log
 case class ColumnHeaderMatch(val columnMap: Try[ColumnMap], matched: Boolean)
 
 /** map column names to column index */
-case class ColumnMap(key: Int, data: Map[String, Int]) // LATER support loading files w/o a key field
+case class ColumnMap(key: Int, data: Map[String, Int]) { // LATER support loading files w/o a key field
+
+  /** run a function over the names and indices of the value columns. Iteration 
+   *  is in order that the columns appear in the file */
+  def mapValueColumns[T](fn: (String, Int) => T): Seq[T] = {
+    val sorted = data.toList.sortBy{ case (name, index) => index }
+    sorted.map { case (name, index) => fn(name, index) }
+  }
+  
+}
 
 object ColumnHeaders extends Log {
   /** Parse the first line into a column map, synthesizing a map if the first line doesn't look like a header */
@@ -46,7 +55,7 @@ object ColumnHeaders extends Log {
       dataHeaders: Map[String, Int] = (header filter { case (_, index) => index != timeColumn }).toMap
     } yield {
       val columnMap = ColumnMap(timeColumn, dataHeaders)
-      log.info("found columns: $columnMap")
+      log.info(s"found columns: $columnMap")
       columnMap
     }
   }

@@ -51,7 +51,8 @@ trait SelectingSources {
       jsValue match {
         case JsString(columnPath) => Seq(store.column(columnPath))
         case MatchCustom(columns) => columns
-        case x                    => Seq(Future.failed(MalformedSourceSelector(jsValue.toString)))
+        case x                    => Seq(Future.failed(MalformedSourceSelector(jsValue.toString))) 
+        // TODO report a custom error when source selector not found
       }
     }
   }

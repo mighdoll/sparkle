@@ -48,13 +48,17 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   def registry: DataRegistry = ???
 
   def v1Request[T](message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => T): T = {
+    v1TypedRequest[T, Double](message)(fn)
+  }
+
+  def v1TypedRequest[T, U: JsonFormat](message: StreamRequestMessage)(fn: Seq[Event[Long, U]] => T): T = {
     // uncomment when debugging
-//    implicit val timeout: RouteTestTimeout = {
-//      println("setting timeout to 1 hour for debugging")
-//      RouteTestTimeout(1.hour)
-//    }
+    //    implicit val timeout: RouteTestTimeout = {
+    //      println("setting timeout to 1 hour for debugging")
+    //      RouteTestTimeout(1.hour)
+    //    }
     Post("/v1/data", message) ~> v1protocol ~> check {
-      val events = TestDataService.streamDataEvents(response)
+      val events = TestDataService.streamDataTypedEvents[U](response)
       fn(events)
     }
   }
@@ -62,22 +66,33 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 }
 
 object TestDataService {
-
   /** return the data array portion from a Streams response as a stream of Event objects */
   def streamDataEvents(response: HttpResponse): Seq[Event[Long, Double]] = {
+    streamDataTypedEvents[Double](response)
+  }
+
+  /** return the data array portion from a Streams response as a stream of Event objects */
+  def streamDataTypedEvents[U: JsonFormat](response: HttpResponse): Seq[Event[Long, U]] = {
     val data = streamData(response)
     data.map { datum =>
-      datum.convertTo[Event[Long, Double]]
+      datum.convertTo[Event[Long, U]]
     }
   }
 
+  case class StreamsResponseError(msg:String) extends RuntimeException(msg)
+  
   /** return the data array portion from a Streams response.
     *
     * Expects that there will be exactly one nonempty data stream in response.
     */
   def streamData(response: HttpResponse): Seq[JsArray] = {
     import spray.httpx.unmarshalling._
-    val streams = response.as[StreamsMessage].right.get
+    val streamsEither = response.as[StreamsMessage]
+    streamsEither.left.map { err => 
+      throw StreamsResponseError(err.toString)
+    }
+    
+    val streams = streamsEither.right.get
 
     assert(streams.message.streams.length == 1)
     val stream = streams.message.streams(0)

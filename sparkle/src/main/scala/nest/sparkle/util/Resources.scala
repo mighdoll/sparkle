@@ -15,7 +15,7 @@ import java.nio.file.Path
 case class ResourceNotFound(msg: String) extends RuntimeException(msg)
 
 /** utilities for working with resources on the classpath */
-object Resources {
+object Resources extends Log{
 
   /** return a list of the resources within a resource folder
     * (works whether the resource is mapped to the file system or to .jar file
@@ -33,7 +33,9 @@ object Resources {
   /** (for testing) return a string for the fileystem path to a given resource. Only works
    *  on resources in the filesystem (jar resources will throw an exception) */
   def filePathString(resourcePath:String): String = {
-    val resource = Thread.currentThread.getContextClassLoader.getResource(resourcePath)
+    val possibleResource = Thread.currentThread.getContextClassLoader.getResource(resourcePath)
+    val resource = Option(possibleResource).getOrElse { throw new ResourceNotFound(resourcePath) }
+
     val file = new File(resource.toURI)
     file.getPath()
   }

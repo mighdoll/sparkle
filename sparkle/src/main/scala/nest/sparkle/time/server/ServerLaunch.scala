@@ -41,11 +41,11 @@ import nest.sparkle.util.ConfigUtil.modifiedConfig
 import nest.sparkle.util.ConfigureLogback.configureLogging
 
 protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorSystem) extends Log {
-  val config = rootConfig.getConfig("sparkle-time-server")
+  val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
   val notification = new WriteNotification()
-  val store = Store.instantiateStore(config, notification)
-  lazy val webPort = config.getInt("port")
-  lazy val writeableStore = Store.instantiateWritableStore(config, notification)
+  val store = Store.instantiateStore(sparkleConfig, notification)
+  lazy val webPort = sparkleConfig.getInt("port")
+  lazy val writeableStore = Store.instantiateWritableStore(sparkleConfig, notification)
   
   def actorSystem = system
 
@@ -91,7 +91,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     * This call will block until the server is ready to accept incoming requests.
     */
   private def startServer(serviceActor: ActorRef, port: Int)(implicit system: ActorSystem): Unit = {
-    if (config.getBoolean("auto-start")) {
+    if (sparkleConfig.getBoolean("auto-start")) {
       implicit val timeout = Timeout(10.seconds)
       val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = port)
       started.await // wait until server is started
@@ -100,18 +100,18 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
 
   /** Erase and reformat the storage system if requested */
   private def possiblyErase(): Unit = {
-    if (config.getBoolean("erase-store")) {
+    if (sparkleConfig.getBoolean("erase-store")) {
       writeableStore.format()
     }
   }
 
   /** launch a FilesLoader for each configured directory */
   private def startFilesLoader(): Unit = {
-    if (config.getBoolean("files-loader.auto-start")) {
-      val strip = config.getInt("files-loader.directory-strip")
-      config.getStringList("files-loader.directories").asScala.foreach { pathString =>
+    if (sparkleConfig.getBoolean("files-loader.auto-start")) {
+      val strip = sparkleConfig.getInt("files-loader.directory-strip")
+      sparkleConfig.getStringList("files-loader.directories").asScala.foreach { pathString =>
         try {
-          FilesLoader(pathString, writeableStore, strip)
+          FilesLoader(sparkleConfig, pathString, writeableStore, strip)
         } catch {
           case LoadPathDoesNotExist(path) => sys.exit(1)
         }

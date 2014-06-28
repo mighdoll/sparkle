@@ -17,49 +17,70 @@ package nest.sparkle.loader
 import org.joda.time.format.ISODateTimeFormat
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuilder
-import scala.util.control.Exception.allCatch
-import scala.util.control.Exception.catching
+import scala.util.control.Exception.{ catching, allCatch }
 import java.lang.{ Double => JDouble }
 import java.lang.{ Long => JLong }
 import scala.util.Try
 import java.util.zip.DataFormatException
 import scala.reflect.runtime.universe._
+import scala.reflect._
+import nest.sparkle.util.GuessType
+import nest.sparkle.util.ParseStringTo
+import nest.sparkle.util.Log
 
-object TextTableParser {
+object TextTableParser extends Log {
   /** Parse all the data from an iterator that produces an array of strings and a column map that describes which
-    * columns have which names.  Returns the time column data array and all other columns that can be parsed
-    * as double precision numbers.  Non-numeric columns are discarded.
+    * columns have which names.
     */
-  def parseRows(rows: Iterator[Array[String]], columnMap: ColumnMap): Try[RowInfo] = {
-    def sortAndDiscardIndex[T, U: Ordering](seq: Seq[(T, U)]): Seq[T] = {
-      val sorted = seq.sortBy{ case (value, index) => index }
-      sorted.map { case (value, index) => value }
-    }
+  def rowParser(originalRows: Iterator[Array[String]], columnMap: ColumnMap): Try[RowInfo] = {
+    val (columnInfos, rows) = guessColumnTypes(columnMap, originalRows)
+    val rowIterator: Iterator[RowData] = makeRowIterator(rows, columnMap, columnInfos)
 
-    val rowNames: Seq[String] = sortAndDiscardIndex(columnMap.data.toList)
-
-    val columnTypes: Seq[TypeTag[_]] = {
-      // TODO support other column value types
-      // for now, assume everything's a double except the index which is a long
-      val doubleTags = columnMap.data.toList map { case (name, index) => (typeTag[Double], index) }
-      val indexTag = typeTag[Long] -> columnMap.key
-      sortAndDiscardIndex(indexTag :: doubleTags)
-    }
-
-    val rowIterator: Iterator[RowData] = makeRowIterator(rows, columnMap)
-
-    Try {
-      ConcreteRowInfo(names = rowNames,
-        types = columnTypes,
+    val result = Try {
+      ConcreteRowInfo(valueColumns = columnInfos,
         keyColumn = true, // LATER support loading files w/o a key column
         rows = rowIterator
       )
     }
+    
+    result.failed.map { err => log.warn("error parsing rows", err) }
+    result
+  }
+
+  /** Sort data in the form produced by zipWithIndex. Expects 2 element tuples where
+    * the second value has an Ordering. Returns a sequence of the first element.
+    */
+  private def sortByZippedIndex[T, U: Ordering](seq: Seq[(T, U)]): Seq[T] = {
+    val sorted = seq.sortBy{ case (value, index) => index }
+    sorted.map { case (value, index) => value }
+  }
+
+  private def guessColumnTypes(columnMap: ColumnMap, rows: Iterator[Array[String]]) // format: OFF
+     :(Seq[StringColumnInfo[_]], Iterator[Array[String]]) = { // format: ON
+    val guessSize = 1000 // check this many rows to guess the type of the data
+    val guessRows = rows.take(guessSize).toSeq
+
+    val stringsByColumn =
+      columnMap.mapValueColumns { (name, index) =>
+        val values = guessRows.map{ row => row(index) }
+        (name, index, values)
+      }
+
+    val columnInfos = stringsByColumn.map {
+      case (name, index, values) =>
+        val parser = GuessType.parserTypeFromSampleStrings(values)
+        StringColumnInfo(name, index, parser)
+    }
+
+    val resetRows = guessRows.toIterator ++ rows
+    (columnInfos, resetRows)
   }
 
   /** return an iterator that will parse incoming string arrays into parsed numeric data */
-  private def makeRowIterator(rows: Iterator[Array[String]], columnMap: ColumnMap): Iterator[RowData] = {
-    val valueIndices:Seq[Int] = columnMap.data.map { case (name, index) => index }.toSeq
+  private def makeRowIterator(rows: Iterator[Array[String]], columnMap: ColumnMap,
+    valueColumns: Seq[StringColumnInfo[_]]): Iterator[RowData] = {
+
+    val valueIndices: Seq[Int] = columnMap.data.map { case (name, index) => index }.toSeq
 
     /** an iterator that will pull data from the source parser */
     val iterator = new Iterator[RowData] {
@@ -70,11 +91,11 @@ object TextTableParser {
         val key = parseTime(timeString).getOrElse {
           formatError(s"couldn't parse the time in line ${row.mkString(",")}")
         }
-        val values:Seq[Option[Any]] = valueIndices.map {index =>
-          val valueString = row(index)
-          val doubleValue = parseDouble(valueString) // LATER parse based on the type
-                                                     // TODO handle string values and log unhandled types
-          doubleValue
+        val values: Seq[Option[Any]] = valueColumns.map {
+          case StringColumnInfo(name, index, parser) =>
+            val valueString = row(index)
+            val result = allCatch opt { parser.parse(valueString) }
+            result.orElse { log.warn(s"can't parse $valueString in column $name"); None }
         }
         val rowData = RowData(Some(key) +: values)
         rowData
@@ -84,7 +105,7 @@ object TextTableParser {
     iterator
   }
 
-  object IsoDateParse {
+  object IsoDateParse { // TODO move this to ParseStringTo
     import com.github.nscala_time.time.Imports._
     val isoParser = ISODateTimeFormat.dateHourMinuteSecondMillis().withZoneUTC()
     def unapply(string: String): Option[Long] = {

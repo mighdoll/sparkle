@@ -32,6 +32,8 @@ import nest.sparkle.store.cassandra.CassandraStore
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.store.cassandra.CassandraTestConfig
 import nest.sparkle.util.Resources
+import nest.sparkle.store.Event
+import nest.sparkle.util.Log
 
 class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   val log = LoggerFactory.getLogger(classOf[TestFilesLoader])
@@ -48,39 +50,71 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   }
 
   /** try loading a known file and check the expected column for results */
-  def testLoadFile(resourcePath: String, columnPath: String, strip: Int = 0) {
+  def testEpochsFile(resourcePath: String, columnPath: String, strip: Int = 0) {
+    testLoadFile(resourcePath, columnPath, strip) { results: Seq[Event[Long, Double]] =>
+      results.length shouldBe 2751
+    }
+  }
+
+  /** try loading a known file and check the expected column for results */
+  def testLoadFile[T, U, V](resourcePath: String, columnPath: String, strip: Int = 0)(fn: Seq[Event[U, V]] => T) {
     val filePath = Resources.filePathString(resourcePath)
-    
+
     withTestDb { testDb =>
       withTestActors { implicit system =>
         import system.dispatcher
         val complete = onLoadComplete(system, columnPath)
-        FilesLoader(filePath, testDb, strip)
+        FilesLoader(sparkleConfig, filePath, testDb, strip)
         complete.await
-        
-        val column = testDb.column[Long, Double](columnPath).await
+
+        val column = testDb.column[U, V](columnPath).await
         val read = column.readRange(None, None)
         val results = read.initial.toBlocking.toList
-        results.length shouldBe 2751
+        fn(results)
       }
     }
   }
 
   test("load csv file") {
-    testLoadFile("epochs.csv", "epochs/count")
+    testEpochsFile("epochs.csv", "epochs/count")
   }
 
   test("load csv file with leading underscore in filename") {
-    testLoadFile("_epochs.csv", "default/count")
+    testEpochsFile("_epochs.csv", "default/count")
   }
 
   test("load csv file with leading underscore in directory path element") {
-    testLoadFile("_ignore/epochs2.csv", "epochs2/count")
+    testEpochsFile("_ignore/epochs2.csv", "epochs2/count")
   }
-  
+
   test("load csv file, skipping a directory path prefix") {
-    testLoadFile("skip/epochs.csv", "epochs/count", 1)
+    testEpochsFile("skip/epochs.csv", "epochs/count", 1)
   }
+
+  test("load csv file with boolean values, and second resolution timestamps") {
+    testLoadFile("booleanSeconds.csv", "booleanSeconds/value") { results: Seq[Event[Long, Boolean]] =>
+      results.map(_.value) shouldBe Seq(false, false, true, true)
+      results.map(_.argument) shouldBe Seq(1, 2, 3, 4) // TODO should be 1000,2000,etc.
+    }
+  }
+
+  test("load csv file with a string value") {
+    testLoadFile("manyTypes.csv", "manyTypes/string") { results: Seq[Event[Long, String]] =>
+      results.length shouldBe 1
+      results.head.value shouldBe "fred"
+    }
+  }
+  test("load csv file with an integer value") {
+    testLoadFile("manyTypes.csv", "manyTypes/int") { results: Seq[Event[Long, Int]] =>
+      results.head.value shouldBe -1
+    }
+  }
+  test("load csv file with a long value") {
+    testLoadFile("manyTypes.csv", "manyTypes/long") { results: Seq[Event[Long, Long]] =>
+      results.head.value shouldBe 9876543210L
+    }
+  }
+
 }
 
 /** Constructor for a ReceiveLoaded actor */
@@ -90,10 +124,12 @@ object ReceiveLoaded {
 }
 
 /** An actor that completes a future when a LoadComplete message is received */
-class ReceiveLoaded(targetPath: String, complete: Promise[Unit]) extends Actor {
+class ReceiveLoaded(targetPath: String, complete: Promise[Unit]) extends Actor with Log {
   def receive = {
     case LoadComplete(path) if path == targetPath =>
+      log.debug(s"ReceiveLoaded. success: $path")
       complete.complete(Success())
+    case x => log.trace(s"ReceiveLoaded. target path not found. got: $x")
   }
 }
 

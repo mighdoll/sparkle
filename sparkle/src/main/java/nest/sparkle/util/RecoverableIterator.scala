@@ -33,10 +33,9 @@ object RecoverableIterator {
 }
 
 /** @define recoverable An iterator that will recreate a base iterator on exceptions.
-  * A RecoverableIterator can be used to wrap an underlying iterator
-  * that may produce timeout exceptions. The Recoverable iterator allows the
-  * caller to encapsulate the retry logic, and explose a single iterable to
-  * it the callers users needs to create multiple iterators on in the inside.
+  * A RecoverableIterator exposes an Iterator interface, but is constructed with 
+  * a generator function that produces the underlying iterator. The generator function
+  * is rerun after known exceptions. 
   *
   * @define threadSafety The Iterator api expects that hasNext() and next() will be called sequentially
   * (not concurrently). Accordingly, the createIterator and recoverError

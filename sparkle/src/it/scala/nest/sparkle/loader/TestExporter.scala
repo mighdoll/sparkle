@@ -61,7 +61,7 @@ class TestExporter extends FunSuite with CassandraTestConfig with Matchers with 
         val filePath = Resources.filePathString("epochs.csv")
         val dataSet = "epochs"
         val complete = onLoadComplete(system, dataSet)
-        FilesLoader(filePath, testDb)
+        FilesLoader(sparkleConfig, filePath, testDb)
         complete.await
 
         val output = Paths.get(rootConfig.getString("exporter.output"))
@@ -84,7 +84,7 @@ class TestExporter extends FunSuite with CassandraTestConfig with Matchers with 
           val lines = Files.readAllLines(dataSetPath.resolve("_count.tsv"), StandardCharsets.UTF_8)
           lines.size shouldBe 2752
           lines.get(0) shouldBe "time\tcount"
-          lines.get(2751) shouldBe "1357713357000\t570.0"
+          lines.get(2751) shouldBe "1357713357000\t570"
         } finally {
           exporter.close()
         }

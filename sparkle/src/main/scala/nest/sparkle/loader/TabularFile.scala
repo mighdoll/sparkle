@@ -39,19 +39,21 @@ import nest.sparkle.util.PeekableIterator
 import nest.sparkle.loader.ColumnHeaders._
 import java.io.Closeable
 import nest.sparkle.util.BooleanOption.BooleanToOption
+import nest.sparkle.util.ParseStringTo
 
 /** row metadata.  names and types include the key column */
 trait RowInfo {
-  val names: Seq[String]      // names of value columns (not the key column)
-  val types: Seq[TypeTag[_]]  // types of all columns (including the key column first)
-  val keyColumn: Boolean      // true if there is a key column
+  val valueColumns:Seq[StringColumnInfo[_]]
+  val keyColumn: Boolean      // true if there is a key column // TODO change to Option[StringColumnInfo]
   val rows: Iterator[RowData] // produces a RowData for each row in the input file
 }
+  
+case class StringColumnInfo[T](name:String, index:Int, parser:ParseStringTo[T])
 
-case class ConcreteRowInfo(names: Seq[String], types: Seq[TypeTag[_]], keyColumn: Boolean, rows: Iterator[RowData])
+case class ConcreteRowInfo(valueColumns: Seq[StringColumnInfo[_]], keyColumn: Boolean, rows: Iterator[RowData])
   extends RowInfo
 
-case class CloseableRowInfo(names: Seq[String], types: Seq[TypeTag[_]], keyColumn: Boolean, rows: Iterator[RowData], closeable: Closeable)
+case class CloseableRowInfo(valueColumns: Seq[StringColumnInfo[_]], keyColumn: Boolean, rows: Iterator[RowData], closeable: Closeable)
     extends RowInfo with Closeable {
   def close(): Unit = {
     closeable.close()
@@ -61,10 +63,18 @@ case class CloseableRowInfo(names: Seq[String], types: Seq[TypeTag[_]], keyColum
 /** row contents. Rows typically contain a key value (typically time), and zero or more other values 
  *  The key value will be the first element. The other elements appear in the order that
  *  they appear in RowInfo.names (which is the same as their order in the source .csv file) */
-case class RowData(values: Seq[Option[Any]]) {
+case class RowData(data: Seq[Option[Any]]) {
   def key(rowInfo: RowInfo): Option[Any] = {
     rowInfo.keyColumn.toOption.map { _ =>
-      values(0).get
+      data(0).get
+    }
+  }
+  
+  def values(rowInfo:RowInfo):Seq[Option[Any]] = {
+    if (rowInfo.keyColumn) {
+      data.tail
+    } else {
+      data
     }
   }
 }
@@ -77,7 +87,7 @@ object TabularFile {
         reader <- Try { Files.newBufferedReader(path, StandardCharsets.UTF_8) }
         rowInfo <- loadFromReader(reader)
       } yield {
-        CloseableRowInfo(rowInfo.names, rowInfo.types, rowInfo.keyColumn, rowInfo.rows, reader)
+        CloseableRowInfo(rowInfo.valueColumns, rowInfo.keyColumn, rowInfo.rows, reader)
       }
     tried.toFuture
   }
@@ -86,7 +96,7 @@ object TabularFile {
   private def loadFromReader(reader: BufferedReader): Try[RowInfo] = {
     lineTokens(reader) flatMap { lines =>
       if (lines.isEmpty) {
-        Success(ConcreteRowInfo(Nil, Nil, false, Iterator.empty))
+        Success(ConcreteRowInfo(Nil, false, Iterator.empty))
       } else {
         loadNonEmpty(lines)
       }
@@ -101,7 +111,7 @@ object TabularFile {
     val remaining = if (parsedHeaders.matched) peekableLines.tail else peekableLines
 
     columnMap.flatMap { columnMap =>
-      TextTableParser.parseRows(remaining, columnMap)
+      TextTableParser.rowParser(remaining, columnMap)
     }
   }
 

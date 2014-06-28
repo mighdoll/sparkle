@@ -37,6 +37,9 @@ import scala.util.Success
 import scala.util.Failure
 import nest.sparkle.util.TryToFuture._
 import nest.sparkle.util.Log
+import com.typesafe.config.Config
+import nest.sparkle.store.cassandra.RecoverCanSerialize
+import nest.sparkle.store.cassandra.CanSerialize
 
 /** emitted to the event stream when the file has been completely loaded */
 case class LoadComplete(columnPath: String)
@@ -44,9 +47,9 @@ case class LoadComplete(columnPath: String)
 case class LoadPathDoesNotExist(path: String) extends RuntimeException
 
 object FilesLoader extends Log {
-  def apply(rootDirectory: String, store: WriteableStore, strip: Int = 0) // format: OFF
+  def apply(sparkleConfig: Config, rootDirectory: String, store: WriteableStore, strip: Int = 0) // format: OFF
       (implicit system: ActorSystem): FilesLoader = { // format: ON
-    new FilesLoader(rootDirectory, store, strip)
+    new FilesLoader(sparkleConfig, rootDirectory, store, strip)
   }
 }
 
@@ -56,12 +59,15 @@ object FilesLoader extends Log {
   * @param loadPath Path to directory to load from/watch or a single file to load.
   * @param store Store to write data to.
   * @param strip Number of leading path elements to strip when
-  *    creating the DataSet name.
+  * creating the DataSet name.
   */
-protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int) // format: OFF
+protected class FilesLoader(sparkleConfig: Config, loadPath: String, store: WriteableStore, strip: Int) // format: OFF
     (implicit system: ActorSystem) { // format: ON
   import FilesLoader.log
-  
+
+  /** number of rows to read in a block */
+  val batchSize = sparkleConfig.getInt("files-loader.batch-size")
+
   implicit val executor = system.dispatcher
   private val root: Path = Paths.get(loadPath)
   private var closed = false
@@ -117,8 +123,9 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
     }
   }
 
-  /** load a single file into the store. Returns immediately, but the
-   *  loading is asynchronous.  */
+  /** Load a single file into the store. Returns immediately, the loading
+    * continues in a background thread.
+    */
   private def loadFile(fullPath: Path, store: WriteableStore): Unit = {
     fullPath match {
       case ParseableFile(format) if Files.isRegularFile(fullPath) =>
@@ -127,7 +134,7 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
         TabularFile.load(fullPath, format).map { rowInfo =>
           val dataSet = pathToDataSet(relativePath)
           log.info(s"loading rows from $relativePath into dataSet: $dataSet")
-          val loaded = 
+          val loaded =
             loadRows(rowInfo, store, dataSet).andThen {
               case _ => rowInfo.close()
             }.map { dataSet =>
@@ -137,7 +144,7 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
               }
               // TODO should report on file complete too
             }
-            
+
           loaded.failed.foreach { failure =>
             log.error(s"loading $fullPath failed", failure)
           }
@@ -147,45 +154,68 @@ protected class FilesLoader(loadPath: String, store: WriteableStore, strip: Int)
     }
   }
 
+  case class FileLoaderTypeConfiguration(msg: String) extends RuntimeException(msg)
+  
   /** store data rows into columns the Store, return a future that completes with
     * the name of the dataset into which the columns were written
     */
   private def loadRows(rowInfo: CloseableRowInfo, store: WriteableStore, dataSet: String): Future[String] = {
-
-    /** indices of RowData columns that we'll store (i.e. not the time column) */
-    val firstValueColumn = if (rowInfo.keyColumn) 1 else 0
-
-    val columnPaths = rowInfo.names map { name =>
-      dataSet + "/" + name
+    /** collect up paths and futures that complete with column write interface objects */
+    val pathAndColumns: Seq[(String, Future[WriteableColumn[Any, Any]])] = {
+      rowInfo.valueColumns.map {
+        case StringColumnInfo(name, _, parser) =>
+          val columnPath = dataSet + "/" + name
+          val serializeValue = RecoverCanSerialize.optCanSerialize[Any](parser.typed).getOrElse {
+            log.error(s"can't file serializer for type ${parser.typed}")
+            throw FileLoaderTypeConfiguration(s"can't find canSerialize for type: ${parser.typed}")
+          }
+          import nest.sparkle.store.cassandra.serializers.LongSerializer
+          val column = store.writeableColumn(columnPath)(LongSerializer, serializeValue)
+          val anyColumn = column map { futureColumn =>
+            futureColumn.asInstanceOf[WriteableColumn[Any, Any]]
+          }
+          (columnPath, anyColumn)
+      }
     }
+    
+    val (columnPaths, futureColumns) = pathAndColumns.unzip
 
-    /** collect up futures that complete with column write interface objects */
-    val futureColumns: Seq[Future[WriteableColumn[Long, Double]]] =
-      columnPaths.map { columnPath =>
-        store.writeableColumn[Long, Double](columnPath) map { futureColumn =>
-          futureColumn
+    /** write all the row data into storage columns. The columns in the provided Seq
+      * should match the order of the rowInfo data columns.
+      */
+    def writeColumns(rowInfo: RowInfo,
+      columns: Seq[WriteableColumn[Any, Any]]): Future[Unit] = {
+      rowInfo.keyColumn || NYI("tables without key column")
+
+      def rowToEvents(row: RowData): Seq[Event[Any, Any]] = {
+        for {
+          key <- row.key(rowInfo).toSeq
+          valueOpt <- row.values(rowInfo)
+          value <- valueOpt
+        } yield {
+          Event(key, value)
         }
       }
 
-    /** write all the row data into storage columns */
-    def writeColumns[T, U](rowInfo: RowInfo,
-      columns: Seq[WriteableColumn[T, U]]): Future[Unit] = {
-      rowInfo.keyColumn || NYI("tables without key column")
-
-      val rowFutures =
-        rowInfo.rows.flatMap { row => // TODO read rows in a block to improve performance
-          for {
-            (column,index) <- columns.zipWithIndex
-            rowIndex = if (rowInfo.keyColumn) index +1 else index
-            value <- row.values(rowIndex)
-            key <- row.key(rowInfo)
-          } yield {
-            val event = Event(key.asInstanceOf[T], value.asInstanceOf[U])
-            column.write(Seq(event)).map { _ => () }
-          }
+      val rowGroups = rowInfo.rows.grouped(batchSize)
+      val eventsInColumnsBlocks =
+        for {
+          group <- rowGroups
+          _ = log.info(s"loading batch of ${group.length} rows")
+          eventsInRows = group.map { row => rowToEvents(row) }
+        } yield {
+          eventsInRows.transpose
         }
 
-      Future.sequence(rowFutures).map { _ => () }
+      val allWrites =
+        for {
+          eventsColumns <- eventsInColumnsBlocks
+          (events, column) <- eventsColumns.zip(columns)
+        } yield {
+          column.write(events)
+        }
+
+      Future.sequence(allWrites).map { _ => () }
     }
 
     val pathWritten: Future[String] =

@@ -23,37 +23,36 @@ import scala.concurrent.duration._
 import org.scalatest.Finders
 import scala.concurrent.ExecutionContext
 import nest.sparkle.util.Managed.implicits._
+import nest.sparkle.util.Resources
 
 class TestTextTableParser extends FunSuite with Matchers {
   import ExecutionContext.Implicits.global
 
-  def loadRowInfo(filePath: String)(fn: CloseableRowInfo => Unit) {
+  def loadRowInfo(resourcePath: String)(fn: CloseableRowInfo => Unit) {
+    val filePath = Resources.filePathString(resourcePath)
     val closeableRowInfo = TabularFile.load(Paths.get(filePath)).await
 
     managed(closeableRowInfo) foreach fn
   }
 
   test("load sample.csv file") {
-    loadRowInfo("sparkle/src/test/resources/sample.csv") { rowInfo =>
-      rowInfo.names.length shouldBe 26
+    loadRowInfo("sample.csv") { rowInfo =>
+      rowInfo.valueColumns.length shouldBe 25
       rowInfo.rows.toSeq.size shouldBe 78
     }
   }
 
   test("load csv file with numeric timestamps") {
-    loadRowInfo("sparkle/src/test/resources/epochs.csv") { rowInfo =>
-      rowInfo.names.length shouldBe 4
+    loadRowInfo("epochs.csv") { rowInfo =>
+      rowInfo.valueColumns.length shouldBe 3
       rowInfo.rows.toSeq.size shouldBe 2751
     }
   }
 
   test("load csv file with numeric timestamps and no header") {
-    loadRowInfo("sparkle/src/test/resources/just-time.csv") { rowInfo =>
+    loadRowInfo("just-time.csv") { rowInfo =>
       rowInfo.rows.toSeq.size shouldBe 4
-      rowInfo.names.size shouldBe 1
-      //    val data = dataSet.data(metricName = "time", max = 1, summarize = "count").await()
-      //    data.length should be (1)
-      //    data(0).value should be (4)
+      rowInfo.valueColumns.size shouldBe 0
     }
   }
 
