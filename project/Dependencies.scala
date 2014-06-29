@@ -56,6 +56,8 @@ object Dependencies {
 
   val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.0" 
   val nettyAll              = "io.netty"                  % "netty-all"               % "4.0.19.Final" 
+  
+  val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.0_a2.3"
 
   object Runtime {
     val logback              = "ch.qos.logback"            % "logback-classic"         % "1.0.9"

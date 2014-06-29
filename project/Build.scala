@@ -41,7 +41,8 @@ object SparkleTimeBuild extends Build {
           nScalaTime,
           argot,
           unfiltered,
-          openCsv
+          openCsv,
+          metricsScala
         ),
         initialCommands in console := """
           import nest.sg.Plot._
@@ -58,7 +59,9 @@ object SparkleTimeBuild extends Build {
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= kafka ++ testAndLogging ++ avro
+        libraryDependencies ++= kafka ++ testAndLogging ++ avro ++ Seq(
+          metricsScala
+        )
       ).dependsOn(sparkleTime)
 
 }

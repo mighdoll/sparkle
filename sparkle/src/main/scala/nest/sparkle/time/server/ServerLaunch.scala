@@ -16,10 +16,13 @@ package nest.sparkle.time.server
 
 import java.awt.Desktop
 import java.net.URI
+import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
 import scala.util.{ Failure, Success }
+
+import org.slf4j.LoggerFactory
 
 import com.typesafe.config.Config
 
@@ -31,6 +34,8 @@ import akka.util.Timeout
 import spray.can.Http
 import spray.util._
 
+import com.codahale.metrics.Slf4jReporter
+
 import nest.sparkle.legacy.PreloadedRegistry
 import nest.sparkle.loader.{ FilesLoader, LoadPathDoesNotExist }
 import nest.sparkle.store.Store
@@ -39,6 +44,7 @@ import nest.sparkle.util.{ Log, RepeatingRequest }
 import nest.sparkle.util.ConfigUtil
 import nest.sparkle.util.ConfigUtil.modifiedConfig
 import nest.sparkle.util.ConfigureLogback.configureLogging
+import nest.sparkle.util.MetricsInstrumentation
 
 protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorSystem) extends Log {
   val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
@@ -62,6 +68,8 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   possiblyErase()
   startFilesLoader()
   startServer(service, webPort)
+  
+  // TODO: Make web socket start optional
   val webSocket = new DataWebSocket(store, rootConfig)
   
 
