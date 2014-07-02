@@ -23,7 +23,7 @@ class TestSummarizeMean extends TestStore with StreamRequestor with TestDataServ
   test("summarizeMean simple set to one") {
     val message = summaryRequestOne[Long]("SummarizeMean", selector = SelectString(simpleColumnPath))
 
-    v1Request(message){ events =>
+    v1TypicalRequest(message){ events =>
       events.length shouldBe 1
       events.head shouldBe mean[Long, Double](simpleEvents)
     }
@@ -32,7 +32,7 @@ class TestSummarizeMean extends TestStore with StreamRequestor with TestDataServ
   test("summarizeMean uneven set to one") {
     val message = summaryRequestOne[Long]("SummarizeMean", selector = SelectString(unevenColumnPath))
 
-    v1Request(message){ events =>
+    v1TypicalRequest(message){ events =>
       events.length shouldBe 1
       events.head shouldBe mean(unevenEvents)
     }

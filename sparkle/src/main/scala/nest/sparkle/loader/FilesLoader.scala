@@ -41,8 +41,9 @@ import com.typesafe.config.Config
 import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.store.cassandra.CanSerialize
 
-/** emitted to the event stream when the file has been completely loaded */
+/** emitted to the event stream when the column has been completely loaded */
 case class LoadComplete(columnPath: String)
+case class FileLoadComplete(relativePath: String)
 
 case class LoadPathDoesNotExist(path: String) extends RuntimeException
 
@@ -142,20 +143,17 @@ protected class FilesLoader(sparkleConfig: Config, loadPath: String, store: Writ
                 log.info(s"Finished loading dataSet: $dataSet into the store")
                 system.eventStream.publish(LoadComplete(dataSet))
               }
-              // TODO should report on file complete too
             }
 
-          loaded.failed.foreach { failure =>
-            log.error(s"loading $fullPath failed", failure)
-          }
-
+          loaded.foreach { _ => system.eventStream.publish(FileLoadComplete(relativePath.toString)) }
+          loaded.failed.foreach { failure => log.error(s"loading $fullPath failed", failure) }
         }
       case x => log.warn(s"$fullPath could not be parsed, ignoring")
     }
   }
 
   case class FileLoaderTypeConfiguration(msg: String) extends RuntimeException(msg)
-  
+
   /** store data rows into columns the Store, return a future that completes with
     * the name of the dataset into which the columns were written
     */
@@ -177,7 +175,7 @@ protected class FilesLoader(sparkleConfig: Config, loadPath: String, store: Writ
           (columnPath, anyColumn)
       }
     }
-    
+
     val (columnPaths, futureColumns) = pathAndColumns.unzip
 
     /** write all the row data into storage columns. The columns in the provided Seq

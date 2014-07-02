@@ -43,12 +43,12 @@ import nest.sparkle.util.ParseStringTo
 
 /** row metadata.  names and types include the key column */
 trait RowInfo {
-  val valueColumns:Seq[StringColumnInfo[_]]
-  val keyColumn: Boolean      // true if there is a key column // TODO change to Option[StringColumnInfo]
+  val valueColumns: Seq[StringColumnInfo[_]]
+  val keyColumn: Boolean // true if there is a key column // TODO change to Option[StringColumnInfo]
   val rows: Iterator[RowData] // produces a RowData for each row in the input file
 }
-  
-case class StringColumnInfo[T](name:String, index:Int, parser:ParseStringTo[T])
+
+case class StringColumnInfo[T](name: String, index: Int, parser: ParseStringTo[T])
 
 case class ConcreteRowInfo(valueColumns: Seq[StringColumnInfo[_]], keyColumn: Boolean, rows: Iterator[RowData])
   extends RowInfo
@@ -60,17 +60,18 @@ case class CloseableRowInfo(valueColumns: Seq[StringColumnInfo[_]], keyColumn: B
   }
 }
 
-/** row contents. Rows typically contain a key value (typically time), and zero or more other values 
- *  The key value will be the first element. The other elements appear in the order that
- *  they appear in RowInfo.names (which is the same as their order in the source .csv file) */
+/** row contents. Rows typically contain a key value (typically time), and zero or more other values
+  * The key value will be the first element. The other elements appear in the order that
+  * they appear in RowInfo.names (which is the same as their order in the source .csv file)
+  */
 case class RowData(data: Seq[Option[Any]]) {
   def key(rowInfo: RowInfo): Option[Any] = {
     rowInfo.keyColumn.toOption.map { _ =>
       data(0).get
     }
   }
-  
-  def values(rowInfo:RowInfo):Seq[Option[Any]] = {
+
+  def values(rowInfo: RowInfo): Seq[Option[Any]] = {
     if (rowInfo.keyColumn) {
       data.tail
     } else {
@@ -98,7 +99,16 @@ object TabularFile {
       if (lines.isEmpty) {
         Success(ConcreteRowInfo(Nil, false, Iterator.empty))
       } else {
-        loadNonEmpty(lines)
+        def isBlank(tokens:Array[String]):Boolean = {
+          tokens.length == 0 || (tokens.length == 1 || tokens(0).length == 0)
+        }
+        def isComment(tokens: Array[String]):Boolean = {
+          tokens.length > 1 && tokens(0).startsWith("#")
+        }
+        
+        val skipBlanks = lines.filter { tokens => ! isBlank(tokens) }
+        val skipComments = skipBlanks.filter { tokens => ! isComment(tokens) }
+        loadNonEmpty(skipComments)
       }
     }
   }

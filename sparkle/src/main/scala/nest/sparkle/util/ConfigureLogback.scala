@@ -46,6 +46,7 @@ object ConfigureLogback extends Log {
     val pattern = logConfig.getString("pattern")
     val append = logConfig.getBoolean("append")
 
+//    println(s"logback logging to $file")
     val levels = logConfig.getConfig("levels")
     levels.entrySet().asScala.foreach { entry =>
       val logger = if (entry.getKey == "root") {

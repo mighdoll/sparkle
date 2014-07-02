@@ -48,7 +48,7 @@ class TestCustomTransform extends TestStore with StreamRequestor with TestDataSe
   test("custom transform selector") {
     val requestMessage = streamRequest(classOf[DoublingTransform].getSimpleName, JsObject())
     Post("/v1/data", requestMessage) ~> v1protocol ~> check {
-      val events = TestDataService.streamDataEvents(response)
+      val events = TestDataService.typicalStreamData(response)
       events.length shouldBe 2
       events(0).value shouldBe 2
       events(1).value shouldBe 4

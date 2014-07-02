@@ -129,7 +129,10 @@ class ReceiveLoaded(targetPath: String, complete: Promise[Unit]) extends Actor w
     case LoadComplete(path) if path == targetPath =>
       log.debug(s"ReceiveLoaded. success: $path")
       complete.complete(Success())
-    case x => log.trace(s"ReceiveLoaded. target path not found. got: $x")
+    case FileLoadComplete(path) if path == targetPath =>
+      log.debug(s"ReceiveLoaded. file loaded success: $path")
+      complete.complete(Success())
+    case x => log.debug(s"ReceiveLoaded. target path not found. got: $x")
   }
 }
 

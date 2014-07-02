@@ -10,7 +10,7 @@ class TestSummarizeRandom extends TestStore with StreamRequestor with TestDataSe
 
     val found = mutable.HashSet[Event[Long,Double]]()
     (1 to 100).foreach { _ => 
-      v1Request(message){ events =>
+      v1TypicalRequest(message){ events =>
         events.length shouldBe 1
         found.add(events.head)
       }

@@ -9,7 +9,7 @@ class TestSummarizeSum extends TestStore with StreamRequestor with TestDataServi
     val message = summaryRequestOne[Long]("SummarizeSum", selector = SelectString(simpleColumnPath))
 
     val sum = simpleEvents.map{case Event(k,v) => v}.sum
-    v1Request(message){ events =>
+    v1TypicalRequest(message){ events =>
       events.length shouldBe 1
       events.head shouldBe Event("2013-01-19T22:13:40Z".toMillis, sum)
     }
@@ -19,7 +19,7 @@ class TestSummarizeSum extends TestStore with StreamRequestor with TestDataServi
 
     val sum = unevenEvents.map{case Event(k,v) => v}.sum
     val sumTime = unevenEvents.map{case Event(k,v) => k}.sum
-    v1Request(message){ events =>
+    v1TypicalRequest(message){ events =>
       events.length shouldBe 1
       events.head shouldBe Event(sumTime / unevenEvents.length, sum)
     }

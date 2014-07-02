@@ -8,8 +8,8 @@ class TestRawTransform extends TestStore with StreamRequestor with TestDataServi
 
   test("Raw transform two raw events") {
     val message = streamRequest("Raw", params = RawParameters[Long]())
-    v1Request(message){ events =>
-      val events = TestDataService.streamDataEvents(response)
+    v1TypicalRequest(message){ events =>
+      val events = TestDataService.typicalStreamData(response)
       events.length shouldBe 2
       events(0).value shouldBe 1
       events(1).value shouldBe 2
@@ -24,7 +24,7 @@ class TestRawTransform extends TestStore with StreamRequestor with TestDataServi
 
     val params = RawParameters[Long](ranges = Some(Seq(range)))
     val message = streamRequest("Raw", params = params, selector = SelectString(simpleColumnPath))
-    v1Request(message) { events =>
+    v1TypicalRequest(message) { events =>
       events.length shouldBe 3
       events(0).argument shouldBe range.start.get
       events(2).argument shouldBe "2013-01-19T22:13:50Z".toMillis

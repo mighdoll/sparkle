@@ -47,18 +47,22 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   // TODO legacy, delete soon
   def registry: DataRegistry = ???
 
-  def v1Request[T](message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => T): T = {
-    v1TypedRequest[T, Double](message)(fn)
+  /** make a stream request, expecting a single stream of long/double results */
+  def v1TypicalRequest[T](message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => T): T = {
+    v1TypedRequest[T,Double](message){ seqEvents =>
+      fn(seqEvents.head)
+    }
   }
 
-  def v1TypedRequest[T, U: JsonFormat](message: StreamRequestMessage)(fn: Seq[Event[Long, U]] => T): T = {
-    // uncomment when debugging
-    //    implicit val timeout: RouteTestTimeout = {
-    //      println("setting timeout to 1 hour for debugging")
-    //      RouteTestTimeout(1.hour)
-    //    }
+  /** make a stream request, and report all stream data returned as events */
+  def v1TypedRequest[T, U: JsonFormat](message: StreamRequestMessage)(fn: Seq[Seq[Event[Long, U]]] => T): T = {
+    //     uncomment when debugging
+    implicit val timeout: RouteTestTimeout = {
+      println("setting timeout to 1 hour for debugging")
+      RouteTestTimeout(1.hour)
+    }
     Post("/v1/data", message) ~> v1protocol ~> check {
-      val events = TestDataService.streamDataTypedEvents[U](response)
+      val events = TestDataService.streamTypedData[U](response)
       fn(events)
     }
   }
@@ -66,39 +70,38 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 }
 
 object TestDataService {
-  /** return the data array portion from a Streams response as a stream of Event objects */
-  def streamDataEvents(response: HttpResponse): Seq[Event[Long, Double]] = {
-    streamDataTypedEvents[Double](response)
+  /** return the data array portion from a Streams response as a sequence of Event objects */
+  def typicalStreamData(response: HttpResponse): Seq[Event[Long, Double]] = {
+    streamTypedData[Double](response).head
   }
 
-  /** return the data array portion from a Streams response as a stream of Event objects */
-  def streamDataTypedEvents[U: JsonFormat](response: HttpResponse): Seq[Event[Long, U]] = {
-    val data = streamData(response)
-    data.map { datum =>
-      datum.convertTo[Event[Long, U]]
+
+  /** return the data array portions from a Streams response, each as a sequence of Event objects */
+  def streamTypedData[U: JsonFormat](response: HttpResponse): Seq[Seq[Event[Long, U]]] = {
+    streamDataJson(response).map { data =>
+      data.map (_.convertTo[Event[Long, U]])
     }
   }
 
-  case class StreamsResponseError(msg:String) extends RuntimeException(msg)
-  
-  /** return the data array portion from a Streams response.
-    *
-    * Expects that there will be exactly one nonempty data stream in response.
-    */
-  def streamData(response: HttpResponse): Seq[JsArray] = {
+  case class StreamsResponseError(msg: String) extends RuntimeException(msg)
+
+  /** return all the data from the streams in a Streams message */ 
+  def streamDataJson(response: HttpResponse): Seq[Seq[JsArray]] = {
     import spray.httpx.unmarshalling._
     val streamsEither = response.as[StreamsMessage]
-    streamsEither.left.map { err => 
+    streamsEither.left.map { err =>
       throw StreamsResponseError(err.toString)
     }
-    
-    val streams = streamsEither.right.get
 
-    assert(streams.message.streams.length == 1)
-    val stream = streams.message.streams(0)
-    assert(stream.data.isDefined)
-    val data = stream.data.get
-    data
+    val streams = streamsEither.right.get
+//    println(s"TestDataService.streamDataJson: ${streams.toJson}")
+
+    assert(streams.message.streams.length > 0)
+    val datas =
+      streams.message.streams.map { stream =>
+        stream.data.get
+      }
+    datas
   }
 
 }
