@@ -41,9 +41,9 @@ object ColumnHeaders extends Log {
     line.headOption match {
       case Some(columnText) if (isColumnHeader(columnText)) =>
         ColumnHeaderMatch(parseHeaderLine(line), true)
-      case None => ???
-      case _ =>
+      case Some(columnText) =>
         ColumnHeaderMatch(Success(syntheticColumnHeaders(line)), false)
+      case None => ???
     }
   }
 
@@ -91,7 +91,8 @@ object ColumnHeaders extends Log {
     val optColumn = containsKey(header, "time", "Time", "epoch", "startDate", "startTime") orElse
       containsPartialKey(header, "time", "TIME", "Time", "date", "Date", "DATE")
 
-    optColumn.toTryOr(new DataFormatException(s"time column not found in:  [${header.keys.mkString(", ")}]"))
+    val keyColumnIndex = optColumn.getOrElse(0)
+    Success(keyColumnIndex)
   }
 
   /** Search the map for one of a provided set of keys.  Return the first matching value in the map

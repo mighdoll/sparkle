@@ -32,7 +32,6 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]])
   override def readRange(start: Option[T] = None, end: Option[T] = None, limit: Option[Long] = None) // format: OFF
       (implicit execution: ExecutionContext): OngoingEvents[T,T] = { // format: ON
 
-    // TODO handle local time offset
     // TODO large data gaps (e.g. >24 hr) should be assumed to be off, probably.. (configurable)
     // TODO back up e.g. 24 hours to start reading data
     val reads = sourceColumns.map { column => column.readRange(start, end, limit) }
@@ -55,7 +54,6 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]])
 
     val intervalStates =
       onOffs.scan(IntervalState(None, None)){ (state, event) =>
-        //        println(s"scan considering: state:$state event:$event")
         (state.current, event.value) match {
           case (Some(Event(start, _)), true) => // accumulate into current interval, making it a bit longer
             val size = event.argument - start
@@ -72,7 +70,7 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]])
       }
 
     val mainIntervals = intervalStates.flatMap { state =>
-      state match { // emit the intervals as events
+      state match { // emit the completed intervals as events
         case IntervalState(_, Some(emit)) => Observable.from(List(emit))
         case _                            => Observable.empty
       }
@@ -80,7 +78,7 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]])
 
     val lastInterval = intervalStates.last.flatMap { state =>
       state match {
-        // close started but not yet completed event. 
+        // close and emit a final started-but-not-yet-completed event. 
         case IntervalState(Some(event), _) => Observable.from(List(event))
         case _                             => Observable.empty
       }

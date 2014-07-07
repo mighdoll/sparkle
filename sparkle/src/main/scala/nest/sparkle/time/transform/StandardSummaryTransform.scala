@@ -9,28 +9,20 @@ import scala.util.Random
 case class IncompatibleTransform(msg: String) extends RuntimeException(msg)
 
 /** Built in summary transforms.  */
-object StandardSummaryTransform {
-
-  /** match a SummaryTransform string selector, and return a ColumnTransform to be applied to each source column */
-  def unapply(transform: String): Option[ColumnTransform] = {
-    val lowerCase = transform.toLowerCase
-    if (lowerCase.startsWith("summarize")) {
-      lowerCase.stripPrefix("summarize") match {
-        case "max"     => Some(SummarizeMax)
-        case "min"     => Some(SummarizeMin)
-        case "mean"    => Some(SummarizeMean)
-        case "average" => Some(SummarizeMean)
-        case "random"  => Some(SummarizeRandom)
-        case "sample"  => Some(SummarizeRandom)
-        case "uniques" => ???
-        case "sum"     => Some(SummarizeSum)
-        case "count"   => Some(SummarizeCount)
-        case "rate"    => ???
-        case _         => None
-      }
-    } else {
-      None
-    }
+object StandardSummaryTransform extends TransformMatcher {
+  override type TransformType = ColumnTransform
+  override def prefix = "summarize"
+  override def suffixMatch = _ match {
+    case "max"     => SummarizeMax
+    case "min"     => SummarizeMin
+    case "mean"    => SummarizeMean
+    case "average" => SummarizeMean
+    case "random"  => SummarizeRandom
+    case "sample"  => SummarizeRandom
+    case "uniques" => ???
+    case "sum"     => SummarizeSum
+    case "count"   => SummarizeCount
+    case "rate"    => ???
   }
 }
 

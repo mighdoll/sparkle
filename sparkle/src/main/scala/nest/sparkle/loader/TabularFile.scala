@@ -100,14 +100,14 @@ object TabularFile {
         Success(ConcreteRowInfo(Nil, false, Iterator.empty))
       } else {
         def isBlank(tokens:Array[String]):Boolean = {
-          tokens.length == 0 || (tokens.length == 1 || tokens(0).length == 0)
+          tokens.length == 0 || (tokens.length == 1 && tokens(0).length == 0)
         }
         def isComment(tokens: Array[String]):Boolean = {
-          tokens.length > 1 && tokens(0).startsWith("#")
+          tokens.length > 0 && tokens(0).startsWith("#")
         }
-        
-        val skipBlanks = lines.filter { tokens => ! isBlank(tokens) }
-        val skipComments = skipBlanks.filter { tokens => ! isComment(tokens) }
+
+        val skipBlanks = lines.filterNot { isBlank(_) }
+        val skipComments = skipBlanks.filterNot { isComment(_) }
         loadNonEmpty(skipComments)
       }
     }
@@ -120,9 +120,7 @@ object TabularFile {
     val columnMap = parsedHeaders.columnMap
     val remaining = if (parsedHeaders.matched) peekableLines.tail else peekableLines
 
-    columnMap.flatMap { columnMap =>
-      TextTableParser.rowParser(remaining, columnMap)
-    }
+    columnMap.flatMap { columnMap => TextTableParser.rowParser(remaining, columnMap) }
   }
 
   /** Returns an Iterator that incrementally reads from a BufferedReader

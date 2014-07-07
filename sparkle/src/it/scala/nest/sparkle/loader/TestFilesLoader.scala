@@ -14,9 +14,7 @@
 
 package nest.sparkle.loader
 
-import scala.concurrent.{ Future, Promise }
 import scala.concurrent.duration._
-import scala.util.Success
 import scala.collection.JavaConverters._
 import org.slf4j.LoggerFactory
 import org.scalatest.FunSuite
@@ -24,8 +22,8 @@ import org.scalatest.Matchers
 import org.scalatest.BeforeAndAfterAll
 import com.typesafe.config.ConfigFactory
 import akka.actor.ActorSystem
-import akka.actor.Actor
 import akka.actor.Props
+import scala.concurrent.{ Future, Promise }
 import spray.util._
 import nest.sparkle.util.ConfigUtil
 import nest.sparkle.store.cassandra.CassandraStore
@@ -114,26 +112,12 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
       results.head.value shouldBe 9876543210L
     }
   }
-
-}
-
-/** Constructor for a ReceiveLoaded actor */
-object ReceiveLoaded {
-  def props(targetPath: String, complete: Promise[Unit]): Props =
-    Props(classOf[ReceiveLoaded], targetPath, complete)
-}
-
-/** An actor that completes a future when a LoadComplete message is received */
-class ReceiveLoaded(targetPath: String, complete: Promise[Unit]) extends Actor with Log {
-  def receive = {
-    case LoadComplete(path) if path == targetPath =>
-      log.debug(s"ReceiveLoaded. success: $path")
-      complete.complete(Success())
-    case FileLoadComplete(path) if path == targetPath =>
-      log.debug(s"ReceiveLoaded. file loaded success: $path")
-      complete.complete(Success())
-    case x => log.debug(s"ReceiveLoaded. target path not found. got: $x")
+  test("load file with a comment and a blank line") {
+    testLoadFile("comments.csv", "comments/b") { results: Seq[Event[Long, Long]] =>
+      results.length shouldBe 2
+      results.tail.head shouldBe Event(2L,2L)
+    }
   }
-}
 
+}
 

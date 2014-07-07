@@ -142,7 +142,9 @@ define(["lib/when/monitor/console", "sg/request", "sg/util"],
     var messageId = requestId();
     var distributionMessage = {
       requestId: messageId,
-      realm: "sparkle",
+      realm: {
+        name: "sparkle"
+      },
       messageType: "StreamRequest",
       message: streamRequestObject,
       traceId: "trace-" + messageId

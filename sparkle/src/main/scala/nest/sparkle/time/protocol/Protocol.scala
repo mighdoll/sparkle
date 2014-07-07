@@ -22,7 +22,7 @@ import nest.sparkle.util.LogUtil.optionLog
 /** message wrapper.  to or from the server */
 trait DistributionMessage[T] {
   val requestId: Option[Long]
-  val realm: Option[String]
+  val realm: Option[Realm]
   val traceId: Option[String]
   val messageType: String
   val message: T
@@ -36,21 +36,24 @@ object MessageType {
   val Update = "Update"
 }
 
+/** realm specifier in a Distribution Message */
+case class Realm(name: String, id:Option[String], auth:Option[String])
+
 /** request a transformed stream.  sent from from client to server */
 case class StreamRequest(sendUpdates: Option[Boolean], itemLimit: Option[Long], sources: Array[JsValue],
-    transform: String, transformParameters: JsObject) {
+                         transform: String, transformParameters: JsObject) {
   def infoString = this.toJson(RequestJson.StreamRequestFormat).compactPrint
 }
 
 /** a StreamRequest inside a DistributionMessage */
-case class StreamRequestMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
-    messageType: String, message: StreamRequest) extends DistributionMessage[StreamRequest] {
+case class StreamRequestMessage(requestId: Option[Long], realm: Option[Realm], traceId: Option[String],
+                                messageType: String, message: StreamRequest) extends DistributionMessage[StreamRequest] {
   def infoString = this.toJson(RequestJson.StreamRequestMessageFormat).compactPrint
 }
 
 /** a Stream inside a Distribution Message */
-case class StreamsMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
-    messageType: String, message: Streams) extends DistributionMessage[Streams] {
+case class StreamsMessage(requestId: Option[Long], realm: Option[Realm], traceId: Option[String],
+                          messageType: String, message: Streams) extends DistributionMessage[Streams] {
 
   /** (for debug logging) return a copy of the StreamsMessage with a maximum data size for each
     * stream's data.
@@ -66,16 +69,16 @@ case class StreamsMessage(requestId: Option[Long], realm: Option[String], traceI
 }
 
 // TODO find a way to do less copy-pasting on encoding various message types
-case class StatusMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
-  messageType: String, message: Status)
-  
-case class UpdateMessage(requestId: Option[Long], realm: Option[String], traceId: Option[String],
-  messageType: String, message: Update) {
-    /** (for debug logging) return a copy of the UpdateMessage with a maximum data size for each
+case class StatusMessage(requestId: Option[Long], realm: Option[Realm], traceId: Option[String],
+                         messageType: String, message: Status)
+
+case class UpdateMessage(requestId: Option[Long], realm: Option[Realm], traceId: Option[String],
+                         messageType: String, message: Update) {
+  /** (for debug logging) return a copy of the UpdateMessage with a maximum data size for each
     * stream's data.
     */
   def takeData(maxDataSize: Int): UpdateMessage = {
-    val smallerData = message.data.map { data => data.take(maxDataSize)}
+    val smallerData = message.data.map { data => data.take(maxDataSize) }
     val sizeLimitedUpdate = message.copy(data = smallerData)
     this.copy(message = sizeLimitedUpdate)
   }
@@ -102,7 +105,15 @@ case class RangeInterval[T](
 /** transformParameters for SummaryTransforms */
 case class SummaryParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,
-  maxPartitions: Option[Int])
+  maxPartitions: Option[Int] // TODO rename to parts or partCount 
+                             // TODO consider allowing partSize
+  )
+  
+case class IntervalParameters[T](
+  ranges: Option[Seq[RangeInterval[T]]] = None,
+  partSize: Option[String]
+  )
+    
 
 /** transformParameters for the RawTransform */
 case class RawParameters[T](ranges: Option[Seq[RangeInterval[T]]] = None)
@@ -110,11 +121,11 @@ case class RawParameters[T](ranges: Option[Seq[RangeInterval[T]]] = None)
 sealed trait ServerResponse
 /** Start some data streams.  Sent from server to client */
 case class Streams(streams: Seq[Stream]) extends ServerResponse
-case class Update(streamId:Long, data: Option[Seq[JsArray]], end: Option[Boolean]) extends ServerResponse
+case class Update(streamId: Long, data: Option[Seq[JsArray]], end: Option[Boolean]) extends ServerResponse
 
 /** Description of the head of a data stream.  Sent from server to client as part of a Streams message.  */
 case class Stream(streamId: Long, metadata: Option[JsValue], streamType: JsonStreamType,
-  data: Option[Seq[JsArray]], end: Option[Boolean])
+                  data: Option[Seq[JsArray]], end: Option[Boolean])
 
 /** Type of the json data stream: keyValue or just value */
 abstract class JsonStreamType(val name: String)

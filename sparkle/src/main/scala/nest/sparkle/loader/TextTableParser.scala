@@ -17,7 +17,7 @@ package nest.sparkle.loader
 import org.joda.time.format.ISODateTimeFormat
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuilder
-import scala.util.control.Exception.{ catching, allCatch }
+import scala.util.control.Exception.{ catching, nonFatalCatch }
 import java.lang.{ Double => JDouble }
 import java.lang.{ Long => JLong }
 import scala.util.Try
@@ -94,7 +94,7 @@ object TextTableParser extends Log {
         val values: Seq[Option[Any]] = valueColumns.map {
           case StringColumnInfo(name, index, parser) =>
             val valueString = row(index)
-            val result = allCatch opt { parser.parse(valueString) }
+            val result = nonFatalCatch opt { parser.parse(valueString) }
             result.orElse { log.warn(s"can't parse $valueString in column $name"); None }
         }
         val rowData = RowData(Some(key) +: values)
@@ -114,11 +114,11 @@ object TextTableParser extends Log {
   }
 
   object LongParse {
-    def unapply(string: String): Option[Long] = allCatch opt JLong.parseLong(string)
+    def unapply(string: String): Option[Long] = nonFatalCatch opt JLong.parseLong(string)
   }
 
   object DoubleParse {
-    def unapply(string: String): Option[Double] = allCatch opt JDouble.parseDouble(string)
+    def unapply(string: String): Option[Double] = nonFatalCatch opt JDouble.parseDouble(string)
   }
 
   /** Parse a date in epoch seconds, epoch milliseconds or in the format:  2013-02-15T01:32:50.186 */
@@ -133,7 +133,7 @@ object TextTableParser extends Log {
 
   /** optionally parse a double */
   private def parseDouble(str: String): Option[Double] = {
-    allCatch opt JDouble.parseDouble(str)
+    nonFatalCatch opt JDouble.parseDouble(str)
   }
 
   private def formatError(msg: String): Nothing = throw new DataFormatException(msg)

@@ -13,6 +13,7 @@ import nest.sparkle.util.Instance
 import nest.sparkle.util.Log
 import nest.sparkle.time.transform.StandardSummaryTransform
 import nest.sparkle.time.transform.StandardObjectTransform
+import nest.sparkle.time.transform.StandardIntervalTransform
 
 /** Identify the transform from a StreamRequest, including built in and custom
   * transforms specified in the .conf file.
@@ -31,6 +32,8 @@ trait SelectingTransforms extends Log {
 
     val futureStreams = transform match {
       case StandardSummaryTransform(columnTransform) =>
+        runTransform(futureColumns, columnTransform, transformParameters)
+      case StandardIntervalTransform(columnTransform) =>
         runTransform(futureColumns, columnTransform, transformParameters)
       case StandardObjectTransform(columnTransform) =>
         runTransform(futureColumns, columnTransform, transformParameters)

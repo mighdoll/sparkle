@@ -9,6 +9,7 @@ import nest.sparkle.store.cassandra.MilliTime
 object TransformParametersJson extends DefaultJsonProtocol {
   implicit def RangeIntervalFormat[T: JsonFormat]: RootJsonFormat[RangeInterval[T]] = jsonFormat3(RangeInterval.apply[T])
   implicit def SummaryParametersFormat[T: JsonFormat]: RootJsonFormat[SummaryParameters[T]] = jsonFormat2(SummaryParameters.apply[T])
+  implicit def IntervalParametersFormat[T: JsonFormat]: RootJsonFormat[IntervalParameters[T]] = jsonFormat2(IntervalParameters.apply[T])
   implicit def RawParametersFormat[T: JsonFormat]: RootJsonFormat[RawParameters[T]] = jsonFormat1(RawParameters.apply[T])
 }
 
@@ -25,23 +26,25 @@ object JsonStreamTypeFormat extends DefaultJsonProtocol {
   }
 }
 
+/** spray json converters for request messages */
+object RequestJson extends DefaultJsonProtocol {
+  implicit val StreamRequestFormat = jsonFormat5(StreamRequest)
+  implicit val RealmFormat = jsonFormat3(Realm)
+  implicit val StreamRequestMessageFormat = jsonFormat5(StreamRequestMessage)
+  implicit val CustomSelectorFormat = jsonFormat2(CustomSelector)
+}
+
 /** spray json converters for response messages */
 object ResponseJson extends DefaultJsonProtocol {
   import JsonStreamTypeFormat._
   implicit val StreamFormat = jsonFormat5(Stream)
   implicit val StreamsFormat = jsonFormat1(Streams)
+  import RequestJson.RealmFormat
   implicit val StreamsMessageFormat = jsonFormat5(StreamsMessage)
   implicit val StatusFormat = jsonFormat2(Status)
   implicit val StatusMessageFormat = jsonFormat5(StatusMessage)
   implicit val UpdateFormat = jsonFormat3(Update)
   implicit val UpdateMessageFormat = jsonFormat5(UpdateMessage)
-}
-
-/** spray json converters for request messages */
-object RequestJson extends DefaultJsonProtocol {
-  implicit val StreamRequestFormat = jsonFormat5(StreamRequest)
-  implicit val StreamRequestMessageFormat = jsonFormat5(StreamRequestMessage)
-  implicit val CustomSelectorFormat = jsonFormat2(CustomSelector)
 }
 
 /** spray json converters for MilliTime */
