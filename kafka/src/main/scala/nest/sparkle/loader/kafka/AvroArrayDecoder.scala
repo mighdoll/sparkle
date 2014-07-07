@@ -14,13 +14,16 @@
 
 package nest.sparkle.loader.kafka
 
+import scala.language.existentials
+import scala.reflect.runtime.universe._
+import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
+
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.Schema
-import scala.reflect.runtime.universe._
-import scala.language.existentials
-import nest.sparkle.loader.kafka.SchemaDecodeException.schemaDecodeException
 import org.apache.avro.generic.GenericData
-import scala.collection.JavaConverters._
+
+import nest.sparkle.loader.kafka.SchemaDecodeException.schemaDecodeException
 import nest.sparkle.store.Event
 import nest.sparkle.util.Log
 
@@ -29,20 +32,27 @@ import nest.sparkle.util.Log
   */
 object AvroArrayDecoder extends Log {
 
-  /** return a decoder for an avro schema containing an id, and an array of key,[value,..] records.
+  /** return a decoder for an avro schema containing one or more ids and an array of key,[value,..] records.
     * There can be more than one value in each row of the array.  The value fields are copied
     * from the avro schema field names.
+    * 
+    * idFields names will be joined and separated by slashes to form the column path.
+    * An optional default value for an id field may be specified if an avro record
+    * is missing the field or it is NULL.
     *
     * See `MillisDoubleArrayAvro` in the tests for an example avro schema in the expected structure.
     *
+    * @param idFields List of field names which will be separated by slashes to
+    *                 form the column name
     * @param skipValueFields a blacklist of values fields in each array row to ignore
     */
-  def decoder(schema: Schema,
+  def decoder(schema: Schema,  // format: OFF 
               arrayField: String = "elements",
-              idField: String = "id",
+              idFields: Seq[(String,Option[String])] = Seq(("id", None)),
               keyField: String = "time",
-              skipValueFields: Set[String] = Set()): ArrayRecordDecoder = {
-
+              skipValueFields: Set[String] = Set()
+              ): ArrayRecordDecoder = // format: ON
+  {
     val name = schema.getName
 
     val elementSchemaOpt =
@@ -59,19 +69,22 @@ object AvroArrayDecoder extends Log {
     }
 
     val metaData = {
-      val idType = typeTagField(schema, idField)
+      val idTypes = typeTagFields(schema, idFields.map(_._1))
+      val ids: Seq[NameAndType] = idFields zip idTypes map {
+        case ((id, default), typed) => NameAndType(id, typed, default)
+      }
       val keyType = typeTagField(elementSchema, keyField)
       val key = NameAndType(keyField, keyType)
       val valueFields = fieldsExcept(elementSchema, skipValueFields + keyField)
       val valueTypes = typeTagFields(elementSchema, valueFields)
       val values: Seq[NameAndType] = valueFields zip valueTypes map {
-        case (name, typed) =>
-          NameAndType(name, typed)
+        case (valueName, typed) =>
+          NameAndType(valueName, typed)
       }
-      ArrayRecordMeta(values = values, key = key, idType = idType)
+      ArrayRecordMeta(values = values, key = key, ids = ids)
     }
 
-    val decoder = recordWithArrayDecoder(idField, arrayField, metaData)
+    val decoder = recordWithArrayDecoder(arrayField, metaData)
 
     ArrayRecordDecoder(decoder, metaData)
   }
@@ -88,8 +101,36 @@ object AvroArrayDecoder extends Log {
       case Schema.Type.BOOLEAN => typeTag[Boolean]
       case Schema.Type.STRING  => typeTag[String]
       case Schema.Type.FLOAT   => typeTag[Float]
+      case Schema.Type.UNION   => unionTypeTag(avroField.schema)
       case _                   => ???
     }
+  }
+
+  /** avroField is a union. Only unions with null and a primitive are supported.
+    * Find the primitive and return it.
+    * Supports either order, e.g. [null,string] or [string,null]
+    * @param schema union schema
+    * @return typeTag of primitive in the union.
+    */
+  private def unionTypeTag(schema: Schema): TypeTag[_] = {
+    val schemas = schema.getTypes.toSeq
+    if (schemas.size != 2) {
+      schemaDecodeException("avro field is a union of more than 2 types")
+    }
+    val types = schemas.map(_.getType)
+    if (! types.contains(Schema.Type.NULL)) {
+      schemaDecodeException("avro field is a union with out a null")
+    }
+    
+    // Find the first supported type, really should only be skipping NULL.
+    types.collectFirst({
+        case Schema.Type.LONG    => typeTag[Long]
+        case Schema.Type.INT     => typeTag[Int]
+        case Schema.Type.DOUBLE  => typeTag[Double]
+        case Schema.Type.BOOLEAN => typeTag[Boolean]
+        case Schema.Type.STRING  => typeTag[String]
+        case Schema.Type.FLOAT   => typeTag[Float]
+    }).getOrElse(schemaDecodeException("avro field is a union with out a supported type"))
   }
 
   private def fieldsExcept(schema: Schema, exceptFields: Set[String]): Seq[String] = {
@@ -106,14 +147,16 @@ object AvroArrayDecoder extends Log {
   }
 
   /** return a function that reads a Generic record into the ArrayRecordColumns format */
-  private def recordWithArrayDecoder(idField: String,
-                                     arrayField: String,
+  private def recordWithArrayDecoder(arrayField: String,
                                      metaData: ArrayRecordMeta): GenericRecord => ArrayRecordColumns = {
 
-    (record: GenericRecord) =>
-      val id = record.get(idField)
+    (record: GenericRecord) =>      
+      val ids = metaData.ids.map {
+        case NameAndType(name,_,_) => Option(record.get(name))
+      }
+      
       val array = record.get(arrayField).asInstanceOf[GenericData.Array[GenericData.Record]]
-      log.info(s"reading record for id: $id containing ${array.size} elements")
+      log.debug(s"reading record containing ${array.size} elements")
 
       /** map over all the rows in the array embedded in the record */
       def mapRows[T](fn: GenericData.Record => T): Seq[T] = {
@@ -149,7 +192,7 @@ object AvroArrayDecoder extends Log {
         }
       }
 
-      ArrayRecordColumns(id, columns)
+      ArrayRecordColumns(ids, columns)
   }
 }
 

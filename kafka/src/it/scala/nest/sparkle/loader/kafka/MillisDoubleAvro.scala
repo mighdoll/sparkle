@@ -50,7 +50,8 @@ object MillisDoubleArrayAvro {
       { "type":"record",
         "name":"Latency",
         "fields":[
-          { "name":"id", "type":"string" },
+          { "name":"id1", "type": "string" },
+          { "name":"id2", "type": ["null","string"] },
           { "name":"elements", "type": $arrayJson }
         ]
       }"""
@@ -63,7 +64,10 @@ object MillisDoubleArrayAvro {
 class MillisDoubleArrayFinder(rootConfig:Config) extends FindDecoder {
   def decoderFor(topic:String):KafkaColumnDecoder[ArrayRecordColumns] = {
     val schema = MillisDoubleArrayAvro.schema
-    val decoder = AvroArrayDecoder.decoder(schema)
+    val decoder = AvroArrayDecoder.decoder(
+      schema, 
+      idFields = Seq(("id1", None), ("id2", Some("NULL")))
+    )
     AvroColumnDecoder(schema, decoder, prefix = "sample-data/path")
   }
 }

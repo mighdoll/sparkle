@@ -28,7 +28,9 @@ object AvroRecordGenerators {
 
   /** a single generated record encoded in Avro, along with the source data used to construct it
    *  (the source data is easier to use for validating results based on the generated record) */
-  case class GeneratedRecord[T, U](id: String, events: SortedSet[(Long, Double)], record: GenericData.Record)
+  case class GeneratedRecord[T, U](id1: String, id2: String, 
+                                   events: SortedSet[(Long, Double)], 
+                                   record: GenericData.Record)
 
   object Implicits {
     /** generate a single long-double (non-array) latency record */
@@ -36,8 +38,11 @@ object AvroRecordGenerators {
       Arbitrary(genMillisDoubleRecord)
   }
 
-  /** return a single GenericData record containing an array of latency time,value events */
-  def makeLatencyRecord(id: String, events: Iterable[(Long, Double)]): GenericData.Record = {
+  /** return a single GenericData record containing an array of latency time,value events 
+    * Note the id2 may be null.
+    */
+  def makeLatencyRecord(id1: String, id2: String, 
+                        events: Iterable[(Long, Double)]): GenericData.Record = {
     val elementArray = {
       val collection = new ArrayList[GenericData.Record]()
       val array = new GenericData.Array(MillisDoubleArrayAvro.arraySchema, collection)
@@ -53,7 +58,8 @@ object AvroRecordGenerators {
 
     val latencyRecord = {
       val record = new GenericData.Record(MillisDoubleArrayAvro.schema)
-      record.put("id", id)
+      record.put("id1", id1)
+      record.put("id2", id2)  // id2 field could be null in Avro record
       record.put("elements", elementArray)
       record
     }
@@ -76,13 +82,14 @@ object AvroRecordGenerators {
 
   /** generate a single latency record containing an array of long-double samples */
   private val genMillisDoubleArrayRecord: Gen[GeneratedRecord[Long, Double]] = for {
-    id <- genAlphaNumString(4)
+    id1 <- genAlphaNumString(4)
+    id2 <- genAlphaNumString(4)  // TODO: Make this null sometimes.
     times <- Gen.nonEmptyContainerOf[SortedSet, Long](arbitrary[Long])
     values <- Gen.containerOfN[List, Double](times.size, arbitrary[Double])
-    events = times.zip(values).map { case (time, value) => (time, value) }
+    events = times.zip(values).map { case (time, value) => (time, value)}
   } yield {
-    val record = makeLatencyRecord(id.toString, events)
-    GeneratedRecord(id.toString, events, record)
+    val record = makeLatencyRecord(id1, id2, events)
+    GeneratedRecord[Long,Double](id1, id2, events, record)
   }
 
   /** generate a random alpha numeric string of specified length */

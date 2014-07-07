@@ -14,12 +14,14 @@
 
 package nest.sparkle.loader.kafka
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import nest.sparkle.loader.kafka.AvroSupport._
-import org.apache.avro.generic.GenericData
 import java.util.ArrayList
+
+import org.scalatest.{FunSuite, Matchers}
+
+import org.apache.avro.generic.GenericData
+
 import nest.sparkle.loader.kafka.AvroRecordGenerators.makeLatencyRecord
+import nest.sparkle.loader.kafka.AvroSupport._
 
 class TestAvroDecoder extends FunSuite with Matchers {
   test("round trip MillisDoubleAvro through the avro binary decoder") {
@@ -42,16 +44,34 @@ class TestAvroDecoder extends FunSuite with Matchers {
     val encoder = genericEncoder(schema)
     val decoder = genericDecoder(schema)
 
-    val latencyRecord = makeLatencyRecord("abc123", Seq(1L -> 13.1))
+    val latencyRecord = makeLatencyRecord("abc123", "xyz", Seq(1L -> 13.1))
 
     val bytes = encoder.toBytes(latencyRecord)
     val result = decoder.fromBytes(bytes)
-    result.get("id").toString shouldBe "abc123"
+    result.get("id1").toString shouldBe "abc123"
+    result.get("id2").toString shouldBe "xyz"
     val resultElements = result.get("elements").asInstanceOf[GenericData.Array[GenericData.Record]]
+    resultElements.size shouldBe 1
     val resultElement = resultElements.get(0)
     resultElement.get("value") shouldBe 13.1
     resultElement.get("time") shouldBe 1L
   }
 
+  test("round trip MillisDoubleArrayAvro with null id field through the avro binary decoder") {
+    val schema = MillisDoubleArrayAvro.schema
+    val encoder = genericEncoder(schema)
+    val decoder = genericDecoder(schema)
+
+    val latencyRecord = makeLatencyRecord("abc123", null, Seq(1L -> 13.1))
+
+    val bytes = encoder.toBytes(latencyRecord)
+    val result = decoder.fromBytes(bytes)
+    result.get("id1").toString shouldBe "abc123"
+    result.get("id2") shouldBe null
+    val resultElements = result.get("elements").asInstanceOf[GenericData.Array[GenericData.Record]]
+    val resultElement = resultElements.get(0)
+    resultElement.get("value") shouldBe 13.1
+    resultElement.get("time") shouldBe 1L
+  }
 
 }

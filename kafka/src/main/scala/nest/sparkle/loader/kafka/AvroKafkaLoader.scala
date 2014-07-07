@@ -71,6 +71,11 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
   /** thrown if the avro schema specifies an unimplemented key or value type */
   case class UnsupportedColumnType(msg: String) extends RuntimeException(msg)
 
+  /** thrown if a nullable id field is null and no default value was defined */
+  case class NullableFieldWithNoDefault( // format: OFF
+    msg: String = "nullable id field is null and no default value was defined"
+  ) extends RuntimeException(msg) // format: ON
+
   /** Load from a single topic via a KafkaReader. Extract Events from each kafka record, and
     * write the events to storage.
     */
@@ -78,20 +83,27 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
                             decoder: KafkaKeyValues): Unit = {
     val stream = reader.stream()
     stream.subscribe { record =>
-      val id = typeTaggedToString(record.id, decoder.metaData.idType)
+      val ids = decoder.metaData.ids zip record.ids map {
+        case (NameAndType(name,typed,default), value) => 
+          // if value was null if better have a default.
+          val rawValue = value.getOrElse(default.getOrElse(NullableFieldWithNoDefault))
+          typeTaggedToString(rawValue, typed)
+      }
+      val columnPathRoot = ids.foldLeft("")(_ + "/" + _).stripPrefix("/")
 
       val writeFutures =
         record.typedColumns(decoder.metaData).map { taggedColumn =>
-          val columnPath = decoder.columnPath(id, taggedColumn.name)
+          val columnPath = decoder.columnPath(columnPathRoot, taggedColumn.name)
 
           log.info(s"loading ${taggedColumn.events.length} events to column: $columnPath "
             + s"keyType: ${taggedColumn.keyType}  valueType: ${taggedColumn.valueType}")
 
           taggedColumn match {
-            case LongDoubleEvents(events) => writeEvents(events, columnPath)
-            case LongLongEvents(events)   => writeEvents(events, columnPath)
-            case LongIntEvents(events)    => writeEvents(events, columnPath)
-            case LongStringEvents(events) => writeEvents(events, columnPath)
+            case LongDoubleEvents(events)  => writeEvents(events, columnPath)
+            case LongLongEvents(events)    => writeEvents(events, columnPath)
+            case LongBooleanEvents(events) => writeEvents(events, columnPath)
+            case LongIntEvents(events)     => writeEvents(events, columnPath)
+            case LongStringEvents(events)  => writeEvents(events, columnPath)
             case _ =>
               val error = s"keyType: ${taggedColumn.keyType}  valueType: ${taggedColumn.valueType}"
               throw UnsupportedColumnType(error)

@@ -1,8 +1,11 @@
 package nest.sparkle.loader.kafka
 
-import nest.sparkle.store.Event
-import scala.reflect.runtime.universe._
 import scala.language.existentials
+import scala.reflect.runtime.universe._
+
+import org.apache.avro.util.Utf8
+
+import nest.sparkle.store.Event
 import nest.sparkle.util.Exceptions.NYI
 
 /** Extractor for TaggedColumn, subclasses will return a specific static type
@@ -24,6 +27,7 @@ abstract class TaggedEventExtractor[T: TypeTag, U: TypeTag] {
 
 case object LongDoubleEvents extends TaggedEventExtractor[Long, Double]
 case object LongLongEvents extends TaggedEventExtractor[Long, Long]
+case object LongBooleanEvents extends TaggedEventExtractor[Long, Boolean]
 case object LongIntEvents extends TaggedEventExtractor[Long, Int]
 case object LongStringEvents extends TaggedEventExtractor[Long, String]
 case object StringDoubleEvents extends TaggedEventExtractor[String, Double]
@@ -33,12 +37,14 @@ object TypeTagUtil {
 
   /** convert a value to a string based on a provided TypeTag */
   def typeTaggedToString(value: Any, typed: TypeTag[_]): String = {
-    typed match {
-      case t if t.tpe <:< typeOf[String] => value.toString
-      case t if t.tpe <:< typeOf[Long]   => value.toString
-      case t if t.tpe <:< typeOf[Int]    => value.toString
-      case t if t.tpe <:< typeOf[Double] => value.toString
-      case _                             => NYI(s"support for string converting value $value of type: $typed")
+    value match {
+      case s: String if typed.tpe <:< typeOf[String]   => s
+      case s: Utf8 if typed.tpe <:< typeOf[String]     => s.toString
+      case l: Long if typed.tpe <:< typeOf[Long]       => l.toString
+      case i: Int if typed.tpe <:< typeOf[Int]         => i.toString
+      case d: Double if typed.tpe <:< typeOf[Double]   => d.toString
+      case b: Boolean if typed.tpe <:< typeOf[Boolean] => b.toString
+      case _                                           => NYI(s"support for string converting value $value of type: $typed")
     }
   }
 

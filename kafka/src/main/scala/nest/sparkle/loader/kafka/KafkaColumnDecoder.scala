@@ -56,8 +56,8 @@ trait KafkaKeyValues extends KafkaColumnDecoder[ArrayRecordColumns] {
 
 /** KafkaColumnDecoder for avro encoded key,value records */
 case class AvroColumnDecoder(// format: OFF
-    val schema: Schema,
-    val decoder: ArrayRecordDecoder,
+    schema: Schema,
+    decoder: ArrayRecordDecoder,
     override val prefix: String
    ) extends KafkaKeyValues { // format: ON
 
