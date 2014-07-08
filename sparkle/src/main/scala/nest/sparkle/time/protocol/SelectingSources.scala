@@ -2,14 +2,14 @@ package nest.sparkle.time.protocol
 
 import scala.annotation.implicitNotFound
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.control.Exception.catching
 
 import com.typesafe.config.Config
 
 import spray.json._
 
-import nest.sparkle.store.{Column, Store}
+import nest.sparkle.store.{ Column, Store }
 import nest.sparkle.time.protocol.RequestJson.CustomSelectorFormat
 import nest.sparkle.util.Instance
 
@@ -45,13 +45,14 @@ trait SelectingSources {
   }
 
   /** Return the columns selected by the sources parameter in the StreamRequest */
-  def sourceColumns(sources: Seq[JsValue])(implicit execution: ExecutionContext) // format: OFF
+  def sourceColumns(sources: Seq[JsValue], authorizer: Authorizer)(implicit execution: ExecutionContext) // format: OFF
       : Seq[Future[Column[_, _]]] = { // format: ON
     sources.flatMap { jsValue =>
       jsValue match {
+        // TODO need to authorize the request
         case JsString(columnPath) => Seq(store.column(columnPath))
         case MatchCustom(columns) => columns
-        case x                    => Seq(Future.failed(MalformedSourceSelector(jsValue.toString))) 
+        case x                    => Seq(Future.failed(MalformedSourceSelector(jsValue.toString)))
         // TODO report a custom error when source selector not found
       }
     }

@@ -27,6 +27,7 @@ import unfiltered.netty.websockets.WebSocket
 import nest.sparkle.time.protocol.ResponseJson._
 import io.netty.channel.ChannelFuture
 import nest.sparkle.util.RandomUtil
+import nest.sparkle.util.TryToFuture._
 
 // TODO break this up into something per session/socket and something per service for
 // looking up transforms
@@ -34,11 +35,12 @@ import nest.sparkle.util.RandomUtil
 case class StreamRequestApi(val store: Store, val rootConfig: Config) // format: OFF
     (implicit actorFactory:ActorRefFactory)
     extends SelectingSources with SelectingTransforms { // format: ON
-
+  val authProvider = AuthProvider.instantiate(rootConfig) 
+  
   /** handle a StreamRequestMessage over a websocket */
   def socketStreamRequest(request: StreamRequestMessage, socket: WebSocket) // format: OFF 
     (implicit context: ExecutionContext):Unit = { // format: ON
-    val futureOutputStreams = outputStreams(request.message)
+    val futureOutputStreams = outputStreams(request)
 
     // TODO assign streamIds to each output stream
     // TODO respect sendUpdates
@@ -55,8 +57,8 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
 
   /** send an initial Streams response over a weboscket */
   private def sendStreams(request: StreamRequestMessage,
-    futureOutputStreams: Future[Seq[JsonDataStream]],
-    socket: WebSocket)(implicit context: ExecutionContext): Observable[Seq[JsonDataStream]] = {
+                          futureOutputStreams: Future[Seq[JsonDataStream]],
+                          socket: WebSocket)(implicit context: ExecutionContext): Observable[Seq[JsonDataStream]] = {
 
     // TODO RX there must be a better way?
     def headTail[T](observable: Observable[T]): (Observable[T], Observable[T]) = {
@@ -113,8 +115,8 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
 
   /** send Update messages over a websocket */
   private def sendUpdates(request: StreamRequestMessage,
-    remaining: Seq[JsonDataStream],
-    socket: WebSocket)(implicit context: ExecutionContext): Observable[ChannelFuture] = {
+                          remaining: Seq[JsonDataStream],
+                          socket: WebSocket)(implicit context: ExecutionContext): Observable[ChannelFuture] = {
 
     val tails = // second and subsequent chunks from each transform's json stream
       for {
@@ -157,7 +159,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
   /** Process a StreamRequest message from the client, and return a future that completes with a Streams json object
     * with the entire result set
     */
-  def httpStreamRequest(streamRequest: StreamRequest)(implicit context: ExecutionContext): Future[Streams] = {
+  def httpStreamRequest(streamRequestMessage: StreamRequestMessage)(implicit context: ExecutionContext): Future[Streams] = {
 
     /** return a future that completes with the stream and data string together when the data string is ready */
     def streamWithFutureData[T](outputStream: JsonDataStream): Future[StreamAndData] = {
@@ -168,7 +170,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
       }
     }
 
-    val futureOutputStreams = outputStreams(streamRequest)
+    val futureOutputStreams = outputStreams(streamRequestMessage)
     val futureStreamAndData = // completes when output streams are finished, since we're over http
       futureOutputStreams.flatMap { outputStreams =>
         val futureStreamAndDatas: Seq[Future[StreamAndData]] =
@@ -206,11 +208,15 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
   }
 
   /** return an future output stream for each column */
-  private def outputStreams(streamRequest: StreamRequest) // format: OFF
+  private def outputStreams(streamRequestMessage: StreamRequestMessage) // format: OFF
       (implicit context: ExecutionContext): Future[Seq[JsonDataStream]] = { // format: ON
-    val futureColumns = Future.sequence(sourceColumns(streamRequest.sources))
-    // completes with Observable output streams
-    selectTransform(streamRequest.transform, streamRequest.transformParameters, futureColumns)
+    val futureAuthorizer = authProvider.authenticate(streamRequestMessage.realm)
+    futureAuthorizer.flatMap { authorizer =>
+      val request = streamRequestMessage.message
+      val futureColumns = Future.sequence(sourceColumns(request.sources, authorizer))
+      // completes with Observable output streams
+      selectTransform(request.transform, request.transformParameters, futureColumns)
+    }
   }
 
 }

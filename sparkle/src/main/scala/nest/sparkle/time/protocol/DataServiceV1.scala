@@ -117,7 +117,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
   private def httpDataRequest(request: StreamRequestMessage): Future[StreamsMessage] = {
     val futureResponse = {
       for {
-        streams <- api.httpStreamRequest(request.message)
+        streams <- api.httpStreamRequest(request)
       } yield {
         val streamsResponse = StreamsMessage(
           requestId = request.requestId,
@@ -141,6 +141,12 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
           Status(603, s"parameter error in transform request: ${request.toJson.compactPrint}")
         case err: MalformedSourceSelector =>
           Status(604, s"parameter error in source selector: ${request.toJson.compactPrint}")
+        case AuthenticationFailed =>
+          Status(611, s"request: ${request.toJson.compactPrint}")
+        case AuthenticationMissing =>
+          Status(612, s"request: ${request.toJson.compactPrint}")
+        case ColumnForbidden(msg) =>
+          Status(613, s"$msg request: ${request.toJson.compactPrint}")
         case err =>
           log.error("unexpected error:", err)
           Status(999, s"unknown error $err in ${request.toJson.compactPrint}")

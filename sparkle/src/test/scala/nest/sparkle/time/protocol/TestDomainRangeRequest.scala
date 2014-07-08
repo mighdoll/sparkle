@@ -31,7 +31,7 @@ class TestDomainRangeRequest extends TestStore with StreamRequestor with TestDat
     forAll { events: List[Event[Long, Double]] =>
       val columnName = makeColumn("V1Protocol.DomainRange", events)
       val requestMessage = streamRequest("DomainRange", JsObject(), SelectString(columnName))
-      Post("/v1/data", requestMessage)(StreamRequestMessageFormat) ~> v1protocol ~> check {
+      Post("/v1/data", requestMessage) ~> v1protocol ~> check {
         val data = TestDataService.streamDataJson(response).head
         data.length shouldBe 2
         if (events.isEmpty) {

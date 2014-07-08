@@ -38,6 +38,7 @@ object MessageType {
 
 /** realm specifier in a Distribution Message */
 case class Realm(name: String, id:Option[String], auth:Option[String])
+// TODO distinguish between upstream and downstream Realm, downstream Realm cannot have id and auth
 
 /** request a transformed stream.  sent from from client to server */
 case class StreamRequest(sendUpdates: Option[Boolean], itemLimit: Option[Long], sources: Array[JsValue],

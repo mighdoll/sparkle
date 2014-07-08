@@ -93,7 +93,6 @@ object IntervalSum extends ColumnTransform {
                 iterator.toSeq
               }
             }
-
           }
         // LATER ongoing results too
         val initialResults = perRangeInitialResults.reduceLeft{ (a, b) => a ++ b }
@@ -130,6 +129,8 @@ object IntervalSum extends ColumnTransform {
     val periodType = PeriodType.forFields(Array(period.durationType))
     val partPeriod = new JodaPeriod(period.value.toLong, periodType)
 
+    /** a wrapper around a millisecond-denominated Event interval, with utilities for converting to Joda dates
+     *  and calculating overlaps in Joda time. */
     case class DatedInterval(event: Event[T, U]) {
       val start = new DateTime(event.argument, dateTimeZone)
       val period = JodaPeriod.millis(event.value.toInt)
