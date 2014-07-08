@@ -46,7 +46,8 @@ class TestExporter extends FunSuite with CassandraTestConfig with Matchers with 
       )
 
   /** return a future that completes when the loader reports that loading is complete */
-  def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
+  // TODO DRY this
+  def onLoadCompleteOld(system: ActorSystem, path: String): Future[Unit] = {
     val promise = Promise[Unit]()
     system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
       classOf[LoadComplete])
@@ -60,7 +61,7 @@ class TestExporter extends FunSuite with CassandraTestConfig with Matchers with 
         // First load some data
         val filePath = Resources.filePathString("epochs.csv")
         val dataSet = "epochs"
-        val complete = onLoadComplete(system, dataSet)
+        val complete = onLoadCompleteOld(system, dataSet)
         FilesLoader(sparkleConfig, filePath, testDb)
         complete.await
 

@@ -15,16 +15,16 @@
 package nest.sparkle.loader.kafka
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
 
 import com.typesafe.config.Config
 
 import nest.sparkle.loader.kafka.TypeTagUtil.typeTaggedToString
-import nest.sparkle.store.{ Event, WriteableStore }
+import nest.sparkle.store.{Event, WriteableStore}
 import nest.sparkle.store.cassandra.CanSerialize
 import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.util.{ Instance, Log, Watched }
+import nest.sparkle.util.{Instance, Log, Watched}
 import nest.sparkle.util.ConfigureLog4j
 import nest.sparkle.util.Exceptions.NYI
 

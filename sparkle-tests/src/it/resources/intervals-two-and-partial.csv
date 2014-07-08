@@ -1,0 +1,7 @@
+time,millis
+# one 10 second interval 
+2014-07-06T04:01:00.000,10000
+
+# and a 20 second interval that overlaps 10 seconds in the same hour
+# note that this should force the hourly report to a second hour 
+2014-07-06T04:59:50.000,20000

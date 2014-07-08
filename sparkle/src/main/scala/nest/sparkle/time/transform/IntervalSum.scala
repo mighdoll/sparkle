@@ -28,6 +28,10 @@ import java.util.TimeZone
 import org.joda.time.PeriodType
 import scala.util.Success
 import scala.util.Failure
+import com.github.nscala_time.time.Implicits._
+import org.joda.time.{ Period => JodaPeriod }
+import spire.implicits._
+import org.joda.time.Interval
 
 object StandardIntervalTransform extends TransformMatcher {
   override type TransformType = ColumnTransform
@@ -64,11 +68,11 @@ object IntervalSum extends ColumnTransform {
     result.recover { case err => JsonDataStream.error(err) }.get
   }
 
-  def parseParameters[T: JsonFormat](transformParameters: JsObject): Try[IntervalParameters[T]] = {
+  private def parseParameters[T: JsonFormat](transformParameters: JsObject): Try[IntervalParameters[T]] = {
     nonFatalCatch.withTry { transformParameters.convertTo[IntervalParameters[T]] }
   }
 
-  def summarizeColumn[T, U](column: Column[T, U], parameters: IntervalParameters[T])  // format: OFF
+  private def summarizeColumn[T, U](column: Column[T, U], parameters: IntervalParameters[T])  // format: OFF
     (implicit execution: ExecutionContext): Observable[Seq[Event[T, U]]] = { // format: ON
 
     val eventRanges = SelectRanges.fetchRanges(column, parameters.ranges) // TODO dry with SummaryTransform
@@ -104,81 +108,110 @@ object IntervalSum extends ColumnTransform {
     }
   }
 
-  import com.github.nscala_time.time.Imports._
-  import org.joda.time.{ Period => JodaPeriod }
-  import spire.implicits._
-
   /** assumes that events are sorted by start */
-  def partitionIterator[T: Numeric, U: Numeric](events: Seq[Event[T, U]], rangeOpt: Option[RangeInterval[T]],
-                                                period: nest.sparkle.util.Period): Iterator[Event[T, U]] = {
+  private def partitionIterator[T: Numeric, U: Numeric](events: Seq[Event[T, U]], rangeOpt: Option[RangeInterval[T]],
+                                                        period: nest.sparkle.util.Period): Iterator[Event[T, U]] = {
     // TODO DRY me with SummaryTransform!
     // TODO make configurable based on storage time type..
+    // TODO consider where to do local time conversion
 
     val range = rangeOpt.getOrElse(RangeInterval())
     val start = range.start.getOrElse(events.head.argument)
     val (end, includeEnd) = range.until match {
       case Some(explicitEnd) => (explicitEnd, false)
-      case None              => (events.last.argument, true)
+      case None              => (endOfLatestInterval(events), true)
     }
-    val timeZone = TimeZone.getTimeZone("America/Los_Angeles");
-    val dateTimeZone = org.joda.time.DateTimeZone.forTimeZone(timeZone)
+    val timeZone = TimeZone.getTimeZone("America/Los_Angeles"); // TODO make this dynamic
+    implicit val dateTimeZone = org.joda.time.DateTimeZone.forTimeZone(timeZone)
 
-    val startDate = new DateTime(start, dateTimeZone)
-    val endDate = new DateTime(end, dateTimeZone)
+    val endDate = new DateTime(end)
+    val startDate = {
+      val baseStartDate = new DateTime(start, dateTimeZone)
+      period.roundDate(baseStartDate)
+    }
 
     val periodType = PeriodType.forFields(Array(period.durationType))
-    val partPeriod = new JodaPeriod(period.value.toLong, periodType)
-
-    /** a wrapper around a millisecond-denominated Event interval, with utilities for converting to Joda dates
-     *  and calculating overlaps in Joda time. */
-    case class DatedInterval(event: Event[T, U]) {
-      val start = new DateTime(event.argument, dateTimeZone)
-      val period = JodaPeriod.millis(event.value.toInt)
-      val end = start + period
-
-      /** calculate the overlap with a target period */
-      def overlap(targetStart: DateTime, targetEnd: DateTime): U = {
-        if (start >= targetStart && end < targetEnd) { // totally within target
-          event.value
-        } else if (start < targetStart && end > targetStart && end < targetEnd) { // starts before target, ends within
-          val tooEarly = new JodaPeriod(start, targetStart)
-          event.value - tooEarly.getMillis
-        } else if (start < targetStart && end >= targetEnd) { // starts before target ends after
-          val tooEarly = new JodaPeriod(start, targetStart)
-          val tooLate = new JodaPeriod(end, targetEnd)
-          event.value - (tooEarly.getMillis + tooLate.getMillis)
-        } else if (start > targetStart && end >= targetEnd) { // starts within, ends after
-          val tooLate = new JodaPeriod(end, targetEnd)
-          event.value - tooLate.getMillis
-        } else {
-          implicitly[Numeric[U]].zero
-        }
-      }
-    }
+    val partPeriod = period.toJoda
 
     val datedEvents = events.map(DatedInterval(_))
 
-    var remaining = datedEvents.filter(_.start >= startDate) // filter in case the source data contains some extras
+    var remaining = datedEvents
     var partStart = startDate
 
     /** iterate through the time periods, returning a Seq containing a single entry per period */
     new Iterator[Event[T, U]] {
-      override def hasNext(): Boolean = !remaining.isEmpty && (partStart < endDate || (partStart == end && includeEnd))
+      override def hasNext(): Boolean = !remaining.isEmpty && (partStart < endDate || (partStart == endDate && includeEnd))
       override def next(): Event[T, U] = {
+        //        remaining = oldIntervalsRemoved()
         val partEnd = partStart + partPeriod
-
         val overlap = remaining.map{ dated => dated.overlap(partStart, partEnd) }
         val totalOverlap = overlap.reduceLeft(_ + _)
         val result = Event(partStart.getMillis.asInstanceOf[T], totalOverlap)
-
-        val remainder = remaining.filterNot { dated =>
-          dated.end <= partEnd
-        }
-        remaining = remainder
+//        println(s"Interval.iterator.next:  start:$partStart  until:$partEnd  totalOverlap:$totalOverlap  result: $result")
+        assert(partStart + partPeriod > partStart)
         partStart = partStart + partPeriod
+
         result
       }
-    }
 
+      private def oldIntervalsRemoved(): Seq[DatedInterval[T, U]] = {
+        val remainder = remaining.filterNot { dated =>
+          dated.end <= partStart
+        }
+        remainder
+      }
+    }
+  }
+
+  private def endOfLatestInterval[T: Numeric, U: Numeric](events: Seq[Event[T, U]]): T = {
+    val numericKey = implicitly[Numeric[T]]
+    val ends = events.map { case Event(key, value) => key.toLong + value.toLong }
+    numericKey.fromLong(ends.max)
+  }
+
+}
+
+/** a wrapper around a millisecond-denominated Event interval, with utilities for converting to Joda dates
+  * and calculating overlaps in Joda time.
+  */
+case class DatedInterval[T: Numeric, U: Numeric](event: Event[T, U])(implicit dateTimeZone: DateTimeZone) {
+  private val numericValue = implicitly[Numeric[U]]
+  val start = new DateTime(event.argument, dateTimeZone)
+
+  val end = {
+    val endMillis = start.millis + event.value.toLong
+    new DateTime(endMillis, dateTimeZone)
+  }
+
+  /** calculate the overlap with a target period */
+  def overlap(targetStart: DateTime, targetEnd: DateTime): U = {
+//    println(s"DatedInterval.overlap:  targetStart: $targetStart targetEnd: $targetEnd")
+//    println(s"DatedInterval:                start: $start             end: $end")
+    if (start >= targetEnd || end <= targetStart) {
+//      println("- no overlap")
+      numericValue.zero
+    } else if (start >= targetStart && end < targetEnd) { // totally within target
+//      println(" - totally within")
+      event.value
+    } else if (start < targetStart && end > targetStart && end < targetEnd) { // starts before target, ends within
+//      println("- starts before, ends within")
+      val tooEarly = targetStart.millis - start.millis
+      val longResult = event.value.toLong - tooEarly
+      numericValue.fromLong(longResult)
+    } else if (start < targetStart && end >= targetEnd) { // starts before target ends after
+//      println("- starts before, ends after")
+      val tooEarly = targetStart.millis - start.millis
+      val tooLate = targetEnd.millis - end.millis
+      val longResult = event.value.toLong - (tooEarly + tooLate)
+      numericValue.fromLong(longResult)
+    } else if (start >= targetStart && start < targetEnd && end >= targetEnd) { // starts within, ends after
+//      println("- starts within, ends after")
+      val tooLate = end.getMillis - targetEnd.getMillis
+      val longResult = event.value.toLong - tooLate
+      numericValue.fromLong(longResult)
+    } else {
+//      println("- no overlap, fall through case. why?")
+      numericValue.zero
+    }
   }
 }

@@ -2,13 +2,45 @@ package nest.sparkle.util
 
 import org.joda.time.DurationFieldType
 import scala.util.control.Exception._
+import org.joda.time.{ Period => JodaPeriod }
+import com.github.nscala_time.time.Implicits._
+import org.joda.time.DateTime
 
 /** a period of time*/
-case class Period(value: Double, durationType: DurationFieldType)
+case class Period(value: Int, durationType: DurationFieldType) {
+  def toJoda: JodaPeriod = { 
+    durationType match {
+      case t if t == DurationFieldType.millis  => JodaPeriod.millis(value)
+      case t if t == DurationFieldType.seconds => JodaPeriod.seconds(value)
+      case t if t == DurationFieldType.minutes => JodaPeriod.minutes(value)
+      case t if t == DurationFieldType.hours   => JodaPeriod.hours(value)
+      case t if t == DurationFieldType.days    => JodaPeriod.days(value)
+      case t if t == DurationFieldType.weeks   => JodaPeriod.weeks(value)
+      case t if t == DurationFieldType.months  => JodaPeriod.months(value)
+      case t if t == DurationFieldType.years   => JodaPeriod.years(value)
+    }
+  }
+
+  /** return a DateTime at or before date that starts on an even boundary of time with the same resolution as this period
+    * e.g. round to the nearest month if the period is months.
+    */
+  def roundDate(date: DateTime): DateTime = { // TODO should round to the nearest modulus of even values too (e.g. 3hr boundaries)
+    durationType match {
+      case t if t == DurationFieldType.millis  => date
+      case t if t == DurationFieldType.seconds => date.withMillisOfSecond(0)
+      case t if t == DurationFieldType.minutes => date.withMillisOfSecond(0).withSecond(0)
+      case t if t == DurationFieldType.hours   => date.withMillisOfSecond(0).withSecond(0).withMinute(0)
+      case t if t == DurationFieldType.days    => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
+      case t if t == DurationFieldType.weeks   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(0)
+      case t if t == DurationFieldType.months  => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(0).withWeek(0)
+      case t if t == DurationFieldType.years   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(0).withWeek(0).withMonth(0)
+      case _                                   => ???
+    }
+  }
+}
 
 /** utility for parsing time period strings */
 object Period {
-
   private case class PeriodUnit(name: String, durationType: DurationFieldType, scaleFactor: Double = 1.0)
 
   private val baseUnits = Seq(
@@ -31,10 +63,10 @@ object Period {
     val Array(number, unitsString) = duration.split(" ").filterNot(_.isEmpty)
 
     for {
-      baseValue <- nonFatalCatch opt java.lang.Double.parseDouble(number)
+      baseValue <- nonFatalCatch opt Integer.parseInt(number)
       if (baseValue >= 0)
       unit <- units.find(_.name == unitsString)
-      value = baseValue * unit.scaleFactor
+      value = (baseValue * unit.scaleFactor).toInt
     } yield {
       Period(value, unit.durationType)
     }

@@ -90,6 +90,7 @@ trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
   /** for test convenience enhance String with a toMillis method that converts iso 8601 strings
     * into milliseconds
     */
+  // TODO DRY with StringToMillis
   implicit class IsoDateString(isoDateString: String) {
     import com.github.nscala_time.time.Implicits._
 

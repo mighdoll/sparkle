@@ -13,7 +13,8 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraTestConfig
   val filePath = Resources.filePathString("epochs.csv")
 
   /** return a future that completes when the loader reports that loading is complete */
-  def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
+  // TODO DRY this
+  def onLoadCompleteOld(system: ActorSystem, path: String): Future[Unit] = {
     // TODO Get rid of this copy/pasted onLoadComplete (by moving files loader to stream loader notification)
     val promise = Promise[Unit]
     system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
@@ -25,7 +26,7 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraTestConfig
   def withTestConsole[T](fn: StorageConsoleAPI => T): T = {    
     withTestDb { testDb =>
       withTestActors{ implicit system =>
-        val complete = onLoadComplete(system, "epochs/count")
+        val complete = onLoadCompleteOld(system, "epochs/count")
         FilesLoader(sparkleConfig, filePath, testDb)
         complete.await
         val storageConsole = new ConcreteStorageConsole(testDb, system.dispatcher)

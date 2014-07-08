@@ -1,0 +1,8 @@
+time,millis
+# one interval for two hours
+2014-07-06T00:00:00.000,7200000
+
+# one hour nothing
+
+# one hour with a 10 seconds interval
+2014-07-06T03:00:00.000,10000

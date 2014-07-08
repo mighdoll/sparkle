@@ -14,8 +14,9 @@ object GuessType {
     * strings are present in the collection, also returns type String.
     */
   def parserTypeFromSampleStrings(values: Iterable[String]): ParseStringTo[_] = {
-    values match {
-      case Ints(parser)     => parser
+    values match {  // TODO mostly we want long for our test cases, so this is convenient for now. 
+                    // Perhaps we should allow a type specifier in the .csv column header..
+//      case Ints(parser)     => parser  
       case Longs(parser)    => parser
       case Doubles(parser)  => parser
       case Booleans(parser) => parser

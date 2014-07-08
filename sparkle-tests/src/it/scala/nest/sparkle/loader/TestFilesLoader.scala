@@ -39,7 +39,8 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   override def testKeySpace = "testfilesloader"
 
   /** return a future that completes when the loader reports that loading is complete */
-  def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
+  // TODO DRY this
+  def onLoadCompleteOld(system: ActorSystem, path: String): Future[Unit] = {
     val promise = Promise[Unit]
     system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
       classOf[LoadComplete])
@@ -61,7 +62,7 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
     withTestDb { testDb =>
       withTestActors { implicit system =>
         import system.dispatcher
-        val complete = onLoadComplete(system, columnPath)
+        val complete = onLoadCompleteOld(system, columnPath)
         FilesLoader(sparkleConfig, filePath, testDb, strip)
         complete.await
 

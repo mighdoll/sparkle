@@ -1,0 +1,4 @@
+time,millis
+# two 10 second intervals in one hour
+2014-07-06T04:01:00.000,10000
+2014-07-06T04:11:00.000,10000

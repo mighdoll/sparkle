@@ -79,7 +79,14 @@ trait CassandraTestConfig extends SparkleTestConfig {
     promise.future
   }
 
-  /** run a test function after loading some data into cassandra */
+  /** Run a test function after loading some data into cassandra.
+   *  @param fn - test function to call after the data has been loaded.
+   *  @param resource - directory in the classpath resources to load (recursively)
+   *  @param relativePath - call the function after a particular file in the resource directory has been
+   *              completely loaded.
+   *  TODO have the FilesLoader report when the entire resource subdirectory is loaded, so
+   *  we don't need to path both the resource and relativePath. (Perhaps
+   *  the existing dataSet notification is enough for this?) */
   def withLoadedPath[T](resource: String, relativePath: String)(fn: (Store, ActorSystem) => T): T = {
     val filePath = Resources.filePathString(resource)
 
