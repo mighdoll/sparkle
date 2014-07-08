@@ -22,11 +22,11 @@ object SparkleTimeBuild extends Build {
     shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
   }
 
-  lazy val sparkleRoot = Project(id = "sparkle-root", base = file("."))
-    .aggregate(sparkleTime, kafkaLoader)
+  lazy val sparkleRoot = Project(id = "root", base = file("."))
+    .aggregate(sparkleTime, kafkaLoader, testKit, sparkleTests)
 
   lazy val sparkleTime =
-    Project(id = "sparkle-time", base = file("sparkle"))
+    Project(id = "sparkle", base = file("sparkle"))
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BuildSettings.sparkleAssemblySettings: _*) 
@@ -56,12 +56,32 @@ object SparkleTimeBuild extends Build {
   lazy val kafkaLoader =
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
       .dependsOn(sparkleTime)
+      .dependsOn(testKit)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
         libraryDependencies ++= kafka ++ testAndLogging ++ avro ++ Seq(
           metricsScala
         )
-      ).dependsOn(sparkleTime)
+      )
+
+  lazy val testKit =
+    Project(id = "test-kit", base = file("test-kit"))
+      .dependsOn(sparkleTime)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= testAndLogging ++ spray
+      )
+
+  lazy val sparkleTests =
+    Project(id = "sparkle-tests", base = file("sparkle-tests"))
+      .dependsOn(sparkleTime)
+      .dependsOn(testKit % "test->test; it->test")
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= testAndLogging ++ spray
+      )
 
 }

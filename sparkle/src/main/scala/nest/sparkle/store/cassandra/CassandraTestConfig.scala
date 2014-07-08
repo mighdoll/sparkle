@@ -19,6 +19,14 @@ import com.typesafe.config.{Config, ConfigFactory}
 import akka.actor._
 import nest.sparkle.util.{ConfigUtil, ConfigureLogback}
 import nest.sparkle.test.SparkleTestConfig
+import scala.concurrent.Future
+import nest.sparkle.loader.ReceiveLoaded
+import scala.concurrent.Promise
+import nest.sparkle.loader.FileLoadComplete
+import nest.sparkle.util.Resources
+import nest.sparkle.loader.FilesLoader
+import nest.sparkle.store.Store
+import spray.util._
 
 /** a test jig for running tests using cassandra.
  *  (In the main project to make it easy to share between tests and integration tests) */
@@ -60,5 +68,36 @@ trait CassandraTestConfig extends SparkleTestConfig {
       system.shutdown()
     }
   }
+  
+    /** return a future that completes when the loader reports that loading is complete */
+  def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
+    // TODO Get rid of this copy/pasted onLoadComplete (by moving files loader to stream loader notification)
+    val promise = Promise[Unit]
+    system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
+      classOf[FileLoadComplete])
+
+    promise.future
+  }
+
+  /** run a test function after loading some data into cassandra */
+  def withLoadedPath[T](resource: String, relativePath: String)(fn: (Store, ActorSystem) => T): T = {
+    val filePath = Resources.filePathString(resource)
+
+    withTestDb { testDb =>
+      withTestActors { implicit system =>
+        val complete = onLoadComplete(system, relativePath)
+        val loader = FilesLoader(sparkleConfig, filePath, testDb, 0)
+        complete.await
+        val result =
+          try {
+            fn(testDb, system)
+          } finally {
+            loader.close()
+          }
+        result
+      }
+    }
+  }
+
 
 }
