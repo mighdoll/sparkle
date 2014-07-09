@@ -15,11 +15,18 @@ import nest.sparkle.util.RecoverOrdering
   *
   * Additionally, multiple Interval columns may be merged into a single one. Overlapping intervals
   * are combined.
-  * 
+  *
   * If the last event in the underlying data in an 'on' event, the last interval generated
   * will have a length of zero.
+  *
+  * @param earlyRead offset explicit readRange start intervals by this amount. 'On' events may have
+  * started prior to the target readRange, identifying these intervals that are ongoing at the readRange
+  * start requires reading some earlier data to find the On.
+  *
+  * LATER consider reading in reverse order in the column to find the previous entry, rather than
+  * starting a fixed amount of time earlier. This will be somewhat slower
   */
-case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]])
+case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]], earlyRead: Option[T] = None)
     extends Column[T, T] {
   override def name = "Interval"
   override def keyType = sourceColumns.head.keyType
@@ -33,8 +40,13 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]])
       (implicit execution: ExecutionContext): OngoingEvents[T,T] = { // format: ON
 
     // TODO large data gaps (e.g. >24 hr) should be assumed to be off, probably.. (configurable)
-    // TODO back up e.g. 24 hours to start reading data
-    val reads = sourceColumns.map { column => column.readRange(start, end, limit) }
+    val modifiedStart =
+      start.map { specifiedStart =>
+        val earlyAdjust = earlyRead.getOrElse(numeric.zero)
+        specifiedStart - earlyAdjust
+      }
+
+    val reads = sourceColumns.map { column => column.readRange(modifiedStart, end, limit) }
     val allIntervals = reads.map { ongoingEvents => toInterval(ongoingEvents.initial) }
     val initial = compositeIntervals(allIntervals) // TODO this should be a separate transform
     val ongoing: Observable[Event[T, T]] = Observable.empty // LATER handle ongoing events too, for now we only handle the initial set
@@ -47,7 +59,7 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]])
     // We save the intermediate state so that we can:
     // 1) accumulate the length of 'on' periods, even across sequences like: off,on,on,on,off
     // 2) emit a final record in case the final on period hasn't yet closed
-    // 3) TBD - optionally add 'off' signals in case of data gaps
+    // 3) LATER - optionally add 'off' signals in case of data gaps
     case class IntervalState(current: Option[Event[T, T]], emit: Option[Event[T, T]]) {
       require(current.isEmpty || emit.isEmpty)
     }
