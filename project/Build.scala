@@ -66,7 +66,7 @@ object SparkleTimeBuild extends Build {
       )
 
   lazy val testKit =
-    Project(id = "test-kit", base = file("test-kit"))
+    Project(id = "sparkle-test-kit", base = file("test-kit"))
       .dependsOn(sparkleTime)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
