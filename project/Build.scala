@@ -71,13 +71,13 @@ object SparkleTimeBuild extends Build {
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= testAndLogging ++ spray
+        libraryDependencies ++= kitTestsAndLogging ++ spray
       )
 
   lazy val sparkleTests =
     Project(id = "sparkle-tests", base = file("sparkle-tests"))
       .dependsOn(sparkleTime)
-      .dependsOn(testKit % "test->test; it->test")
+      .dependsOn(testKit)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(

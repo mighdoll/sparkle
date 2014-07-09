@@ -20,6 +20,7 @@ object Dependencies {
     val akka = "2.3.0"
     val spray = "1.3.1"
     val rxJava = "0.19.0"
+    val scalaCheck = "1.11.3"
   }
 
   // Spray + Akka
@@ -64,17 +65,24 @@ object Dependencies {
   }
 
   object Test {
-    val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest % "test"
-    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % "1.11.3"    % "test"
-    val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray     % "test"
-    val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka      % "test"
+    val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest  % "test"
+    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck % "test"
+    val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray      % "test"
+    val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       % "test"
   }
 
   object IT {
-    val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest % "it"
-    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % "1.11.3"    % "it"
-    val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray     % "it"
-    val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka      % "it"
+    val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest  % "it"
+    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck % "it"
+    val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray      % "it"
+    val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       % "it"
+  }
+  
+  object Kit {
+    val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest 
+    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck        
+    val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray      
+    val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       
   }
 
   val basicTest = Seq(
@@ -91,6 +99,14 @@ object Dependencies {
 
   val testAndLogging = basicTest ++ logging
 
+  val kitTestsAndLogging = {
+    Seq( // test libraries, but in main config, not in Test or IT
+      Kit.scalaTest,
+      Kit.scalaCheck,
+      Kit.sprayTestKit,
+      Kit.akkaTestKit
+    ) ++ logging
+  }
 
   val spray = Seq(
     sprayJson,
