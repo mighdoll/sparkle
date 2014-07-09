@@ -135,25 +135,26 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
 
   /** translate errors in processing to appropriate Status messages to the client */
   private def streamError(request: StreamRequestMessage, error: Throwable): StatusMessage = {
+    val requestAsString = request.toJson.compactPrint
     val status =
       error match {
         case err: DeserializationException =>
-          Status(603, s"parameter error in transform request: ${request.toJson.compactPrint}")
+          Status(603, s"parameter error in transform.  request: $requestAsString")
         case err: MalformedSourceSelector =>
-          Status(604, s"parameter error in source selector: ${request.toJson.compactPrint}")
+          Status(604, s"parameter error in source selector.  request: $requestAsString")
         case AuthenticationFailed =>
-          Status(611, s"request: ${request.toJson.compactPrint}")
+          Status(611, s"Authentication failed.  request: $requestAsString")
         case AuthenticationMissing =>
-          Status(612, s"request: ${request.toJson.compactPrint}")
+          Status(612, s"Authentication missing.  request: $requestAsString")
         case ColumnForbidden(msg) =>
-          Status(613, s"$msg request: ${request.toJson.compactPrint}")
+          Status(613, s"Access to column forbidden.  $msg request: $requestAsString")
         case err =>
-          log.error("unexpected error:", err)
-          Status(999, s"unknown error $err in ${request.toJson.compactPrint}")
+          log.error("no Status reporter for:", err)
+          Status(999, s"unknown error $err in $requestAsString")
       }
     val statusMessage = StatusMessage(requestId = request.requestId, realm = request.realm,
       traceId = request.traceId, messageType = MessageType.Status, message = status)
-    log.warn(s"streamError ${status.code} ${status.description}: request: ${request.toJson.prettyPrint} ")
+    log.warn(s"streamError ${status.code} ${status.description}: request: $requestAsString ")
     statusMessage
   }
 
