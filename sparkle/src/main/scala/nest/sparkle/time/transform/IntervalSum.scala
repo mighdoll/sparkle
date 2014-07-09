@@ -113,7 +113,7 @@ object IntervalSum extends ColumnTransform {
                                                         period: nest.sparkle.util.Period): Iterator[Event[T, U]] = {
     // TODO DRY me with SummaryTransform!
     // TODO make configurable based on storage time type..
-    // TODO consider where to do local time conversion
+    // TODO consider where to do local time conversion, probably take a timezone parameter to IntervalSum..
 
     val range = rangeOpt.getOrElse(RangeInterval())
     val start = range.start.getOrElse(events.head.argument)
