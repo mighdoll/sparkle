@@ -31,9 +31,9 @@ case class Period(value: Int, durationType: DurationFieldType) {
       case t if t == DurationFieldType.minutes => date.withMillisOfSecond(0).withSecond(0)
       case t if t == DurationFieldType.hours   => date.withMillisOfSecond(0).withSecond(0).withMinute(0)
       case t if t == DurationFieldType.days    => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
-      case t if t == DurationFieldType.weeks   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(0)
-      case t if t == DurationFieldType.months  => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(0).withWeek(0)
-      case t if t == DurationFieldType.years   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(0).withWeek(0).withMonth(0)
+      case t if t == DurationFieldType.weeks   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
+      case t if t == DurationFieldType.months  => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withWeek(1)
+      case t if t == DurationFieldType.years   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withWeek(1).withMonth(1)
       case _                                   => ???
     }
   }
