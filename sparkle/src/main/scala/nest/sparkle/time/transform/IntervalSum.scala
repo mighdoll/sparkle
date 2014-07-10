@@ -185,29 +185,30 @@ case class DatedInterval[T: Numeric, U: Numeric](event: Event[T, U])(implicit da
 
   /** calculate the overlap with a target period */
   def overlap(targetStart: DateTime, targetEnd: DateTime): U = {
-//    println(s"DatedInterval.overlap:  targetStart: $targetStart targetEnd: $targetEnd")
+//    println(s"\nDatedInterval.overlap:  targetStart: $targetStart targetEnd: $targetEnd")
 //    println(s"DatedInterval:                start: $start             end: $end")
     if (start >= targetEnd || end <= targetStart) {
-//      println("- no overlap")
+//      println("- no overlap: 0")
       numericValue.zero
     } else if (start >= targetStart && end < targetEnd) { // totally within target
-//      println(" - totally within")
+//      println(s" - totally within: ${event.value}")
       event.value
     } else if (start < targetStart && end > targetStart && end < targetEnd) { // starts before target, ends within
-//      println("- starts before, ends within")
       val tooEarly = targetStart.millis - start.millis
       val longResult = event.value.toLong - tooEarly
+//      println(s"- starts before, ends within: $longResult")
       numericValue.fromLong(longResult)
     } else if (start < targetStart && end >= targetEnd) { // starts before target ends after
-//      println("- starts before, ends after")
       val tooEarly = targetStart.millis - start.millis
-      val tooLate = targetEnd.millis - end.millis
+      val tooLate = end.millis - targetEnd.millis
       val longResult = event.value.toLong - (tooEarly + tooLate)
+//      println(s"- starts before, ends after: $longResult")
       numericValue.fromLong(longResult)
     } else if (start >= targetStart && start < targetEnd && end >= targetEnd) { // starts within, ends after
 //      println("- starts within, ends after")
       val tooLate = end.getMillis - targetEnd.getMillis
       val longResult = event.value.toLong - tooLate
+//      println(s"- starts within, ends after: $longResult")
       numericValue.fromLong(longResult)
     } else {
 //      println("- no overlap, fall through case. why?")

@@ -6,18 +6,31 @@ import org.joda.time.{ Period => JodaPeriod }
 import com.github.nscala_time.time.Implicits._
 import org.joda.time.DateTime
 
+private object FieldTypes {
+  val millis = DurationFieldType.millis
+  val seconds = DurationFieldType.seconds
+  val minutes = DurationFieldType.minutes
+  val hours = DurationFieldType.hours
+  val days = DurationFieldType.days
+  val weeks = DurationFieldType.weeks
+  val months = DurationFieldType.months
+  val years = DurationFieldType.years
+}
+
 /** a period of time*/
 case class Period(value: Int, durationType: DurationFieldType) {
-  def toJoda: JodaPeriod = { 
+
+  def toJoda: JodaPeriod = {
+    import FieldTypes._
     durationType match {
-      case t if t == DurationFieldType.millis  => JodaPeriod.millis(value)
-      case t if t == DurationFieldType.seconds => JodaPeriod.seconds(value)
-      case t if t == DurationFieldType.minutes => JodaPeriod.minutes(value)
-      case t if t == DurationFieldType.hours   => JodaPeriod.hours(value)
-      case t if t == DurationFieldType.days    => JodaPeriod.days(value)
-      case t if t == DurationFieldType.weeks   => JodaPeriod.weeks(value)
-      case t if t == DurationFieldType.months  => JodaPeriod.months(value)
-      case t if t == DurationFieldType.years   => JodaPeriod.years(value)
+      case `millis`  => JodaPeriod.millis(value)
+      case `seconds` => JodaPeriod.seconds(value)
+      case `minutes` => JodaPeriod.minutes(value)
+      case `hours`   => JodaPeriod.hours(value)
+      case `days`    => JodaPeriod.days(value)
+      case `weeks`   => JodaPeriod.weeks(value)
+      case `months`  => JodaPeriod.months(value)
+      case `years`   => JodaPeriod.years(value)
     }
   }
 
@@ -25,16 +38,17 @@ case class Period(value: Int, durationType: DurationFieldType) {
     * e.g. round to the nearest month if the period is months.
     */
   def roundDate(date: DateTime): DateTime = { // TODO should round to the nearest modulus of even values too (e.g. 3hr boundaries)
+    import FieldTypes._
     durationType match {
-      case t if t == DurationFieldType.millis  => date
-      case t if t == DurationFieldType.seconds => date.withMillisOfSecond(0)
-      case t if t == DurationFieldType.minutes => date.withMillisOfSecond(0).withSecond(0)
-      case t if t == DurationFieldType.hours   => date.withMillisOfSecond(0).withSecond(0).withMinute(0)
-      case t if t == DurationFieldType.days    => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
-      case t if t == DurationFieldType.weeks   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
-      case t if t == DurationFieldType.months  => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withWeek(1)
-      case t if t == DurationFieldType.years   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withWeek(1).withMonth(1)
-      case _                                   => ???
+      case `millis`  => date
+      case `seconds` => date.withMillisOfSecond(0)
+      case `minutes` => date.withMillisOfSecond(0).withSecond(0)
+      case `hours`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0)
+      case `days`    => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
+      case `weeks`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
+      case `months`  => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withWeek(1)
+      case `years`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withWeek(1).withMonth(1)
+      case _         => ???
     }
   }
 }
