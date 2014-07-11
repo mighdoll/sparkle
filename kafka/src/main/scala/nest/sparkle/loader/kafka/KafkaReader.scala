@@ -31,6 +31,7 @@ import nest.sparkle.util.Log
 import nest.sparkle.util.RecoverableIterator
 import nest.sparkle.util.RecoverableIterator
 import kafka.consumer.ConsumerIterator
+import kafka.consumer.Whitelist
 
 /** Enables reading a stream from a kafka topics.
   *
@@ -117,9 +118,8 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
    *  want to recreate iterators after some kafka errors. */
   private def rawIterator(): Iterator[T] = {
     val decoder = implicitly[Decoder[T]]
-    val topicCountMap = Map(topic -> 1)
-    val streamMap = connection.createMessageStreams[String, T](topicCountMap, StringDecoder, decoder)
-    val streams = streamMap(topic)
+    val topicFilter = new Whitelist(topic)
+    val streams = connection.createMessageStreamsByFilter(topicFilter, 1, StringDecoder, decoder)
     val stream: KafkaStream[String, T] = streams.head
 
     val iter = stream.iterator()
