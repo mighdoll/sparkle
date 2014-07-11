@@ -28,6 +28,7 @@ import nest.sparkle.time.protocol.ResponseJson._
 import io.netty.channel.ChannelFuture
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.TryToFuture._
+import nest.sparkle.util.ObservableUtil
 
 // TODO break this up into something per session/socket and something per service for
 // looking up transforms
@@ -60,28 +61,12 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
                           futureOutputStreams: Future[Seq[JsonDataStream]],
                           socket: WebSocket)(implicit context: ExecutionContext): Observable[Seq[JsonDataStream]] = {
 
-    // TODO RX there must be a better way?
-    def headTail[T](observable: Observable[T]): (Observable[T], Observable[T]) = {
-      class First(var first: Boolean = true)
-      var isFirst = true
-      val grouped = observable.groupBy { x =>
-        val wasFirst = isFirst
-        isFirst = false
-        wasFirst
-      }
-      val groups = grouped.replay(2)
-      groups.connect
-      val head = groups.first.flatMap{ case (_, observable) => observable }.take(1) // TODO drop take()?
-      val tail = groups.drop(1).flatMap { case (_, observable) => observable }
-      (head, tail)
-    }
-
     // first data chunk from each column transform's json stream, and the
     val headsAndRemaining =
       for {
         seqJson <- futureOutputStreams.toObservable
         jsonStream <- Observable.from(seqJson)
-        (dataHead, dataTail) = headTail(jsonStream.dataStream)
+        (dataHead, dataTail) = ObservableUtil.headTail(jsonStream.dataStream)
         first <- dataHead
       } yield {
         val remaining = jsonStream.copy(dataStream = dataTail)

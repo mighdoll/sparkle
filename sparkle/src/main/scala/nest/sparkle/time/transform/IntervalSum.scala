@@ -32,57 +32,137 @@ import com.github.nscala_time.time.Implicits._
 import org.joda.time.{ Period => JodaPeriod }
 import spire.implicits._
 import org.joda.time.Interval
+import nest.sparkle.util.ObservableUtil
+import nest.sparkle.util.StableGroupBy._
 
 object StandardIntervalTransform extends TransformMatcher {
-  override type TransformType = ColumnTransform
+  override type TransformType = MultiColumnTransform
   override def prefix = "interval"
   def suffixMatch = _ match {
     case "sum" => IntervalSum
   }
 }
 
+case object NoColumnSpecified extends RuntimeException
 case class IncompatibleColumn(msg: String) extends RuntimeException(msg)
 case class InvalidPeriod(msg: String) extends RuntimeException(msg)
 
 /** A column transform that works on a single source column containing an interval
   */
-object IntervalSum extends ColumnTransform {
-  override def apply[T, U]  // format: OFF
-      (column: Column[T, U], transformParameters: JsObject) 
+object IntervalSum extends MultiColumnTransform {
+  override def apply  // format: OFF
+      (columns: Seq[Column[_,_]], transformParameters: JsObject) 
       (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
-    implicit val keyFormat = RecoverJsonFormat.jsonFormat[T](column.keyType)
-    implicit val valueFormat = keyFormat.asInstanceOf[JsonFormat[U]]
+    def withType[T]() = {
+      // we recover the type here, so use type parameters for the calls we make
+      val result =
+        for {
+          firstColumn <- columns.headOption.toTryOr(NoColumnSpecified)
+          keyFormat <- RecoverJsonFormat.tryJsonFormat[T](firstColumn.keyType)
+          parameters <- parseParameters[T](transformParameters)(keyFormat)
+        } yield {
+          val castColumns = columns.asInstanceOf[Seq[Column[T, T]]]
+          summarizeColumns[T](castColumns, parameters)(keyFormat, execution)
+        }
 
-    val result =
-      for {
-        parameters <- parseParameters(transformParameters)(keyFormat)
-      } yield {
-        val summarized = summarizeColumn(column, parameters)
-        JsonDataStream(
-          dataStream = JsonEventWriter.fromObservableSeq(summarized),
-          streamType = KeyValueType
-        )
-      }
+      result.recover{
+        case err =>
+          JsonDataStream.error(err)
+      }.get
+    }
 
-    result.recover { case err => JsonDataStream.error(err) }.get
+    withType()
   }
 
   private def parseParameters[T: JsonFormat](transformParameters: JsObject): Try[IntervalParameters[T]] = {
     nonFatalCatch.withTry { transformParameters.convertTo[IntervalParameters[T]] }
   }
 
-  private def summarizeColumn[T, U](column: Column[T, U], parameters: IntervalParameters[T])  // format: OFF
-    (implicit execution: ExecutionContext): Observable[Seq[Event[T, U]]] = { // format: ON
+  def summarizeColumns[T: JsonFormat](columns: Seq[Column[T, T]], intervalParameters: IntervalParameters[T]) // format: OFF
+    (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
-    val eventRanges = SelectRanges.fetchRanges(column, parameters.ranges) // TODO dry with SummaryTransform
+    //    implicit val valueFormat = keyFormat.asInstanceOf[JsonFormat[U]]
+
+    val summarizedColumns =
+      columns.map { column =>
+        summarizeColumn(column, intervalParameters)
+      }
+
+    val grouped = groupByKey(summarizedColumns)
+    JsonDataStream(
+      dataStream = JsonEventWriter.fromObservableSeq(grouped),
+      streamType = KeyValueType
+    )
+  }
+
+  /** convenience type, represents one block of events from the underlying source columns. The first block of
+   *  events will be returned in a Streams message, and subsequent blocks should be returned in Update messages */
+  type Events[T] = Seq[Event[T, T]]
+  
+  /** organize the multiple Observable streams into collections of event blocks so that we can collect the block sets */
+  private def groupByKey[T](eventStreams: Seq[Observable[Events[T]]]): Observable[Seq[Event[T, Seq[Option[T]]]]] = {
+    val headsAndTails = eventStreams.map { stream => ObservableUtil.headTail(stream) }
+    val (heads, tails) = headsAndTails.unzip
+
+    // heads has a Seq of Observables containing one Events item each. Merge these single Observable containing 
+    // the Events.  // TODO make it more clear from the types that heads contains one item (Future?)
+    val headsTogether = heads.reduceLeft{ (a, b) => a ++ b }
+
+    val result =
+      headsTogether.toSeq.map { initialEvents => // initial Events from all eventStreams
+        // now we're set up to do the actual grouping operation
+        groupByKeySeqs(initialEvents)
+      }
+    // TODO handle ongoing too
+    result
+  }
+
+  /** from the input of multiple observable streams of event blocks (typeEvents): one for each selected source column,
+   *  return an observable stream of events whose values are an array. the array will have one element for each
+   *  input observable stream. Each array element is either a Some() containing the value from that source column,
+   *  or a None.
+   */
+  private def groupByKeySeqs[T](eventsSeq: Seq[Events[T]]): Seq[Event[T, Seq[Option[T]]]] = {
+    // each event, tagged with the index of the stream that it belongs too
+    case class IndexedEvent[T](event: Event[T, T], index: Int)
+    
+    val indexedEvents = eventsSeq.zipWithIndex.flatMap{
+      case (events, index) =>
+        events.map { event => IndexedEvent(event, index) }
+    }
+    val streamCount = eventsSeq.length
+    
+    /** return a Seq with one slot for every source event stream. The values of the stream
+     *  are filled in from the IndexedEvents.  */
+    def valuesWithBlanks(indexedEvents:Traversable[IndexedEvent[T]]):Seq[Option[T]] = {
+      (0 until streamCount).map { index =>
+        indexedEvents.find(_.index == index).map(_.event.value)
+      }
+    }
+
+    val groupedByKey = indexedEvents.stableGroupBy{ indexed => indexed.event.argument }
+    val groupedEvents = groupedByKey.map {
+      case (key, indexedGroup) =>
+        val values = valuesWithBlanks(indexedGroup)
+        Event(key, values)
+    }
+    groupedEvents.toSeq
+  }
+  
+
+
+  private def summarizeColumn[T](column: Column[T, T], parameters: IntervalParameters[T])  // format: OFF
+    (implicit execution: ExecutionContext): Observable[Seq[Event[T, T]]] = { // format: ON
+
+    val eventRanges = SelectRanges.fetchRanges[T, T](column, parameters.ranges) // TODO dry with SummaryTransform
     implicit val keyTag = column.keyType.asInstanceOf[TypeTag[T]]
     val tryResults =
       for {
         numericKey <- RecoverNumeric.optNumeric[T](column.keyType).toTryOr(
           IncompatibleColumn(s"${column.name} doesn't contain numeric keys. Can't summarize intervals"))
-        numericValue <- RecoverNumeric.optNumeric[U](column.valueType).toTryOr(
-          IncompatibleColumn(s"${column.name} doesn't contain numeric values. Can't summarize intervals"))
+        //        numericValue <- RecoverNumeric.optNumeric[U](column.valueType).toTryOr(
+        //          IncompatibleColumn(s"${column.name} doesn't contain numeric values. Can't summarize intervals"))
         periodString = parameters.partSize.getOrElse (???)
         period <- Period.parse(periodString).toTryOr(
           InvalidPeriod(s"periodString"))
@@ -93,7 +173,7 @@ object IntervalSum extends ColumnTransform {
               if (initialEvents.isEmpty) {
                 Seq()
               } else {
-                val iterator = partitionIterator(initialEvents, intervalAndEvents.interval, period)(numericKey, numericValue)
+                val iterator = partitionIterator(initialEvents, intervalAndEvents.interval, period)(numericKey, numericKey)
                 iterator.toSeq
               }
             }
@@ -147,7 +227,7 @@ object IntervalSum extends ColumnTransform {
         val overlap = remaining.map{ dated => dated.overlap(partStart, partEnd) }
         val totalOverlap = overlap.reduceLeft(_ + _)
         val result = Event(partStart.getMillis.asInstanceOf[T], totalOverlap)
-//        println(s"Interval.iterator.next:  start:$partStart  until:$partEnd  totalOverlap:$totalOverlap  result: $result")
+        //        println(s"Interval.iterator.next:  start:$partStart  until:$partEnd  totalOverlap:$totalOverlap  result: $result")
         assert(partStart + partPeriod > partStart)
         partStart = partStart + partPeriod
 
@@ -174,7 +254,7 @@ object IntervalSum extends ColumnTransform {
 /** a wrapper around a millisecond-denominated Event interval, with utilities for converting to Joda dates
   * and calculating overlaps in Joda time.
   */
-case class DatedInterval[T: Numeric, U: Numeric](event: Event[T, U])(implicit dateTimeZone: DateTimeZone) {
+private case class DatedInterval[T: Numeric, U: Numeric](event: Event[T, U])(implicit dateTimeZone: DateTimeZone) {
   private val numericValue = implicitly[Numeric[U]]
   val start = new DateTime(event.argument, dateTimeZone)
 
@@ -185,33 +265,33 @@ case class DatedInterval[T: Numeric, U: Numeric](event: Event[T, U])(implicit da
 
   /** calculate the overlap with a target period */
   def overlap(targetStart: DateTime, targetEnd: DateTime): U = {
-//    println(s"\nDatedInterval.overlap:  targetStart: $targetStart targetEnd: $targetEnd")
-//    println(s"DatedInterval:                start: $start             end: $end")
+    //    println(s"\nDatedInterval.overlap:  targetStart: $targetStart targetEnd: $targetEnd")
+    //    println(s"DatedInterval:                start: $start             end: $end")
     if (start >= targetEnd || end <= targetStart) {
-//      println("- no overlap: 0")
+      //      println("- no overlap: 0")
       numericValue.zero
     } else if (start >= targetStart && end < targetEnd) { // totally within target
-//      println(s" - totally within: ${event.value}")
+      //      println(s" - totally within: ${event.value}")
       event.value
     } else if (start < targetStart && end > targetStart && end < targetEnd) { // starts before target, ends within
       val tooEarly = targetStart.millis - start.millis
       val longResult = event.value.toLong - tooEarly
-//      println(s"- starts before, ends within: $longResult")
+      //      println(s"- starts before, ends within: $longResult")
       numericValue.fromLong(longResult)
     } else if (start < targetStart && end >= targetEnd) { // starts before target ends after
       val tooEarly = targetStart.millis - start.millis
       val tooLate = end.millis - targetEnd.millis
       val longResult = event.value.toLong - (tooEarly + tooLate)
-//      println(s"- starts before, ends after: $longResult")
+      //      println(s"- starts before, ends after: $longResult")
       numericValue.fromLong(longResult)
     } else if (start >= targetStart && start < targetEnd && end >= targetEnd) { // starts within, ends after
-//      println("- starts within, ends after")
+      //      println("- starts within, ends after")
       val tooLate = end.getMillis - targetEnd.getMillis
       val longResult = event.value.toLong - tooLate
-//      println(s"- starts within, ends after: $longResult")
+      //      println(s"- starts within, ends after: $longResult")
       numericValue.fromLong(longResult)
     } else {
-//      println("- no overlap, fall through case. why?")
+      //      println("- no overlap, fall through case. why?")
       numericValue.zero
     }
   }

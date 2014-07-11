@@ -6,7 +6,7 @@ import spray.json._
 import nest.sparkle.store.Column
 import nest.sparkle.time.transform.{ DomainRangeTransform, RawTransform }
 import nest.sparkle.time.transform.{ SummaryTransform, TransformNotFound }
-import nest.sparkle.time.transform.StandardColumnTransform.runTransform
+import nest.sparkle.time.transform.StandardColumnTransform.{runTransform, runMultiColumnTransform}
 import com.typesafe.config.Config
 import nest.sparkle.time.transform.CustomTransform
 import nest.sparkle.util.Instance
@@ -34,7 +34,7 @@ trait SelectingTransforms extends Log {
       case StandardSummaryTransform(columnTransform) =>
         runTransform(futureColumns, columnTransform, transformParameters)
       case StandardIntervalTransform(columnTransform) =>
-        runTransform(futureColumns, columnTransform, transformParameters)
+        runMultiColumnTransform(futureColumns, columnTransform, transformParameters)
       case StandardObjectTransform(columnTransform) =>
         runTransform(futureColumns, columnTransform, transformParameters)
       case RawTransform(columnTransform) =>

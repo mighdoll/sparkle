@@ -13,14 +13,14 @@ import scala.concurrent.duration._
 class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor {
 
   def withIntervalTest[T](resource: String, partSize: String = "1 hour") // format: OFF
-      (fn: Seq[Event[Long, Long]] => T): T = { // format: ON
+      (fn: Seq[Event[Long, Seq[Long]]] => T): T = { // format: ON
     val resourceFile = resource + ".csv"
     withLoadedPath(resourceFile, resourceFile){ (store, system) =>
       val service = new ServiceWithCassandra(store, system)
       val params = IntervalParameters[Long](ranges = None, partSize = Some(partSize))
       val selector = SelectString(s"$resource/millis")
       val message = streamRequest("IntervalSum", params, selector)
-      service.v1TypedRequest(message) { events: Seq[Seq[Event[Long, Long]]] =>
+      service.v1TypedRequest(message) { events: Seq[Seq[Event[Long, Seq[Long]]]] =>
         val data = events.head
         fn(data)
       }
@@ -29,31 +29,36 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
 
   test("test identifying some basic overlaps") {
     withIntervalTest("intervals-basic"){ data =>
-      data(0) shouldBe Event("2014-07-05T17:00:00.000-07:00".toMillis, 1.hour.toMillis)
-      data(1) shouldBe Event("2014-07-05T18:00:00.000-07:00".toMillis, 1.hour.toMillis)
-      data(2) shouldBe Event("2014-07-05T19:00:00.000-07:00".toMillis, 0)
-      data(3) shouldBe Event("2014-07-05T20:00:00.000-07:00".toMillis, 10.seconds.toMillis)
+      data(0) shouldBe Event("2014-07-05T17:00:00.000-07:00".toMillis, Seq(1.hour.toMillis))
+      data(1) shouldBe Event("2014-07-05T18:00:00.000-07:00".toMillis, Seq(1.hour.toMillis))
+      data(2) shouldBe Event("2014-07-05T19:00:00.000-07:00".toMillis, Seq(0))
+      data(3) shouldBe Event("2014-07-05T20:00:00.000-07:00".toMillis, Seq(10.seconds.toMillis))
     }
   }
 
   test("test summing two in an hour") {
     withIntervalTest("intervals-two-per-hour"){ data =>
-      data(0) shouldBe Event("2014-07-05T21:00:00.000-07:00".toMillis, 20.seconds.toMillis)
+      data(0) shouldBe Event("2014-07-05T21:00:00.000-07:00".toMillis, Seq(20.seconds.toMillis))
     }
   }
 
   test("test summing two in an hour, one partial") {
     withIntervalTest("intervals-two-and-partial"){ data =>
-      data(0) shouldBe Event("2014-07-05T21:00:00.000-07:00".toMillis, 20.seconds.toMillis)
-      data(1) shouldBe Event("2014-07-05T22:00:00.000-07:00".toMillis, 10.seconds.toMillis)
+      data(0) shouldBe Event("2014-07-05T21:00:00.000-07:00".toMillis, Seq(20.seconds.toMillis))
+      data(1) shouldBe Event("2014-07-05T22:00:00.000-07:00".toMillis, Seq(10.seconds.toMillis))
     }
   }
 
   test("test summing by minute") {
     withIntervalTest("intervals-short", "1 minute"){ data =>
-      println(s"data: $data")
+      data(0) shouldBe Event("2014-07-05T17:00:00.000-07:00".toMillis, Seq(1.minute.toMillis))
+      data(1) shouldBe Event("2014-07-05T17:01:00.000-07:00".toMillis, Seq(1.minute.toMillis))
+      data(2) shouldBe Event("2014-07-05T17:02:00.000-07:00".toMillis, Seq(1.minute.toMillis))
+      // TODO generates an extra empty event. Should be fixed
     }
   }
+  
+  // TODO verify combined results with missing values result in an aligned array with a missing values (not a mis-aligned array!)
 
 }
 

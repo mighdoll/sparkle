@@ -127,8 +127,10 @@ object ServerLaunch {
     * optionally specifying a .conf file and optionally specifying overrides to the configuration
     */
   def apply(configFile: Option[String], configOverrides: (String, Any)*): ServerLaunch = {
+    println(s"ServerLaunch.configFile: $configFile")
     val overriddenConfig = {
       val config = ConfigUtil.configFromFile(configFile)
+      // TODO log if we're not using a --conf file too
       modifiedConfig(config, configOverrides: _*)
     }
     val sparkleConfig = overriddenConfig.getConfig("sparkle-time-server")
