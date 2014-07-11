@@ -46,8 +46,8 @@ case class Period(value: Int, durationType: DurationFieldType) {
       case `hours`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0)
       case `days`    => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
       case `weeks`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
-      case `months`  => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withWeek(1)
-      case `years`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withWeek(1).withMonth(1)
+      case `months`  => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1)
+      case `years`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withMonth(1)
       case _         => ???
     }
   }
