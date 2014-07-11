@@ -34,6 +34,7 @@ import spire.implicits._
 import org.joda.time.Interval
 import nest.sparkle.util.ObservableUtil
 import nest.sparkle.util.StableGroupBy._
+import nest.sparkle.util.Exceptions.NotYetImplemented
 
 object StandardIntervalTransform extends TransformMatcher {
   override type TransformType = MultiColumnTransform
@@ -161,9 +162,7 @@ object IntervalSum extends MultiColumnTransform {
       for {
         numericKey <- RecoverNumeric.optNumeric[T](column.keyType).toTryOr(
           IncompatibleColumn(s"${column.name} doesn't contain numeric keys. Can't summarize intervals"))
-        //        numericValue <- RecoverNumeric.optNumeric[U](column.valueType).toTryOr(
-        //          IncompatibleColumn(s"${column.name} doesn't contain numeric values. Can't summarize intervals"))
-        periodString = parameters.partSize.getOrElse (???)
+        periodString <- parameters.partSize.toTryOr(NotYetImplemented("unspecified partSize should return one part"))
         period <- Period.parse(periodString).toTryOr(
           InvalidPeriod(s"periodString"))
       } yield {

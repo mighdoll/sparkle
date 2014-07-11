@@ -32,6 +32,7 @@ import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.util.InitializeReflection
 import spray.routing.RoutingSettings
+import spray.http.DateTime
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig with Matchers {
   self: Suite =>
@@ -48,14 +49,14 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   def registry: DataRegistry = ???
 
   /** make a stream request, expecting a single stream of long/double results */
-  def v1TypicalRequest[T](message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => T): T = {
-    v1TypedRequest[T,Double](message){ seqEvents =>
+  def v1TypicalRequest(message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => Unit) {
+    v1TypedRequest[Double](message){ seqEvents =>
       fn(seqEvents.head)
     }
   }
 
   /** make a stream request, and report all stream data returned as events */
-  def v1TypedRequest[T, U: JsonFormat](message: StreamRequestMessage)(fn: Seq[Seq[Event[Long, U]]] => T): T = {
+  def v1TypedRequest[U: JsonFormat](message: StreamRequestMessage)(fn: Seq[Seq[Event[Long, U]]] => Unit) {
     //     uncomment when debugging
 //    implicit val timeout: RouteTestTimeout = {
 //      println("setting timeout to 1 hour for debugging")
@@ -66,6 +67,8 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
       fn(events)
     }
   }
+  
+
 
 }
 
@@ -102,6 +105,15 @@ object TestDataService {
         stream.data.get
       }
     datas
+  }
+  
+  def printMillisEvents[T](events: Seq[Event[Long, T]]) {
+    val eventText = events.map{ event =>
+      val dateTime = DateTime(event.argument)
+      val dateString = dateTime.toString
+      Event(dateString, event.value)
+    }
+    println(s"events: $eventText")
   }
 
 }

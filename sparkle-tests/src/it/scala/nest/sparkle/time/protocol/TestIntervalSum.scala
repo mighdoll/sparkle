@@ -12,8 +12,8 @@ import scala.concurrent.duration._
 
 class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor {
 
-  def withIntervalTest[T](resource: String, partSize: String = "1 hour") // format: OFF
-      (fn: Seq[Event[Long, Seq[Long]]] => T): T = { // format: ON
+  def withIntervalTest(resource: String, partSize: String = "1 hour") // format: OFF
+      (fn: Seq[Event[Long, Seq[Long]]] => Unit): Unit = { // format: ON
     val resourceFile = resource + ".csv"
     withLoadedPath(resourceFile, resourceFile){ (store, system) =>
       val service = new ServiceWithCassandra(store, system)
