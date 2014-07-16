@@ -122,7 +122,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   }
 }
 
-object ServerLaunch {
+object ServerLaunch extends Log {
   /** convenience wrapper for creating a ServerLaunch object from command line arguments
     * optionally specifying a .conf file and optionally specifying overrides to the configuration
     */
@@ -135,6 +135,7 @@ object ServerLaunch {
     }
     val sparkleConfig = overriddenConfig.getConfig("sparkle-time-server")
     configureLogging(sparkleConfig)
+    log.info("---- starting server ----")
 
     InitializeReflection.init
 
