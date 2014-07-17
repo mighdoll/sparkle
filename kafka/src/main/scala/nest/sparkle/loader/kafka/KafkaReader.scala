@@ -32,6 +32,8 @@ import nest.sparkle.util.RecoverableIterator
 import nest.sparkle.util.RecoverableIterator
 import kafka.consumer.ConsumerIterator
 import kafka.consumer.Whitelist
+import scala.concurrent.Future
+import scala.collection.mutable.Queue
 
 /** Enables reading a stream from a kafka topics.
   *
@@ -64,26 +66,22 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
 
   def connection: ConsumerConnector = synchronized {
     currentConnection.getOrElse{
-      log.info("connecting to topc: $topic")
+      log.info(s"connecting to topic: $topic")
       val connected = connect()
       currentConnection = Some(connected)
       connected
     }
   }
+  import java.util.concurrent.LinkedBlockingQueue
+  import scala.collection.JavaConverters._
+  import scala.concurrent.blocking
 
   /** return an observable stream of decoded data from the kafka topic */
   def stream()(implicit execution: ExecutionContext): Observable[T] = {
-    iterableStream().toObservable
-  }
-
-  /** return an iterator of decoded data from the kafka topic */
-  def iterableStream(): Iterator[T] = {
-    val iterator = rawIterator() // on timeout we can just reuse this iterator.. Kafka's iterators are oddly reusable
-
-    RecoverableIterator(() => iterator) {
-      case timeout: ConsumerTimeoutException =>
-        log.info(s"kafka consumer timeout: on topic $topic")
-    }
+//    allPartitionsStream() // alternate approach using our own threads
+    
+    val iterator = whiteListIterator()
+    restartingIterator(() => iterator).toObservable
   }
 
   /** Store the current reader position in zookeeper.  On restart (e.g. after a crash),
@@ -100,6 +98,95 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
     connection.shutdown()
   }
 
+  /** currently unused - an approach to reading from kafka streams where we manage
+    * the threads. Prior to 0.8.1.1 the alternate approach of using Kafka's Whitelist 
+    * based stream combiner doesn't handle timed out streams properly.
+    * 
+    * In 0.8.1.1, the time out issue is fixed, and kafka consumes a thread anyway 
+    * for each topic reader, so the only remaining advantage here is avoiding the 
+    * rebalancing. 
+    */
+  private def allPartitionsStream()(implicit execution: ExecutionContext): Observable[T] = {
+    val decoder = implicitly[Decoder[T]]
+    val streamMap = connection.createMessageStreams(Map(topic -> 2), StringDecoder, decoder)
+    val streams: Seq[KafkaStream[String, T]] = streamMap(topic)
+
+    val queue = topicsToQueue(streams)
+    queueToObservable(queue)
+  }
+
+  /** (currently unused) read from a LinkedBlockingQueue to an Observable */
+  private def queueToObservable(queue: LinkedBlockingQueue[T]) // format: OFF
+      (implicit execution: ExecutionContext): Observable[T] = { // format: ON
+    Observable { subscriber =>
+      val future =
+        Future {
+          blocking {
+            Thread.currentThread().setName("toSubscriber")
+            while (!subscriber.isUnsubscribed) {
+              val next = queue.take()
+              subscriber.onNext(next)
+            }
+          }
+        }
+      future.failed.map { err =>
+        subscriber.onError(err)
+      }
+      future.foreach { _ => subscriber.onCompleted() }
+    }
+  }
+
+  /** (currently unused) deposit all the data from all the topics in a LinkedBlockingQueue
+    * errors are currently ignored.
+    */
+  private def topicsToQueue(streams: Seq[KafkaStream[String, T]]) // format: OFF
+      (implicit execution: ExecutionContext):LinkedBlockingQueue[T] = { // format: ON
+    val queue = new LinkedBlockingQueue[T]
+
+    streams.zipWithIndex.foreach {
+      case (stream, index) =>
+        Future {
+          blocking {
+            val threadName = s"queue-er-$index"
+            Thread.currentThread().setName(threadName)
+
+            // on timeout exceptions, ask for a new iterator from the KafkaStream
+            val iterator = {
+              restartingIterator { () =>
+                stream.iterator().map { _.message }
+              }
+            }
+
+            iterator.foreach { message =>
+              queue.add(message)
+            }
+          }
+        }
+    }
+    queue
+  }
+
+  /** Return an iterator over the incoming kafka data. We use Kafka's Whitelist based
+    * message stream creator even though we have only one topic because it internally
+    * manages merging data from multiple threads into one iterator.
+    */
+  private def whiteListIterator(): Iterator[T] = {
+    val decoder = implicitly[Decoder[T]]
+    val topicFilter = new Whitelist(topic)
+    val streams = connection.createMessageStreamsByFilter(topicFilter, 1, StringDecoder, decoder)
+    val stream = streams.head
+
+    stream.iterator().map(_.message)
+  }
+
+  /** an iterator that will restart after the consumer times out */
+  private def restartingIterator(fn: () => Iterator[T]): Iterator[T] = {
+    RecoverableIterator(fn) {
+      case timeout: ConsumerTimeoutException =>
+        log.info(s"kafka consumer timeout: on topic $topic")
+    }
+  }
+
   /** open a connection to kafka */
   private def connect(): ConsumerConnector = {
     Consumer.create(consumerConfig)
@@ -110,23 +197,6 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
     currentConnection.map(_.shutdown())
     currentConnection = None
     connection
-  }
-
-  /** Return an iterator over the incoming kafka data.
-   *
-   *  For now, we only create one raw iterator per reader, but in the future, we may
-   *  want to recreate iterators after some kafka errors. */
-  private def rawIterator(): Iterator[T] = {
-    val decoder = implicitly[Decoder[T]]
-    val topicFilter = new Whitelist(topic)
-    val streams = connection.createMessageStreamsByFilter(topicFilter, 1, StringDecoder, decoder)
-    val stream: KafkaStream[String, T] = streams.head
-
-    val iter = stream.iterator()
-    val messages = iter.map { messageAndMetadata =>
-      messageAndMetadata.message
-    }
-    messages
   }
 
 }

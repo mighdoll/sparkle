@@ -48,7 +48,7 @@ object Dependencies {
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
   val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.0.1"
   val apacheAvro            = "org.apache.avro"           % "avro"                    % "1.7.6"
-  val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.0"
+  val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.1.1"
                                   exclude("javax.jms", "jms")
                                   exclude("com.sun.jdmk", "jmxtools")
                                   exclude("com.sun.jmx", "jmxri")

@@ -52,7 +52,7 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log{
 
   /** write a single item to a kafka topic. */
   private def writeElement(item: T): Unit = {
-    log.trace(s"writing $item")
+    log.trace(s"writing $item to topic: $topic")
     val encoded = writer.toBytes(item)
     val message = new KeyedMessage[String, Array[Byte]](topic, encoded)
     producer.send(message)
