@@ -16,7 +16,7 @@ class TestKafkaSlowResponse extends FunSuite with Matchers with KafkaTestConfig 
   override def configOverrides = super.configOverrides :+
     ("sparkle-time-server.kafka-loader.kafka-reader.consumer.timeout.ms" -> "300")
 
-  test("reconnect and continue reading after a consumer timeout") {
+  ignore("reconnect and continue reading after a consumer timeout") {
     withKafkaTestTopic(rootConfig){ kafka =>
       val toWrite = Observable.interval(500.milliseconds).map(_.toString).take(3)
       kafka.writer.writeStream(toWrite)
