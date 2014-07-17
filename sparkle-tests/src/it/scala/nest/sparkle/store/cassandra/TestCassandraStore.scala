@@ -38,6 +38,12 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
   override def testKeySpace = "testcassandrastore"
 
+  private def replicationFactor = 2 // override just to see that we can
+
+  override def configOverrides: List[(String, Any)] =
+    super.configOverrides :+
+      ("sparkle-time-server.sparkle-store-cassandra.replication-factor" -> replicationFactor)
+
   def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStoreWriter) // format: OFF
       (fn: (WriteableColumn[T,U], String) => Unit): Unit = { // format: ON
     val testColumn = s"latency.p99.${randomAlphaNum(3)}"
@@ -49,10 +55,32 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
     }
   }
 
-  /** Sanity test to validate store can be created w/o an exception.
-    */
   test("create event schema and catalog") {
-    withTestDb { _ => }
+    // check keyspace exists and has expected replication factor
+    def validateKeySpace(store: CassandraReaderWriter) {
+      val resultRows = store.session.execute(s"""
+          SELECT strategy_options FROM system.schema_keyspaces where keyspace_name = '$testKeySpace'
+          """)
+      val rows = resultRows.all.asScala
+      rows.length shouldBe 1
+      val strategy = rows(0).getString(0)
+      strategy shouldBe s"""  {"replication_factor":"$replicationFactor"}  """.trim
+    }
+
+    // check expected tables exist
+    def validateTables(store: CassandraReaderWriter) {
+      val resultRows = store.session.execute(s"""
+          SELECT columnFamily_name FROM system.schema_columnfamilies where keyspace_name = '$testKeySpace'
+          """)
+      val rows = resultRows.all.asScala
+      val tables = rows.map(_.getString(0)).toSet
+      tables shouldBe Set("bigint0bigint", "bigint0boolean", "bigint0double", "bigint0int", "bigint0text", "catalog", "dataset_catalog")
+    }
+
+    withTestDb { store =>
+      validateKeySpace(store)
+      validateTables(store)
+    }
   }
 
   test("erase works") {
@@ -104,15 +132,15 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
   }
 
   test("read+write one long-int item") {
-    testOneEvent[Long,Int]()
+    testOneEvent[Long, Int]()
   }
 
   test("read+write one long-double item") {
-    testOneEvent[Long,Double]()
+    testOneEvent[Long, Double]()
   }
 
   test("read+write one long-string item") {
-    testOneEvent[Long,String]()
+    testOneEvent[Long, String]()
   }
 
   test("read+write many long double events") {

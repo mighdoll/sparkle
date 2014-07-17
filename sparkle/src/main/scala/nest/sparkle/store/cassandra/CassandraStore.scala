@@ -95,31 +95,25 @@ object CassandraStore extends Log {
 }
 
 /** a cassandra store data access layer configured by a config file */
-class ConfiguredCassandraReader(config: Config, override val writeListener: WriteListener) extends CassandraStoreReader {
-  private lazy val storeConfig = config.getConfig("sparkle-store-cassandra")
-  override def contactHosts: Seq[String] = storeConfig.getStringList("contact-hosts").asScala.toSeq
-  override def storeKeySpace = storeConfig.getString("key-space")
-}
+class ConfiguredCassandraReader(override val config: Config, override val writeListener: WriteListener) extends ConfiguredCassandra with CassandraStoreReader 
 
 /** a cassandra store data access layer configured by a config file */
-class ConfiguredCassandraWriter(config: Config, override val writeNotifier: WriteNotifier) extends CassandraStoreWriter {
-  private lazy val storeConfig = config.getConfig("sparkle-store-cassandra")
-  override def contactHosts: Seq[String] = storeConfig.getStringList("contact-hosts").asScala.toSeq
-  override def storeKeySpace = storeConfig.getString("key-space")
-}
+class ConfiguredCassandraWriter(override val config: Config, override val writeNotifier: WriteNotifier) extends ConfiguredCassandra with CassandraStoreWriter 
 
-class ConfiguredCassandraReaderWriter(config: Config, writeNotification: WriteListener with WriteNotifier) // format: OFF
-  extends CassandraReaderWriter {  // TODO DRY these
+
+class ConfiguredCassandraReaderWriter(override val config: Config, writeNotification: WriteListener with WriteNotifier) // format: OFF
+  extends ConfiguredCassandra with CassandraReaderWriter {  // TODO DRY these
   override def writeNotifier = writeNotification
   override def writeListener = writeNotification
-  private def storeConfig = config.getConfig("sparkle-store-cassandra")
-  override def contactHosts: Seq[String] = storeConfig.getStringList("contact-hosts").asScala.toSeq
-  override def storeKeySpace = storeConfig.getString("key-space")
 }
 
-trait BaseCassandraStore extends Log {
-  def contactHosts: Seq[String]
-  def storeKeySpace: String
+trait ConfiguredCassandra extends Log {
+  def config:Config
+  
+  private lazy val storeConfig = config.getConfig("sparkle-store-cassandra")
+  private lazy val contactHosts: Seq[String] = storeConfig.getStringList("contact-hosts").asScala.toSeq
+  private lazy val storeKeySpace = storeConfig.getString("key-space")
+  private lazy val replicationFactor = storeConfig.getInt("replication-factor")
   implicit def execution: ExecutionContext = ExecutionContext.global // TODO use a provided execution context
 
   lazy val columnCatalog = ColumnCatalog(session)
@@ -175,7 +169,7 @@ trait BaseCassandraStore extends Log {
   private def createKeySpace(session: Session, keySpace: String): Unit = {
     session.execute(s"""
         CREATE KEYSPACE $keySpace
-        with replication = {'class': 'SimpleStrategy', 'replication_factor': 1}"""
+        with replication = {'class': 'SimpleStrategy', 'replication_factor': $replicationFactor}"""
     )
     session.execute(s"USE $keySpace")
     format(session)
@@ -219,7 +213,7 @@ trait BaseCassandraStore extends Log {
 
 trait CassandraReaderWriter extends CassandraStoreReader with CassandraStoreWriter
 
-trait CassandraStoreWriter extends BaseCassandraStore with WriteableStore with Log {
+trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with Log {
   def writeNotifier: WriteNotifier
 
   this.session // trigger creating connection, and create schemas if necessary
@@ -246,7 +240,7 @@ trait CassandraStoreWriter extends BaseCassandraStore with WriteableStore with L
 /** a Storage data access object for Cassandra. Supports the Store and WriteableStore apis for
   * reading/writing columns and column metadata.
   */
-trait CassandraStoreReader extends BaseCassandraStore with Store with Log {
+trait CassandraStoreReader extends ConfiguredCassandra with Store with Log {
   def writeListener: WriteListener
   
   this.session // trigger creating connection, and create schemas if necessary 
