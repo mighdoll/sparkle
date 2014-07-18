@@ -32,8 +32,6 @@ import nest.sparkle.util.RecoverableIterator
 import nest.sparkle.util.RecoverableIterator
 import kafka.consumer.ConsumerIterator
 import kafka.consumer.Whitelist
-import scala.concurrent.Future
-import scala.collection.mutable.Queue
 
 /** Enables reading a stream from a kafka topics.
   *
@@ -72,16 +70,16 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
       connected
     }
   }
-  import java.util.concurrent.LinkedBlockingQueue
-  import scala.collection.JavaConverters._
-  import scala.concurrent.blocking
 
   /** return an observable stream of decoded data from the kafka topic */
   def stream()(implicit execution: ExecutionContext): Observable[T] = {
-//    allPartitionsStream() // alternate approach using our own threads
-    
+    iterator().toObservable
+  }
+  
+  /** return an iterable of decoded data from the kafka topic */
+  def iterator():Iterator[T] = {
     val iterator = whiteListIterator()
-    restartingIterator(() => iterator).toObservable
+    restartingIterator(() => iterator)
   }
 
   /** Store the current reader position in zookeeper.  On restart (e.g. after a crash),
@@ -96,74 +94,6 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
     */
   def close(): Unit = {
     connection.shutdown()
-  }
-
-  /** currently unused - an approach to reading from kafka streams where we manage
-    * the threads. Prior to 0.8.1.1 the alternate approach of using Kafka's Whitelist 
-    * based stream combiner doesn't handle timed out streams properly.
-    * 
-    * In 0.8.1.1, the time out issue is fixed, and kafka consumes a thread anyway 
-    * for each topic reader, so the only remaining advantage here is avoiding the 
-    * rebalancing. 
-    */
-  private def allPartitionsStream()(implicit execution: ExecutionContext): Observable[T] = {
-    val decoder = implicitly[Decoder[T]]
-    val streamMap = connection.createMessageStreams(Map(topic -> 2), StringDecoder, decoder)
-    val streams: Seq[KafkaStream[String, T]] = streamMap(topic)
-
-    val queue = topicsToQueue(streams)
-    queueToObservable(queue)
-  }
-
-  /** (currently unused) read from a LinkedBlockingQueue to an Observable */
-  private def queueToObservable(queue: LinkedBlockingQueue[T]) // format: OFF
-      (implicit execution: ExecutionContext): Observable[T] = { // format: ON
-    Observable { subscriber =>
-      val future =
-        Future {
-          blocking {
-            Thread.currentThread().setName("toSubscriber")
-            while (!subscriber.isUnsubscribed) {
-              val next = queue.take()
-              subscriber.onNext(next)
-            }
-          }
-        }
-      future.failed.map { err =>
-        subscriber.onError(err)
-      }
-      future.foreach { _ => subscriber.onCompleted() }
-    }
-  }
-
-  /** (currently unused) deposit all the data from all the topics in a LinkedBlockingQueue
-    * errors are currently ignored.
-    */
-  private def topicsToQueue(streams: Seq[KafkaStream[String, T]]) // format: OFF
-      (implicit execution: ExecutionContext):LinkedBlockingQueue[T] = { // format: ON
-    val queue = new LinkedBlockingQueue[T]
-
-    streams.zipWithIndex.foreach {
-      case (stream, index) =>
-        Future {
-          blocking {
-            val threadName = s"queue-er-$index"
-            Thread.currentThread().setName(threadName)
-
-            // on timeout exceptions, ask for a new iterator from the KafkaStream
-            val iterator = {
-              restartingIterator { () =>
-                stream.iterator().map { _.message }
-              }
-            }
-
-            iterator.foreach { message =>
-              queue.add(message)
-            }
-          }
-        }
-    }
-    queue
   }
 
   /** Return an iterator over the incoming kafka data. We use Kafka's Whitelist based
