@@ -45,7 +45,7 @@ object BuildSettings {
   )
 
   lazy val compileSettings = Seq(
-    scalaVersion := "2.10.4",
+    scalaVersion := Dependencies.V.scala,
     scalaBinaryVersion := "2.10",
     testOptions += Tests.Argument("-oF"), // show full stack traces during test failures
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps", "-target:jvm-1.7")
@@ -53,7 +53,8 @@ object BuildSettings {
 
   lazy val eclipseSettings = Seq(
     EclipseKeys.withSource := true,
-    EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource
+    EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource,
+    EclipseKeys.withBundledScalaContainers := false 
   )
 
   lazy val ideaSettings = Seq(

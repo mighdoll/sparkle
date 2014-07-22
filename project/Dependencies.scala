@@ -21,6 +21,7 @@ object Dependencies {
     val spray = "1.3.1"
     val rxJava = "0.19.0"
     val scalaCheck = "1.11.3"
+    val scala = "2.10.4"
   }
 
   // Spray + Akka
@@ -42,7 +43,7 @@ object Dependencies {
   val snappy                = "org.xerial.snappy"         % "snappy-java"             % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           % "lz4"                     % "1.2.0"
 
-  val scalaReflect          = "org.scala-lang"            % "scala-reflect"           % "2.10.3"
+  val scalaReflect          = "org.scala-lang"            % "scala-reflect"           % V.scala
 
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
