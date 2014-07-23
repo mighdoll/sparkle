@@ -53,8 +53,8 @@ object BuildSettings {
 
   lazy val eclipseSettings = Seq(
     EclipseKeys.withSource := true,
-    EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource,
-    EclipseKeys.withBundledScalaContainers := false 
+    EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource
+//     EclipseKeys.withBundledScalaContainers := false // LATER for eclipse 4.4
   )
 
   lazy val ideaSettings = Seq(
