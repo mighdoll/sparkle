@@ -35,8 +35,10 @@ object JsonEventWriter {
    *  on the incoming event stream */
   def fromObservableMulti[T: JsonWriter, U: JsonWriter](events: Observable[Event[T, U]]): Observable[Seq[JsArray]] = {
     // TODO should pass in Observable[Seq[Event]] rather than buffer
-    val buffered = events.buffer(50.milliseconds).filter{ events => !events.isEmpty} 
-    fromObservableSeq(buffered)
+    // TODO untested
+    val buffered = events.tumbling(50.milliseconds).flatMap{ _.toSeq}
+    val filtered = buffered.filterNot{ _.isEmpty} 
+    fromObservableSeq(filtered)
   }
 
   /** return an Observable containing sequence-chunks of json data from an Observable containing sequence-chunks

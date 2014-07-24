@@ -13,7 +13,7 @@ import nest.sparkle.util.Log
 /** Message sent to WriteListener */
 abstract class ColumnUpdates[T]
 
-/** Sent to WriteListener, describes portion of data written */
+/** Sent to WriteListener, describes portion of data written */ // TODO DRY with loader.ColumnUpdate
 case class ColumnUpdate[T](start: T, end: T) extends ColumnUpdates[T]
 
 /** Sent to WriteListener, emitted when a subscribe is first registered */
@@ -21,6 +21,7 @@ case class UpdateRegistered[T]() extends ColumnUpdates[T]
 
 /** api to listen for column updates on a given column path */
 trait WriteListener {
+  /** return an observable that reports on every write. The type T is the type of the keys in the column */
   def listen[T](columnPath: String): Observable[ColumnUpdate[T]]
 }
 

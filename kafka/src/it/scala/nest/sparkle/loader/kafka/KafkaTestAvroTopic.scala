@@ -21,14 +21,14 @@ import kafka.serializer.Decoder
 import org.apache.avro.generic.GenericRecord
 
 class KafkaTestAvroTopic(val rootConfig: Config, val schema: Schema, val testId: String) {
-  val topic = s"testTopic-$testId"
+  val topic = s"testTopic-$testId"  // TODO DRY with testTopicName
 
   val encoder = AvroSupport.genericEncoder(schema)
   val writer = KafkaWriter(topic, rootConfig)(encoder)
 }
 
 object KafkaTestUtil {
-  def withTestAvroTopic[T](rootConfig: Config,
+  def withTestAvroTopic[T](rootConfig: Config,  
                            schema: Schema,
                            id: String = randomAlphaNum(3))(fn: KafkaTestAvroTopic => T): T = {
     val kafka = new KafkaTestAvroTopic(rootConfig, schema, id)
@@ -49,5 +49,9 @@ object KafkaTestUtil {
       reader.close()
     }
   }
-
+  
+  def testTopicName(schemaName:String = "test", id: String = randomAlphaNum(3)):String = {
+    s"$schemaName.testTopic-$id"
+  }
+  
 }

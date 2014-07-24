@@ -14,114 +14,236 @@
 
 package nest.sparkle.loader.kafka
 
-import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
+import scala.reflect.runtime.universe._
+import scala.collection.JavaConverters.asScalaBufferConverter
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.matching.Regex
 
 import com.typesafe.config.Config
+import rx.lang.scala.{Observable, Observer, Subject}
 
+import nest.sparkle.loader.ColumnUpdate
+import nest.sparkle.loader.Loader.{Events, LoadingFilter, TaggedBlock}
 import nest.sparkle.loader.kafka.TypeTagUtil.typeTaggedToString
 import nest.sparkle.store.{Event, WriteableStore}
-import nest.sparkle.store.cassandra.CanSerialize
-import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.util.{Instance, Log, Watched}
-import nest.sparkle.util.ConfigureLog4j
+import nest.sparkle.store.cassandra.{CanSerialize, RecoverCanSerialize}
 import nest.sparkle.util.Exceptions.NYI
+import nest.sparkle.util.KindCast.castKind
+import nest.sparkle.util.{Log, Instance, ConfigureLog4j}
+import nest.sparkle.util.TryToFuture.FutureTry
+import nest.sparkle.util.Watched
 
-/** an update to a watcher about the latest value loaded */
-case class ColumnUpdate[T](columnPath: String, latest: T)
 
-/** Start a stream loader that will load data from kafka topics into cassandra */
-class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format: OFF
+object AvroKafkaLoader {
+  /** thrown if a nullable id field is null and no default value was defined */
+  case class NullableFieldWithNoDefault(msg: String) // format: OFF
+     extends RuntimeException(s"nullable id field is null and no default value was defined: $msg") // format: ON
+  
+  private case class ReaderDecoder[T](reader: KafkaReader[T], decoder: KafkaKeyValues)
+}
+import AvroKafkaLoader._
+
+/** Start a stream loader that will load data from kafka topics into cassandra
+  * type parameter K is the type of the key in the store, (which is not necessarily the same as the type
+  * of keys in the kafka stream.)
+  */
+class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) // format: OFF
     (implicit execution: ExecutionContext) extends Watched[ColumnUpdate[K]] with Log { // format: ON
 
-  val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
-  val config = sparkleConfig.getConfig("kafka-loader")
-  
-  // Kafka & zookeeper are hard-coded to use log4j.
-  ConfigureLog4j.configureLogging(sparkleConfig)
-
-  val topics = config.getStringList("topics").asScala.toSeq
-
-  if (config.getBoolean("auto-start")) {
-    load()
+  private val loaderConfig = {
+    val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
+    ConfigureLog4j.configureLogging(sparkleConfig) 
+    sparkleConfig.getConfig("kafka-loader")
   }
 
-  var readers:Seq[KafkaReader[_]] = Seq()
+  private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
+
+  private lazy val filters = makeFilters()
+
+  /** list of topic names we'll read from kafka, mapped to the kafka readers
+    * who will read the kafka topics
+    */
+  private lazy val topicReaders = {
+    val topics = loaderConfig.getStringList("topics").asScala.toSeq
+    val finder = decoderFinder()
+    topics.map { topic =>
+      val readerDecoder = {
+        val decoder = columnDecoder(finder, topic)
+        val reader = KafkaReader(topic, rootConfig, None)(decoder)
+        ReaderDecoder(reader, decoder)
+      }
+      topic -> readerDecoder
+    }.toMap
+  }
+
+  if (loaderConfig.getBoolean("auto-start")) {
+    start()
+  }
 
   /** Start the loader reading from the configured kafka topics
     *
-    * Note that load() will consume a thread for each kafka topic
+    * Note that start() will consume a thread for each kafka topic
     * (there is no async api in kafka 0.8.1).
     */
-  def load(): Unit = {
-    val finder = decoderFinder()
-
-    readers =
-      topics.map { topic =>
-        val decoder = columnDecoder(finder, topic)
-        val reader = KafkaReader(topic, rootConfig, None)(decoder)
-        loadKeyValues(reader, decoder)
-        reader
-      }
+  def start(): Unit = {
+    topicReaders.foreach {
+      case (topic, ReaderDecoder(reader, decoder)) =>
+        loadKeyValues(topic, reader, decoder)
+    }
   }
 
   /** terminate all readers */
   def close(): Unit = {
-    readers.foreach{_.close()}
+    topicReaders.foreach { case (topic, ReaderDecoder(reader, decoder)) => reader.close() }
   }
-
-  /** thrown if the avro schema specifies an unimplemented key or value type */
-  case class UnsupportedColumnType(msg: String) extends RuntimeException(msg)
-
-  /** thrown if a nullable id field is null and no default value was defined */
-  case class NullableFieldWithNoDefault( // format: OFF
-    msg: String = "nullable id field is null and no default value was defined"
-  ) extends RuntimeException(msg) // format: ON
 
   /** Load from a single topic via a KafkaReader. Extract Events from each kafka record, and
     * write the events to storage.
     */
-  private def loadKeyValues(reader: KafkaReader[ArrayRecordColumns],
+  private def loadKeyValues(topic: String, reader: KafkaReader[ArrayRecordColumns],
                             decoder: KafkaKeyValues): Unit = {
-    val stream = reader.stream()
-    stream.subscribe { record =>
-      val ids = decoder.metaData.ids zip record.ids map {
-        case (NameAndType(name,typed,default), value) => 
-          // if value was null if better have a default.
-          val rawValue = value.getOrElse(default.getOrElse(NullableFieldWithNoDefault))
-          typeTaggedToString(rawValue, typed)
+    val sourceBlocks = readSourceBlocks(reader, decoder)
+    val output = outputPipeline(topic, reader)
+
+    log.debug(s"starting load on topic: $topic")
+    // connecting the output to the source triggers the data to start flowing
+    sourceBlocks.subscribe(output)
+  }
+
+  /** return an Observer that will filter and write data to storage. The action here is lazy - 
+   *  nothing flows through pipeline until someone starts pushing data into the returned Observer. 
+   */
+  private def outputPipeline(topic: String, reader: KafkaReader[_]): Observer[TaggedBlock] = {
+    val sourceSubject = Subject[TaggedBlock]()
+
+    val filtered = attachFilter(topic, sourceSubject)
+    val written = attachWriter(filtered, reader)
+    written.subscribe() // connect writer and filter to our source 
+    
+    sourceSubject  
+  }
+
+  /** construct a map of filters to apply to data read from kafka source topics.
+    * The keys are regexes that match topic names, and the
+    */
+  private def makeFilters(): Map[Regex, LoadingFilter] = {
+    val filterList = loaderConfig.getConfigList("filters").asScala.toSeq
+    val entries = filterList.map { configEntry =>
+      val matcher = configEntry.getString("match")
+      val filterClass = configEntry.getString("filter")
+
+      val filter: LoadingFilter = Instance.byName(filterClass)(rootConfig)
+      matcher.r -> filter
+    }
+    entries.toMap
+  }
+
+  private def matching(regex: Regex, toMatch: String): Boolean = {
+    regex.unapplySeq(toMatch).isDefined
+  }
+
+  /** If a filter is defined in the .conf file for this topic, attach the filter to a source Observable.
+   *  Return an Observable of the filtered results. */
+  private def attachFilter(topic: String, source: Observable[TaggedBlock]): Observable[TaggedBlock] = {
+    val foundFilter = filters.collectFirst {
+      case (regex, filter) if matching(regex, topic) => filter
+    }
+
+    foundFilter.map { filter =>
+      log.debug(s"attaching filter: $filter to topic: $topic")
+      filter.filter(source)
+    }.getOrElse {
+      source
+    }
+  }
+
+  /** Attach a storage writing stage to an Observable pipeline of TaggedBlocks. Return an Observable with
+   *  the storage writing stage attached. */
+  private def attachWriter[T](pipeline: Observable[TaggedBlock], reader: KafkaReader[T]): Observable[TaggedBlock] = {
+    pipeline.map { block =>
+      val written = writeBlock(block)
+      written.map { updates =>
+        recordComplete(reader, updates)
       }
-      val columnPathRoot = ids.foldLeft("")(_ + "/" + _).stripPrefix("/")
+      block
+    }
+  }
 
-      val writeFutures =
-        record.typedColumns(decoder.metaData).map { taggedColumn =>
-          val columnPath = decoder.columnPath(columnPathRoot, taggedColumn.name)
+  /** Return an observable that reads blocks of data from kafka.
+    * Reading begins when the caller subscrbes to the returned Observable.
+    */
+  private def readSourceBlocks(reader: KafkaReader[ArrayRecordColumns], // format: OFF
+                               decoder: KafkaKeyValues): Observable[TaggedBlock] = { // format: ON
 
-          log.info(s"loading ${taggedColumn.events.length} events to column: $columnPath "
-            + s"keyType: ${taggedColumn.keyType}  valueType: ${taggedColumn.valueType}")
+    val stream = reader.stream()
 
-          taggedColumn match {
-            case LongDoubleEvents(events)  => writeEvents(events, columnPath)
-            case LongLongEvents(events)    => writeEvents(events, columnPath)
-            case LongBooleanEvents(events) => writeEvents(events, columnPath)
-            case LongIntEvents(events)     => writeEvents(events, columnPath)
-            case LongStringEvents(events)  => writeEvents(events, columnPath)
-            case _ =>
-              val error = s"keyType: ${taggedColumn.keyType}  valueType: ${taggedColumn.valueType}"
-              throw UnsupportedColumnType(error)
+    val sourceBlocks: Observable[TaggedBlock] =
+      stream.map { record =>
+        val columnPathIds = {
+          val ids = decoder.metaData.ids zip record.ids map {
+            case (NameAndType(name, typed, default), valueOpt) =>
+              val valueOrDefault = valueOpt orElse default orElse {
+                throw NullableFieldWithNoDefault(name)
+              }
+              typeTaggedToString(valueOrDefault.get, typed)
           }
+          ids.foldLeft("")(_ + "/" + _).stripPrefix("/")
         }
 
-      // The type parameterization of K is incomplete. we'd need to add a typeclass to
-      // abstract out the LongDouble stuff above.  For now we just cast to the expected type
-      val castFutures = writeFutures.asInstanceOf[Seq[Future[Option[ColumnUpdate[K]]]]]
+        val block =
+          record.typedColumns(decoder.metaData).map { taggedColumn =>
+            val columnPath = decoder.columnPath(columnPathIds, taggedColumn.name)
 
-      Future.sequence(castFutures).foreach { updates =>
-        val flattened = updates.flatten // remove Nones
-        recordComplete(reader, flattened)
+            /** do the following with type parameters matching each other
+              * (even though our caller will ultimately ignore them)
+              */
+            def withFixedTypes[T, U]() = {
+              val typedEvents = taggedColumn.events.asInstanceOf[Events[T, U]]
+              val keyType: TypeTag[T] = castKind(taggedColumn.keyType)
+              val valueType: TypeTag[U] = castKind(taggedColumn.valueType)
+              TaggedSlice[T, U](columnPath, typedEvents)(keyType, valueType)
+            }
+            withFixedTypes[Any,Any]()
+          }
+
+        log.trace(s"readSourceBlock: got block.length ${block.length}  head:${block.headOption}")
+        block
       }
-    }
+
+    sourceBlocks
+  }
+
+  /** Write chunks of column data to the store. Return a future that completes when the data has been written. */
+  private def writeBlock(taggedBlock: TaggedBlock)(implicit keyType: TypeTag[K]): Future[Seq[ColumnUpdate[K]]] = {
+    val writeFutures =
+      taggedBlock.map { slice =>
+        def withFixedType[U]() = {
+          implicit val valueType = slice.valueType
+          log.info(s"loading ${slice.events.length} events to column: ${slice.columnPath}"
+            + s"  keyType: $keyType  valueType: $valueType")
+
+          val result =
+            for {
+              valueSerialize <- RecoverCanSerialize.tryCanSerialize[U](valueType).toFuture
+              update <- writeEvents(slice.castEvents[K, U], slice.columnPath)(valueSerialize)
+            } yield {
+              update
+            }
+
+          result.failed.map { err => log.error("writeBlocks failed", err) }
+          result
+        }
+        withFixedType()
+      }
+
+    val allDone: Future[Seq[ColumnUpdate[K]]] =
+      Future.sequence(writeFutures).map { updates =>
+        val flattened = updates.flatten // remove Nones
+        flattened
+      }
+
+    allDone
   }
 
   /** We have written one record's worth of data to storage. Per the batch policy, commit our
@@ -139,13 +261,13 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
   }
 
   /** write some typed Events to storage. return a future when that completes when the writing is done*/
-  private def writeEvents[T: CanSerialize, U: CanSerialize](events: Iterable[Event[T, U]],
-                                                            columnPath: String): Future[Option[ColumnUpdate[T]]] = {
-    storage.writeableColumn[T, U](columnPath) flatMap { column =>
-      events.lastOption.map{ _.argument } match {
+  private def writeEvents[U: CanSerialize](events: Iterable[Event[K, U]],
+                                           columnPath: String): Future[Option[ColumnUpdate[K]]] = {
+    storage.writeableColumn[K, U](columnPath) flatMap { column =>
+      events.lastOption.map { _.argument } match {
         case Some(lastKey) =>
           column.write(events).map { _ =>
-            Some(ColumnUpdate[T](columnPath, lastKey))
+            Some(ColumnUpdate[K](columnPath, lastKey))
           }
         case None =>
           Future.successful(None)
@@ -157,7 +279,7 @@ class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format:
     * is used to map topic names to kafka decoders
     */
   private def decoderFinder(): FindDecoder = {
-    val className = config.getString("find-decoder")
+    val className = loaderConfig.getString("find-decoder")
     Instance.byName[FindDecoder](className)(rootConfig)
   }
 

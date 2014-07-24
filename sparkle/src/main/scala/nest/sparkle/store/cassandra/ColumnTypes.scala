@@ -6,7 +6,9 @@ import nest.sparkle.util.TaggedKeyValueExtractor
 import spray.json.JsValue
 
 object ColumnTypes {
-  /** all columns types supported by this */
+  /** the column types in the store are currently fixed, so that we can prepare CQL statement
+    * variants for each type of column
+    */
   val supportedColumnTypes: Seq[SerializeInfo[_, _]] = List(
     createSerializationInfo[Long, Long](),
     createSerializationInfo[Long, Double](),
@@ -16,14 +18,16 @@ object ColumnTypes {
     createSerializationInfo[Long, JsValue]()
   )
 
+  case class UnsupportedColumnType[T, U](keySerial: CanSerialize[T], valueSerial: CanSerialize[U])
+    extends RuntimeException(s"${keySerial.columnType}-${valueSerial.columnType}")
   /** retrieve the serialization info for one of the supported column types */
   def serializationInfo[T: CanSerialize, U: CanSerialize](): SerializeInfo[T, U] = {
-    val domainSerializer = implicitly[CanSerialize[T]]
-    val rangeSerializer = implicitly[CanSerialize[U]]
+    val keySerialize = implicitly[CanSerialize[T]]
+    val valueSerialize = implicitly[CanSerialize[U]]
 
     val found = supportedColumnTypes.find{ info =>
-      info.domain == domainSerializer && info.range == rangeSerializer
-    }
+      info.domain == keySerialize && info.range == valueSerialize
+    } orElse { throw UnsupportedColumnType(keySerialize, valueSerialize) }
     found.get.asInstanceOf[SerializeInfo[T, U]]
   }
 
@@ -53,7 +57,6 @@ object ColumnTypes {
   case class SerializeInfo[T, U](domain: CanSerialize[T], range: CanSerialize[U], tableName: String)
 }
 
-
 /** extractors for type pairs of supported column types */
 object LongDoubleSerializers extends SerializerExtractor[Long, Double]
 object LongLongSerializers extends SerializerExtractor[Long, Long]
@@ -66,7 +69,7 @@ object LongJsValueSerializers extends SerializerExtractor[Long, JsValue]
 case class KeyValueSerializers[T, U](keySerializer: CanSerialize[T], valueSerializer: CanSerialize[U])
 
 /** support for writing an extractor from TaggedKeyValue to a KeyValueSerializer */
-class SerializerExtractor[T: CanSerialize :TypeTag, U: CanSerialize :TypeTag]
+class SerializerExtractor[T: CanSerialize: TypeTag, U: CanSerialize: TypeTag]
     extends TaggedKeyValueExtractor[T, U, KeyValueSerializers[T, U]] {
   def cast: KeyValueSerializers[T, U] = KeyValueSerializers(implicitly[CanSerialize[T]], implicitly[CanSerialize[U]])
 }

@@ -29,7 +29,7 @@ object AvroRecordGenerators {
   /** a single generated record encoded in Avro, along with the source data used to construct it
    *  (the source data is easier to use for validating results based on the generated record) */
   case class GeneratedRecord[T, U](id1: String, id2: String, 
-                                   events: SortedSet[(Long, Double)], 
+                                   events: SortedSet[(T, U)], 
                                    record: GenericData.Record)
 
   object Implicits {

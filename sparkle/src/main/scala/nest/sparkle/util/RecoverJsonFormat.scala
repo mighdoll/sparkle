@@ -16,9 +16,8 @@ case class JsonFormatNotFound(msg: String) extends RuntimeException(msg)
   * (The type is recovered at runtime during deserialization)
   */
 object RecoverJsonFormat {
-  object Implicits {
     /** mapping from typeTag to JsonFormat for standard types */
-    implicit val standardFormats: Map[TypeTag[_], JsonFormat[_]] = Map(
+  val jsonFormats: Map[TypeTag[_], JsonFormat[_]] = Map(
       typeToFormat[Double],
       typeToFormat[Long],
       typeToFormat[Int],
@@ -26,7 +25,6 @@ object RecoverJsonFormat {
       typeToFormat[String],
       typeToFormat[JsValue]
     )
-  }
 
   /** return a mapping from a typetag to an Ordering */
   private def typeToFormat[T: TypeTag: JsonFormat]: (TypeTag[T], JsonFormat[T]) = {
@@ -35,9 +33,8 @@ object RecoverJsonFormat {
 
   /** return a JsonFormat instance at runtime based a typeTag. */ // TODO get rid of this, or at least build on tryJsonFormat
   def jsonFormat[T](targetTag: TypeTag[_]) // format: OFF 
-      (implicit formats: Map[TypeTag[_], JsonFormat[_]] = Implicits.standardFormats)
       : JsonFormat[T] = { // format: ON
-    val untypedFormat = formats.get(targetTag).getOrElse {
+    val untypedFormat = jsonFormats.get(targetTag).getOrElse {
       throw JsonFormatNotFound(targetTag.tpe.toString)
     }
     
@@ -47,9 +44,8 @@ object RecoverJsonFormat {
 
   /** return a JsonFormat instance at runtime based a typeTag. */
   def tryJsonFormat[T](targetTag: TypeTag[_]) // format: OFF 
-      (implicit formats: Map[TypeTag[_], JsonFormat[_]] = Implicits.standardFormats)
       : Try[JsonFormat[T]] = { // format: ON
-    val untypedFormat:Try[JsonFormat[_]] = formats.get(targetTag).toTryOr(JsonFormatNotFound(targetTag.tpe.toString))
+    val untypedFormat:Try[JsonFormat[_]] = jsonFormats.get(targetTag).toTryOr(JsonFormatNotFound(targetTag.tpe.toString))
     untypedFormat.asInstanceOf[Try[JsonFormat[T]]]
   }
   

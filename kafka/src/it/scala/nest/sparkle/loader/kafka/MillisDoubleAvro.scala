@@ -61,12 +61,17 @@ object MillisDoubleArrayAvro {
   val arraySchema = schemaFromString(arrayJson)
 }
 
+object MillisDoubleArrayFinder {
+  val id2Default = "id-missing"
+}
+import MillisDoubleArrayFinder.id2Default
+
 class MillisDoubleArrayFinder(rootConfig:Config) extends FindDecoder {
   def decoderFor(topic:String):KafkaColumnDecoder[ArrayRecordColumns] = {
     val schema = MillisDoubleArrayAvro.schema
     val decoder = AvroArrayDecoder.decoder(
       schema, 
-      idFields = Seq(("id1", None), ("id2", Some("NULL")))
+      idFields = Seq(("id1", None), ("id2", Some(id2Default)))
     )
     AvroColumnDecoder(schema, decoder, prefix = "sample-data/path")
   }

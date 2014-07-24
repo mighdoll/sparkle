@@ -98,7 +98,8 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
 
   /** Return an iterator over the incoming kafka data. We use Kafka's Whitelist based
     * message stream creator even though we have only one topic because it internally
-    * manages merging data from multiple threads into one iterator.
+    * manages merging data from multiple threads into one iterator. (internally inside
+    * the kafka driver, there's one thread for each partition).
     */
   private def whiteListIterator(): Iterator[T] = {
     val decoder = implicitly[Decoder[T]]

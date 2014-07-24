@@ -1,28 +1,26 @@
 package nest.sparkle.loader.kafka
 
-import scala.reflect.runtime.universe._
 import scala.language.existentials
+import scala.reflect.runtime.universe._
 
 import org.apache.avro.generic.GenericRecord
 
 import nest.sparkle.store.Event
 
-/** metadata about a column e.g. from Avro array field 
+/** metadata about a column e.g. from Avro array field
   * @param nullValue A value to use if the column is null or missing.
   */
 case class NameAndType(name: String, typed: TypeTag[_], nullValue: Option[_] = None)
 
 /** type and name information about a tabular array record (typically derived from an Avro schema) */
 case class ArrayRecordMeta(
-    values: Seq[NameAndType],
-    key: NameAndType,
-    ids: Seq[NameAndType]) {
-  def keyType: TypeTag[_] = ???
-}
+  values: Seq[NameAndType],
+  key: NameAndType,
+  ids: Seq[NameAndType])
 
 /** all values from a tabular array record, organized in columns */
 case class ArrayRecordColumns(
-    ids: Seq[Option[Any]],
+    ids: Seq[Option[Any]], // ids in the same order as in the ids[NameAndType] sequence    
     columns: Seq[Seq[Event[_, _]]] // columns in the same order as in the values[NameAndType] sequence
     ) {
 
@@ -33,11 +31,16 @@ case class ArrayRecordColumns(
         TaggedColumn(name, keyType = metaData.key.typed, valueType = typed, column)
     }
   }
-
 }
 
-/** a single column of data, along with its name and type meta data */
+/** a chunk of column of data to load into the store, along with its name and type meta data */ // TODO get rid of this in favor of TaggedSlice
 case class TaggedColumn(name: String, keyType: TypeTag[_], valueType: TypeTag[_], events: Seq[Event[_, _]])
+
+/** a chunk of data to load into the store into one column */
+case class TaggedSlice[T: TypeTag, U: TypeTag](columnPath: String, events: Seq[Event[T, U]]) {
+  def valueType = implicitly[TypeTag[U]]
+  def castEvents[T, U] = events.asInstanceOf[Seq[Event[T, U]]]
+}
 
 /** a decoder that transforms avro generic records to ArrayRecordColumns, bundled with the meta data
   * necessary to interpret the untyped ArrayRecordColumns

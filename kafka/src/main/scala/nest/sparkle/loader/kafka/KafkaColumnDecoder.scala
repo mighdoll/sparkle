@@ -34,7 +34,6 @@ sealed trait KafkaColumnDecoder[T] extends Decoder[T] {
   /** return the full columnPath for this decoder given an id and columnName */
   def columnPath(id:String, columnName:String):String =
       s"$columnPathPrefix$id/$columnPathSuffix$columnName"
-
 }
 
 /** A KafkaColumnDecoder for records that contain a single id and multiple rows,

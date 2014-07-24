@@ -31,11 +31,13 @@ import nest.sparkle.util.Log
   * the avro schema contains an array of key,values fields.
   */
 object AvroArrayDecoder extends Log {
+  /** Type of a filter that can process input data as it arrives */
+  type ArrayRecordFilter = (ArrayRecordMeta, Seq[Seq[Event[_, _]]]) => Seq[Seq[Event[_, _]]]
 
-  /** return a decoder for an avro schema containing one or more ids and an array of key,[value,..] records.
+  /** Return a decoder for an avro schema containing one or more ids and an array of key,[value,..] records.
     * There can be more than one value in each row of the array.  The value fields are copied
     * from the avro schema field names.
-    * 
+    *
     * idFields names will be joined and separated by slashes to form the column path.
     * An optional default value for an id field may be specified if an avro record
     * is missing the field or it is NULL.
@@ -43,51 +45,61 @@ object AvroArrayDecoder extends Log {
     * See `MillisDoubleArrayAvro` in the tests for an example avro schema in the expected structure.
     *
     * @param idFields List of field names which will be separated by slashes to
-    *                 form the column name
+    *               form the column name
     * @param skipValueFields a blacklist of values fields in each array row to ignore
     */
   def decoder(schema: Schema,  // format: OFF 
               arrayField: String = "elements",
               idFields: Seq[(String,Option[String])] = Seq(("id", None)),
               keyField: String = "time",
-              skipValueFields: Set[String] = Set()
+              skipValueFields: Set[String] = Set(), 
+              filterOpt:Option[ArrayRecordFilter] = None
               ): ArrayRecordDecoder = // format: ON
-  {
-    val name = schema.getName
+    {
+      val name = schema.getName
 
-    val elementSchemaOpt =
-      for {
-        arrayRecordSchema <- Option(schema.getField(arrayField)).map(_.schema)
-        if (arrayRecordSchema.getType == Schema.Type.ARRAY)
-        arrayElementSchema <- Option(arrayRecordSchema.getElementType)
-      } yield {
-        arrayElementSchema
+      val elementSchemaOpt =
+        for {
+          arrayRecordSchema <- Option(schema.getField(arrayField)).map(_.schema)
+          if (arrayRecordSchema.getType == Schema.Type.ARRAY)
+          arrayElementSchema <- Option(arrayRecordSchema.getElementType)
+        } yield {
+          arrayElementSchema
+        }
+
+      val elementSchema = elementSchemaOpt.getOrElse {
+        schemaDecodeException(s"$arrayField is not extractable from schema $name")
       }
 
-    val elementSchema = elementSchemaOpt.getOrElse {
-      schemaDecodeException(s"$arrayField is not extractable from schema $name")
+      val metaData = {
+        val ids: Seq[NameAndType] = {
+          val fieldNames = idFields.map{ case (idField, _) => idField }
+          val idTypes = typeTagFields(schema, fieldNames)
+          idFields zip idTypes map {
+            case ((id, default), typed) => NameAndType(id, typed, default)
+          }
+        }
+
+        val key = {
+          val keyType = typeTagField(elementSchema, keyField)
+          NameAndType(keyField, keyType)
+        }
+
+        val values: Seq[NameAndType] = {
+          val valueFields = fieldsExcept(elementSchema, skipValueFields + keyField)
+          val valueTypes = typeTagFields(elementSchema, valueFields)
+          valueFields zip valueTypes map {
+            case (valueName, typed) =>
+              NameAndType(valueName, typed)
+          }
+        }
+        ArrayRecordMeta(values = values, key = key, ids = ids)
+      }
+
+      val decoder = recordWithArrayDecoder(arrayField, metaData, filterOpt)
+
+      ArrayRecordDecoder(decoder, metaData)
     }
-
-    val metaData = {
-      val idTypes = typeTagFields(schema, idFields.map(_._1))
-      val ids: Seq[NameAndType] = idFields zip idTypes map {
-        case ((id, default), typed) => NameAndType(id, typed, default)
-      }
-      val keyType = typeTagField(elementSchema, keyField)
-      val key = NameAndType(keyField, keyType)
-      val valueFields = fieldsExcept(elementSchema, skipValueFields + keyField)
-      val valueTypes = typeTagFields(elementSchema, valueFields)
-      val values: Seq[NameAndType] = valueFields zip valueTypes map {
-        case (valueName, typed) =>
-          NameAndType(valueName, typed)
-      }
-      ArrayRecordMeta(values = values, key = key, ids = ids)
-    }
-
-    val decoder = recordWithArrayDecoder(arrayField, metaData)
-
-    ArrayRecordDecoder(decoder, metaData)
-  }
 
   private def typeTagField(schema: Schema, fieldName: String): TypeTag[_] = {
     fieldTypeTag(schema.getField(fieldName))
@@ -118,18 +130,18 @@ object AvroArrayDecoder extends Log {
       schemaDecodeException("avro field is a union of more than 2 types")
     }
     val types = schemas.map(_.getType)
-    if (! types.contains(Schema.Type.NULL)) {
+    if (!types.contains(Schema.Type.NULL)) {
       schemaDecodeException("avro field is a union with out a null")
     }
-    
+
     // Find the first supported type, really should only be skipping NULL.
     types.collectFirst({
-        case Schema.Type.LONG    => typeTag[Long]
-        case Schema.Type.INT     => typeTag[Int]
-        case Schema.Type.DOUBLE  => typeTag[Double]
-        case Schema.Type.BOOLEAN => typeTag[Boolean]
-        case Schema.Type.STRING  => typeTag[String]
-        case Schema.Type.FLOAT   => typeTag[Float]
+      case Schema.Type.LONG    => typeTag[Long]
+      case Schema.Type.INT     => typeTag[Int]
+      case Schema.Type.DOUBLE  => typeTag[Double]
+      case Schema.Type.BOOLEAN => typeTag[Boolean]
+      case Schema.Type.STRING  => typeTag[String]
+      case Schema.Type.FLOAT   => typeTag[Float]
     }).getOrElse(schemaDecodeException("avro field is a union with out a supported type"))
   }
 
@@ -148,13 +160,13 @@ object AvroArrayDecoder extends Log {
 
   /** return a function that reads a Generic record into the ArrayRecordColumns format */
   private def recordWithArrayDecoder(arrayField: String,
-                                     metaData: ArrayRecordMeta): GenericRecord => ArrayRecordColumns = {
+    sourceMetaData: ArrayRecordMeta, filterOpt: Option[ArrayRecordFilter]): GenericRecord => ArrayRecordColumns = {
 
-    (record: GenericRecord) =>      
-      val ids = metaData.ids.map {
-        case NameAndType(name,_,_) => Option(record.get(name))
+    (record: GenericRecord) =>
+      val ids = sourceMetaData.ids.map {
+        case NameAndType(name, _, _) => Option(record.get(name))
       }
-      
+
       val array = record.get(arrayField).asInstanceOf[GenericData.Array[GenericData.Record]]
       log.debug(s"reading record containing ${array.size} elements")
 
@@ -167,9 +179,9 @@ object AvroArrayDecoder extends Log {
 
       // collect all values in column format
       val valueColumns: Seq[Seq[Any]] = {
-        val valueNames = metaData.values.map{ _.name }
-        valueNames.map{ name =>
-          mapRows{ row =>
+        val valueNames = sourceMetaData.values.map { _.name }
+        valueNames.map { name =>
+          mapRows { row =>
             row.get(name)
           }
         }
@@ -178,7 +190,7 @@ object AvroArrayDecoder extends Log {
       // single column of just the keys
       val keys: Seq[Any] = {
         mapRows { row =>
-          row.get(metaData.key.name)
+          row.get(sourceMetaData.key.name)
         }
       }
 
