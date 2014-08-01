@@ -25,8 +25,8 @@ trait KafkaTestConfig extends SparkleTestConfig {
 
   override def initializeLogging(root:Config) {
     super.initializeLogging(root)
-    val kafkaLoaderConfig = root.getConfig("sparkle-time-server.kafka-loader")
-    ConfigureLog4j.configure(kafkaLoaderConfig)
+    val sparkleConfig = root.getConfig("sparkle-time-server")
+    ConfigureLog4j.configureLogging(sparkleConfig)
   }
 
 

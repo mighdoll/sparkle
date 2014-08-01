@@ -14,14 +14,20 @@
 
 package nest.sparkle.util
 
-import org.slf4j
-import com.typesafe.config.Config
-import ch.qos.logback.classic.{ Level, Logger, LoggerContext }
-import ch.qos.logback.classic.encoder.PatternLayoutEncoder
-import ch.qos.logback.classic.spi.{ ILoggingEvent, LoggingEvent }
-import ch.qos.logback.core.{ Appender, FileAppender }
-import ch.qos.logback.core.encoder.Encoder
 import scala.collection.JavaConverters._
+
+import ch.qos.logback.classic.encoder.PatternLayoutEncoder
+import ch.qos.logback.classic.filter.ThresholdFilter
+import ch.qos.logback.classic.spi.{ILoggingEvent, LoggingEvent}
+import ch.qos.logback.classic.{Level, Logger, LoggerContext}
+import ch.qos.logback.core.encoder.Encoder
+import ch.qos.logback.core.filter.Filter
+import ch.qos.logback.core.{Appender, ConsoleAppender}
+import ch.qos.logback.core.rolling._
+
+import com.typesafe.config.Config
+
+import org.slf4j
 
 /** configure a logback logger based on the config file */
 object ConfigureLogback extends Log {
@@ -30,7 +36,7 @@ object ConfigureLogback extends Log {
   var configured = false
   def configureLogging(sparkleConfig: Config): Unit = {
     if (!configured) {
-      slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) match {
+      slf4j.LoggerFactory.getLogger(slf4j.Logger.ROOT_LOGGER_NAME) match {
         case rootLogger: Logger => configureLogBack(sparkleConfig, rootLogger)
         case x                  => log.warn(s"unsupported logger, can't configure logging: ${x.getClass}")
       }
@@ -40,11 +46,9 @@ object ConfigureLogback extends Log {
 
   /** configure file based logger for logback, based on settings in the .conf file */
   private def configureLogBack(config: Config, rootLogger: Logger): Unit = {
-    val context = slf4j.LoggerFactory.getILoggerFactory().asInstanceOf[LoggerContext]
-    val logConfig = config.getConfig("logback")
-    val file = logConfig.getString("file")
-    val pattern = logConfig.getString("pattern")
-    val append = logConfig.getBoolean("append")
+    val logConfig = config.getConfig("logging")
+    val context = slf4j.LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
+    context.reset()  // Remove any configuration from other libraries
 
 //    println(s"logback logging to $file")
     val levels = logConfig.getConfig("levels")
@@ -59,16 +63,73 @@ object ConfigureLogback extends Log {
     }
 
     // attach new file appender
-    val fileAppender = new FileAppender[LoggingEvent]
-    fileAppender.setFile(file)
-    val encoder = new PatternLayoutEncoder
-    encoder.setPattern(pattern)
-    encoder.setContext(context)
-    encoder.start()
-    fileAppender.setEncoder(encoder.asInstanceOf[Encoder[LoggingEvent]])
-    fileAppender.setContext(context)
-    fileAppender.start()
-    rootLogger.addAppender(fileAppender.asInstanceOf[Appender[ILoggingEvent]])
+    if (logConfig.getBoolean("file.enable")) {
+      val fileAppender = new RollingFileAppender[LoggingEvent]
+      fileAppender.setName("File")
+      fileAppender.setContext(context)
+      
+      val file = logConfig.getString("file.path.logback")
+      fileAppender.setFile(file)
+      
+      val append = logConfig.getBoolean("file.append")
+      fileAppender.setAppend(append)
+      
+      val encoder = new PatternLayoutEncoder
+      encoder.setContext(context)
+      val pattern = logConfig.getString("file.pattern.logback")
+      encoder.setPattern(pattern)
+      encoder.start()
+      fileAppender.setEncoder(encoder.asInstanceOf[Encoder[LoggingEvent]])
+      
+      val policy = new FixedWindowRollingPolicy
+      //policy.setContext(context)
+      val maxFiles = logConfig.getInt("file.max-files")
+      policy.setMaxIndex(maxFiles)
+      val fnPattern = file + ".%i"  // add ".zip" to compress
+      //val ii = file.lastIndexOf(".")
+      //val fnPattern = file.substring(0,ii) + "%i." + file.substring(ii+1)
+      policy.setFileNamePattern(fnPattern)
+      policy.setParent(fileAppender)
+      fileAppender.setRollingPolicy(policy)
+      
+      val trigger = new SizeBasedTriggeringPolicy[LoggingEvent]
+      val maxSize = logConfig.getString("file.max-size")
+      trigger.setMaxFileSize(maxSize)
+      //trigger.setContext(context)
+      fileAppender.setTriggeringPolicy(trigger)
+      
+      val filter = new ThresholdFilter
+      val level  = logConfig.getString("file.level")
+      filter.setLevel(level)
+      fileAppender.addFilter(filter.asInstanceOf[Filter[LoggingEvent]])
+      
+      fileAppender.start() 
+      rootLogger.addAppender(fileAppender.asInstanceOf[Appender[ILoggingEvent]])
+    }
+    
+    // Attach console appender is enabled.
+    if (logConfig.getBoolean("console.enable")) {
+      val consoleAppender = new ConsoleAppender[LoggingEvent]
+      consoleAppender.setName("Console")
+      consoleAppender.setContext(context)
+      consoleAppender.setTarget("System.out")
+      
+      val encoder = new PatternLayoutEncoder
+      encoder.setContext(context)
+      val pattern = logConfig.getString("console.pattern.logback")
+      encoder.setPattern(pattern)
+      encoder.start()
+      consoleAppender.setEncoder(encoder.asInstanceOf[Encoder[LoggingEvent]])
+      
+      val filter = new ThresholdFilter
+      val level  = logConfig.getString("console.level")
+      filter.setLevel(level)
+      filter.start()
+      consoleAppender.addFilter(filter.asInstanceOf[Filter[LoggingEvent]])
+      
+      consoleAppender.start()
+      rootLogger.addAppender(consoleAppender.asInstanceOf[Appender[ILoggingEvent]])
+    }
   }
 
 }

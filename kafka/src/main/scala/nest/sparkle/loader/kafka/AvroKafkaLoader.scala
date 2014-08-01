@@ -35,8 +35,11 @@ case class ColumnUpdate[T](columnPath: String, latest: T)
 class AvroKafkaLoader[K](rootConfig: Config, storage: WriteableStore) // format: OFF
     (implicit execution: ExecutionContext) extends Watched[ColumnUpdate[K]] with Log { // format: ON
 
-  val config = rootConfig.getConfig("sparkle-time-server.kafka-loader")
-  ConfigureLog4j.configure(config)
+  val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
+  val config = sparkleConfig.getConfig("kafka-loader")
+  
+  // Kafka & zookeeper are hard-coded to use log4j.
+  ConfigureLog4j.configureLogging(sparkleConfig)
 
   val topics = config.getStringList("topics").asScala.toSeq
 

@@ -16,8 +16,6 @@ import sbt._
 import sbt.Keys._
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseKeys
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
-import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseKeys
-import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
 import sbtassembly.Plugin.AssemblyKeys._
 import sbtassembly.Plugin._
 import spray.revolver.RevolverPlugin._
@@ -37,6 +35,7 @@ object BuildSettings {
       slf4jSettings ++
       testSettings ++
       publishSettings ++
+      dependencyOverrideSettings ++
       org.scalastyle.sbt.ScalastylePlugin.Settings
 
   lazy val orgSettings = Seq(
@@ -97,6 +96,10 @@ object BuildSettings {
       ReleasePlugin.releaseSettings ++
       MavenPublish.settings ++
       Revolver.settings
+  
+  lazy val dependencyOverrideSettings = Seq(
+    dependencyOverrides ++= Dependencies.dependencyOverrides
+  )
 
   /** settings so that we launch our favorite Main by default */
   def setMainClass(className: String): Seq[Setting[_]] = {

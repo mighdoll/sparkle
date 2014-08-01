@@ -43,8 +43,8 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
   
   override def testKeySpace:String = "testStreamLoadAvroKafka"
   
-  val kafkaLoaderConfig = rootConfig.getConfig("sparkle-time-server.kafka-loader")
-    ConfigureLog4j.configure(kafkaLoaderConfig)
+  val kafkaLoaderConfig = rootConfig.getConfig("sparkle-time-server")
+    ConfigureLog4j.configureLogging(kafkaLoaderConfig)
 
   test("load a stream contains a few milliDouble arrays into cassandra") {
     withTestDb{ testStore =>

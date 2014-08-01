@@ -24,6 +24,9 @@ object Dependencies {
     val scala = "2.10.4"
   }
 
+  // To get latest versions
+  val slf4j                 = "org.slf4j"                 % "slf4j-api"               % "1.7.7"
+
   // Spray + Akka
   val sprayCan              = "io.spray"                  %  "spray-can"              % V.spray
   val sprayRouting          = "io.spray"                  %  "spray-routing"          % V.spray
@@ -47,13 +50,14 @@ object Dependencies {
 
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
-  val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.0.1"
+  val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.1.0"
   val apacheAvro            = "org.apache.avro"           % "avro"                    % "1.7.6"
   val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.1.1"
                                   exclude("javax.jms", "jms")
                                   exclude("com.sun.jdmk", "jmxtools")
                                   exclude("com.sun.jmx", "jmxri")
                                   exclude("org.slf4j", "slf4j-simple")
+                                  //exclude("log4j", "log4j")
                               )
 
   val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.0" 
@@ -62,7 +66,10 @@ object Dependencies {
   val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.0_a2.3"
 
   object Runtime {
-    val logback              = "ch.qos.logback"            % "logback-classic"         % "1.0.9"
+    val logback              = "ch.qos.logback"            % "logback-classic"         % "1.1.2"
+    val log4j                = "log4j"                     % "log4j"                   % "1.2.17"
+    val slf4jlog4j           = "org.slf4j"                 % "slf4j-log4j12"           % "1.7.7"
+    val log4jBridge          = "org.slf4j"                 % "log4j-over-slf4j"        % "1.7.7"
   }
 
   object Test {
@@ -92,10 +99,18 @@ object Dependencies {
     IT.scalaTest,
     IT.scalaCheck
   )
+  
+  // For setting minimum versions
+  val dependencyOverrides = Set(
+      slf4j,
+      Runtime.log4j
+  )
 
   val logging = Seq(
     scalaLogging,
+    slf4j,
     Runtime.logback
+    //Runtime.log4jBridge
   )
 
   val testAndLogging = basicTest ++ logging
