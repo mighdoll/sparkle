@@ -55,7 +55,7 @@ class TestExporter extends FunSuite with CassandraTestConfig with Matchers with 
     promise.future
   }
 
-  test("export tsv file") {
+  ignore("export tsv file") {
     withTestDb { testDb =>
       withTestActors { implicit system =>
         // First load some data
