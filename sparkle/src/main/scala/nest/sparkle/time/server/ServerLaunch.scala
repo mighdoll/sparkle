@@ -60,15 +60,15 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
    * each component gets their own Main/ServerLaunch.
    */
   possiblyErase()
-  startFilesLoader()
+  possiblyStartFilesLoader()
   startServer(service, webPort)
-  
   // TODO: Make web socket start optional
   val webSocket = new DataWebSocket(store, rootConfig)
   
+  AdminService.start(rootConfig, store).await(10.seconds)
+
 
   /** (for desktop use) Open the web browser to the sparkle http server.
-    *
     */
   def launchDesktopBrowser(path: String = ""): Unit = {
     val uri = new URI(s"http://localhost:$webPort/$path")
@@ -108,7 +108,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   }
 
   /** launch a FilesLoader for each configured directory */
-  private def startFilesLoader(): Unit = {
+  private def possiblyStartFilesLoader(): Unit = {
     if (sparkleConfig.getBoolean("files-loader.auto-start")) {
       val strip = sparkleConfig.getInt("files-loader.directory-strip")
       sparkleConfig.getStringList("files-loader.directories").asScala.foreach { pathString =>

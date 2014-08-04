@@ -19,77 +19,50 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{ FileVisitResult, Files, Path, Paths, SimpleFileVisitor }
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.TimeUnit
-
+import java.nio.charset.StandardCharsets.UTF_8
 import scala.concurrent.{ Future, Promise }
-
-import org.scalatest.{ BeforeAndAfterAll, FunSuite, Matchers }
+import org.scalatest.{ FunSuite, Matchers }
 import org.slf4j.LoggerFactory
-
 import akka.actor._
 import akka.util.Timeout.longToTimeout
 import spray.util._
-
 import nest.sparkle.store.cassandra.CassandraTestConfig
 import nest.sparkle.tools.Exporter
 import nest.sparkle.util.Resources
+import nest.sparkle.tools.FileExporter
+import scala.concurrent.duration._
+import scala.collection.JavaConverters._
 
-class TestExporter extends FunSuite with CassandraTestConfig with Matchers with BeforeAndAfterAll {
-  val log = LoggerFactory.getLogger(classOf[TestExporter])
-
+class TestExporter extends FunSuite with CassandraTestConfig with Matchers {
   override def testKeySpace = "testexporter"
+  val exportDirectory = "/tmp/testexporter"
+  
+  override def configOverrides = super.configOverrides ++
+      List("exporter.output" -> exportDirectory)
 
-  override def configOverrides =
-    super.configOverrides ++
-      List(
-        "exporter.timeout" -> "10s",
-        "exporter.output" -> "/tmp/testexporter"
-      )
+  test("export epochs.csv to exports.tsv and validate the exported contents") {
+    withLoadedPath("epochs.csv", "epochs.csv") { (store, system) =>
+      import system.dispatcher
 
-  /** return a future that completes when the loader reports that loading is complete */
-  // TODO DRY this
-  def onLoadCompleteOld(system: ActorSystem, path: String): Future[Unit] = {
-    val promise = Promise[Unit]()
-    system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
-      classOf[LoadComplete])
-
-    promise.future
-  }
-
-  ignore("export tsv file") {
-    withTestDb { testDb =>
-      withTestActors { implicit system =>
-        // First load some data
-        val filePath = Resources.filePathString("epochs.csv")
-        val dataSet = "epochs"
-        val complete = onLoadCompleteOld(system, dataSet)
-        FilesLoader(sparkleConfig, filePath, testDb)
-        complete.await
-
-        val output = Paths.get(rootConfig.getString("exporter.output"))
-        output match {
-          case p if Files.isDirectory(p) => cleanDirectory(p)
-          case f if Files.exists(f)      => throw new RuntimeException(s"${output.toString} is a file")
-          case _                         => Files.createDirectory(output)
-        }
-
-        val timeout = rootConfig.getDuration("exporter.timeout", TimeUnit.MILLISECONDS)
-        val exporter = Exporter(rootConfig)
-        try {
-          exporter.processDataSet(dataSet).await(timeout)
-
-          val dataSetPath = output.resolve(dataSet)
-          Files.exists(dataSetPath.resolve("_count.tsv")) shouldBe true
-          Files.exists(dataSetPath.resolve("_p90.tsv")) shouldBe true
-          Files.exists(dataSetPath.resolve("_p99.tsv")) shouldBe true
-
-          val lines = Files.readAllLines(dataSetPath.resolve("_count.tsv"), StandardCharsets.UTF_8)
-          lines.size shouldBe 2752
-          lines.get(0) shouldBe "time\tcount"
-          lines.get(2751) shouldBe "1357713357000\t570"
-        } finally {
-          exporter.close()
-        }
+      withDeleteDirectory(exportDirectory) {
+        val exporter = FileExporter(rootConfig, store)
+        exporter.exportFiles("epochs").await(10.seconds)
+        
+        val exportedFilePath = Paths.get(exportDirectory).resolve("epochs.tsv")
+        val lines = Files.readAllLines(exportedFilePath, UTF_8).asScala
+        lines.size shouldBe 2752
+        lines.head shouldBe "key\tcount\tp90\tp99"
+        lines(1) shouldBe "1357710556000\t1402\t0.000604\t0.00139"
       }
+    }
+  }
+  
+  /** recursively delete a provided directory after running a provided function (delet even if the function throws) */
+  private def withDeleteDirectory[T](pathString: String)(fn: => T): T = {
+    try {
+      fn
+    } finally {
+      cleanDirectory(Paths.get(pathString))
     }
   }
 

@@ -46,3 +46,7 @@ trait Column[T, U] {
 // TODO rename argument to key, for consistency with other key-value terminology
 /** an single item in the datastore, e.g. a timestamp and value */
 case class Event[T, V](argument: T, value: V) 
+
+object Event {
+  type Events[T,U] = Seq[Event[T,U]]
+}

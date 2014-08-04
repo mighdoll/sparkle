@@ -72,25 +72,25 @@ object AvroArrayDecoder extends Log {
       }
 
       val metaData = {
-        val ids: Seq[NameAndType] = {
+        val ids: Seq[NameTypeDefault] = {
           val fieldNames = idFields.map{ case (idField, _) => idField }
           val idTypes = typeTagFields(schema, fieldNames)
           idFields zip idTypes map {
-            case ((id, default), typed) => NameAndType(id, typed, default)
+            case ((id, default), typed) => NameTypeDefault(id, typed, default)
           }
         }
 
         val key = {
           val keyType = typeTagField(elementSchema, keyField)
-          NameAndType(keyField, keyType)
+          NameTypeDefault(keyField, keyType)
         }
 
-        val values: Seq[NameAndType] = {
+        val values: Seq[NameTypeDefault] = {
           val valueFields = fieldsExcept(elementSchema, skipValueFields + keyField)
           val valueTypes = typeTagFields(elementSchema, valueFields)
           valueFields zip valueTypes map {
             case (valueName, typed) =>
-              NameAndType(valueName, typed)
+              NameTypeDefault(valueName, typed)
           }
         }
         ArrayRecordMeta(values = values, key = key, ids = ids)
@@ -164,7 +164,7 @@ object AvroArrayDecoder extends Log {
 
     (record: GenericRecord) =>
       val ids = sourceMetaData.ids.map {
-        case NameAndType(name, _, _) => Option(record.get(name))
+        case NameTypeDefault(name, _, _) => Option(record.get(name))
       }
 
       val array = record.get(arrayField).asInstanceOf[GenericData.Array[GenericData.Record]]

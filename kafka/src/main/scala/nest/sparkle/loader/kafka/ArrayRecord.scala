@@ -10,13 +10,13 @@ import nest.sparkle.store.Event
 /** metadata about a column e.g. from Avro array field
   * @param nullValue A value to use if the column is null or missing.
   */
-case class NameAndType(name: String, typed: TypeTag[_], nullValue: Option[_] = None)
+case class NameTypeDefault(name: String, typed: TypeTag[_], nullValue: Option[_] = None)
 
 /** type and name information about a tabular array record (typically derived from an Avro schema) */
 case class ArrayRecordMeta(
-  values: Seq[NameAndType],
-  key: NameAndType,
-  ids: Seq[NameAndType])
+  values: Seq[NameTypeDefault],
+  key: NameTypeDefault,
+  ids: Seq[NameTypeDefault])
 
 /** all values from a tabular array record, organized in columns */
 case class ArrayRecordColumns(
@@ -27,7 +27,7 @@ case class ArrayRecordColumns(
   /** combine type tags with data columns based on the metadata. */
   def typedColumns(metaData: ArrayRecordMeta): Seq[TaggedColumn] = {
     columns zip metaData.values map {
-      case (column, NameAndType(name, typed, _)) =>
+      case (column, NameTypeDefault(name, typed, _)) =>
         TaggedColumn(name, keyType = metaData.key.typed, valueType = typed, column)
     }
   }
@@ -39,7 +39,6 @@ case class TaggedColumn(name: String, keyType: TypeTag[_], valueType: TypeTag[_]
 /** a chunk of data to load into the store into one column */
 case class TaggedSlice[T: TypeTag, U: TypeTag](columnPath: String, events: Seq[Event[T, U]]) {
   def valueType = implicitly[TypeTag[U]]
-  def castEvents[T, U] = events.asInstanceOf[Seq[Event[T, U]]]
 }
 
 /** a decoder that transforms avro generic records to ArrayRecordColumns, bundled with the meta data

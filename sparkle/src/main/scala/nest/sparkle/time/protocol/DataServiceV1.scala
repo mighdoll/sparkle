@@ -36,7 +36,7 @@ import akka.actor.ActorSystem
   */
 trait DataServiceV1 extends Directives with RichComplete with CorsDirective with Log {
   def actorSystem:ActorSystem
-  implicit def executionContext: ExecutionContext
+  implicit def executionContext: ExecutionContext // TODO can we just use actorSystem.dispatcher here?
   def store: Store
   def rootConfig: Config
 

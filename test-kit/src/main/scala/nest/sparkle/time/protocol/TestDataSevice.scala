@@ -46,7 +46,7 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   override def testConfig = rootConfig.getConfig("sparkle-time-server")
 
   // TODO legacy, delete soon
-  def registry: DataRegistry = ???
+  def registry: DataRegistry = ???  
 
   /** make a stream request, expecting a single stream of long/double results */
   def v1TypicalRequest(message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => Unit) {

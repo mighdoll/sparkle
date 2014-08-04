@@ -83,8 +83,6 @@ object IntervalSum extends MultiColumnTransform {
   def summarizeColumns[T: JsonFormat](columns: Seq[Column[T, T]], intervalParameters: IntervalParameters[T]) // format: OFF
     (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
-    //    implicit val valueFormat = keyFormat.asInstanceOf[JsonFormat[U]]
-
     val summarizedColumns =
       columns.map { column =>
         summarizeColumn(column, intervalParameters)
@@ -97,8 +95,6 @@ object IntervalSum extends MultiColumnTransform {
     )
   }
 
-  /** convenience type, represents one block of events from the underlying source columns. The first block of
-   *  events will be returned in a Streams message, and subsequent blocks should be returned in Update messages */
   type Events[T] = Seq[Event[T, T]]
   
   /** organize the multiple Observable streams into collections of event blocks so that we can collect the block sets */
@@ -163,8 +159,7 @@ object IntervalSum extends MultiColumnTransform {
         numericKey <- RecoverNumeric.optNumeric[T](column.keyType).toTryOr(
           IncompatibleColumn(s"${column.name} doesn't contain numeric keys. Can't summarize intervals"))
         periodString <- parameters.partSize.toTryOr(NotYetImplemented("unspecified partSize should return one part"))
-        period <- Period.parse(periodString).toTryOr(
-          InvalidPeriod(s"periodString"))
+        period <- Period.parse(periodString).toTryOr(InvalidPeriod(s"periodString"))
       } yield {
         val perRangeInitialResults =
           eventRanges.map { intervalAndEvents =>

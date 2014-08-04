@@ -182,7 +182,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
       stream.map { record =>
         val columnPathIds = {
           val ids = decoder.metaData.ids zip record.ids map {
-            case (NameAndType(name, typed, default), valueOpt) =>
+            case (NameTypeDefault(name, typed, default), valueOpt) =>
               val valueOrDefault = valueOpt orElse default orElse {
                 throw NullableFieldWithNoDefault(name)
               }
@@ -226,7 +226,8 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
           val result =
             for {
               valueSerialize <- RecoverCanSerialize.tryCanSerialize[U](valueType).toFuture
-              update <- writeEvents(slice.castEvents[K, U], slice.columnPath)(valueSerialize)
+              castEvents:Events[K,U] = castKind(slice.events)
+              update <- writeEvents(castEvents, slice.columnPath)(valueSerialize)
             } yield {
               update
             }

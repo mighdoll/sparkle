@@ -62,7 +62,7 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
 
 }
 
+/** separate instance of test service, so we can create it within a withLoadedPath block */
 class ServiceWithCassandra(override val store: Store, actorSystem: ActorSystem) extends FunSuite with TestDataService {
   override def actorRefFactory: ActorSystem = actorSystem
-
 } 
