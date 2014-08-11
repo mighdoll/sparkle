@@ -14,6 +14,9 @@ object MetricsInstrumentation
   val metricRegistry = new MetricRegistry()
 }
 
+/**
+ * Any class that has metrics should use this trait.
+ */
 trait Instrumented 
   extends InstrumentedBuilder
 {

@@ -26,6 +26,7 @@ object Dependencies {
 
   // To get latest versions
   val slf4j                 = "org.slf4j"                 % "slf4j-api"               % "1.7.7"
+  val scalaConfig           = "com.typesafe"              %  "config"                 % "1.2.1"
 
   // Spray + Akka
   val sprayCan              = "io.spray"                  %  "spray-can"              % V.spray

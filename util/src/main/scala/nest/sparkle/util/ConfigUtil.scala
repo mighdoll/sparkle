@@ -14,11 +14,11 @@
 
 package nest.sparkle.util
 
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigValueFactory
-import scala.collection.JavaConverters._
 import java.io.File
-import com.typesafe.config.ConfigFactory
+
+import scala.collection.JavaConverters._
+
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 
 /** utility functions for working with the typesafe Config library */
 object ConfigUtil {

@@ -27,6 +27,7 @@ object SparkleTimeBuild extends Build {
 
   lazy val sparkleTime =
     Project(id = "sparkle", base = file("sparkle"))
+      .dependsOn(util)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BuildSettings.sparkleAssemblySettings: _*) 
@@ -55,6 +56,7 @@ object SparkleTimeBuild extends Build {
 
   lazy val kafkaLoader =
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
+      .dependsOn(util)
       .dependsOn(sparkleTime)
       .dependsOn(testKit)
       .configs(IntegrationTest)
@@ -82,6 +84,17 @@ object SparkleTimeBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(
         libraryDependencies ++= testAndLogging ++ spray
+      )
+
+  lazy val util =
+    Project(id = "sparkle-util", base = file("util"))
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= Seq(
+          scalaLogging,
+          metricsScala,
+          scalaConfig
+          )
       )
 
 }
