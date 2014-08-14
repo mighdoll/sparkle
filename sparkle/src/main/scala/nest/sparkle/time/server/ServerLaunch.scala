@@ -61,10 +61,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   possiblyErase()
   possiblyStartFilesLoader()
   startServer(service, webPort)
-  // TODO: Make web socket start optional
-  val webSocket = new DataWebSocket(store, rootConfig)
   
-
   /** (for desktop use) Open the web browser to the sparkle http server.
     */
   def launchDesktopBrowser(path: String = ""): Unit = {
@@ -89,11 +86,15 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     *
     * This call will block until the server is ready to accept incoming requests.
     */
-  private def startServer(serviceActor: ActorRef, port: Int)(implicit system: ActorSystem): Unit = {
+  private def startServer(serviceActor: ActorRef, port: Int)(implicit system: ActorSystem) {
     if (sparkleConfig.getBoolean("auto-start")) {
+      log.info("---- starting server ----")
       implicit val timeout = Timeout(10.seconds)
       val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = port)
       started.await // wait until server is started
+  
+      // Does webSocket need to be saved anywhere? For shutdown?
+      val webSocket = new DataWebSocket(store, rootConfig)
     }
   }
 
@@ -123,21 +124,13 @@ object ServerLaunch extends Log {
   /** convenience wrapper for creating a ServerLaunch object from command line arguments
     * optionally specifying a .conf file and optionally specifying overrides to the configuration
     */
-  def apply(configFile: Option[String], configOverrides: (String, Any)*): ServerLaunch = {
-    println(s"ServerLaunch.configFile: $configFile")
-    val overriddenConfig = {
-      val config = ConfigUtil.configFromFile(configFile)
-      // TODO log if we're not using a --conf file too
-      modifiedConfig(config, configOverrides: _*)
-    }
-    val sparkleConfig = overriddenConfig.getConfig("sparkle-time-server")
-    configureLogging(sparkleConfig)
-    log.info("---- starting server ----")
+  def apply(rootConfig: Config): ServerLaunch = {
 
     InitializeReflection.init
 
+    val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
     implicit val system = ActorSystem("sparkle", sparkleConfig)
 
-    new ServerLaunch(overriddenConfig)
+    new ServerLaunch(rootConfig)
   }
 }

@@ -20,6 +20,8 @@ import org.clapper.argot.ArgotConverters._
 import akka.actor.ActorSystem
 
 import nest.sparkle.util.ArgotApp
+import nest.sparkle.util.ConfigureLogback
+import nest.sparkle.util.ConfigUtil.{configFromFile, modifiedConfig}
 
 /** Main launcher for Sparkle application */
 object Main extends ArgotApp {
@@ -45,8 +47,11 @@ object Main extends ArgotApp {
       ("sparkle-time-server.files-loader.auto-start", "true") :: Nil
     }
     val configOverrides = portMapping ::: rootMapping ::: eraseOverride ::: filesOverride
+    val rootConfig = modifiedConfig(configFromFile(confFile.value), configOverrides: _*)
+    val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
+    ConfigureLogback.configureLogging(sparkleConfig)
 
-    val launch = ServerLaunch(confFile.value, configOverrides:_*)
+    val launch = ServerLaunch(rootConfig)
 
     display.value.foreach { _ => launch.launchDesktopBrowser() }
   }

@@ -1,6 +1,10 @@
 package nest.sg
 
+import com.typesafe.config.ConfigFactory
+
 import nest.sparkle.time.server.ServerLaunch
+import nest.sparkle.util.ConfigUtil.modifiedConfig
+import nest.sparkle.util.ConfigureLogback
 
 /** launch a sparkle server for a console based debugging app */
 trait ConsoleServer {
@@ -11,6 +15,8 @@ trait ConsoleServer {
 //    "sparkle-time-server.sparkle-store-cassandra.key-space" -> "plot"
   )
 
-  lazy val server = ServerLaunch(None, configOverrides: _*)
+  lazy val config = modifiedConfig(ConfigFactory.load(), configOverrides: _*)
+  ConfigureLogback.configureLogging(config.getConfig("sparkle-time-server"))
+  lazy val server = ServerLaunch(config)
 
 }
