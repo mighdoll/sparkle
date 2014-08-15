@@ -14,25 +14,24 @@
 
 package nest.sparkle.loader.kafka
 
-import scala.language.existentials
-import scala.reflect.runtime.universe._
 import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.existentials
+import scala.reflect.runtime.universe._
 import scala.util.matching.Regex
 
-import com.typesafe.config.Config
 import rx.lang.scala.{Observable, Observer, Subject}
+import com.typesafe.config.Config
 
 import nest.sparkle.loader.ColumnUpdate
 import nest.sparkle.loader.Loader.{Events, LoadingFilter, TaggedBlock}
 import nest.sparkle.loader.kafka.TypeTagUtil.typeTaggedToString
-import nest.sparkle.store.{Event, WriteableStore}
 import nest.sparkle.store.cassandra.{CanSerialize, RecoverCanSerialize}
+import nest.sparkle.store.{Event, WriteableStore}
 import nest.sparkle.util.Exceptions.NYI
 import nest.sparkle.util.KindCast.castKind
-import nest.sparkle.util.{Log, Instance}
 import nest.sparkle.util.TryToFuture.FutureTry
-import nest.sparkle.util.Watched
+import nest.sparkle.util.{Instance, Log, Watched, Instrumented}
 
 
 object AvroKafkaLoader {
@@ -42,20 +41,27 @@ object AvroKafkaLoader {
   
   private case class ReaderDecoder[T](reader: KafkaReader[T], decoder: KafkaKeyValues)
 }
-import AvroKafkaLoader._
+import nest.sparkle.loader.kafka.AvroKafkaLoader._
 
 /** Start a stream loader that will load data from kafka topics into cassandra
   * type parameter K is the type of the key in the store, (which is not necessarily the same as the type
   * of keys in the kafka stream.)
   */
 class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) // format: OFF
-    (implicit execution: ExecutionContext) extends Watched[ColumnUpdate[K]] with Log { // format: ON
+    (implicit execution: ExecutionContext) 
+  extends Watched[ColumnUpdate[K]] 
+  with Instrumented
+  with Log 
+{ // format: ON
 
   private val loaderConfig = rootConfig.getConfig("sparkle-time-server.kafka-loader")
 
   private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
 
   private lazy val filters = makeFilters()
+  
+  // TODO: Make this a Histogram
+  private val writeErrorsMetric = metrics.meter("store-write-errors")
 
   /** list of topic names we'll read from kafka, mapped to the kafka readers
     * who will read the kafka topics
@@ -167,7 +173,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   }
 
   /** Return an observable that reads blocks of data from kafka.
-    * Reading begins when the caller subscrbes to the returned Observable.
+    * Reading begins when the caller subscribes to the returned Observable.
     */
   private def readSourceBlocks(reader: KafkaReader[ArrayRecordColumns], // format: OFF
                                decoder: KafkaKeyValues): Observable[TaggedBlock] = { // format: ON
@@ -228,7 +234,10 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
               update
             }
 
-          result.failed.map { err => log.error("writeBlocks failed", err) }
+          result.failed.map { err => 
+            log.error("writeBlocks failed", err) 
+            writeErrorsMetric.mark()
+          }
           result
         }
         withFixedType()
@@ -248,7 +257,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
     */
   private def recordComplete(reader: KafkaReader[_], updates: Seq[ColumnUpdate[K]]): Unit = {
     // TODO, commit is relatively slow. let's commit/notify only every N items and/or after a timeout
-    reader.commit() // record the progress reading this kafka topic into zookeeper
+    //reader.commit() // record the progress reading this kafka topic into zookeeper
 
     // notify anyone subscribed to the Watched stream that we've written some data
     updates.foreach { update =>
@@ -265,6 +274,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
         case Some(lastKey) =>
           column.write(events).map { _ =>
             Some(ColumnUpdate[K](columnPath, lastKey))
+            // TODO: Add metric for writing to this columnPath
           }
         case None =>
           Future.successful(None)

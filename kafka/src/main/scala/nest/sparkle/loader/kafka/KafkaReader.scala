@@ -14,24 +14,17 @@
 
 package nest.sparkle.loader.kafka
 
-import com.typesafe.config.Config
-import kafka.consumer.ConsumerConfig
-import kafka.consumer.ConsumerConnector
-import kafka.consumer.Consumer
-import kafka.serializer.Decoder
-import kafka.consumer.KafkaStream
-import com.typesafe.config.ConfigFactory
-import rx.lang.scala.Observable
-import nest.sparkle.util.ObservableIterator._
 import scala.concurrent.ExecutionContext
+import rx.lang.scala.Observable
+
+import com.typesafe.config.{Config, ConfigFactory}
+
+import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector, ConsumerTimeoutException, Whitelist}
+import kafka.serializer.Decoder
+
 import nest.sparkle.loader.kafka.KafkaDecoders.Implicits._
-import nest.sparkle.util.ConfigUtil
-import kafka.consumer.ConsumerTimeoutException
-import nest.sparkle.util.Log
-import nest.sparkle.util.RecoverableIterator
-import nest.sparkle.util.RecoverableIterator
-import kafka.consumer.ConsumerIterator
-import kafka.consumer.Whitelist
+import nest.sparkle.util.ObservableIterator._
+import nest.sparkle.util.{ConfigUtil, Log, RecoverableIterator, Instrumented}
 
 /** Enables reading a stream from a kafka topics.
   *
@@ -40,11 +33,18 @@ import kafka.consumer.Whitelist
   * with the consumers of the stream of this topic.
   *
   * @param topic  kafka topic to read from
-  * @param consumerGroup - allows setting kafka consumerGroup per KafkaReader
-  * @param config contains settings for the kafka client library. must contain a "kafka-reader" key.
+  * @param consumerGroupPrefix - allows setting kafka consumerGroup per KafkaReader
+  * @param rootConfig contains settings for the kafka client library. must contain a "kafka-reader" key.
   */
 class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.load(),
-                              consumerGroupPrefix: Option[String]) extends Log {
+                              consumerGroupPrefix: Option[String])
+  extends Instrumented
+  with Log 
+{
+  // TODO: Make this a Histogram
+  private val metricPrefix = topic.replace(".", "_").replace("*", "")
+  private val readMetric = metrics.meter("kafka-messages-read", metricPrefix)
+  
   lazy val consumerConfig = {
     val properties = {
       val loaderConfig = rootConfig.getConfig("sparkle-time-server.kafka-loader")
@@ -107,7 +107,10 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
     val streams = connection.createMessageStreamsByFilter(topicFilter, 1, StringDecoder, decoder)
     val stream = streams.head
 
-    stream.iterator().map(_.message)
+    stream.iterator().map { msg => {
+      readMetric.mark()
+      msg.message()
+    }}
   }
 
   /** an iterator that will restart after the consumer times out */

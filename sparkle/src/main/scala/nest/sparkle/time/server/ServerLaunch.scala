@@ -34,8 +34,6 @@ import nest.sparkle.loader.{ FilesLoader, LoadPathDoesNotExist }
 import nest.sparkle.store.Store
 import nest.sparkle.store.cassandra.WriteNotification
 import nest.sparkle.util._
-import nest.sparkle.util.ConfigUtil.modifiedConfig
-import nest.sparkle.util.ConfigureLogback.configureLogging
 
 protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorSystem) extends Log {
   val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
@@ -70,7 +68,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     import system.dispatcher
     RepeatingRequest.get(uri + "health").onComplete {
       case Success(_) =>
-        val desktop = Desktop.getDesktop()
+        val desktop = Desktop.getDesktop
         desktop.browse(uri)
       case Failure(err) =>
         Console.err.println(s"failed to launch server: ${err.getMessage}")
@@ -94,7 +92,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
       started.await // wait until server is started
   
       // Does webSocket need to be saved anywhere? For shutdown?
-      val webSocket = new DataWebSocket(store, rootConfig)
+      /*val webSocket = */ new DataWebSocket(store, rootConfig)
     }
   }
 
@@ -122,7 +120,6 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
 
 object ServerLaunch extends Log {
   /** convenience wrapper for creating a ServerLaunch object from command line arguments
-    * optionally specifying a .conf file and optionally specifying overrides to the configuration
     */
   def apply(rootConfig: Config): ServerLaunch = {
 

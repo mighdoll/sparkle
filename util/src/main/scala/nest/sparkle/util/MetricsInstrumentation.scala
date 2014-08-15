@@ -1,7 +1,8 @@
 package nest.sparkle.util
 
 import com.codahale.metrics.MetricRegistry
-import nl.grons.metrics.scala.InstrumentedBuilder
+import com.codahale.metrics.{Gauge => CHGauge}
+import nl.grons.metrics.scala.{InstrumentedBuilder, MetricBuilder, MetricName}
 
 /**
  * Global reference to the metrics registry.
@@ -11,17 +12,18 @@ object MetricsInstrumentation
   /**
    * The single registry used for sparkle metrics.
    */
-  val metricRegistry = new MetricRegistry()
+  lazy val registry = new MetricRegistry()
 }
 
 /**
- * Any class that has metrics should use this trait.
+ * Convenience trait for classes that create metrics.
  */
 trait Instrumented 
   extends InstrumentedBuilder
-{
-  /**
-   * This name is required by InstrumentedBuilder.
-   */
-  val metricRegistry = MetricsInstrumentation.metricRegistry
+{  
+  lazy val metricRegistry = MetricsInstrumentation.registry
+  
+  // Don't prefix metric names with the scala class.
+  private lazy val metricBuilder = new MetricBuilder(MetricName(""), metricRegistry)
+  override def metrics = metricBuilder
 }
