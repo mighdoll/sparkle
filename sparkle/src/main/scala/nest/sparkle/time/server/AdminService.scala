@@ -90,7 +90,7 @@ object AdminService {
 
     import system.dispatcher
     implicit val timeout = Timeout(10.seconds)
-    val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = 9876)
+    val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = 9876)  // TODO make port configurable
     started.map{_ => ()}
   }
 

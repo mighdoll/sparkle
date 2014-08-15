@@ -54,6 +54,8 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
     new ConfiguredDataServer(fixmeRegistry, store, rootConfig)),
     "sparkle-server"
   )
+  
+  AdminService.start(rootConfig, store).await(10.seconds)
 
   /* Note that nothing may be specified to be auto-start but we started an
    * actor system so the main process will not end. This will disappear when
@@ -65,8 +67,6 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   // TODO: Make web socket start optional
   val webSocket = new DataWebSocket(store, rootConfig)
   
-  AdminService.start(rootConfig, store).await(10.seconds)
-
 
   /** (for desktop use) Open the web browser to the sparkle http server.
     */
