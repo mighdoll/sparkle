@@ -28,7 +28,7 @@ class WebSocketServer extends Log {
           sendToSubscribers(message)
       }
     }
-    unfiltered.netty.Http(3333)
+    unfiltered.netty.Http(3333)  // TODO make configurable
       .handler(plan)
   }
   

@@ -37,23 +37,42 @@ object MessageType {
 }
 
 /** realm specifier in a Distribution Message */
-case class Realm(name: String, id:Option[String], auth:Option[String])
+sealed trait Realm
+case class RealmToServer(name: String, id:Option[String], auth:Option[String]) extends Realm
+
+case class RealmToClient(name: String) extends Realm
 // TODO distinguish between upstream and downstream Realm, downstream Realm cannot have id and auth
 
 /** request a transformed stream.  sent from from client to server */
 case class StreamRequest(sendUpdates: Option[Boolean], itemLimit: Option[Long], sources: Array[JsValue],
                          transform: String, transformParameters: JsObject) {
-  def infoString = this.toJson(RequestJson.StreamRequestFormat).compactPrint
 }
 
 /** a StreamRequest inside a DistributionMessage */
-case class StreamRequestMessage(requestId: Option[Long], realm: Option[Realm], traceId: Option[String],
+case class StreamRequestMessage(requestId: Option[Long], realm: Option[RealmToServer], traceId: Option[String],
                                 messageType: String, message: StreamRequest) extends DistributionMessage[StreamRequest] {
-  def infoString = this.toJson(RequestJson.StreamRequestMessageFormat).compactPrint
+  
+  /** return a string suitable for logging (doesn't include the realm id and authentication) */
+  def toLogging:String = {
+    val realmNoPii = realm.map { orig => RealmToClient(orig.name) }
+    val noPii = StreamRequestMessageNoPii(requestId, realmNoPii, traceId, messageType, message)
+    noPii.toJson.compactPrint
+  }
 }
 
+/** a version of the StreamRequestMessage that doesn't include realm id and auth */
+object StreamRequestMessageNoPii extends DefaultJsonProtocol {
+  import ResponseJson.RealmToClientFormat
+  import RequestJson.StreamRequestFormat
+  implicit val format:RootJsonFormat[StreamRequestMessageNoPii] = jsonFormat5(StreamRequestMessageNoPii.apply)
+}
+
+/** a version of the StreamRequestMessage that doesn't include realm id and auth */
+case class StreamRequestMessageNoPii(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
+                                     messageType: String, message: StreamRequest)
+
 /** a Stream inside a Distribution Message */
-case class StreamsMessage(requestId: Option[Long], realm: Option[Realm], traceId: Option[String],
+case class StreamsMessage(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
                           messageType: String, message: Streams) extends DistributionMessage[Streams] {
 
   /** (for debug logging) return a copy of the StreamsMessage with a maximum data size for each
@@ -70,10 +89,10 @@ case class StreamsMessage(requestId: Option[Long], realm: Option[Realm], traceId
 }
 
 // TODO find a way to do less copy-pasting on encoding various message types
-case class StatusMessage(requestId: Option[Long], realm: Option[Realm], traceId: Option[String],
+case class StatusMessage(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
                          messageType: String, message: Status)
 
-case class UpdateMessage(requestId: Option[Long], realm: Option[Realm], traceId: Option[String],
+case class UpdateMessage(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
                          messageType: String, message: Update) {
   /** (for debug logging) return a copy of the UpdateMessage with a maximum data size for each
     * stream's data.

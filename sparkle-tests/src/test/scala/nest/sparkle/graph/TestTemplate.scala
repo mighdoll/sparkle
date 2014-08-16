@@ -23,8 +23,7 @@ import nest.sparkle.time.server.FileLocation
 import nest.sparkle.util.Resources
 
 /** test serving a custom webroot */
-class TestTemplate extends FunSuite with Matchers with ScalatestRouteTest
-    with TestDataService {
+class TestTemplate extends FunSuite with Matchers with ScalatestRouteTest with TestDataService {
   override val registry = PreloadedRegistry(Nil)
   val store = PreloadedStore(List(SampleData))
   lazy val subdirPath = Resources.filePathString("subdir")

@@ -1,32 +1,35 @@
 package nest.sparkle.time.server
 
 import scala.concurrent.duration._
+import scala.concurrent.{ Future, ExecutionContext }
 import com.typesafe.config.Config
 import akka.actor.ActorSystem
 import akka.io.IO
 import akka.util.Timeout
-import akka.actor.Props
-import akka.actor.Actor
+import akka.actor.{ Props, Actor, ActorRefFactory }
 import akka.pattern.ask
-import akka.actor.ActorRefFactory
 import spray.can.Http
-import spray.routing.{ Route, HttpService }
+import spray.routing.{ Route, HttpService, RequestContext }
 import spray.http._
 import spray.httpx.SprayJsonSupport._
 import spray.routing.Directives
+import spray.http.StatusCodes.NotFound
+import spray.http.MediaTypes.`text/tab-separated-values`
+import spray.http.HttpHeaders.{ `Content-Disposition`, `Content-Type` }
 import spray.util._
 import nest.sparkle.util.Log
 import nest.sparkle.store.Store
 import nest.sparkle.time.protocol.{ ExportData, HttpLogging }
 import nest.sparkle.time.protocol.AdminProtocol._
 import nest.sparkle.tools.DownloadExporter
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext
+import nest.sparkle.util.StringUtil
+import nest.sparkle.store.DataSetNotFound
+import scala.util.Failure
+import scala.util.Success
 
 // TODO DRY with DataService
-// TODO use 
-/** a web api for serving an administrative page about data stored in sparkle: downlaod .tsv files, etc. */  
-trait AdminService extends HttpService with Directives with HttpLogging with Log {
+/** a web api for serving an administrative page about data stored in sparkle: downlaod .tsv files, etc. */
+trait AdminService extends StaticContent with Directives with RichComplete with HttpLogging with Log {
   implicit def system: ActorSystem
   def rootConfig: Config
   def store: Store
@@ -34,39 +37,27 @@ trait AdminService extends HttpService with Directives with HttpLogging with Log
 
   lazy val exporter = DownloadExporter(rootConfig, store)(system.dispatcher)
 
-  lazy val staticBuiltIn = { // static data from web html/javascript files pre-bundled in the 'web' resource path
-    getFromResourceDirectory("web/admin")
-  }
-
-  lazy val indexHtml: Route = { // return index.html from custom folder if provided, otherwise use built in default page
-    pathSingleSlash {
-      getFromResource("web/admin/index.html")
-    }
-  }
+  override lazy val webRoot = Some(ResourceLocation("web/admin"))
 
   lazy val fetch: Route =
-    path("fetch") {
-      post {
-        // TODO parse Accept type: must be blank or text/tab-seprated-values
-        entity(as[ExportData]) { export =>
-          val futureResult = exporter.exportFolder(export.folder)
-          // TODO set content-disposition header
-          complete(futureResult)
+    get {
+      extract(_.request) { request =>
+        path("fetch" / Segments) { segments =>
+          val folder = segments.mkString("/")
+          val futureResult = exporter.exportFolder(folder).map { TsvContent(_) }
+          val fileName = segments.last + ".tsv"
+          respondWithHeader(`Content-Disposition`("attachment", Map(("filename", fileName)))) {
+            richComplete(futureResult)
+          }
         }
       }
     }
 
   val route: Route = {// format: OFF
     withRequestResponseLog {
-      get {
-        indexHtml ~
-        staticBuiltIn 
-      } ~
-      post {
-        fetch
-      }
-    }
-    
+      staticContent ~
+      fetch
+    }    
   } // format: ON
 
 }
@@ -87,11 +78,13 @@ object AdminService {
       Props(new ConcreteAdminService(system, store, rootConfig)),
       "admin-server"
     )
+    val port = rootConfig.getInt("sparkle-time-server.admin.port")
+    val interface = rootConfig.getString("sparkle-time-server.admin.interface")
 
     import system.dispatcher
     implicit val timeout = Timeout(10.seconds)
-    val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = 9876)  // TODO make port configurable
-    started.map{_ => ()}
+    val started = IO(Http) ? Http.Bind(serviceActor, interface = interface, port = port)
+    started.map { _ => () }
   }
 
 }

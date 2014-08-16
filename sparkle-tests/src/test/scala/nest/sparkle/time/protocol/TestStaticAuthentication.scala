@@ -16,46 +16,48 @@ class TestStaticAuthentication extends TestStore with TestDataService with Strea
       "sparkle-time-server.auth.provider" -> classOf[StaticAuthentication].getCanonicalName().toString
     )
 
-  def makeRequest[T](passwordOpt: Option[String] = None)(fn: HttpResponse => T): T = {
-    val realm = Realm("sparkle", Some("myId"), passwordOpt)
+  def makeRequest[T](passwordOpt: Option[String] = None)(fn: => T): T = {
+    val realm = RealmToServer("sparkle", Some("myId"), passwordOpt)
     makeRequestWithRealm(Some(realm)){ fn }
   }
 
-  def makeRequestWithRealm[T](realmOpt: Option[Realm])(fn: HttpResponse => T): T = {
+  def makeRequestWithRealm[T](realmOpt: Option[RealmToServer])(fn: => T): T = {
     val baseMessage = streamRequest("Raw", params = RawParameters[Long]())
     val message = baseMessage.copy(realm = realmOpt)
 
-    Post("/v1/data", message) ~> v1protocol ~> check {
+    Post("/v1/data", message) ~> route ~> check {
       response.status shouldBe StatusCodes.OK
-      fn(response)
+      fn
     }
   }
 
   test("try a request with a bad password") {
-    makeRequest(Some("wrongPassword")) { response =>
+    makeRequest(Some("wrongPassword")) { 
       val statusMessage = responseAs[StatusMessage]
       statusMessage.message.code shouldBe 611
     }
   }
 
   test("try a request with a good password") {
-    makeRequest(Some(password)) { response =>
+    makeRequest(Some(password)) { 
       responseAs[StreamsMessage] // or we'll fail
     }
   }
 
   test("try a request with a missing password") {
-    makeRequest(None) { response =>
+    makeRequest(None) { 
       val statusMessage = responseAs[StatusMessage]
       statusMessage.message.code shouldBe 612
     }
   }
 
   test("try a request with a missing realm") {
-    makeRequest(None) { response =>
+    makeRequest(None) { 
       val statusMessage = responseAs[StatusMessage]
       statusMessage.message.code shouldBe 612
     }
   }
+  
+  // TODO verify that logs don't have id and auth in them
 
 }

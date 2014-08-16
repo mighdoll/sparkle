@@ -12,7 +12,7 @@ import nest.sparkle.util.Log
   * Subclasses should implement a single argument constructor that takes a Config parameter
   */
 trait AuthProvider {
-  def authenticate(realmParameters: Option[Realm]): Future[Authorizer]
+  def authenticate(realmParameters: Option[RealmToServer]): Future[Authorizer]
 }
 
 object AuthProvider extends Log {

@@ -1,0 +1,24 @@
+body {
+  background-color: white;
+  font-family: 'Oxygen', sans-serif;  
+} 
+
+div.title {
+  text-align: center;
+  font-size: 20px;
+  margin-bottom: 15px;
+}
+
+div.download {
+  margin-top: 15px;
+}
+
+#DownloadFolderInput {
+  margin-left: 5px;
+  width: 600px;
+  font-size: 15px;
+}
+
+#DownloadFolderForm {
+  font-size: 15px;
+}

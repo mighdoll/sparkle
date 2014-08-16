@@ -29,7 +29,7 @@ object JsonStreamTypeFormat extends DefaultJsonProtocol {
 /** spray json converters for request messages */
 object RequestJson extends DefaultJsonProtocol {
   implicit val StreamRequestFormat = jsonFormat5(StreamRequest)
-  implicit val RealmFormat = jsonFormat3(Realm)
+  implicit val RealmFormat = jsonFormat3(RealmToServer)
   implicit val StreamRequestMessageFormat = jsonFormat5(StreamRequestMessage)
   implicit val CustomSelectorFormat = jsonFormat2(CustomSelector)
 }
@@ -40,6 +40,7 @@ object ResponseJson extends DefaultJsonProtocol {
   implicit val StreamFormat = jsonFormat5(Stream)
   implicit val StreamsFormat = jsonFormat1(Streams)
   import RequestJson.RealmFormat
+  implicit val RealmToClientFormat = jsonFormat1(RealmToClient)
   implicit val StreamsMessageFormat = jsonFormat5(StreamsMessage)
   implicit val StatusFormat = jsonFormat2(Status)
   implicit val StatusMessageFormat = jsonFormat5(StatusMessage)

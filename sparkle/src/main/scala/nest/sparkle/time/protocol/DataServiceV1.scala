@@ -44,11 +44,11 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
 
   lazy val v1protocol = {
     cors {
-      pathPrefix("v1") {
+      pathPrefix("v1") { // format: OFF
         postDataRequest ~
-          columnsRequest ~
-          dataSetsRequest
-      }
+        columnsRequest ~
+        dataSetsRequest
+      } // format: ON
     }
   }
 
@@ -70,7 +70,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
                   postedJson.convertTo[StreamRequestMessage](StreamRequestMessageFormat)
                 }
               } {
-                log.info(s"DataServiceV1.request: ${postedJson.compactPrint}")
+                log.info(s"DataServiceV1.request: ${streamRequest.toLogging}")
                 val futureResponse = httpDataRequest(streamRequest)
                 futureResponse.onComplete {
                   case Success(response: StreamsMessage) => ctx.complete(response)
@@ -121,7 +121,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
       } yield {
         val streamsResponse = StreamsMessage(
           requestId = request.requestId,
-          realm = request.realm,
+          realm = request.realm.map { orig => RealmToClient(orig.name) },
           traceId = request.traceId,
           messageType = MessageType.Streams,
           message = streams
@@ -152,7 +152,8 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
           log.error("no Status reporter for:", err)
           Status(999, s"unknown error $err in $requestAsString")
       }
-    val statusMessage = StatusMessage(requestId = request.requestId, realm = request.realm,
+    val realmToClient = request.realm.map { orig => RealmToClient(orig.name)}
+    val statusMessage = StatusMessage(requestId = request.requestId, realm = realmToClient,
       traceId = request.traceId, messageType = MessageType.Status, message = status)
     log.warn(s"streamError ${status.code} ${status.description}: request: $requestAsString ")
     statusMessage

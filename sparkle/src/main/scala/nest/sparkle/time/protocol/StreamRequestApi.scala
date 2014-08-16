@@ -86,7 +86,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
         val streams = Streams(streamSeq)
         val streamsMessage = StreamsMessage(
           requestId = request.requestId,
-          realm = request.realm,
+          realm = request.realm.map{ orig => RealmToClient(orig.name)},
           traceId = request.traceId,
           messageType = MessageType.Streams,
           message = streams
@@ -123,9 +123,10 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
           val requestId = request.traceId.map(_ + "-").getOrElse("")
           requestId + RandomUtil.randomAlphaNum(3)
         }
+        val realmToClient = request.realm.map{orig => RealmToClient(orig.name)}
         val updateMessage = UpdateMessage(
           requestId = None, // TODO should we align with original requestID?
-          realm = request.realm,
+          realm = realmToClient,
           traceId = Some(traceId),
           messageType = MessageType.Update,
           message = update

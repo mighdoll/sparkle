@@ -38,11 +38,9 @@ case class FileLocation(location: String) extends FileOrResourceLocation
 case class ResourceLocation(location: String) extends FileOrResourceLocation
 
 /** http API for serving data and static web content */
-trait DataService extends HttpService with DataServiceV0 with DataServiceV1 with HttpLogging with Log {
+trait DataService extends StaticContent with DataServiceV0 with DataServiceV1 with HttpLogging with Log {
   def registry: DataRegistry
-
-  /** Subclasses set this to the default web page to display (e.g. the dashboard) */
-  def webRoot: Option[FileOrResourceLocation] = None
+  implicit def executionContext: ExecutionContext
 
   /** Subsclasses can override customRoutes to provide additional routes.  The resulting
     * routes have priority and can replace any built in routes.
@@ -50,34 +48,8 @@ trait DataService extends HttpService with DataServiceV0 with DataServiceV1 with
   def customRoutes: Iterable[Route] = List()
 
   private def externalRoutes: Route = customRoutes.reduceLeftOption{ (a, b) => a ~ b } getOrElse reject()
-
-  implicit def executionContext: ExecutionContext
-
-  val staticBuiltIn = { // static data from web html/javascript files pre-bundled in the 'web' resource path
-    getFromResourceDirectory("web")
-  }
-
-  val webRootPath: Route = { // static data from the web-root folder (if provided)
-    webRoot.map {
-      case FileLocation(path)     => getFromDirectory(path)
-      case ResourceLocation(path) => getFromResourceDirectory(path)
-    } getOrElse {
-      reject
-    }
-  }
-
-  val indexHtml: Route = { // return index.html from custom folder if provided, otherwise use built in default page
-    pathSingleSlash {
-      webRoot.map {
-        case FileLocation(path)     => getFromFile(path + "/index.html")
-        case ResourceLocation(path) => getFromResource(path + "/index.html")
-      } getOrElse {
-        getFromResource("web/index.html")
-      }
-    }
-  }
-
-  val health: Route = {
+  
+  private val health: Route = {
     path("health") {
       dynamic {
         val registryRequest = registry.allSets().map(_ => "ok")
@@ -86,7 +58,7 @@ trait DataService extends HttpService with DataServiceV0 with DataServiceV1 with
     }
   }
 
-  val notFound = {
+  lazy val notFound = {
     unmatchedPath { path => complete(NotFound, "not found") }
   }
 
@@ -96,10 +68,8 @@ trait DataService extends HttpService with DataServiceV0 with DataServiceV1 with
       externalRoutes ~
       v1protocol ~
       get {
-        indexHtml ~
         v0protocol ~
-        webRootPath ~
-        staticBuiltIn ~
+        staticContent ~
         health ~
         notFound
       }
@@ -107,25 +77,3 @@ trait DataService extends HttpService with DataServiceV0 with DataServiceV1 with
   } // format: ON
 }
 
-trait RichComplete extends Directives {
-  implicit def executionContext: ExecutionContext
-  def richComplete[T](future: Future[T])(implicit marshaller: Marshaller[T]): Route = {
-    onComplete(future) {
-      _ match {
-        case Success(s) =>
-          complete(s)
-        case Failure(notFound: NoSuchFileException) =>
-          complete(StatusCodes.NotFound -> notFound.getMessage)
-        case Failure(notFound: FileNotFoundException) =>
-          complete(StatusCodes.NotFound -> notFound.getMessage)
-        case Failure(notFound: ColumnNotFoundException) =>
-          complete(StatusCodes.NotFound -> notFound.getMessage)
-        case Failure(notFound: DataSetNotFound) =>
-          complete(StatusCodes.NotFound -> notFound.getMessage)
-        case Failure(x) =>
-          complete(x)
-      }
-    }
-  }
-
-}

@@ -162,7 +162,7 @@ trait SummaryTransform extends ColumnTransform {
           // TODO pass along the partition boundaries too, so that summarizers can report summary values
           // aligned to the the bounds of the partition range (e.g. at the midpoint) 
           summarizePartition.summarizePart(part)
-        } else { Seq() }
+        } else { Seq() }  // TODO this will skip empty parts, consider instead reporting an event with no value 
       }
     }
     Observable.from(summarizedEvents)
