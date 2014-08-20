@@ -14,20 +14,10 @@
 
 package nest.sparkle.loader.kafka
 
-import com.typesafe.config.Config
-
 import nest.sparkle.test.SparkleTestConfig
-import nest.sparkle.util.ConfigureLog4j
 
 /** (for tests) load the config file and initialize logging.
   */
 trait KafkaTestConfig extends SparkleTestConfig {
-
-  override def initializeLogging(root:Config) {
-    super.initializeLogging(root)
-    val sparkleConfig = root.getConfig("sparkle-time-server")
-    ConfigureLog4j.configureLogging(sparkleConfig)
-  }
-
-
+  // No need to override initializeLogging anymore.
 }

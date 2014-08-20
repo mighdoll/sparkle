@@ -23,8 +23,8 @@ import org.scalatest.prop.{ PropertyChecks, TableDrivenPropertyChecks }
 import nest.sparkle.loader.ColumnUpdate
 import nest.sparkle.loader.kafka.AvroRecordGenerators.{ GeneratedRecord, genArrayRecords, makeLatencyRecord }
 import nest.sparkle.store.cassandra.{ CassandraReaderWriter, CassandraTestConfig }
-import nest.sparkle.util.{ ConfigureLog4j, Log }
-import nest.sparkle.util.ConfigUtil.modifiedConfig
+import nest.sparkle.util.Log
+import nest.sparkle.util.ConfigUtil.{modifiedConfig, sparkleConfigName, configForSparkle}
 import nest.sparkle.util.ObservableFuture.WrappedObservable
 import nest.sparkle.util.Watch
 import spray.util.pimpFuture
@@ -45,8 +45,7 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
   override def testKeySpace: String = "testStreamLoadAvroKafka"
 
   private val kafkaLoaderConfig = {
-    val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
-    ConfigureLog4j.configureLogging(sparkleConfig)
+    val sparkleConfig = configForSparkle(rootConfig)
     sparkleConfig.getConfig("kafka-loader")
   }
 
@@ -58,9 +57,9 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
         kafka.writer.write(records.map { _.record })
         // run loader
         val overrides =
-          "sparkle-time-server.kafka-loader.topics" -> List(kafka.topic) ::
-            "sparkle-time-server.kafka-loader.find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleArrayFinder" ::
-            Nil
+          s"$sparkleConfigName.kafka-loader.topics" -> List(kafka.topic) ::
+          s"$sparkleConfigName.kafka-loader.find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleArrayFinder" ::
+          Nil
 
         val storeWrite = testStore.writeListener.listen[Long](columnPath)
         val modifiedRoot = modifiedConfig(rootConfig, overrides: _*)

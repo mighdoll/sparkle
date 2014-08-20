@@ -2,7 +2,7 @@ package nest.sparkle.time.protocol
 
 import scala.concurrent.Future
 import com.typesafe.config.Config
-import nest.sparkle.util.Instance
+import nest.sparkle.util.{Instance, ConfigUtil}
 import nest.sparkle.util.Log
 
 /** Subclasses should override AuthProvider to authenticate protocol realm parameters (id and auth),
@@ -18,7 +18,7 @@ trait AuthProvider {
 object AuthProvider extends Log {
   /** create the AuthProvider specified in the .conf file. */
   def instantiate(rootConfig:Config):AuthProvider = {
-    val providerClass = rootConfig.getString("sparkle-time-server.auth.provider")
+    val providerClass = ConfigUtil.configForSparkle(rootConfig).getString("auth.provider")
     log.info(s"instantiating AuthProvider: $providerClass")
     val authProvider = Instance.byName[AuthProvider](providerClass)(rootConfig)
     authProvider

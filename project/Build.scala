@@ -91,9 +91,15 @@ object SparkleTimeBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(
         libraryDependencies ++= Seq(
+          argot,
           scalaLogging,
           metricsScala,
-          scalaConfig
+          scalaConfig,
+          Optional.logback,
+          Optional.log4j,
+          Optional.metricsGraphite,
+          sprayCan % "optional",
+          sprayRouting % "optional"
           )
       )
 

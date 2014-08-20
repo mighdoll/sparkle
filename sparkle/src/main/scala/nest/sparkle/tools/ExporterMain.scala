@@ -1,30 +1,30 @@
+// TODO: Move this to the tools project.
+
 package nest.sparkle.tools
 
-import java.io.File
-import org.clapper.argot._
-import org.clapper.argot.ArgotConverters._
-import nest.sparkle.util.{ ArgotApp, Log }
-import com.typesafe.config.{ Config, ConfigFactory }
 import java.util.concurrent.TimeUnit
+
+import com.typesafe.config.Config
 import spray.util._
-import nest.sparkle.util.ConfigUtil
-import nest.sparkle.store.cassandra.WriteNotification
+
+import org.clapper.argot.ArgotConverters._
+
 import nest.sparkle.store.Store
+import nest.sparkle.store.cassandra.WriteNotification
+import nest.sparkle.util.{SparkleApp, Log, ConfigUtil}
 
 /** Main program to run Exporter.
   */
-object ExporterMain extends ArgotApp with Log {
+object ExporterMain extends SparkleApp with Log {
+  val appName = "sparkle-exporter"
+  val appVersion = "0.6.0"
 
-  val parser = new ArgotParser("exporter", preUsage = Some("Version 0.1"))
-  val help = parser.flag[Boolean](List("h", "help"), "show this help")
-  val confFile = parser.option[String](List("conf"), "conf", "path to an application.conf file")
   val dataSet = parser.option[String](List("d", "dataset"), "dataset", "DataSet to export")
-
+  
+  val rootConfig = setup()
+  
   try {
-    app(parser, help) {
-      val rootConfig = ConfigUtil.configFromFile(confFile.value)
-      FileExporterApp(rootConfig, dataSet.value.get).export()
-    }
+    FileExporterApp(rootConfig, dataSet.value.get).export()
   } catch {
     case e: Exception => e.printStackTrace()
   } finally {
@@ -38,7 +38,7 @@ case class FileExporterApp(rootConfig: Config, dataSet:String) extends Log {
   import scala.concurrent.ExecutionContext.Implicits.global
   
   val notification = new WriteNotification
-  val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
+  val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
   lazy val store = Store.instantiateStore(sparkleConfig, notification)
   val exporter = FileExporter(rootConfig, store)
 

@@ -11,7 +11,7 @@ import spray.json._
 
 import nest.sparkle.store.{ Column, Store }
 import nest.sparkle.time.protocol.RequestJson.CustomSelectorFormat
-import nest.sparkle.util.Instance
+import nest.sparkle.util.{Instance, ConfigUtil}
 
 case class CustomSourceNotFound(msg: String) extends RuntimeException(msg)
 case class MalformedSourceSelector(msg: String) extends RuntimeException(msg)
@@ -62,7 +62,7 @@ trait SelectingSources {
     * by name in future StreamRequest messages.
     */
   private def createCustomSelectors(): Map[String, CustomSourceSelector] = {
-    lazy val sparkleApiConfig = rootConfig.getConfig("sparkle-time-server")
+    val sparkleApiConfig = ConfigUtil.configForSparkle(rootConfig)
     sparkleApiConfig.getStringList("custom-selectors").asScala.map { className =>
       val selector: CustomSourceSelector = Instance.byName(className)(rootConfig, store)
       (selector.name, selector)

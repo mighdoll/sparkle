@@ -13,6 +13,7 @@ import com.typesafe.config.Config
 import nest.sparkle.store.Event
 import spray.json.JsonFormat
 import nest.sparkle.util.RecoverJsonFormat
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
 class DoublingTransform(rootConfig: Config) extends CustomTransform {
   override def name: String = this.getClass.getSimpleName
@@ -42,7 +43,7 @@ class TestCustomTransform extends TestStore with StreamRequestor with TestDataSe
   lazy val transformClassName = classOf[DoublingTransform].getCanonicalName
   override def configOverrides = {
     val transforms = Seq(s"$transformClassName").asJava
-    super.configOverrides :+ "sparkle-time-server.custom-transforms" -> transforms
+    super.configOverrides :+ s"$sparkleConfigName.custom-transforms" -> transforms
   }
 
   test("custom transform selector") {

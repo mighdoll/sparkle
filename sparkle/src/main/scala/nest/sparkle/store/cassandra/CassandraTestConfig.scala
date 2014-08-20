@@ -18,7 +18,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import com.typesafe.config.{ Config, ConfigFactory }
 import akka.actor._
-import nest.sparkle.util.{ ConfigUtil, ConfigureLogback }
+import nest.sparkle.util.ConfigUtil
 import nest.sparkle.test.SparkleTestConfig
 import scala.concurrent.Future
 import nest.sparkle.loader.ReceiveLoaded
@@ -40,11 +40,11 @@ trait CassandraTestConfig extends SparkleTestConfig {
 
   override def configOverrides: List[(String, Any)] =
     super.configOverrides :+
-      ("sparkle-time-server.sparkle-store-cassandra.key-space" -> testKeySpace)
+    (s"${ConfigUtil.sparkleConfigName}.sparkle-store-cassandra.key-space" -> testKeySpace)
 
-  /** the 'sparkle' level Config, one down from the outermost */
-  lazy val sparkleConfig: Config = {
-    rootConfig.getConfig("sparkle-time-server")
+  /** the 'sparkle' level Config */
+  lazy val sparkleConfig:Config = {
+    ConfigUtil.configForSparkle(rootConfig)
   }
 
   /** recreate the database and a test column */

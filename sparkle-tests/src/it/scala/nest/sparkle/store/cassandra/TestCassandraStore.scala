@@ -14,27 +14,23 @@
 
 package nest.sparkle.store.cassandra
 
-import scala.util.Failure
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.concurrent.duration._
 import scala.collection.JavaConverters._
-import com.datastax.driver.core.Session
+import scala.concurrent.ExecutionContext
+
 import spray.util._
-import org.scalatest.{ Matchers, FunSuite, BeforeAndAfterEach }
+
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.PropertyChecks
-import org.scalacheck.Gen
-import com.typesafe.config.ConfigFactory
-import nest.sparkle.store.{ ColumnNotFound, DataSetNotFound, Event }
+import org.scalatest.{FunSuite, Matchers}
+
 import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.util.ConfigUtil
-import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.util.ConfigureLogback
-import nest.sparkle.util.RandomUtil.randomAlphaNum
+import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
 import nest.sparkle.time.protocol.ArbitraryColumn2
-import org.scalacheck.Arbitrary
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
+import nest.sparkle.util.RandomUtil.randomAlphaNum
 
 class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with CassandraTestConfig {
-  import ExecutionContext.Implicits.global
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   override def testKeySpace = "testcassandrastore"
 
@@ -42,7 +38,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
   override def configOverrides: List[(String, Any)] =
     super.configOverrides :+
-      ("sparkle-time-server.sparkle-store-cassandra.replication-factor" -> replicationFactor)
+      (s"$sparkleConfigName.sparkle-store-cassandra.replication-factor" -> replicationFactor)
 
   def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStoreWriter) // format: OFF
       (fn: (WriteableColumn[T,U], String) => Unit): Unit = { // format: ON

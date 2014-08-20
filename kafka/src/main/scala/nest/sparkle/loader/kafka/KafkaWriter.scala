@@ -22,6 +22,7 @@ import rx.lang.scala.Observable
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import nest.sparkle.util.ConfigUtil
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.Log
 
 /** enables writing to a kafka topic */
@@ -29,7 +30,7 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log{
   private val writer = implicitly[Encoder[T]]
 
   private lazy val producer: Producer[String, Array[Byte]] = {
-    val properties = ConfigUtil.properties(rootConfig.getConfig("sparkle-time-server.kafka-loader.kafka-writer"))
+    val properties = ConfigUtil.properties(rootConfig.getConfig(s"$sparkleConfigName.kafka-loader.kafka-writer"))
     new Producer[String, Array[Byte]](new ProducerConfig(properties))
   }
 

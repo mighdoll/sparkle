@@ -22,15 +22,15 @@ import ch.qos.logback.classic.spi.{ILoggingEvent, LoggingEvent}
 import ch.qos.logback.classic.{Level, Logger, LoggerContext}
 import ch.qos.logback.core.encoder.Encoder
 import ch.qos.logback.core.filter.Filter
-import ch.qos.logback.core.{Appender, ConsoleAppender}
 import ch.qos.logback.core.rolling._
+import ch.qos.logback.core.{Appender, ConsoleAppender}
 
 import com.typesafe.config.Config
 
 import org.slf4j
 
 /** configure a logback logger based on the config file */
-object ConfigureLogback extends Log {
+object ConfigureLogback extends ConfigureLog with Log {
 
   /** configure logging based on the .conf file */
   var configured = false

@@ -3,14 +3,17 @@ package nest.sparkle.time.protocol
 import com.typesafe.config.Config
 import scala.concurrent.Future
 
+import nest.sparkle.util.ConfigUtil
+
 case class StaticAuthConfigError(msg: String) extends RuntimeException(msg)
 
 /** Authenticate with a single static password for all clients. Authenticated clients
  *  are authorized for all requests. */
 class StaticAuthentication(rootConfig: Config) extends AuthProvider {
-  val configKey = "sparkle-time-server.auth.password"
-  val optPassword = Option(rootConfig.getString(configKey))
-  val staticPassword = optPassword.getOrElse(throw StaticAuthConfigError(s"$configKey missing from .conf file"))
+  val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
+  val configKey = "auth.password"
+  val optPassword = Option(sparkleConfig.getString(configKey))
+  val staticPassword = optPassword.getOrElse(throw StaticAuthConfigError(s"$configKey missing from sparkle config"))
 
   override def authenticate(optRealm: Option[RealmToServer]): Future[Authorizer] = {
     optRealm match {

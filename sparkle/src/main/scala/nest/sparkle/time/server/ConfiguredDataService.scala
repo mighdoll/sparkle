@@ -21,12 +21,12 @@ import scala.collection.JavaConverters._
 import nest.sparkle.util.Instance
 import nest.sparkle.legacy.DataRegistry
 import nest.sparkle.time.protocol.DataServiceV1
-import nest.sparkle.util.Log
+import nest.sparkle.util.{Log, ConfigUtil}
 
 /** a DataService that reads configuration from a config file */
 trait ConfiguredDataService extends DataService with Log {
   def rootConfig: Config
-  lazy val sparkleApiConfig = rootConfig.getConfig("sparkle-time-server")
+  lazy val sparkleApiConfig = ConfigUtil.configForSparkle(rootConfig)
   override def customRoutes: Iterable[Route] = customApis(sparkleApiConfig, registry)
   override lazy val corsHosts:List[String] = sparkleApiConfig.getStringList("cors-hosts").asScala.toList
 

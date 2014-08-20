@@ -9,7 +9,7 @@ import nest.sparkle.time.transform.{ SummaryTransform, TransformNotFound }
 import nest.sparkle.time.transform.StandardColumnTransform.{runTransform, runMultiColumnTransform}
 import com.typesafe.config.Config
 import nest.sparkle.time.transform.CustomTransform
-import nest.sparkle.util.Instance
+import nest.sparkle.util.{Instance, ConfigUtil}
 import nest.sparkle.util.Log
 import nest.sparkle.time.transform.StandardSummaryTransform
 import nest.sparkle.time.transform.StandardObjectTransform
@@ -51,7 +51,7 @@ trait SelectingTransforms extends Log {
     * by name in future StreamRequest messages.
     */
   private def createCustomTransforms(): Map[String, CustomTransform] = {
-    lazy val sparkleApiConfig = rootConfig.getConfig("sparkle-time-server")
+    val sparkleApiConfig = ConfigUtil.configForSparkle(rootConfig)
     sparkleApiConfig.getStringList("custom-transforms").asScala.map { className =>
       val transform: CustomTransform = Instance.byName(className)(rootConfig)
       (transform.name, transform)

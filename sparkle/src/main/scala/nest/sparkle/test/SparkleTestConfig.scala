@@ -3,7 +3,7 @@ package nest.sparkle.test
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import nest.sparkle.util.ConfigUtil
-import nest.sparkle.util.ConfigureLogback
+import nest.sparkle.util.LogUtil
 
 trait SparkleTestConfig {
   var loggingInitialized = false
@@ -24,8 +24,7 @@ trait SparkleTestConfig {
     */
   def initializeLogging(root: Config): Unit = {
     if (!loggingInitialized) {
-      val sparkleConfig = root.getConfig("sparkle-time-server")
-      ConfigureLogback.configureLogging(sparkleConfig)
+      LogUtil.configureLogging(root)
     }
   }
 

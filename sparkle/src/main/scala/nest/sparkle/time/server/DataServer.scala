@@ -21,6 +21,7 @@ import nest.sparkle.store.Store
 import nest.sparkle.legacy.DataRegistry
 import scala.concurrent.ExecutionContextExecutor
 import scala.collection.JavaConverters._
+import nest.sparkle.util.ConfigUtil
 
 case class ConfigurationError(msg: String) extends RuntimeException
 /** An actor serving data DataRegistry data via a spray based REST api.  The
@@ -39,7 +40,7 @@ class ConfiguredDataServer(val registry: DataRegistry, val store: Store, val roo
    *  web-root.resource */
   private def configuredWebRoot():Option[FileOrResourceLocation] = {
     def oneConfiguredString(configPath: String): Option[String] = {
-      val list = rootConfig.getStringList(s"sparkle-time-server.$configPath").asScala
+      val list = ConfigUtil.configForSparkle(rootConfig).getStringList(configPath).asScala
       if (list.size > 1) {
         throw ConfigurationError(s"web-root contains more than one setting for $configPath:  $list")
       }

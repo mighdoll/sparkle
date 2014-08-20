@@ -10,6 +10,7 @@ import nest.sparkle.loader.kafka.KafkaTestUtil.testTopicName
 import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.CassandraTestConfig
 import nest.sparkle.util.AvroUtil.prettyAvro
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.ConfigUtil.modifiedConfig
 import nest.sparkle.util.Resources
 import spray.util.pimpFuture
@@ -62,7 +63,7 @@ trait AvroLoaderFixture extends CassandraTestConfig with KafkaTestConfig {
 
     import scala.collection.JavaConverters._
     val modifiedRootConfig = {
-      val overrides = Seq("sparkle-time-server.kafka-loader.topics" -> List(topicName).asJava)
+      val overrides = Seq(s"$sparkleConfigName.kafka-loader.topics" -> List(topicName).asJava)
       modifiedConfig(rootConfig, overrides: _*)
     }
 

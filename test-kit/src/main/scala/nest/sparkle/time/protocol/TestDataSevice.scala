@@ -30,7 +30,7 @@ import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat }
 import org.scalatest.Matchers
 import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
-import nest.sparkle.util.InitializeReflection
+import nest.sparkle.util.{InitializeReflection, ConfigUtil}
 import spray.routing.RoutingSettings
 import spray.http.DateTime
 
@@ -43,7 +43,7 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   def executionContext = system.dispatcher
 
   // tell spray test config about our configuration (and trigger logging initialization)
-  override def testConfig = rootConfig.getConfig("sparkle-time-server")
+  override def testConfig = ConfigUtil.configForSparkle(rootConfig)
 
   // TODO legacy, delete soon
   def registry: DataRegistry = ???  

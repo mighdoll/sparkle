@@ -19,41 +19,38 @@ import org.clapper.argot.ArgotConverters._
 
 import akka.actor.ActorSystem
 
-import nest.sparkle.util.ArgotApp
-import nest.sparkle.util.ConfigureLogback
-import nest.sparkle.util.ConfigUtil.{configFromFile, modifiedConfig}
+import nest.sparkle.util.{ConfigUtil, SparkleApp}
 
 /** Main launcher for Sparkle application */
-object Main extends ArgotApp {
-  val parser = new ArgotParser("sg", preUsage = Some("Version 0.4.4-SNAPSHOT")) // TODO get version from the build
+object Main extends SparkleApp {
+  val appName = "sparkle"
+  val appVersion = "Version 0.6.0"
 
   val filesPath = parser.option[String](List("f", "files"), "path", ".csv/.tsv file, or directory containing .csv or .tsv files")
   val filesStrip = parser.option[Int](List("s", "files-strip"), "strip", "Number of leading path elements to strip off of path when creating DataSet name")
-  val help = parser.flag[Boolean](List("h", "help"), "show this help")
   val erase = parser.flag[Boolean](List("format"), "erase and format the database")
   val port = parser.option[Int](List("p", "port"), "port", "tcp port for web server")
-  val confFile = parser.option[String](List("conf"), "path", "path to an application.conf file")
   val root = parser.option[String](List("root"), "path", "directory containing custom web pages to serve")
   val display = parser.flag(List("display"), "navigate the desktop web browser to the current dashboard")
+  
+  val rootConfig = setup()
 
-  app(parser, help) {
-    val portMapping = port.value.toList.map { ("sparke-time-server.port", _) }
-    val rootMapping = root.value.toList.map { value => ("sparkle-time-server.web-root.directory", List(value)) }
-    val eraseOverride = erase.value.toList.map { ("sparkle-time-server.erase-store", _) }
+  val launch = SparkleAPIServer(rootConfig)
+
+  display.value.foreach { _ => launch.launchDesktopBrowser() }
+  
+  override def overrides = {
+    val sparkleConfigName = ConfigUtil.sparkleConfigName
+    val portMapping = port.value.toList.map { (s"$sparkleConfigName.port", _) }
+    val rootMapping = root.value.toList.map { value => (s"$sparkleConfigName.web-root.directory", List(value)) }
+    val eraseOverride = erase.value.toList.map { (s"$sparkleConfigName.erase-store", _) }
     val strip = filesStrip.value.getOrElse(0)
     val filesOverride = filesPath.value.toList.flatMap { path =>
-      ("sparkle-time-server.files-loader.directories", List(s"$path")) ::
-      ("sparkle-time-server.files-loader.directory-strip", strip) ::
-      ("sparkle-time-server.files-loader.auto-start", "true") :: Nil
+      (s"$sparkleConfigName.files-loader.directories", List(s"$path")) ::
+      (s"$sparkleConfigName.files-loader.directory-strip", strip) ::
+      (s"$sparkleConfigName.files-loader.auto-start", "true") :: Nil
     }
-    val configOverrides = portMapping ::: rootMapping ::: eraseOverride ::: filesOverride
-    val rootConfig = modifiedConfig(configFromFile(confFile.value), configOverrides: _*)
-    val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
-    ConfigureLogback.configureLogging(sparkleConfig)
-
-    val launch = ServerLaunch(rootConfig)
-
-    display.value.foreach { _ => launch.launchDesktopBrowser() }
+    portMapping ::: rootMapping ::: eraseOverride ::: filesOverride
   }
 }
 

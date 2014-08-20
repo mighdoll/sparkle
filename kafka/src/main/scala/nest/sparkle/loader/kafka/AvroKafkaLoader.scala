@@ -31,7 +31,7 @@ import nest.sparkle.store.{Event, WriteableStore}
 import nest.sparkle.util.Exceptions.NYI
 import nest.sparkle.util.KindCast.castKind
 import nest.sparkle.util.TryToFuture.FutureTry
-import nest.sparkle.util.{Instance, Log, Watched, Instrumented}
+import nest.sparkle.util.{Instance, Log, Watched, Instrumented, ConfigUtil}
 
 
 object AvroKafkaLoader {
@@ -54,7 +54,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   with Log 
 { // format: ON
 
-  private val loaderConfig = rootConfig.getConfig("sparkle-time-server.kafka-loader")
+  private val loaderConfig = ConfigUtil.configForSparkle(rootConfig).getConfig("kafka-loader")
 
   private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
 

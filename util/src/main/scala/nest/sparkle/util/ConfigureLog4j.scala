@@ -16,13 +16,12 @@ package nest.sparkle.util
 
 import scala.collection.JavaConverters._
 
-import org.apache.log4j.spi.LoggerRepository
 import org.apache.log4j.{ConsoleAppender, Level, Logger, PatternLayout, RollingFileAppender}
 
 import com.typesafe.config.Config
 
 /** configure log4j logging based on a .conf file */
-object ConfigureLog4j {
+object ConfigureLog4j extends ConfigureLog {
 
   /** configure logging based on the .conf file */
   var configured = false
@@ -57,14 +56,14 @@ object ConfigureLog4j {
       val fileAppender = new RollingFileAppender()
       fileAppender.setName("FileLogger")
       
-      val pattern = logConfig.getString("file.pattern.log4j")
+      val pattern = logConfig.getString("file.pattern")
       val patternLayout = new PatternLayout(pattern)
       fileAppender.setLayout(patternLayout)
       
       val level = logConfig.getString("file.level")
       fileAppender.setThreshold(Level.toLevel(level))
       
-      val file = logConfig.getString("file.path.log4j")
+      val file = logConfig.getString("file.path")
       fileAppender.setFile(file)
       
       val maxSize = logConfig.getString("file.max-size")
@@ -84,7 +83,7 @@ object ConfigureLog4j {
       val consoleAppender = new ConsoleAppender()
       consoleAppender.setName("Console")
       
-      val pattern = logConfig.getString("console.pattern.log4j")
+      val pattern = logConfig.getString("console.pattern")
       val patternLayout = new PatternLayout(pattern)
       consoleAppender.setLayout(patternLayout)
       

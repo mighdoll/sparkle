@@ -3,7 +3,7 @@ import spray.httpx.SprayJsonSupport._
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import com.typesafe.config.Config
 import nest.sparkle.store.Store
-import nest.sparkle.util.ConfigUtil.modifiedConfig
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import spray.json.JsObject
 import spray.json.JsValue
 import scala.concurrent.ExecutionContext
@@ -48,7 +48,7 @@ class TestCustomSelector extends TestStore with StreamRequestor with TestDataSer
   
   override def configOverrides = {
     val selectors = Seq(s"$testSelectorClassName").asJava
-    super.configOverrides :+ "sparkle-time-server.custom-selectors" -> selectors
+    super.configOverrides :+ s"$sparkleConfigName.custom-selectors" -> selectors
   }
 
   test("custom source selector") {

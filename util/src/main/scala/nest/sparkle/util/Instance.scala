@@ -14,6 +14,8 @@
 
 package nest.sparkle.util
 
+import scala.reflect.runtime.universe
+
 object Instance {
 
   /** Create an class instance by calling its (hopefully only) constructor */
@@ -25,9 +27,22 @@ object Instance {
   /** Create an class instance, given a class fully qualified class name
    *  and arguments to its constructor.  */
   def byName[T](named: String)(args:AnyRef*): T = {
-    val classLoader = this.getClass().getClassLoader()
+    val classLoader = this.getClass.getClassLoader
     val clazz = Class.forName(named, false, classLoader).asInstanceOf[Class[T]]
     byClass(clazz)(args:_*)
   }
 
+  /** Return the singleton object for the passed object name
+    * 
+    * @param className fully qualified name of the object
+    * @tparam T The type to return (parent class or trait)
+    * @return the object
+    */
+  def objectByClassName[T](className: String): T = {
+    val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
+    val module = runtimeMirror.staticModule(className)
+    val clazz = runtimeMirror.reflectModule(module)
+    val obj = clazz.instance.asInstanceOf[T]
+    obj
+  }
 }

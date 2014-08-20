@@ -25,6 +25,7 @@ import kafka.serializer.Decoder
 import nest.sparkle.loader.kafka.KafkaDecoders.Implicits._
 import nest.sparkle.util.ObservableIterator._
 import nest.sparkle.util.{ConfigUtil, Log, RecoverableIterator, Instrumented}
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
 /** Enables reading a stream from a kafka topics.
   *
@@ -47,7 +48,7 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
   
   lazy val consumerConfig = {
     val properties = {
-      val loaderConfig = rootConfig.getConfig("sparkle-time-server.kafka-loader")
+      val loaderConfig = rootConfig.getConfig(s"$sparkleConfigName.kafka-loader")
 
       // extract the kafka-client settings verbatim, send directly to kafka
       val props = ConfigUtil.properties(loaderConfig.getConfig("kafka-reader"))

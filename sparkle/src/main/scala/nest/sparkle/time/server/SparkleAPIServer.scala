@@ -35,12 +35,12 @@ import nest.sparkle.store.Store
 import nest.sparkle.store.cassandra.WriteNotification
 import nest.sparkle.util._
 
-protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorSystem) extends Log {
-  val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
+protected class SparkleAPIServer(val rootConfig: Config)(implicit val system: ActorSystem) extends Log {
+  val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
   val notification = new WriteNotification()
   val store = Store.instantiateStore(sparkleConfig, notification)
-  lazy val webPort = sparkleConfig.getInt("port")
   lazy val writeableStore = Store.instantiateWritableStore(sparkleConfig, notification)
+  lazy val webPort = sparkleConfig.getInt("port")
   
   def actorSystem = system
 
@@ -54,7 +54,7 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
 
   /* Note that nothing may be specified to be auto-start but we started an
    * actor system so the main process will not end. This will disappear when
-   * each component gets their own Main/ServerLaunch.
+   * each component gets their own Main/SparkleAPIServer.
    */
   possiblyErase()
   possiblyStartFilesLoader()
@@ -118,16 +118,16 @@ protected class ServerLaunch(val rootConfig: Config)(implicit val system: ActorS
   }
 }
 
-object ServerLaunch extends Log {
-  /** convenience wrapper for creating a ServerLaunch object from command line arguments
+object SparkleAPIServer extends Log {
+  /** convenience wrapper for creating a SparkleAPIServer object from command line arguments
     */
-  def apply(rootConfig: Config): ServerLaunch = {
+  def apply(rootConfig: Config): SparkleAPIServer = {
 
     InitializeReflection.init
 
-    val sparkleConfig = rootConfig.getConfig("sparkle-time-server")
+    val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
     implicit val system = ActorSystem("sparkle", sparkleConfig)
 
-    new ServerLaunch(rootConfig)
+    new SparkleAPIServer(rootConfig)
   }
 }

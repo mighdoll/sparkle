@@ -1,7 +1,6 @@
 package nest.sparkle.util
 
 import com.codahale.metrics.MetricRegistry
-import com.codahale.metrics.{Gauge => CHGauge}
 import nl.grons.metrics.scala.{InstrumentedBuilder, MetricBuilder, MetricName}
 
 /**

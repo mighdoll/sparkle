@@ -12,6 +12,7 @@ import nest.sparkle.util.Resources
 import scala.reflect.runtime.universe._
 import nest.sparkle.loader.FileLoadComplete
 import scala.reflect.runtime.universe._
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
 /** test jig for making custom selector tests */
 trait CustomSelectorTest  {
@@ -29,7 +30,7 @@ trait CustomSelectorTest  {
     def selectors = Seq(className).asJava
 
     override def configOverrides: List[(String, Any)] = super.configOverrides :+ (
-      "sparkle-time-server.custom-selectors" -> selectors)
+      s"$sparkleConfigName.custom-selectors" -> selectors)
   }
 
 }

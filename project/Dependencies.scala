@@ -65,6 +65,7 @@ object Dependencies {
   val nettyAll              = "io.netty"                  % "netty-all"               % "4.0.19.Final" 
   
   val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.0_a2.3"
+  val metricsGraphite       = "com.codahale.metrics"      %  "metrics-graphite"       % "3.0.2"
 
   object Runtime {
     val logback              = "ch.qos.logback"            % "logback-classic"         % "1.1.2"
@@ -93,6 +94,14 @@ object Dependencies {
     val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray      
     val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       
   }
+  
+  object Optional {
+    val logback              = Runtime.logback               % "optional"
+    val log4j                = Runtime.log4j                 % "optional"
+    val slf4jlog4j           = Runtime.slf4jlog4j            % "optional"
+    val log4jBridge          = Runtime.log4jBridge           % "optional"
+    val metricsGraphite      = Dependencies.metricsGraphite  % "optional"
+  }
 
   val basicTest = Seq(
     Test.scalaTest,
@@ -109,12 +118,10 @@ object Dependencies {
 
   val logging = Seq(
     scalaLogging,
-    slf4j,
-    Runtime.logback
-    //Runtime.log4jBridge
+    slf4j
   )
 
-  val testAndLogging = basicTest ++ logging
+  val testAndLogging = basicTest ++ logging ++ Seq(Runtime.slf4jlog4j, Runtime.log4j)
 
   val kitTestsAndLogging = {
     Seq( // test libraries, but in main config, not in Test or IT

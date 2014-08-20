@@ -11,12 +11,13 @@ import spray.util._
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.loader.kafka.KafkaTestTopic.withKafkaTestTopic
 import nest.sparkle.loader.kafka.KafkaEncoders.Implicits._
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
 class TestKafkaSlowResponse extends FunSuite with Matchers with KafkaTestConfig {
   import ExecutionContext.Implicits.global
 
   override def configOverrides = super.configOverrides :+
-    ("sparkle-time-server.kafka-loader.kafka-reader.consumer.timeout.ms" -> "300")
+    (s"$sparkleConfigName.kafka-loader.kafka-reader.consumer.timeout.ms" -> "300")
 
   test("reconnect and continue reading after a consumer timeout") {
     withKafkaTestTopic(rootConfig){ kafka =>

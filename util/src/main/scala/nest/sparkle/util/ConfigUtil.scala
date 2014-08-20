@@ -67,7 +67,7 @@ object ConfigUtil {
   def properties(config: Config): java.util.Properties = {
     val entries =
       config.entrySet.asScala.map { entry =>
-        val key = entry.getKey()
+        val key = entry.getKey
         val value = config.getString(key)
         (key, value)
       }
@@ -75,5 +75,12 @@ object ConfigUtil {
     entries.foreach { case (key, value) => properties.put(key, value) }
     properties
   }
+  
+  /** Given the root config return the sparkle config */
+  def configForSparkle(rootConfig: Config): Config = {
+    rootConfig.getConfig(sparkleConfigName)
+  }
+  
+  val sparkleConfigName = "sparkle-time-server"
 
 }

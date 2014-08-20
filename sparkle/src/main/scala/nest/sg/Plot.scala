@@ -6,7 +6,7 @@ import org.joda.time.format.DateTimeFormat
 import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.time.server.ServerLaunch
+import nest.sparkle.time.server.SparkleAPIServer
 import scala.reflect.runtime.universe._
 import spray.json.JsObject
 import scala.concurrent.Future
