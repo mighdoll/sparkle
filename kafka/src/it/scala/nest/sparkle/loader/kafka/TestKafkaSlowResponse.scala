@@ -30,7 +30,12 @@ class TestKafkaSlowResponse extends FunSuite with Matchers with KafkaTestConfig 
       val stream = kafka.reader.stream()
       val committing = stream.doOnEach{ _ => kafka.reader.commit() }
       val result = committing.take(6).toFutureSeq.await
-      result shouldBe Seq("0", "0", "1", "1", "2", "2")   
+      
+      // result should be 0,1,2 written twice
+      val groups = result.groupBy { value => value}
+      val found = groups.keys.toSet
+      found shouldBe Set("0", "1", "2")
+      groups.values.foreach { _.length shouldBe 2}
     }
   }
 }
