@@ -38,10 +38,23 @@ object MessageType {
 
 /** realm specifier in a Distribution Message */
 sealed trait Realm
-case class RealmToServer(name: String, id:Option[String], auth:Option[String]) extends Realm
-
+case class RealmToServer(name: String, id: Option[String], auth: Option[String]) extends Realm
 case class RealmToClient(name: String) extends Realm
-// TODO distinguish between upstream and downstream Realm, downstream Realm cannot have id and auth
+
+/** a RealmToServer message converted into loggable form */
+protected case class LoggableRealmToServer(name: String, id: Option[String], auth: Option[String]) extends Realm
+
+protected object LoggableRealmToServer {
+  def fromOptRealm(origOpt: Option[RealmToServer]): Option[LoggableRealmToServer] = {
+    origOpt.map { orig =>
+      val id = orig.id.map { _ => "???" }
+      val auth = orig.auth.map { _ => "???" }
+      LoggableRealmToServer(orig.name, id, auth)
+    }
+  }
+}
+
+
 
 /** request a transformed stream.  sent from from client to server */
 case class StreamRequest(sendUpdates: Option[Boolean], itemLimit: Option[Long], sources: Array[JsValue],
@@ -51,24 +64,24 @@ case class StreamRequest(sendUpdates: Option[Boolean], itemLimit: Option[Long], 
 /** a StreamRequest inside a DistributionMessage */
 case class StreamRequestMessage(requestId: Option[Long], realm: Option[RealmToServer], traceId: Option[String],
                                 messageType: String, message: StreamRequest) extends DistributionMessage[StreamRequest] {
-  
+
   /** return a string suitable for logging (doesn't include the realm id and authentication) */
-  def toLogging:String = {
-    val realmNoPii = realm.map { orig => RealmToClient(orig.name) }
-    val noPii = StreamRequestMessageNoPii(requestId, realmNoPii, traceId, messageType, message)
-    noPii.toJson.compactPrint
+  def toLogging: String = {
+    val loggableRealm = LoggableRealmToServer.fromOptRealm(realm)
+    val loggableRequest = LoggableStreamRequestMessage(requestId, loggableRealm, traceId, messageType, message)
+    loggableRequest.toJson.compactPrint
   }
 }
 
 /** a version of the StreamRequestMessage that doesn't include realm id and auth */
-object StreamRequestMessageNoPii extends DefaultJsonProtocol {
-  import ResponseJson.RealmToClientFormat
+object LoggableStreamRequestMessage extends DefaultJsonProtocol {
+  import RequestJson.LoggableRealmToServerFormat
   import RequestJson.StreamRequestFormat
-  implicit val format:RootJsonFormat[StreamRequestMessageNoPii] = jsonFormat5(StreamRequestMessageNoPii.apply)
+  implicit val format: RootJsonFormat[LoggableStreamRequestMessage] = jsonFormat5(LoggableStreamRequestMessage.apply)
 }
 
 /** a version of the StreamRequestMessage that doesn't include realm id and auth */
-case class StreamRequestMessageNoPii(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
+case class LoggableStreamRequestMessage(requestId: Option[Long], realm: Option[LoggableRealmToServer], traceId: Option[String],
                                      messageType: String, message: StreamRequest)
 
 /** a Stream inside a Distribution Message */
@@ -79,7 +92,7 @@ case class StreamsMessage(requestId: Option[Long], realm: Option[RealmToClient],
     * stream's data.
     */
   def takeData(maxDataSize: Int): StreamsMessage = {
-    val sizeLimitedStreams = message.streams.map{ orig =>
+    val sizeLimitedStreams = message.streams.map { orig =>
       orig.copy(data = orig.data.map(_.take(maxDataSize)))
     }
     val sizeLimitedMessage = message.copy(streams = sizeLimitedStreams)
@@ -126,14 +139,12 @@ case class RangeInterval[T](
 case class SummaryParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,
   maxPartitions: Option[Int] // TODO rename to parts or partCount 
-                             // TODO consider allowing partSize
+  // TODO consider allowing partSize
   )
-  
+
 case class IntervalParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,
-  partSize: Option[String]
-  )
-    
+  partSize: Option[String])
 
 /** transformParameters for the RawTransform */
 case class RawParameters[T](ranges: Option[Seq[RangeInterval[T]]] = None)
