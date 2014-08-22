@@ -14,19 +14,18 @@
 
 package nest.sparkle.loader.kafka
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import org.apache.avro.generic.GenericRecord
-import org.apache.avro.Schema
 import org.apache.avro.generic.GenericData
-import scala.concurrent.ExecutionContext
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.prop.Configuration.MinSuccessful
-import nest.sparkle.loader.kafka.KafkaTestUtil.{ withTestAvroTopic, withTestReader }
 
-class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with KafkaTestConfig {
-  import ExecutionContext.Implicits.global
+import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.prop.PropertyChecks
+
+import nest.sparkle.loader.kafka.KafkaTestUtil.{withTestAvroTopic, withTestReader}
+import nest.sparkle.test.SparkleTestConfig
+
+class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with SparkleTestConfig {
+  import scala.concurrent.ExecutionContext.Implicits.global
   import AvroRecordGenerators.Implicits.arbitraryMillisDoubleRecord
+  
   test("read/write a few avro encoded elements from the kafka queue") {
     forAll(MinSuccessful(5)){ records: List[GenericData.Record] =>
       whenever(records.length > 0) {

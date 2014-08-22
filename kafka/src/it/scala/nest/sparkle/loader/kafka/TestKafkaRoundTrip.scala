@@ -14,19 +14,20 @@
 
 package nest.sparkle.loader.kafka
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import nest.sparkle.util.ObservableFuture._
-import spray.util._
-import nest.sparkle.util.RandomUtil.randomAlphaNum
-import org.apache.log4j
 import scala.concurrent.ExecutionContext
-import nest.sparkle.loader.kafka.KafkaDecoders.Implicits._
 import rx.lang.scala.Observable
-import nest.sparkle.loader.kafka.KafkaTestTopic.withKafkaTestTopic
 
-class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
-  import ExecutionContext.Implicits.global
+import spray.util._
+
+import org.scalatest.{FunSuite, Matchers}
+
+import nest.sparkle.loader.kafka.KafkaTestTopic.withKafkaTestTopic
+import nest.sparkle.test.SparkleTestConfig
+import nest.sparkle.util.ObservableFuture._
+import nest.sparkle.util.RandomUtil.randomAlphaNum
+
+class TestKafkaRoundTrip extends FunSuite with Matchers with SparkleTestConfig {
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   def randomStrings(count: Int, length: Int = 3): Seq[String] = {
     (0 until count).map { _ => randomAlphaNum(length) }.toSeq

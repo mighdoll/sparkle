@@ -3,6 +3,8 @@ package nest.sparkle.loader.kafka
 import java.io.File
 import java.nio.file.{Files, Paths}
 
+import scala.collection.JavaConverters._
+
 import org.apache.avro.Schema.Parser
 
 import kafka.serializer.{DefaultEncoder, Encoder}
@@ -15,7 +17,7 @@ import nest.sparkle.util.ConfigUtil.modifiedConfig
 import nest.sparkle.util.Resources
 import spray.util.pimpFuture
 
-trait AvroLoaderFixture extends CassandraTestConfig with KafkaTestConfig {
+trait AvroLoaderFixture extends CassandraTestConfig {
   /** Call a test function after stream loading some data from avro
     *
     * @param schemaFileName the schema file to use in schemaFolder
@@ -61,7 +63,6 @@ trait AvroLoaderFixture extends CassandraTestConfig with KafkaTestConfig {
       }
     }
 
-    import scala.collection.JavaConverters._
     val modifiedRootConfig = {
       val overrides = Seq(s"$sparkleConfigName.kafka-loader.topics" -> List(topicName).asJava)
       modifiedConfig(rootConfig, overrides: _*)

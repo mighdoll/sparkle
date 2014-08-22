@@ -19,8 +19,13 @@ import scala.concurrent.duration._
 
 import com.typesafe.config.Config
 
+import akka.actor.ActorSystem
+
 import org.clapper.argot.{ArgotParser, ArgotUsageException}
 import org.clapper.argot.ArgotConverters._
+
+import nest.sparkle.metrics.MetricsSupport
+import nest.sparkle.util.ConfigUtil.configForSparkle
 
 /** a utility trait for making a main class that uses Argot command line parsing,
   * loads and modifies the configuration, configures logging, and starts
@@ -32,23 +37,39 @@ trait SparkleApp
   val appName: String
   val appVersion: String
   
+  /** Parser to define additional command line parameters */
   val parser = new ArgotParser(appName, preUsage = Some(appVersion))
   val help = parser.flag[Boolean](List("h", "help"), "show this help")
   val confFile = parser.option[String](List("conf"), "path", "path to a .conf file")
   
+  lazy val rootConfig = {
+    val fileConfig = ConfigUtil.configFromFile(confFile.value)
+    ConfigUtil.modifiedConfig(fileConfig, overrides: _*)
+  }
+  lazy val sparkleConfig = configForSparkle(rootConfig)
+    
+  // TODO: Use DI or something for this
+  implicit lazy val system = ActorSystem("sparkle", sparkleConfig)
+  
   /** Override this fcn to return a list of key, values to override in the 
-    * configuration 
+    * configuration. Will be called in initialize() 
     */
   def overrides: Seq[(String, Any)] = Seq()
-  
-  def setup(): Config = {
+
+  /** Initialize process global items.
+    * 
+    * This should be called once at the start of a process.
+    * 
+    * Load the configuration and apply any overrides.
+    * Configure the specified logger. See note below.
+    * Optionally start reporting to a Graphite server.
+    * Optionally start an http endpoint for requesting metrics (in Graphite format)
+    * 
+    * @return root Config object w/overrides applied.
+    */
+  def initialize(): Unit = {
     parse()
-    
-    println(s"--conf ${confFile.value}")
-    val fileConfig = ConfigUtil.configFromFile(confFile.value)
-    val rootConfig = ConfigUtil.modifiedConfig(fileConfig, overrides: _*)
-    val sparkleConfig = configForSparkle(rootConfig)
-    
+  
     // Configure logging
     LogUtil.configureLogging(rootConfig)
 
@@ -62,17 +83,10 @@ trait SparkleApp
     if (graphiteConfig.getBoolean("collector.enable")) {
       Await.result(MetricsSupport.startCollector(graphiteConfig), 20 seconds)
     }
-    
-    rootConfig
   }
-  
-  def configForSparkle(rootConfig: Config): Config = ConfigUtil.configForSparkle(rootConfig)
-  
-  //lazy val actorSystem = 
 
   /**
    * Parse the command line parameters.
-   * 
    */
   private def parse() {
     try {
@@ -82,6 +96,9 @@ trait SparkleApp
         Console.println(parser.usageString())
         sys.exit(0)
       }
+      
+      println(s"--conf ${confFile.value}")
+
     } catch {
       case e: ArgotUsageException =>
         println(e.message)

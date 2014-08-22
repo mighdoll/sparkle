@@ -2,19 +2,20 @@ package nest.sparkle.loader.kafka
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
-
-import org.scalatest.{ FunSuite, Matchers }
-
 import rx.lang.scala.Observable
+
 import spray.util._
 
-import nest.sparkle.util.ObservableFuture._
-import nest.sparkle.loader.kafka.KafkaTestTopic.withKafkaTestTopic
-import nest.sparkle.loader.kafka.KafkaEncoders.Implicits._
-import nest.sparkle.util.ConfigUtil.sparkleConfigName
+import org.scalatest.{FunSuite, Matchers}
 
-class TestKafkaSlowResponse extends FunSuite with Matchers with KafkaTestConfig {
-  import ExecutionContext.Implicits.global
+import nest.sparkle.loader.kafka.KafkaEncoders.Implicits._
+import nest.sparkle.loader.kafka.KafkaTestTopic.withKafkaTestTopic
+import nest.sparkle.test.SparkleTestConfig
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
+import nest.sparkle.util.ObservableFuture._
+
+class TestKafkaSlowResponse extends FunSuite with Matchers with SparkleTestConfig {
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   override def configOverrides = super.configOverrides :+
     (s"$sparkleConfigName.kafka-loader.kafka-reader.consumer.timeout.ms" -> "300")

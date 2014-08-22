@@ -21,7 +21,7 @@ object ExporterMain extends SparkleApp with Log {
 
   val dataSet = parser.option[String](List("d", "dataset"), "dataset", "DataSet to export")
   
-  val rootConfig = setup()
+  initialize()
   
   try {
     FileExporterApp(rootConfig, dataSet.value.get).export()
@@ -34,7 +34,7 @@ object ExporterMain extends SparkleApp with Log {
 }
 
 /** application that does .tsv file exporting */
-case class FileExporterApp(rootConfig: Config, dataSet:String) extends Log {
+case class FileExporterApp(rootConfig: Config, dataSet: String) extends Log {
   import scala.concurrent.ExecutionContext.Implicits.global
   
   val notification = new WriteNotification

@@ -17,14 +17,12 @@ package nest.sparkle.time.server
 import org.clapper.argot._
 import org.clapper.argot.ArgotConverters._
 
-import akka.actor.ActorSystem
-
 import nest.sparkle.util.{ConfigUtil, SparkleApp}
 
 /** Main launcher for Sparkle application */
 object Main extends SparkleApp {
   val appName = "sparkle"
-  val appVersion = "Version 0.6.0"
+  val appVersion = "Version 0.6.0"  // TODO: get from the build
 
   val filesPath = parser.option[String](List("f", "files"), "path", ".csv/.tsv file, or directory containing .csv or .tsv files")
   val filesStrip = parser.option[Int](List("s", "files-strip"), "strip", "Number of leading path elements to strip off of path when creating DataSet name")
@@ -33,7 +31,7 @@ object Main extends SparkleApp {
   val root = parser.option[String](List("root"), "path", "directory containing custom web pages to serve")
   val display = parser.flag(List("display"), "navigate the desktop web browser to the current dashboard")
   
-  val rootConfig = setup()
+  initialize()
 
   val launch = SparkleAPIServer(rootConfig)
 

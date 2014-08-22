@@ -1,7 +1,5 @@
 package nest.sparkle.util
 
-import scala.reflect.runtime.universe
-
 import com.typesafe.config.Config
 
 /** Utilities for logging */
