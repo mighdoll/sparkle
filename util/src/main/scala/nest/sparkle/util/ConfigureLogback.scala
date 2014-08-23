@@ -68,7 +68,7 @@ object ConfigureLogback extends ConfigureLog with Log {
       fileAppender.setName("File")
       fileAppender.setContext(context)
       
-      val file = logConfig.getString("file.path.logback")
+      val file = logConfig.getString("file.path")
       fileAppender.setFile(file)
       
       val append = logConfig.getBoolean("file.append")
@@ -76,7 +76,7 @@ object ConfigureLogback extends ConfigureLog with Log {
       
       val encoder = new PatternLayoutEncoder
       encoder.setContext(context)
-      val pattern = logConfig.getString("file.pattern.logback")
+      val pattern = logConfig.getString("file.pattern")
       encoder.setPattern(pattern)
       encoder.start()
       fileAppender.setEncoder(encoder.asInstanceOf[Encoder[LoggingEvent]])
@@ -116,7 +116,7 @@ object ConfigureLogback extends ConfigureLog with Log {
       
       val encoder = new PatternLayoutEncoder
       encoder.setContext(context)
-      val pattern = logConfig.getString("console.pattern.logback")
+      val pattern = logConfig.getString("console.pattern")
       encoder.setPattern(pattern)
       encoder.start()
       consoleAppender.setEncoder(encoder.asInstanceOf[Encoder[LoggingEvent]])

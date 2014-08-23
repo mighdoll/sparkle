@@ -23,7 +23,7 @@ object SparkleTimeBuild extends Build {
   }
 
   lazy val sparkleRoot = Project(id = "root", base = file("."))
-    .aggregate(sparkleTime, kafkaLoader, testKit, sparkleTests)
+    .aggregate(sparkleTime, kafkaLoader, testKit, sparkleTests, util)
 
   lazy val sparkleTime =
     Project(id = "sparkle", base = file("sparkle"))
@@ -88,6 +88,7 @@ object SparkleTimeBuild extends Build {
 
   lazy val util =
     Project(id = "sparkle-util", base = file("util"))
+      .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
         libraryDependencies ++= Seq(
@@ -98,9 +99,9 @@ object SparkleTimeBuild extends Build {
           Optional.logback,
           Optional.log4j,
           Optional.metricsGraphite,
-          sprayCan % "optional",
+          sprayCan     % "optional",
           sprayRouting % "optional"
-          )
+          ) ++ allTest
       )
 
 }

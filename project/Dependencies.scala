@@ -58,7 +58,6 @@ object Dependencies {
                                   exclude("com.sun.jdmk", "jmxtools")
                                   exclude("com.sun.jmx", "jmxri")
                                   exclude("org.slf4j", "slf4j-simple")
-                                  //exclude("log4j", "log4j")
                               )
 
   val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.0" 
@@ -108,6 +107,17 @@ object Dependencies {
     Test.scalaCheck,
     IT.scalaTest,
     IT.scalaCheck
+  )
+  
+  val allTest = Seq(
+    Test.scalaTest,
+    Test.scalaCheck,
+    Test.sprayTestKit,
+    Test.akkaTestKit,
+    IT.scalaTest,
+    IT.scalaCheck,
+    IT.sprayTestKit,
+    IT.akkaTestKit
   )
   
   // For setting minimum versions

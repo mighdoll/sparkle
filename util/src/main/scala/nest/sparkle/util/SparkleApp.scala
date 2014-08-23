@@ -70,7 +70,7 @@ trait SparkleApp
   def initialize(): Unit = {
     parse()
   
-    // Configure logging
+    // Configure logging. Causes rootConfig to be instantiated.
     LogUtil.configureLogging(rootConfig)
 
     // Start optional metrics graphite reporting.
