@@ -41,7 +41,8 @@ class TestExporter extends FunSuite with CassandraTestConfig with Matchers {
       List("exporter.output" -> exportDirectory)
 
   test("export epochs.csv to exports.tsv and validate the exported contents") {
-    withLoadedPath("epochs.csv", "epochs.csv") { (store, system) =>
+    withLoadedFile("epochs.csv") { (store, system) =>
+      
       import system.dispatcher
 
       withDeleteDirectory(exportDirectory) {

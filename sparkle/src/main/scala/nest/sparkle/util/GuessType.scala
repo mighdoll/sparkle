@@ -4,19 +4,17 @@ import scala.reflect.runtime.universe._
 import scala.reflect._
 import scala.util.control.Exception._
 import nest.sparkle.util.ParseStringTo.Implicits._
-import nest.sparkle.util.ParseStringTo.{ BooleanParseException, StringToString }
+import nest.sparkle.util.ParseStringTo.BooleanParseException
 
-/** utilities for guessing the type of a string */
+/** utilities for guessing the type of a string (Int, Long, Double, or Boolean) */
 object GuessType {
 
-  /** guess at the type of a collection of strings. If the type of the string values
-    * can't be narrowed to Int, Long, Double or Boolean, returns type String. If no
-    * strings are present in the collection, also returns type String.
+  /** Guess at the type of a collection of strings. If the type of the string values
+    * can't be narrowed to Int, Long, Double or Boolean, returns type String. (If no
+    * values are present in the sample collection, also returns type String.)
     */
   def parserTypeFromSampleStrings(values: Iterable[String]): ParseStringTo[_] = {
-    values match {  // TODO mostly we want long for our test cases, so this is convenient for now. 
-                    // Perhaps we should allow a type specifier in the .csv column header..
-//      case Ints(parser)     => parser  
+    values match {    
       case Longs(parser)    => parser
       case Doubles(parser)  => parser
       case Booleans(parser) => parser
@@ -24,6 +22,8 @@ object GuessType {
     }
   }
 
+  /** Support class for creating a pattern matcher that tests a collection of string 
+   *  to see if they are parsable into a specific value type */
   private abstract class MatchList[T: ParseStringTo, U <: Throwable: ClassTag] {
     val parser = implicitly[ParseStringTo[T]]
     def unapply(strings: Iterable[String]): Option[ParseStringTo[T]] = {

@@ -39,7 +39,7 @@ class TestAdminPageDownload extends FunSuite with Matchers with CassandraTestCon
   }
   
   def requestWithLoadedEpochs(request:HttpRequest)(fn: HttpResponse => Unit) {
-    withLoadedPath("epochs.csv", "epochs.csv") { (store, system) =>
+    withLoadedFile("epochs.csv") { (store, system) =>
       val admin = new AdminTestService(store, rootConfig)(system)
       admin.fetchRequest(request) {
         response =>

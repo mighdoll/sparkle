@@ -19,6 +19,8 @@ import scala.util.Success
 import java.util.zip.DataFormatException
 import nest.sparkle.util.OptionConversion._
 import nest.sparkle.util.Log
+import scala.reflect.runtime.universe._
+import nest.sparkle.util.StringUtil
 
 /** results from attempting to parse the first line as column headers */
 case class ColumnHeaderMatch(val columnMap: Try[ColumnMap], matched: Boolean)
@@ -26,13 +28,14 @@ case class ColumnHeaderMatch(val columnMap: Try[ColumnMap], matched: Boolean)
 /** map column names to column index */
 case class ColumnMap(key: Int, data: Map[String, Int]) { // LATER support loading files w/o a key field
 
-  /** run a function over the names and indices of the value columns. Iteration 
-   *  is in order that the columns appear in the file */
+  /** run a function over the names and indices of the value columns. Iteration
+    * is in order that the columns appear in the file
+    */
   def mapValueColumns[T](fn: (String, Int) => T): Seq[T] = {
-    val sorted = data.toList.sortBy{ case (name, index) => index }
+    val sorted = data.toList.sortBy { case (name, index) => index }
     sorted.map { case (name, index) => fn(name, index) }
   }
-  
+
 }
 
 object ColumnHeaders extends Log {
@@ -62,7 +65,7 @@ object ColumnHeaders extends Log {
 
   /** return a ColumnMap naming first column "time", and the other columns "1", "2", "3" */
   private def syntheticColumnHeaders(line: Array[String]): ColumnMap = {
-    val dataMap = Iterator.range(1, line.tail.length).map{ index => index.toString -> index }.toMap
+    val dataMap = Iterator.range(1, line.tail.length).map { index => index.toString -> index }.toMap
     ColumnMap(key = 0, data = dataMap)
   }
 

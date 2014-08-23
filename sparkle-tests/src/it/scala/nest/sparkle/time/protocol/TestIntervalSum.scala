@@ -15,7 +15,7 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
   def withIntervalTest(resource: String, partSize: String = "1 hour") // format: OFF
       (fn: Seq[Event[Long, Seq[Long]]] => Unit): Unit = { // format: ON
     val resourceFile = resource + ".csv"
-    withLoadedPath(resourceFile, resourceFile){ (store, system) =>
+    withLoadedFile(resourceFile){ (store, system) =>
       val service = new ServiceWithCassandra(store, system)
       val params = IntervalParameters[Long](ranges = None, partSize = Some(partSize))
       val selector = SelectString(s"$resource/millis")

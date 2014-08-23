@@ -11,5 +11,15 @@ object StringUtil {
       path
     }
   }
+  
+  /** return an optional suffix to a string: the part after a separator */
+  def findSuffix(source:String, separator:String = "."):Option[String] = {
+    val end = source.lastIndexOf(separator)
+    if (end >= 0) {
+      Some(source.substring(end + 1))
+    } else {
+      None
+    }
+  }
 
 }

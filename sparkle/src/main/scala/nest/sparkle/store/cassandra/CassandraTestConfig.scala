@@ -15,9 +15,10 @@
 package nest.sparkle.store.cassandra
 
 import scala.collection.JavaConverters._
-import com.typesafe.config.{Config, ConfigFactory}
+import scala.concurrent.duration._
+import com.typesafe.config.{ Config, ConfigFactory }
 import akka.actor._
-import nest.sparkle.util.{ConfigUtil, ConfigureLogback}
+import nest.sparkle.util.{ ConfigUtil, ConfigureLogback }
 import nest.sparkle.test.SparkleTestConfig
 import scala.concurrent.Future
 import nest.sparkle.loader.ReceiveLoaded
@@ -27,19 +28,22 @@ import nest.sparkle.util.Resources
 import nest.sparkle.loader.FilesLoader
 import nest.sparkle.store.Store
 import spray.util._
+import nest.sparkle.loader.LoadComplete
+import nest.sparkle.store.Event
 
 /** a test jig for running tests using cassandra.
- *  (In the main project to make it easy to share between tests and integration tests) */
+  * (In the main project to make it easy to share between tests and integration tests)
+  */
 trait CassandraTestConfig extends SparkleTestConfig {
   /** subclasses should define their own keyspace so that tests don't interfere with each other  */
-  def testKeySpace:String = getClass.getSimpleName
+  def testKeySpace: String = getClass.getSimpleName
 
-  override def configOverrides:List[(String,Any)] =
+  override def configOverrides: List[(String, Any)] =
     super.configOverrides :+
-    ("sparkle-time-server.sparkle-store-cassandra.key-space" -> testKeySpace)
+      ("sparkle-time-server.sparkle-store-cassandra.key-space" -> testKeySpace)
 
   /** the 'sparkle' level Config, one down from the outermost */
-  lazy val sparkleConfig:Config = {
+  lazy val sparkleConfig: Config = {
     rootConfig.getConfig("sparkle-time-server")
   }
 
@@ -52,10 +56,29 @@ trait CassandraTestConfig extends SparkleTestConfig {
     val store = CassandraStore.readerWriter(sparkleConfig, notification)
 
     try {
-      fn (store)
+      fn(store)
     } finally {
       store.close()
-//      CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
+      //      CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
+    }
+  }
+
+  /** try loading a known file and check the expected column for results */
+  def testLoadFile[T, U, V](resourcePath: String, columnPath: String)(fn: Seq[Event[U, V]] => T) {
+    val filePath = Resources.filePathString(resourcePath)
+
+    withTestDb { testDb =>
+      withTestActors { implicit system =>
+        import system.dispatcher
+        val complete = onLoadCompleteOld(system, columnPath)
+        FilesLoader(sparkleConfig, filePath, testDb, 0)
+        complete.await(4.seconds)
+
+        val column = testDb.column[U, V](columnPath).await
+        val read = column.readRange(None, None)
+        val results = read.initial.toBlocking.toList
+        fn(results)
+      }
     }
   }
 
@@ -68,10 +91,10 @@ trait CassandraTestConfig extends SparkleTestConfig {
       system.shutdown()
     }
   }
-  
-    /** return a future that completes when the loader reports that loading is complete */
-  def onLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
-    // TODO Get rid of this copy/pasted onLoadComplete (by moving files loader to stream loader notification)
+
+  /** return a future that completes when the loader reports that loading is complete */
+  // TODO DRY this by moving files loader to stream loader style notification
+  def onFileLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
     val promise = Promise[Unit]
     system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
       classOf[FileLoadComplete])
@@ -79,21 +102,33 @@ trait CassandraTestConfig extends SparkleTestConfig {
     promise.future
   }
 
+  /** return a future that completes when the loader reports that loading is complete */
+  // TODO DRY this by moving files loader to stream loader style notification
+  def onLoadCompleteOld(system: ActorSystem, path: String): Future[Unit] = {
+    val promise = Promise[Unit]
+    system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
+      classOf[LoadComplete])
+
+    promise.future
+  }
+
   /** Run a test function after loading some data into cassandra.
-   *  @param fn - test function to call after the data has been loaded.
-   *  @param resource - directory in the classpath resources to load (recursively)
-   *  @param relativePath - call the function after a particular file in the resource directory has been
-   *              completely loaded.
-   *  TODO have the FilesLoader report when the entire resource subdirectory is loaded, so
-   *  we don't need to path both the resource and relativePath. (Perhaps
-   *  the existing dataSet notification is enough for this?) */
-  def withLoadedPath[T](resource: String, relativePath: String)(fn: (Store, ActorSystem) => T): T = {
-    val filePath = Resources.filePathString(resource)
+    * @param fn - test function to call after the data has been loaded.
+    * @param resource - directory in the classpath resources to load (recursively)
+    * @param relativePath - call the function after a particular file in the resource directory has been
+    *           completely loaded.
+    * TODO have the FilesLoader report when the entire resource subdirectory is loaded, so
+    * we don't need to path both the resource and relativePath. (Perhaps
+    * the existing dataSet notification is enough for this?)
+    */
+  def withLoadedFileInResource[T](resource: String, relativePath: String) // format: OFF
+      (fn: (Store, ActorSystem) => T): T = { // format: ON
 
     withTestDb { testDb =>
       withTestActors { implicit system =>
-        val complete = onLoadComplete(system, relativePath)
-        val loader = FilesLoader(sparkleConfig, filePath, testDb, 0)
+        val complete = onFileLoadComplete(system, relativePath)
+        val loadPath = Resources.filePathString(resource)
+        val loader = FilesLoader(sparkleConfig, loadPath, testDb, 0)
         complete.await
         val result =
           try {
@@ -106,5 +141,9 @@ trait CassandraTestConfig extends SparkleTestConfig {
     }
   }
 
+  def withLoadedFile[T](resourcePath: String) // format: OFF
+      (fn: (Store, ActorSystem) => T): T = { // format: ON
+    withLoadedFileInResource(resourcePath, resourcePath)(fn)  // TODO this seems incorrect..
+  }
 
 }

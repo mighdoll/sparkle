@@ -1,6 +1,9 @@
 package nest.sparkle.util
 
 import scala.reflect.runtime.universe._
+import nest.sparkle.util.KindCast.castKind
+import spray.json.JsValue
+import spray.json.JsonParser
 
 /** typeclass to parse strings to a value. */
 abstract class ParseStringTo[T: TypeTag] {
@@ -9,7 +12,7 @@ abstract class ParseStringTo[T: TypeTag] {
 
   /** type of the parsed return value */
   def typed = typeTag[T]
-  
+
   override def toString = s"ParseStringTo[${typed.toString}]"
 }
 
@@ -27,6 +30,22 @@ object ParseStringTo {
       override def parse(s: String): Int = Integer.parseInt(s)
     }
 
+    implicit object StringToChar extends ParseStringTo[Char] {
+      override def parse(s: String): Char = s(0)
+    }
+
+    implicit object StringToJson extends ParseStringTo[JsValue] {
+      import spray.json._
+      override def parse(s: String): JsValue = s.asJson
+    }
+
+    implicit object StringToShort extends ParseStringTo[Short] {
+      override def parse(s: String): Short = {
+        println(s"StringToShort: $s")
+        java.lang.Short.parseShort(s)
+      }
+    }
+
     implicit object StringToDouble extends ParseStringTo[Double] {
       override def parse(s: String): Double = java.lang.Double.parseDouble(s)
     }
@@ -42,10 +61,29 @@ object ParseStringTo {
         case _       => throw BooleanParseException(s)
       }
     }
+    implicit object StringToString extends ParseStringTo[String] {
+      def parse(s: String): String = s
+    }
   }
 
-  object StringToString extends ParseStringTo[String] {
-    def parse(s: String): String = s
+  /** optionally return a string parser for a given type. If no std parser is available, returns None. */
+  def findParser[T: TypeTag]: Option[ParseStringTo[T]] = {
+    import Implicits._
+    val existential: Option[ParseStringTo[_]] =
+      typeTag[T].tpe match {
+        case t if t <:< typeOf[Boolean] => Some(StringToBoolean)
+        case t if t <:< typeOf[Short]   => Some(StringToShort)
+        case t if t <:< typeOf[Int]     => Some(StringToInt)
+        case t if t <:< typeOf[Long]    => Some(StringToLong)
+        case t if t <:< typeOf[Double]  => Some(StringToDouble)
+        case t if t <:< typeOf[Char]    => Some(StringToChar)
+        case t if t <:< typeOf[String]  => Some(StringToString)
+        case t if t <:< typeOf[JsValue] => Some(StringToJson)
+      }
+
+    // convert to the appropriate type
+    val typed: Option[ParseStringTo[T]] = existential.map { castKind(_) }
+    typed
   }
 
 }

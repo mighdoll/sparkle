@@ -14,19 +14,20 @@
 
 package nest.sparkle.loader
 
-import org.joda.time.format.ISODateTimeFormat
+import java.lang.{ Double => JDouble }
+import java.lang.{ Long => JLong }
+import java.util.zip.DataFormatException
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuilder
 import scala.util.control.Exception.{ catching, nonFatalCatch }
-import java.lang.{ Double => JDouble }
-import java.lang.{ Long => JLong }
 import scala.util.Try
-import java.util.zip.DataFormatException
 import scala.reflect.runtime.universe._
 import scala.reflect._
-import nest.sparkle.util.GuessType
-import nest.sparkle.util.ParseStringTo
-import nest.sparkle.util.Log
+import scala.language.existentials
+
+import org.joda.time.format.ISODateTimeFormat
+
+import nest.sparkle.util.{ GuessType, ParseStringTo, Log }
 
 object TextTableParser extends Log {
   /** Parse all the data from an iterator that produces an array of strings and a column map that describes which
@@ -42,7 +43,7 @@ object TextTableParser extends Log {
         rows = rowIterator
       )
     }
-    
+
     result.failed.map { err => log.warn("error parsing rows", err) }
     result
   }
@@ -51,25 +52,41 @@ object TextTableParser extends Log {
     * the second value has an Ordering. Returns a sequence of the first element.
     */
   private def sortByZippedIndex[T, U: Ordering](seq: Seq[(T, U)]): Seq[T] = {
-    val sorted = seq.sortBy{ case (value, index) => index }
+    val sorted = seq.sortBy { case (value, index) => index }
     sorted.map { case (value, index) => value }
   }
 
+  case class TextParserNotFound(msg: String) extends RuntimeException(msg)
+  /** Return the column types of the columns in the form of Seq of StringColumnInfo. If
+    * the column names don't include type ascriptions, scans
+    * the column values if necessary to guess at their types. Returns a new iterator
+    * for the rows so that the caller will re-iterate rows evaluated by guessing.
+    */
   private def guessColumnTypes(columnMap: ColumnMap, rows: Iterator[Array[String]]) // format: OFF
      :(Seq[StringColumnInfo[_]], Iterator[Array[String]]) = { // format: ON
     val guessSize = 1000 // check this many rows to guess the type of the data
     val guessRows = rows.take(guessSize).toSeq
 
     val stringsByColumn =
-      columnMap.mapValueColumns { (name, index) =>
-        val values = guessRows.map{ row => row(index) }
-        (name, index, values)
+      columnMap.mapValueColumns { (columnName, index) =>
+        val values = guessRows.map { row => row(index) }
+        (columnName, index, values)
       }
 
     val columnInfos = stringsByColumn.map {
-      case (name, index, values) =>
-        val parser = GuessType.parserTypeFromSampleStrings(values)
-        StringColumnInfo(name, index, parser)
+      case (columnName, index, values) =>
+        val (parser, revisedName) =
+          columnName match {
+            case TypedColumnHeader(tag) =>
+              val parseTo =
+                ParseStringTo.findParser(tag).getOrElse {
+                  throw TextParserNotFound(tag.tpe.termSymbol.name.decoded)
+                }
+              (parseTo, TypedColumnHeader.withoutSuffix(columnName))
+            case _ =>
+              (GuessType.parserTypeFromSampleStrings(values), columnName)
+          }
+        StringColumnInfo(revisedName, index, parser)
     }
 
     val resetRows = guessRows.toIterator ++ rows
@@ -78,7 +95,7 @@ object TextTableParser extends Log {
 
   /** return an iterator that will parse incoming string arrays into parsed numeric data */
   private def makeRowIterator(rows: Iterator[Array[String]], columnMap: ColumnMap,
-    valueColumns: Seq[StringColumnInfo[_]]): Iterator[RowData] = {
+                              valueColumns: Seq[StringColumnInfo[_]]): Iterator[RowData] = {
 
     val valueIndices: Seq[Int] = columnMap.data.map { case (name, index) => index }.toSeq
 

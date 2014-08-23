@@ -12,17 +12,6 @@ import spray.util._
 class TestStorageConsole extends FunSuite with Matchers with CassandraTestConfig {
   val filePath = Resources.filePathString("epochs.csv")
 
-  /** return a future that completes when the loader reports that loading is complete */
-  // TODO DRY this
-  def onLoadCompleteOld(system: ActorSystem, path: String): Future[Unit] = {
-    // TODO Get rid of this copy/pasted onLoadComplete (by moving files loader to stream loader notification)
-    val promise = Promise[Unit]
-    system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
-      classOf[LoadComplete])
-
-    promise.future
-  }
-
   def withTestConsole[T](fn: StorageConsoleAPI => T): T = {    
     withTestDb { testDb =>
       withTestActors{ implicit system =>

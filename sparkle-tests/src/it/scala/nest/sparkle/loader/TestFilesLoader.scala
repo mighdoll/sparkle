@@ -14,7 +14,6 @@
 
 package nest.sparkle.loader
 
-import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 import org.slf4j.LoggerFactory
 import org.scalatest.FunSuite
@@ -32,45 +31,15 @@ import nest.sparkle.store.cassandra.CassandraTestConfig
 import nest.sparkle.util.Resources
 import nest.sparkle.store.Event
 import nest.sparkle.util.Log
+import spray.json.JsValue
 
 class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
-  val log = LoggerFactory.getLogger(classOf[TestFilesLoader])
-
   override def testKeySpace = "testfilesloader"
 
-  /** return a future that completes when the loader reports that loading is complete */
-  // TODO DRY this
-  def onLoadCompleteOld(system: ActorSystem, path: String): Future[Unit] = {
-    val promise = Promise[Unit]
-    system.eventStream.subscribe(system.actorOf(ReceiveLoaded.props(path, promise)),
-      classOf[LoadComplete])
-
-    promise.future
-  }
-
   /** try loading a known file and check the expected column for results */
-  def testEpochsFile(resourcePath: String, columnPath: String, strip: Int = 0) {
-    testLoadFile(resourcePath, columnPath, strip) { results: Seq[Event[Long, Double]] =>
+  def testEpochsFile(resourcePath: String, columnPath: String) {
+    testLoadFile(resourcePath, columnPath) { results: Seq[Event[Long, Double]] =>
       results.length shouldBe 2751
-    }
-  }
-
-  /** try loading a known file and check the expected column for results */
-  def testLoadFile[T, U, V](resourcePath: String, columnPath: String, strip: Int = 0)(fn: Seq[Event[U, V]] => T) {
-    val filePath = Resources.filePathString(resourcePath)
-
-    withTestDb { testDb =>
-      withTestActors { implicit system =>
-        import system.dispatcher
-        val complete = onLoadCompleteOld(system, columnPath)
-        FilesLoader(sparkleConfig, filePath, testDb, strip)
-        complete.await
-
-        val column = testDb.column[U, V](columnPath).await
-        val read = column.readRange(None, None)
-        val results = read.initial.toBlocking.toList
-        fn(results)
-      }
     }
   }
 
@@ -84,10 +53,6 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
 
   test("load csv file with leading underscore in directory path element") {
     testEpochsFile("_ignore/epochs2.csv", "epochs2/count")
-  }
-
-  test("load csv file, skipping a directory path prefix") {
-    testEpochsFile("skip/epochs.csv", "epochs/count", 1)
   }
 
   test("load csv file with boolean values, and second resolution timestamps") {
@@ -113,10 +78,55 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
       results.head.value shouldBe 9876543210L
     }
   }
+
   test("load file with a comment and a blank line") {
     testLoadFile("comments.csv", "comments/b") { results: Seq[Event[Long, Long]] =>
       results.length shouldBe 2
-      results.tail.head shouldBe Event(2L,2L)
+      results.tail.head shouldBe Event(2L, 2L)
+    }
+  }
+
+  test("load file with explicit boolean") {
+    testLoadFile("explicitTypes.csv", "explicitTypes/boo") { results: Seq[Event[Long, Boolean]] =>
+      results.head.value shouldBe true
+    }
+  }
+
+  ignore("load file with explicit short") {
+    testLoadFile("explicitTypes.csv", "explicitTypes/sho") { results: Seq[Event[Long, Short]] =>
+      results.head.value shouldBe 1
+    }
+  }
+
+  test("load file with explicit int") {
+    testLoadFile("explicitTypes.csv", "explicitTypes/int") { results: Seq[Event[Long, Int]] =>
+      results.head.value shouldBe 2
+    }
+  }
+
+  test("load file with explicit long") {
+    testLoadFile("explicitTypes.csv", "explicitTypes/lon") { results: Seq[Event[Long, Long]] =>
+      results.head.value shouldBe 3
+    }
+  }
+
+  ignore("load file with explicit char") {
+    testLoadFile("explicitTypes.csv", "explicitTypes/cha") { results: Seq[Event[Long, Char]] =>
+      results.head.value shouldBe 'c'
+    }
+  }
+
+  test("load file with explicit string") {
+    testLoadFile("explicitTypes.csv", "explicitTypes/str") { results: Seq[Event[Long, Char]] =>
+      results.head.value shouldBe "st"
+    }
+  }
+  
+  test("load file with explicit json") {
+    import spray.json._
+    testLoadFile("explicitTypes.csv", "explicitTypes/jso") { results: Seq[Event[Long, JsValue]] =>
+      val expected = """{ "js": 9 }""".asJson
+      results.head.value shouldBe expected
     }
   }
 

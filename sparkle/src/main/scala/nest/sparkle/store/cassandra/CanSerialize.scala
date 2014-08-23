@@ -27,19 +27,16 @@ object CanSerialize {
   /** return a TypeTag from cassandra serialized nativeType string */
   def stringToTypeTag(typeString: String): TypeTag[_] = {
     typeString match {
-      case "Double"             => typeTag[Double]
-      case "Long"               => typeTag[Long]
-      case "String"             => typeTag[String]
       case "Boolean"            => typeTag[Boolean]
+      case "Short"              => typeTag[Short]
       case "Int"                => typeTag[Int]
+      case "Long"               => typeTag[Long]
+      case "Double"             => typeTag[Double]
+      case "Char"               => typeTag[Char]
+      case "String"             => typeTag[String]
       case "spray.json.JsValue" => typeTag[JsValue]
       case x                    => NYI(s"unsupported storage type $x")
     }
-  }
-
-  /** return nativeType string from a TypeTag */
-  def typeTagToString(typeTag: TypeTag[_]): String = {
-    typeTag.tpe.toString
   }
 }
 
@@ -49,7 +46,7 @@ abstract class CanSerialize[T: TypeTag] {
   def columnType: String
 
   /** return a string representation of the stored scala type */
-  def nativeType: String = CanSerialize.typeTagToString(implicitly[TypeTag[T]])
+  def nativeType: String = implicitly[TypeTag[T]].tpe.toString
 
   /** serialize a scala native type into an AnyRef that maps directly to a cassandra data type */
   def serialize(value: T): AnyRef = value.asInstanceOf[AnyRef]
@@ -125,6 +122,14 @@ object serializers {
     }
   }
 
+  implicit object CharSerializer extends CanSerialize[Char] {
+    val columnType = "text"
+    def fromRow(row: Row, index: Int): Char = {
+      row.getString(index)(0)
+    }
+    override def serialize(value: Char): AnyRef = value.toString
+  }
+
   implicit object StringSerializer extends CanSerialize[String] {
     val columnType = "text"
     def fromRow(row: Row, index: Int): String = {
@@ -141,11 +146,11 @@ object serializers {
 
   implicit object JsonSerializer extends CanSerialize[JsValue] {
     val columnType = "text"
-      
+
     def fromRow(row: Row, index: Int): JsValue = {
       row.getString(index).asJson
     }
-    
+
     override def serialize(value: JsValue): AnyRef =
       value.prettyPrint
   }

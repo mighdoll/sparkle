@@ -86,7 +86,7 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
 
   /** return metadata about a given columnPath (based on data previously stored with writeCatalogEntry */
   def catalogInfo(columnPath: String) // format:OFF
-  (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
+      (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
     val statement = catalogStatements.catalogInfo.bind(columnPath)
 
     // result should be a single row containing a three strings:

@@ -11,19 +11,15 @@ case class CanSerializeNotFound(msg: String) extends RuntimeException(msg)
 object RecoverCanSerialize {
   /** mapping from typeTag to CanSerialize for standard types */
   val canSerializers: Map[TypeTag[_], CanSerialize[_]] = Map(
-    typeToCanSerialize[Double],
-    typeToCanSerialize[Long],
-    typeToCanSerialize[Int],
+    typeToCanSerialize[Boolean],
     typeToCanSerialize[Short],
+    typeToCanSerialize[Int],
+    typeToCanSerialize[Long],
+    typeToCanSerialize[Double],
+    typeToCanSerialize[Char],
     typeToCanSerialize[String],
-    typeToCanSerialize[JsValue],
-    typeToCanSerialize[Boolean]
+    typeToCanSerialize[JsValue]
   )
-
-  /** return a mapping from a typetag to an Ordering */
-  private def typeToCanSerialize[T: TypeTag: CanSerialize]: (TypeTag[T], CanSerialize[T]) = {
-    typeTag[T] -> implicitly[CanSerialize[T]]
-  }
 
   /** return a CanSerialize instance at runtime based a typeTag. */
   def optCanSerialize[T](targetTag: TypeTag[_]) // format: OFF 
@@ -31,12 +27,18 @@ object RecoverCanSerialize {
     val untypedCanSerialize = canSerializers.get(targetTag)
     untypedCanSerialize.asInstanceOf[Option[CanSerialize[T]]]
   }
-  
-  def tryCanSerialize[T](implicit targetTag:TypeTag[_]): Try[CanSerialize[T]] = {
-    val untyped:Try[CanSerialize[_]] = canSerializers.get(targetTag).toTryOr(
-        CanSerializeNotFound(targetTag.tpe.toString))
+
+  /** return a CanSerialize instance at runtime based a typeTag. */
+  def tryCanSerialize[T](implicit targetTag: TypeTag[_]): Try[CanSerialize[T]] = {
+    val untyped: Try[CanSerialize[_]] = canSerializers.get(targetTag).toTryOr(
+      CanSerializeNotFound(targetTag.tpe.toString))
     untyped.asInstanceOf[Try[CanSerialize[T]]]
-    
+
+  }
+
+  /** return a mapping from a typetag to a can Serialize */
+  private def typeToCanSerialize[T: TypeTag: CanSerialize]: (TypeTag[T], CanSerialize[T]) = {
+    typeTag[T] -> implicitly[CanSerialize[T]]
   }
 
 }
