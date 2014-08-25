@@ -34,7 +34,7 @@ object SparkleTimeBuild extends Build {
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases",
-        libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ Seq(
+        libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ log4jLogging ++ Seq(
           scalaReflect,
           rxJavaCore,
           rxJavaScala,

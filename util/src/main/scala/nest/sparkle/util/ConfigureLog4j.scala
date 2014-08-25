@@ -14,6 +14,8 @@
 
 package nest.sparkle.util
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import scala.collection.JavaConverters._
 
 import org.apache.log4j.{ConsoleAppender, Level, Logger, PatternLayout, RollingFileAppender}
@@ -24,11 +26,10 @@ import com.typesafe.config.Config
 object ConfigureLog4j extends ConfigureLog {
 
   /** configure logging based on the .conf file */
-  var configured = false
+  private val configured = new AtomicBoolean(false)
   def configureLogging(sparkleConfig: Config): Unit = {
-    if (!configured) {
+    if (configured.compareAndSet(false,true)) {
       configure(sparkleConfig)
-      configured = true
     }
   }
 

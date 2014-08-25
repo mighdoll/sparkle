@@ -14,6 +14,8 @@
 
 package nest.sparkle.util
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import scala.collection.JavaConverters._
 
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder
@@ -33,14 +35,13 @@ import org.slf4j
 object ConfigureLogback extends ConfigureLog with Log {
 
   /** configure logging based on the .conf file */
-  var configured = false
+  private val configured = new AtomicBoolean(false)
   def configureLogging(sparkleConfig: Config): Unit = {
-    if (!configured) {
+    if (configured.compareAndSet(false,true)) {
       slf4j.LoggerFactory.getLogger(slf4j.Logger.ROOT_LOGGER_NAME) match {
         case rootLogger: Logger => configureLogBack(sparkleConfig, rootLogger)
         case x                  => log.warn(s"unsupported logger, can't configure logging: ${x.getClass}")
       }
-      configured = true
     }
   }
 

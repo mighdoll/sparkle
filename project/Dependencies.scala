@@ -130,8 +130,12 @@ object Dependencies {
     scalaLogging,
     slf4j
   )
+  
+  val log4jLogging = Seq(Runtime.slf4jlog4j, Runtime.log4j)
+  
+  val logbackLogging = Seq(Runtime.logback)
 
-  val testAndLogging = basicTest ++ logging ++ Seq(Runtime.slf4jlog4j, Runtime.log4j)
+  val testAndLogging = basicTest ++ logging
 
   val kitTestsAndLogging = {
     Seq( // test libraries, but in main config, not in Test or IT

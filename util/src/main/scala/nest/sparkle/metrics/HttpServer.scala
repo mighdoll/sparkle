@@ -11,7 +11,12 @@ import akka.util.Timeout
 import spray.can.Http
 
 /**
- * Implementation of MetricsHttpServer.
+ * Object that is loaded to implement MetricsHttpServer.
+ * 
+ * LogUtil only references the trait MetricsHttpServer, not this object
+ * which is loaded by reflection. This allows metrics-graphite to be
+ * an optional dependency; it is only required on the classpath if the
+ * MetricHttpServer is enabled in the conf file.
  */
 object HttpServer
   extends MetricsHttpServer

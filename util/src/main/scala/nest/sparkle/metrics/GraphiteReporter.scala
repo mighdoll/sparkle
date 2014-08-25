@@ -11,7 +11,9 @@ import com.codahale.metrics.graphite.{Graphite => CHGraphite, GraphiteReporter =
 import nest.sparkle.util.MetricsInstrumentation
 
 /**
- * Optional GraphiteReporter support
+ * Optional GraphiteReporter support.
+ * 
+ * Writes Metrics events to a graphite server port at a regular interval.
  */
 object GraphiteReporter extends MetricsGraphiteReporter {
   /**
