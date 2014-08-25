@@ -104,8 +104,9 @@ object BuildSettings {
   /** settings so that we launch our favorite Main by default */
   def setMainClass(className: String): Seq[Setting[_]] = {
     Seq(
-      mainClass in Revolver.reStart := Some("nest.sparkle.time.server.Main"),
-      mainClass in (Compile, run):= Some("nest.sparkle.time.server.Main")
+      mainClass in Revolver.reStart := Some(className),
+      mainClass in assembly := Some(className),
+      mainClass in (Compile, run):= Some(className)
     )
   }
 }
