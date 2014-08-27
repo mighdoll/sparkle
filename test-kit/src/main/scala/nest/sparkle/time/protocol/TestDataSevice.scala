@@ -33,6 +33,10 @@ import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.util.InitializeReflection
 import spray.routing.RoutingSettings
 import spray.http.DateTime
+import spray.http.HttpResponse
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.util.Success
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig with Matchers {
   self: Suite =>
@@ -46,11 +50,11 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   override def testConfig = rootConfig.getConfig("sparkle-time-server")
 
   // TODO legacy, delete soon
-  def registry: DataRegistry = ???  
+  def registry: DataRegistry = ???
 
   /** make a stream request, expecting a single stream of long/double results */
   def v1TypicalRequest(message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => Unit) {
-    v1TypedRequest[Double](message){ seqEvents =>
+    v1TypedRequest[Double](message) { seqEvents =>
       fn(seqEvents.head)
     }
   }
@@ -58,37 +62,43 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   /** make a stream request, and report all stream data returned as events */
   def v1TypedRequest[U: JsonFormat](message: StreamRequestMessage)(fn: Seq[Seq[Event[Long, U]]] => Unit) {
     //     uncomment when debugging
-//    implicit val timeout: RouteTestTimeout = {
-//      println("setting timeout to 1 hour for debugging")
-//      RouteTestTimeout(1.hour)
-//    }
+    //    implicit val timeout: RouteTestTimeout = {
+    //      println("setting timeout to 1 hour for debugging")
+    //      RouteTestTimeout(1.hour)
+    //    }
     Post("/v1/data", message) ~> v1protocol ~> check {
-      val events = TestDataService.streamTypedData[U](response)
+      val events = TestDataService.dataFromStreamsResponse[U](response)
       fn(events)
     }
   }
-  
 
+  def sendDataMessage(message: String):Future[HttpResponse] = {
+    val promised = Promise[HttpResponse]
+    Post("/v1/data", message) ~> v1protocol ~> { result =>
+      assert(result.handled)
+      promised.complete(Success(result.response))
+    }
+    promised.future
+  }
 
 }
 
 object TestDataService {
   /** return the data array portion from a Streams response as a sequence of Event objects */
   def typicalStreamData(response: HttpResponse): Seq[Event[Long, Double]] = {
-    streamTypedData[Double](response).head
+    dataFromStreamsResponse[Double](response).head
   }
 
-
   /** return the data array portions from a Streams response, each as a sequence of Event objects */
-  def streamTypedData[U: JsonFormat](response: HttpResponse): Seq[Seq[Event[Long, U]]] = {
+  def dataFromStreamsResponse[U: JsonFormat](response: HttpResponse): Seq[Seq[Event[Long, U]]] = {
     streamDataJson(response).map { data =>
-      data.map (_.convertTo[Event[Long, U]])
+      data.map(_.convertTo[Event[Long, U]])
     }
   }
 
   case class StreamsResponseError(msg: String) extends RuntimeException(msg)
 
-  /** return all the data from the streams in a Streams message */ 
+  /** return all the data from the streams in a Streams message */
   def streamDataJson(response: HttpResponse): Seq[Seq[JsArray]] = {
     import spray.httpx.unmarshalling._
     val streamsEither = response.as[StreamsMessage]
@@ -97,8 +107,6 @@ object TestDataService {
     }
 
     val streams = streamsEither.right.get
-//    println(s"TestDataService.streamDataJson: ${streams.toJson}")
-
     assert(streams.message.streams.length > 0)
     val datas =
       streams.message.streams.map { stream =>
@@ -106,9 +114,9 @@ object TestDataService {
       }
     datas
   }
-  
+
   def printMillisEvents[T](events: Seq[Event[Long, T]]) {
-    val eventText = events.map{ event =>
+    val eventText = events.map { event =>
       val dateTime = DateTime(event.argument)
       val dateString = dateTime.toString
       Event(dateString, event.value)

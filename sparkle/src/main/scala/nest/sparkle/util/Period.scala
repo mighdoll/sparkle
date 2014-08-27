@@ -88,5 +88,5 @@ object Period {
 
   /** parse a string like "1 hour" into a Period */
   def unapply(duration: String): Option[Period] = parse(duration)
-
 }
+

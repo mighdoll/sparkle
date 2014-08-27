@@ -9,13 +9,15 @@ import nest.sparkle.store.Event
 import akka.actor.ActorSystem
 import nest.sparkle.util.StringToMillis._
 import scala.concurrent.duration._
+import spray.http.StatusCodes.OK
+import spray.util._
 
 class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor {
 
   def withIntervalTest(resource: String, partSize: String = "1 hour") // format: OFF
       (fn: Seq[Event[Long, Seq[Long]]] => Unit): Unit = { // format: ON
     val resourceFile = resource + ".csv"
-    withLoadedFile(resourceFile){ (store, system) =>
+    withLoadedFile(resourceFile) { (store, system) =>
       val service = new ServiceWithCassandra(store, system)
       val params = IntervalParameters[Long](ranges = None, partSize = Some(partSize))
       val selector = SelectString(s"$resource/millis")
@@ -28,7 +30,7 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
   }
 
   test("test identifying some basic overlaps") {
-    withIntervalTest("intervals-basic"){ data =>
+    withIntervalTest("intervals-basic") { data =>
       data(0) shouldBe Event("2014-07-05T17:00:00.000-07:00".toMillis, Seq(1.hour.toMillis))
       data(1) shouldBe Event("2014-07-05T18:00:00.000-07:00".toMillis, Seq(1.hour.toMillis))
       data(2) shouldBe Event("2014-07-05T19:00:00.000-07:00".toMillis, Seq(0))
@@ -37,27 +39,50 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
   }
 
   test("test summing two in an hour") {
-    withIntervalTest("intervals-two-per-hour"){ data =>
+    withIntervalTest("intervals-two-per-hour") { data =>
       data(0) shouldBe Event("2014-07-05T21:00:00.000-07:00".toMillis, Seq(20.seconds.toMillis))
     }
   }
 
   test("test summing two in an hour, one partial") {
-    withIntervalTest("intervals-two-and-partial"){ data =>
+    withIntervalTest("intervals-two-and-partial") { data =>
       data(0) shouldBe Event("2014-07-05T21:00:00.000-07:00".toMillis, Seq(20.seconds.toMillis))
       data(1) shouldBe Event("2014-07-05T22:00:00.000-07:00".toMillis, Seq(10.seconds.toMillis))
     }
   }
 
   test("test summing by minute") {
-    withIntervalTest("intervals-short", "1 minute"){ data =>
+    withIntervalTest("intervals-short", "1 minute") { data =>
       data(0) shouldBe Event("2014-07-05T17:00:00.000-07:00".toMillis, Seq(1.minute.toMillis))
       data(1) shouldBe Event("2014-07-05T17:01:00.000-07:00".toMillis, Seq(1.minute.toMillis))
       data(2) shouldBe Event("2014-07-05T17:02:00.000-07:00".toMillis, Seq(1.minute.toMillis))
       // TODO generates an extra empty event. Should be fixed
     }
   }
-  
+
+  test("missing transform parameters on IntervalSum transform") {
+    withLoadedFile("intervals-basic.csv") { (store, system) =>
+      val msg = s"""{
+        "messageType": "StreamRequest",
+        "message": {
+          "sources": [
+      		  "intervals-basic/millis"
+          ],
+          "transform":"IntervalSum",
+          "transformParameters":{
+          }
+        }
+      }
+     """
+      val service = new ServiceWithCassandra(store, system)
+
+      val response = service.sendDataMessage(msg).await(4.seconds)
+      response shouldBe OK
+      val data = TestDataService.dataFromStreamsResponse(response)
+      println(s"data: $data")
+    }
+  }
+
   // TODO verify combined results with missing values result in an aligned array with a missing values (not a mis-aligned array!)
 
 }

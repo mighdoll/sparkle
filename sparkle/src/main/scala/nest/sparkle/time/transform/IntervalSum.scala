@@ -35,6 +35,7 @@ import org.joda.time.Interval
 import nest.sparkle.util.ObservableUtil
 import nest.sparkle.util.StableGroupBy._
 import nest.sparkle.util.Exceptions.NotYetImplemented
+import org.joda.time.DurationFieldType
 
 object StandardIntervalTransform extends TransformMatcher {
   override type TransformType = MultiColumnTransform
@@ -67,7 +68,7 @@ object IntervalSum extends MultiColumnTransform {
           summarizeColumns[T](castColumns, parameters)(keyFormat, execution)
         }
 
-      result.recover{
+      result.recover {
         case err =>
           JsonDataStream.error(err)
       }.get
@@ -96,7 +97,7 @@ object IntervalSum extends MultiColumnTransform {
   }
 
   type Events[T] = Seq[Event[T, T]]
-  
+
   /** organize the multiple Observable streams into collections of event blocks so that we can collect the block sets */
   private def groupByKey[T](eventStreams: Seq[Observable[Events[T]]]): Observable[Seq[Event[T, Seq[Option[T]]]]] = {
     val headsAndTails = eventStreams.map { stream => ObservableUtil.headTail(stream) }
@@ -104,7 +105,7 @@ object IntervalSum extends MultiColumnTransform {
 
     // heads has a Seq of Observables containing one Events item each. Merge these single Observable containing 
     // the Events.  // TODO make it more clear from the types that heads contains one item (Future?)
-    val headsTogether = heads.reduceLeft{ (a, b) => a ++ b }
+    val headsTogether = heads.reduceLeft { (a, b) => a ++ b }
 
     val result =
       headsTogether.toSeq.map { initialEvents => // initial Events from all eventStreams
@@ -116,29 +117,30 @@ object IntervalSum extends MultiColumnTransform {
   }
 
   /** from the input of multiple observable streams of event blocks (typeEvents): one for each selected source column,
-   *  return an observable stream of events whose values are an array. the array will have one element for each
-   *  input observable stream. Each array element is either a Some() containing the value from that source column,
-   *  or a None.
-   */
+    * return an observable stream of events whose values are an array. the array will have one element for each
+    * input observable stream. Each array element is either a Some() containing the value from that source column,
+    * or a None.
+    */
   private def groupByKeySeqs[T](eventsSeq: Seq[Events[T]]): Seq[Event[T, Seq[Option[T]]]] = {
     // each event, tagged with the index of the stream that it belongs too
     case class IndexedEvent[T](event: Event[T, T], index: Int)
-    
-    val indexedEvents = eventsSeq.zipWithIndex.flatMap{
+
+    val indexedEvents = eventsSeq.zipWithIndex.flatMap {
       case (events, index) =>
         events.map { event => IndexedEvent(event, index) }
     }
     val streamCount = eventsSeq.length
-    
+
     /** return a Seq with one slot for every source event stream. The values of the stream
-     *  are filled in from the IndexedEvents.  */
-    def valuesWithBlanks(indexedEvents:Traversable[IndexedEvent[T]]):Seq[Option[T]] = {
+      * are filled in from the IndexedEvents.
+      */
+    def valuesWithBlanks(indexedEvents: Traversable[IndexedEvent[T]]): Seq[Option[T]] = {
       (0 until streamCount).map { index =>
         indexedEvents.find(_.index == index).map(_.event.value)
       }
     }
 
-    val groupedByKey = indexedEvents.stableGroupBy{ indexed => indexed.event.argument }
+    val groupedByKey = indexedEvents.stableGroupBy { indexed => indexed.event.argument }
     val groupedEvents = groupedByKey.map {
       case (key, indexedGroup) =>
         val values = valuesWithBlanks(indexedGroup)
@@ -146,8 +148,17 @@ object IntervalSum extends MultiColumnTransform {
     }
     groupedEvents.toSeq
   }
-  
 
+  /** return an optional Period wrapped in a Try that reports if it cannot be parsed */
+  private def periodParameter[T](parameters: IntervalParameters[T]): Try[Option[Period]] = {
+    parameters.partSize match {
+      case Some(periodString) =>
+        val tryResult = Period.parse(periodString).toTryOr(InvalidPeriod(s"periodString"))
+        tryResult.map { Some(_) } // wrap successful result in an option (we parsed it and there was a period string)
+      case None =>
+        Success(None) // we parsed successfully: there was no period
+    }
+  }
 
   private def summarizeColumn[T](column: Column[T, T], parameters: IntervalParameters[T])  // format: OFF
     (implicit execution: ExecutionContext): Observable[Seq[Event[T, T]]] = { // format: ON
@@ -158,8 +169,7 @@ object IntervalSum extends MultiColumnTransform {
       for {
         numericKey <- RecoverNumeric.optNumeric[T](column.keyType).toTryOr(
           IncompatibleColumn(s"${column.name} doesn't contain numeric keys. Can't summarize intervals"))
-        periodString <- parameters.partSize.toTryOr(NotYetImplemented("unspecified partSize should return one part"))
-        period <- Period.parse(periodString).toTryOr(InvalidPeriod(s"periodString"))
+        optPeriod <- periodParameter(parameters)
       } yield {
         val perRangeInitialResults =
           eventRanges.map { intervalAndEvents =>
@@ -167,13 +177,13 @@ object IntervalSum extends MultiColumnTransform {
               if (initialEvents.isEmpty) {
                 Seq()
               } else {
-                val iterator = partitionIterator(initialEvents, intervalAndEvents.interval, period)(numericKey, numericKey)
+                val iterator = partitionIterator(initialEvents, intervalAndEvents.interval, optPeriod)(numericKey, numericKey)
                 iterator.toSeq
               }
             }
           }
         // LATER ongoing results too
-        val initialResults = perRangeInitialResults.reduceLeft{ (a, b) => a ++ b }
+        val initialResults = perRangeInitialResults.reduceLeft { (a, b) => a ++ b }
         initialResults
       }
     tryResults match {
@@ -182,12 +192,33 @@ object IntervalSum extends MultiColumnTransform {
     }
   }
 
-  /** assumes that events are sorted by start */
+  /** Return an iterator that walks through the partitions of the events.
+    *
+    * Note: assumes that events are sorted by start
+    */
   private def partitionIterator[T: Numeric, U: Numeric](events: Seq[Event[T, U]], rangeOpt: Option[RangeInterval[T]],
-                                                        period: nest.sparkle.util.Period): Iterator[Event[T, U]] = {
+                                                        optPeriod: Option[nest.sparkle.util.Period]): Iterator[Event[T, U]] = {
+    optPeriod match {
+      case Some(period) => partitionedByPeriod(events, rangeOpt, period)
+      case None =>
+        val keyNumeric = implicitly[Numeric[T]]
+        val valueNumeric = implicitly[Numeric[U]]
+        println(s"keyNumeric: $keyNumeric, valueNumeric: $valueNumeric")
+        val summed = SummaryTransformUtil.sumKeyValue(events)
+        val sumEvent = Event(summed.argument / events.length, summed.value)
+        Iterator(sumEvent)
+    }
+
+  }
+
+  /** return an iterator that walks */
+  private def partitionedByPeriod[T: Numeric, U: Numeric](events: Seq[Event[T, U]], rangeOpt: Option[RangeInterval[T]],
+                                                          period: nest.sparkle.util.Period): Iterator[Event[T, U]] = {
     // TODO DRY me with SummaryTransform!
     // TODO make configurable based on storage time type..
     // TODO consider where to do local time conversion, probably take a timezone parameter to IntervalSum..
+    val timeZone = TimeZone.getTimeZone("America/Los_Angeles"); // TODO make this dynamic
+    implicit val dateTimeZone = org.joda.time.DateTimeZone.forTimeZone(timeZone)
 
     val range = rangeOpt.getOrElse(RangeInterval())
     val start = range.start.getOrElse(events.head.argument)
@@ -195,8 +226,6 @@ object IntervalSum extends MultiColumnTransform {
       case Some(explicitEnd) => (explicitEnd, false)
       case None              => (endOfLatestInterval(events), true)
     }
-    val timeZone = TimeZone.getTimeZone("America/Los_Angeles"); // TODO make this dynamic
-    implicit val dateTimeZone = org.joda.time.DateTimeZone.forTimeZone(timeZone)
 
     val endDate = new DateTime(end)
     val startDate = {
@@ -216,9 +245,8 @@ object IntervalSum extends MultiColumnTransform {
     new Iterator[Event[T, U]] {
       override def hasNext(): Boolean = !remaining.isEmpty && (partStart < endDate || (partStart == endDate && includeEnd))
       override def next(): Event[T, U] = {
-        //        remaining = oldIntervalsRemoved()
         val partEnd = partStart + partPeriod
-        val overlap = remaining.map{ dated => dated.overlap(partStart, partEnd) }
+        val overlap = remaining.map { dated => dated.overlap(partStart, partEnd) }
         val totalOverlap = overlap.reduceLeft(_ + _)
         val result = Event(partStart.getMillis.asInstanceOf[T], totalOverlap)
         //        println(s"Interval.iterator.next:  start:$partStart  until:$partEnd  totalOverlap:$totalOverlap  result: $result")
@@ -226,13 +254,6 @@ object IntervalSum extends MultiColumnTransform {
         partStart = partStart + partPeriod
 
         result
-      }
-
-      private def oldIntervalsRemoved(): Seq[DatedInterval[T, U]] = {
-        val remainder = remaining.filterNot { dated =>
-          dated.end <= partStart
-        }
-        remainder
       }
     }
   }
