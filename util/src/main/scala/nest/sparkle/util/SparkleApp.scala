@@ -80,8 +80,8 @@ trait SparkleApp
     }
     
     // Start an http server to return metrics values in graphite format.
-    if (graphiteConfig.getBoolean("collector.enable")) {
-      Await.result(MetricsSupport.startCollector(graphiteConfig), 20 seconds)
+    if (graphiteConfig.getBoolean("http.enable")) {
+      Await.result(MetricsSupport.startHttpServer(graphiteConfig), 20 seconds)
     }
   }
 
@@ -97,7 +97,7 @@ trait SparkleApp
         sys.exit(0)
       }
       
-      println(s"--conf ${confFile.value}")
+      confFile.value.foreach {fn => println(s"--conf $fn")}
 
     } catch {
       case e: ArgotUsageException =>

@@ -47,8 +47,8 @@ object MetricsSupport {
    * Start a spray http server to return metrics when requested.
    * @param graphiteConfig chisel.metrics.graphite config object
    */
-  def startCollector(graphiteConfig: Config)(implicit system: ActorSystem): Future[Any] = {
-    if (graphiteConfig.getBoolean("reporter.enable")) {
+  def startHttpServer(graphiteConfig: Config)(implicit system: ActorSystem): Future[Any] = {
+    if (graphiteConfig.getBoolean("http.enable")) {
       val obj = Instance.objectByClassName[MetricsHttpServer]("nest.sparkle.metrics.HttpServer")
       obj.start(graphiteConfig, system)
     } else {

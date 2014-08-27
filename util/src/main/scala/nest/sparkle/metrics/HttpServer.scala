@@ -26,7 +26,7 @@ object HttpServer
    * @param graphiteConfig chisel.metrics.graphite config object
    */
   def start(graphiteConfig: Config, system: ActorSystem): Future[Any] = {
-    val config = graphiteConfig.getConfig("collector")
+    val config = graphiteConfig.getConfig("http")
     val port = config.getInt("port")
     val interface = config.getString("interface")
 
