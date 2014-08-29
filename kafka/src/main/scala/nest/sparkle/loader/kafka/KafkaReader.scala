@@ -15,6 +15,7 @@
 package nest.sparkle.loader.kafka
 
 import scala.concurrent.ExecutionContext
+import scala.util.control.NonFatal
 import rx.lang.scala.Observable
 
 import com.typesafe.config.{Config, ConfigFactory}
@@ -37,7 +38,7 @@ import nest.sparkle.util.ConfigUtil.sparkleConfigName
   * @param consumerGroupPrefix - allows setting kafka consumerGroup per KafkaReader
   * @param rootConfig contains settings for the kafka client library. must contain a "kafka-reader" key.
   */
-class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.load(),
+class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFactory.load(),
                               consumerGroupPrefix: Option[String])
   extends Instrumented
   with Log 
@@ -45,6 +46,7 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
   // TODO: Make this a Histogram
   private val metricPrefix = topic.replace(".", "_").replace("*", "")
   private val readMetric = metrics.meter("kafka-messages-read", metricPrefix)
+  private val connectionMetric = metrics.meter("kafka-connects", metricPrefix)
   
   lazy val consumerConfig = {
     val properties = {
@@ -79,8 +81,11 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
   
   /** return an iterable of decoded data from the kafka topic */
   def iterator():Iterator[T] = {
-    val iterator = whiteListIterator()
-    restartingIterator(() => iterator)
+    //val iterator = whiteListIterator()
+    restartingIterator(() => {
+      currentConnection.foreach(_ => reconnect())
+      whiteListIterator()
+    })
   }
 
   /** Store the current reader position in zookeeper.  On restart (e.g. after a crash),
@@ -119,16 +124,26 @@ class KafkaReader[T: Decoder](topic: String, rootConfig: Config = ConfigFactory.
     RecoverableIterator(fn) {
       case timeout: ConsumerTimeoutException =>
         log.info(s"kafka consumer timeout: on topic $topic")
+      case NonFatal(err) => log.warn(s"Kafka interator for $topic threw an exception: ${err.toString}")
     }
   }
 
   /** open a connection to kafka */
   private def connect(): ConsumerConnector = {
-    Consumer.create(consumerConfig)
+    try {
+      connectionMetric.mark()
+      Consumer.create(consumerConfig)
+    } catch {
+      case NonFatal(e) => {
+        log.error(s"Exception creating ConsumerConnector for $topic: ${e.getMessage}")
+        throw e
+      }
+    }
   }
 
   /** shutdown current connection and reconnect */
   private def reconnect(): ConsumerConnector = synchronized {
+    log.warn(s"reconnecting ConsumerConnector for $topic")
     currentConnection.map(_.shutdown())
     currentConnection = None
     connection

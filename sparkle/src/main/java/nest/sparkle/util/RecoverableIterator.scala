@@ -1,5 +1,4 @@
 package nest.sparkle.util
-import scala.util.control.Exception._
 
 /** @define recoverable An iterator that will recreate a base iterator on exceptions.
   * A RecoverableIterator can be used to wrap an underlying iterator
@@ -56,7 +55,9 @@ object RecoverableIterator {
   * @todo TODO consider capping the number of recoveries, or delaying recovery after multiple failures
   */
 class RecoverableIterator[T](createIterator: () => Iterator[T]) // format: OFF
-    (recoverErrors: PartialFunction[Throwable, Unit]) extends Iterator[T] with Log { // format: ON
+    (recoverErrors: PartialFunction[Throwable, Unit]) 
+  extends Iterator[T] 
+  with Log { // format: ON
   /** underlying iterator */
   private var currentIterator = createIterator()
 
@@ -80,7 +81,7 @@ class RecoverableIterator[T](createIterator: () => Iterator[T]) // format: OFF
 
   override def next(): T = {
     try {
-      currentIterator.next
+      currentIterator.next()
     } catch catchAndRecreateNext
   }
 

@@ -178,7 +178,11 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   private def readSourceBlocks(reader: KafkaReader[ArrayRecordColumns], // format: OFF
                                decoder: KafkaKeyValues): Observable[TaggedBlock] = { // format: ON
 
-    val stream = reader.stream()
+    val streamOrig = reader.stream()
+    val stream = 
+      streamOrig.doOnError { err =>
+        log.error(s"Error reading Kafka stream for ${reader.topic}", err)
+      }
 
     val sourceBlocks: Observable[TaggedBlock] =
       stream.map { record =>
