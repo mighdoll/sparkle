@@ -38,10 +38,10 @@ import nest.sparkle.util.ConfigUtil.sparkleConfigName
   * @param consumerGroupPrefix - allows setting kafka consumerGroup per KafkaReader
   * @param rootConfig contains settings for the kafka client library. must contain a "kafka-reader" key.
   */
-class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFactory.load(),
+class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFactory.load(), // format: OFF
                               consumerGroupPrefix: Option[String])
-  extends Instrumented
-  with Log 
+    extends Instrumented
+    with Log // format: ON
 {
   // TODO: Make this a Histogram
   private val metricPrefix = topic.replace(".", "_").replace("*", "")
@@ -81,11 +81,10 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
   
   /** return an iterable of decoded data from the kafka topic */
   def iterator():Iterator[T] = {
-    //val iterator = whiteListIterator()
-    restartingIterator(() => {
+    restartingIterator {
       currentConnection.foreach(_ => reconnect())
       whiteListIterator()
-    })
+    }
   }
 
   /** Store the current reader position in zookeeper.  On restart (e.g. after a crash),
@@ -120,7 +119,7 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
   }
 
   /** an iterator that will restart after the consumer times out */
-  private def restartingIterator(fn: () => Iterator[T]): Iterator[T] = {
+  private def restartingIterator(fn: => Iterator[T]): Iterator[T] = {
     RecoverableIterator(fn) {
       case timeout: ConsumerTimeoutException =>
         log.info(s"kafka consumer timeout: on topic $topic")

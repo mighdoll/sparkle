@@ -7,11 +7,11 @@ package nest.sparkle.util
   * it the callers users needs to create multiple iterators on in the inside.
   *
   * @define threadSafety The Iterator api expects that hasNext() and next() will be called sequentially
-  * (not concurrently). Accordingly, the createIterator and recoverError
+  * (not concurrently). Accordingly, the createIteratorFn and recoverError
   * functions will not be called concurrently from multiple threads if the
   * Iterator api is properly used.
   *
-  * @define createIterator function that produces an iterator. This function is
+  * @define createIteratorFn function that produces an iterator. This function is
   * called as the RecoverableIterator is instantiated, and again after errors
   * are caught.
   *
@@ -22,12 +22,12 @@ package nest.sparkle.util
   */
 object RecoverableIterator {
   /** $recoverable
-    * @param createIterator $createIterator
-    * @param recoverErrors $recoverErrors
+    * @param createIteratorFn $createIteratorFn
+    * @param errors $recoverErrors
     * $threadSafety
     */
-  def apply[T](createIterator: () => Iterator[T])(errors: PartialFunction[Throwable, Unit]): RecoverableIterator[T] = {
-    new RecoverableIterator(createIterator)(errors)
+  def apply[T](createIteratorFn: => Iterator[T])(errors: PartialFunction[Throwable, Unit]): RecoverableIterator[T] = {
+    new RecoverableIterator(createIteratorFn)(errors)
   }
 }
 
@@ -37,11 +37,11 @@ object RecoverableIterator {
   * is rerun after known exceptions. 
   *
   * @define threadSafety The Iterator api expects that hasNext() and next() will be called sequentially
-  * (not concurrently). Accordingly, the createIterator and recoverError
+  * (not concurrently). Accordingly, the createIteratorFn and recoverError
   * functions will not be called concurrently from multiple threads if the
   * Iterator api is properly used.
   *
-  * @define createIterator function that produces an iterator. This function is
+  * @define createIteratorFn function that produces an iterator. This function is
   * called as the RecoverableIterator is instantiated, and again after errors
   * are caught.
   *
@@ -49,22 +49,22 @@ object RecoverableIterator {
   * the iteration (e.g. timeouts).
   *
   * $recoverable
-  * @param createIterator $createIterator
+  * @param createIteratorFn $createIteratorFn
   * @param recoverErrors $recoverErrors
   * $threadSafety
   * @todo TODO consider capping the number of recoveries, or delaying recovery after multiple failures
   */
-class RecoverableIterator[T](createIterator: () => Iterator[T]) // format: OFF
+class RecoverableIterator[T](createIteratorFn: => Iterator[T]) // format: OFF
     (recoverErrors: PartialFunction[Throwable, Unit]) 
   extends Iterator[T] 
   with Log { // format: ON
   /** underlying iterator */
-  private var currentIterator = createIterator()
+  private var currentIterator = createIteratorFn
 
   private val catchAndRecreateHasNext: PartialFunction[Throwable, Boolean] =
     recoverErrors.andThen{ _ =>
       recreate()
-      hasNext()
+      hasNext
     }
 
   private val catchAndRecreateNext: PartialFunction[Throwable, T] =
@@ -73,7 +73,7 @@ class RecoverableIterator[T](createIterator: () => Iterator[T]) // format: OFF
       next()
     }
 
-  override def hasNext(): Boolean = {
+  override def hasNext: Boolean = {
     try {
       currentIterator.hasNext
     } catch catchAndRecreateHasNext
@@ -86,6 +86,6 @@ class RecoverableIterator[T](createIterator: () => Iterator[T]) // format: OFF
   }
 
   private def recreate() {
-    currentIterator = createIterator()
+    currentIterator = createIteratorFn
   }
 }
