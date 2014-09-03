@@ -260,7 +260,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
     */
   private def recordComplete(reader: KafkaReader[_], updates: Seq[ColumnUpdate[K]]): Unit = {
     // TODO, commit is relatively slow. let's commit/notify only every N items and/or after a timeout
-    //reader.commit() // record the progress reading this kafka topic into zookeeper
+    reader.commit() // record the progress reading this kafka topic into zookeeper
 
     // notify anyone subscribed to the Watched stream that we've written some data
     updates.foreach { update =>
