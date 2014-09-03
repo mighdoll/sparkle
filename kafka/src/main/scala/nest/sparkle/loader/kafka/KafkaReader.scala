@@ -65,6 +65,12 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
 
   private var currentConnection: Option[ConsumerConnector] = None
 
+  /**
+   * Total count of messages read.
+   * @return message read count
+   */
+  def messageCount: Long = readMetric.count
+
   def connection: ConsumerConnector = synchronized {
     currentConnection.getOrElse{
       log.info(s"connecting to topic: $topic")
@@ -92,7 +98,8 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
     */
   def commit(): Unit = {
     connection.commitOffsets // KAFKA should have () on this side-effecting function
-  }
+    log.debug("committed topic {}", topic)
+   }
 
   /** Close the connection, allowing another reader in the same consumerGroup to take
     * over reading from this topic/partition.

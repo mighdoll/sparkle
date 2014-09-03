@@ -1,7 +1,7 @@
 package nest.sparkle.util
 
 import com.codahale.metrics.MetricRegistry
-import nl.grons.metrics.scala.{InstrumentedBuilder, MetricBuilder, MetricName}
+import nl.grons.metrics.scala.{FutureMetrics, InstrumentedBuilder, MetricBuilder, MetricName}
 
 /**
  * Global reference to the metrics registry.
@@ -18,7 +18,7 @@ object MetricsInstrumentation
  * Convenience trait for classes that create metrics.
  */
 trait Instrumented 
-  extends InstrumentedBuilder
+  extends InstrumentedBuilder with FutureMetrics
 {  
   lazy val metricRegistry = MetricsInstrumentation.registry
   

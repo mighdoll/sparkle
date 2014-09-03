@@ -63,7 +63,7 @@ object Dependencies {
   val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.0" 
   val nettyAll              = "io.netty"                  % "netty-all"               % "4.0.19.Final" 
   
-  val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.0_a2.3"
+  val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.1_a2.3"
   val metricsGraphite       = "com.codahale.metrics"      %  "metrics-graphite"       % "3.0.2"
 
   object Runtime {

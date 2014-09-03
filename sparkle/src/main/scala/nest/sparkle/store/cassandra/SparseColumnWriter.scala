@@ -14,27 +14,20 @@
 
 package nest.sparkle.store.cassandra
 
-import com.datastax.driver.core.Session
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import nest.sparkle.util.GuavaConverters._
-import com.datastax.driver.core.PreparedStatement
-import rx.lang.scala.Observable
-import com.datastax.driver.core.Row
-import com.datastax.driver.core.BatchStatement
 import scala.collection.JavaConverters._
-import nest.sparkle.store.Event
-import nest.sparkle.store.Column
-import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.util.Log
-import SparseColumnWriter._
-import com.typesafe.scalalogging.slf4j.Logger
+import scala.concurrent.{ExecutionContext, Future}
+
 import org.slf4j.LoggerFactory
+
+import com.typesafe.scalalogging.slf4j.Logger
+
+import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.Executors
-import akka.event.EventStream
-import com.datastax.driver.core.ResultSet
+import nest.sparkle.store.cassandra.SparseColumnWriter._
+import nest.sparkle.util.GuavaConverters._
+import nest.sparkle.util.{Instrumented, Log}
+
+import com.datastax.driver.core.{BatchStatement, Session}
 
 object SparseColumnWriter extends PrepareTableOperations {
   case class InsertOne(override val tableName: String) extends TableOperation
@@ -105,7 +98,12 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     val dataSetName: String, val columnName: String,
     catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog, 
     writeNotifier:WriteNotifier)(implicit session: Session)
-  extends WriteableColumn[T, U] with ColumnSupport with Log { // format: ON
+  extends WriteableColumn[T, U] 
+  with ColumnSupport 
+  with Instrumented 
+  with Log { // format: ON
+  
+  private val batchMetric = metrics.timer("store-batch-writes")
 
   val serialInfo = serializationInfo[T, U]()
   val tableName = serialInfo.tableName
@@ -131,7 +129,6 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
   def write(items:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
     val events = items.toSeq
-    log.trace(s"write() to $tableName $columnPath  events: $events ")
     val written = writeMany(events)
     written.map { _ =>
       items.headOption.foreach { head =>
@@ -169,7 +166,9 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
 
     val resultsIterator =
       batches.map { batch =>
+        val timer = batchMetric.timerContext()
         val result = session.executeAsync(batch).toFuture
+        result.onComplete(_ => timer.stop())
         val resultUnit = result.map { _ => }
         resultUnit
       }

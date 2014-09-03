@@ -14,6 +14,8 @@
 
 package nest.sparkle.loader.kafka
 
+import java.util.concurrent.{ForkJoinPool, Executors}
+
 import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
@@ -54,6 +56,13 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   with Log 
 { // format: ON
   private val loaderConfig = ConfigUtil.configForSparkle(rootConfig).getConfig("kafka-loader")
+  private lazy val topics = loaderConfig.getStringList("topics").asScala.toSeq
+  
+  // Each KafkaReader consumes a thread for the underlying Kafka Consumer stream interator
+  private lazy val readerThreadPool = Executors.newFixedThreadPool(topics.size)
+  private lazy val readerExecutionContext = ExecutionContext.fromExecutor(readerThreadPool)
+  
+  private val messagesPerCommit = loaderConfig.getInt("messages-per-commit")
 
   private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
 
@@ -66,7 +75,6 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
     * who will read the kafka topics
     */
   private lazy val topicReaders = {
-    val topics = loaderConfig.getStringList("topics").asScala.toSeq
     val finder = decoderFinder()
     topics.map { topic =>
       val readerDecoder = {
@@ -97,6 +105,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   /** terminate all readers */
   def close(): Unit = {
     topicReaders.foreach { case (topic, ReaderDecoder(reader, decoder)) => reader.close() }
+    readerThreadPool.shutdownNow()
   }
 
   /** Load from a single topic via a KafkaReader. Extract Events from each kafka record, and
@@ -178,7 +187,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
                                decoder: KafkaKeyValues): Observable[TaggedBlock] = { // format: ON
 
     val stream = 
-      reader.stream().doOnError { err =>
+      reader.stream()(readerExecutionContext).doOnError { err =>
         log.error(s"Error reading Kafka stream for ${reader.topic}", err)
       }
 
@@ -224,8 +233,9 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
       taggedBlock.map { slice =>
         def withFixedType[U]() = {
           implicit val valueType = slice.valueType
-          log.info(s"loading ${slice.events.length} events to column: ${slice.columnPath}"
-            + s"  keyType: $keyType  valueType: $valueType")
+          log.debug("loading {} events to column: {}  keyType: {}  valueType: {}", 
+            slice.events.length.toString, slice.columnPath, keyType, valueType
+          )
 
           val result =
             for {
@@ -250,7 +260,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
         val flattened = updates.flatten // remove Nones
         flattened
       }
-
+  
     allDone
   }
 
@@ -258,8 +268,9 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
     * position in kafka and notify any watchers.
     */
   private def recordComplete(reader: KafkaReader[_], updates: Seq[ColumnUpdate[K]]): Unit = {
-    // TODO, commit is relatively slow. let's commit/notify only every N items and/or after a timeout
-    reader.commit() // record the progress reading this kafka topic into zookeeper
+    if (reader.messageCount % messagesPerCommit == 0) {
+      reader.commit()
+    }
 
     // notify anyone subscribed to the Watched stream that we've written some data
     updates.foreach { update =>
@@ -273,13 +284,16 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
                                            columnPath: String): Future[Option[ColumnUpdate[K]]] = {
     storage.writeableColumn[K, U](columnPath) flatMap { column =>
       events.lastOption.map { _.argument } match {
-        case Some(lastKey) =>
+        case Some(lastKey) => {
+          // TODO: Add metric for writing to this columnPath
           column.write(events).map { _ =>
             Some(ColumnUpdate[K](columnPath, lastKey))
-            // TODO: Add metric for writing to this columnPath
           }
-        case None =>
+        }
+        case None => {
+          log.error(s"what does this mean for this $columnPath?")
           Future.successful(None)
+        }
       }
     }
   }
