@@ -24,10 +24,13 @@ import org.scalatest.Finders
 import scala.concurrent.ExecutionContext
 import nest.sparkle.util.Managed.implicits._
 import nest.sparkle.util.Resources
+import nest.sparkle.test.SparkleTestConfig
 
-class TestTextTableParser extends FunSuite with Matchers {
+class TestTextTableParser extends FunSuite with Matchers with SparkleTestConfig {
   import ExecutionContext.Implicits.global
 
+  rootConfig // trigger logging initialiation
+  
   def loadRowInfo(resourcePath: String)(fn: CloseableRowInfo => Unit) {
     val filePath = Resources.filePathString(resourcePath)
     val closeableRowInfo = TabularFile.load(Paths.get(filePath)).await

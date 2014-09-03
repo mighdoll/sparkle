@@ -1,18 +1,13 @@
 package nest.sparkle.metrics
 
 import scala.compat.Platform.currentTime
-
 import com.typesafe.config.Config
-
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers, Suite}
 import spray.http.StatusCodes
 import spray.testkit.ScalatestRouteTest
-
 import nest.sparkle.util.{ConfigUtil, LogUtil}
-
-// TODO: Use this when it is moved out of sparkle project.
-//import nest.sparkle.test.SparkleTestConfig
+import nest.sparkle.test.SparkleTestConfig
 
 /**
  * Test the Metrics HTTP server.
@@ -24,20 +19,16 @@ class TestMetricsService
   with BeforeAndAfterAll
   with ScalatestRouteTest
   with MetricsService
+  with SparkleTestConfig
 {
   self: Suite =>
   
   def actorRefFactory = system
   
-  var rootConfig: Config = null  // Cover your eyes
-  
   // metric should be after this time
   val startTimestamp = currentTime / 1000L
   
-  override def beforeAll() {
-    rootConfig = ConfigUtil.configFromFile(None)
-    LogUtil.configureLogging(rootConfig)
-    
+  override def beforeAll() {    
     // Add a metric
     val counter = metrics.counter("counter")
     counter.inc()

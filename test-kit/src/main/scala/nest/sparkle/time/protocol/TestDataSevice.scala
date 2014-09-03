@@ -38,7 +38,7 @@ import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.Success
 
-trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig with Matchers {
+trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
   self: Suite =>
 
   override lazy val corsHosts = List("*")
@@ -76,7 +76,6 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   def sendDataMessage(message: String):Future[HttpResponse] = {
     val promised = Promise[HttpResponse]
     Post("/v1/data", message) ~> v1protocol ~> check { 
-      log.debug(s"got response: $response}")
       promised.complete(Success(response))
     }
     promised.future

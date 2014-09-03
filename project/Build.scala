@@ -15,7 +15,7 @@
 import sbt._
 import sbt.Keys._
 
-object SparkleTimeBuild extends Build {
+object sparkleCoreBuild extends Build {
   import Dependencies._
   // set prompt to name of current project
   override lazy val settings = super.settings :+ {
@@ -23,9 +23,9 @@ object SparkleTimeBuild extends Build {
   }
 
   lazy val sparkleRoot = Project(id = "root", base = file("."))
-    .aggregate(sparkleTime, kafkaLoader, testKit, sparkleTests, util)
+    .aggregate(sparkleCore, kafkaLoader, testKit, sparkleTests, util, logbackConfig, log4jConfig)
 
-  lazy val sparkleTime =
+  lazy val sparkleCore =
     Project(id = "sparkle", base = file("sparkle"))
       .dependsOn(util)
       .configs(IntegrationTest)
@@ -34,7 +34,7 @@ object SparkleTimeBuild extends Build {
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases",
-        libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ log4jLogging ++ Seq(
+        libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ Seq(
           scalaReflect,
           rxJavaCore,
           rxJavaScala,
@@ -57,8 +57,9 @@ object SparkleTimeBuild extends Build {
   lazy val kafkaLoader =
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
       .dependsOn(util)
-      .dependsOn(sparkleTime)
+      .dependsOn(sparkleCore)
       .dependsOn(testKit)
+      .dependsOn(log4jConfig % "test->compile;it->compile")
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
@@ -69,7 +70,7 @@ object SparkleTimeBuild extends Build {
 
   lazy val testKit =
     Project(id = "sparkle-test-kit", base = file("test-kit"))
-      .dependsOn(sparkleTime)
+      .dependsOn(sparkleCore)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
@@ -78,12 +79,15 @@ object SparkleTimeBuild extends Build {
 
   lazy val sparkleTests =
     Project(id = "sparkle-tests", base = file("sparkle-tests"))
-      .dependsOn(sparkleTime)
+      .dependsOn(sparkleCore)
       .dependsOn(testKit)
+      .dependsOn(logbackConfig % "test->compile;it->compile")
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= testAndLogging ++ spray
+        libraryDependencies ++= testAndLogging ++ spray ++ Seq(
+          metricsGraphite
+        )
       )
 
   lazy val util =
@@ -96,7 +100,6 @@ object SparkleTimeBuild extends Build {
           scalaLogging,
           metricsScala,
           scalaConfig,
-          Optional.log4j,
           Optional.metricsGraphite,
           sprayCan     % "optional",
           sprayRouting % "optional"
@@ -106,13 +109,21 @@ object SparkleTimeBuild extends Build {
   lazy val logbackConfig =
     Project(id = "logback-config", base = file("logback"))
       .dependsOn(util)
-      .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
         libraryDependencies ++= Seq(
-          scalaConfig,
-          Optional.logback
-          ) 
+          scalaConfig
+        ) ++ logbackLogging
+      )
+
+  lazy val log4jConfig =
+    Project(id = "log4j-config", base = file("log4j"))
+      .dependsOn(util)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= Seq(
+          scalaConfig
+        ) ++ log4jLogging
       )
 
 }

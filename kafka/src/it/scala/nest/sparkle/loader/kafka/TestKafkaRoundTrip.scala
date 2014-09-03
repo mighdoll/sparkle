@@ -26,9 +26,9 @@ import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 
-class TestKafkaRoundTrip extends FunSuite with Matchers with SparkleTestConfig {
+class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
   import scala.concurrent.ExecutionContext.Implicits.global
-
+  
   def randomStrings(count: Int, length: Int = 3): Seq[String] = {
     (0 until count).map { _ => randomAlphaNum(length) }.toSeq
   }
