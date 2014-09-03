@@ -96,12 +96,23 @@ object SparkleTimeBuild extends Build {
           scalaLogging,
           metricsScala,
           scalaConfig,
-          Optional.logback,
           Optional.log4j,
           Optional.metricsGraphite,
           sprayCan     % "optional",
           sprayRouting % "optional"
           ) ++ allTest
+      )
+
+  lazy val logbackConfig =
+    Project(id = "logback-config", base = file("logback"))
+      .dependsOn(util)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= Seq(
+          scalaConfig,
+          Optional.logback
+          ) 
       )
 
 }

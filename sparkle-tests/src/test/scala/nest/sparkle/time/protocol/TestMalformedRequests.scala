@@ -4,10 +4,10 @@ import spray.http.HttpHeaders.`Content-Type`
 import spray.http.StatusCodes.OK
 
 class TestMalformedRequests extends TestStore with StreamRequestor with TestDataService {
-   nest.sparkle.util.InitializeReflection.init
+  nest.sparkle.util.InitializeReflection.init
 
-   test("missing transform parameters") {
-     val msg = s"""
+  test("missing transform parameters on Raw transform") {
+    val msg = s"""
       {
         "messageType": "StreamRequest",
         "message": {
@@ -20,9 +20,10 @@ class TestMalformedRequests extends TestStore with StreamRequestor with TestData
         }
       }
     """
-      		  
-     Post("/v1/data", msg) ~> v1protocol ~> check {
-       status shouldBe OK
-     }
-   }
+
+    Post("/v1/data", msg) ~> v1protocol ~> check {
+      status shouldBe OK
+    }
+  }
+
 }

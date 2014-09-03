@@ -9,6 +9,7 @@ object LogUtil {
   
   private val configured: AtomicBoolean = new AtomicBoolean(false)
   
+  /** setup java logging based on .conf settings for levels, file sizes, etc. */
   def configureLogging(rootConfig: Config): Unit = {
     if (configured.compareAndSet(false,true)) {
       val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
@@ -38,6 +39,7 @@ object LogUtil {
   }
 }
 
+/** interface for log4j or logback configuration */
 trait ConfigureLog {
   def configureLogging(sparkleConfig: Config): Unit
 }

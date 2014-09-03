@@ -40,8 +40,6 @@ object SparseColumnWriter extends PrepareTableOperations {
   case class InsertOne(override val tableName: String) extends TableOperation
   case class DeleteAll(override val tableName: String) extends TableOperation
 
-  val log = Logger(LoggerFactory.getLogger(getClass.getName)) // SCALA how to extend Log in both class and companion?
-
   override val prepareStatements = List(
     (InsertOne -> insertOneStatement _),
     (DeleteAll -> deleteAllStatement _)

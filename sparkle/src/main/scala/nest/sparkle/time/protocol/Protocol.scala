@@ -103,7 +103,7 @@ case class StreamsMessage(requestId: Option[Long], realm: Option[RealmToClient],
 
 // TODO find a way to do less copy-pasting on encoding various message types
 case class StatusMessage(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
-                         messageType: String, message: Status)
+                         messageType: String, message: Status) 
 
 case class UpdateMessage(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
                          messageType: String, message: Update) {

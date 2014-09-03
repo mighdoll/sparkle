@@ -15,11 +15,8 @@
 package nest.sparkle.util
 
 import java.util.concurrent.atomic.AtomicBoolean
-
 import scala.collection.JavaConverters._
-
 import org.apache.log4j.{ConsoleAppender, Level, Logger, PatternLayout, RollingFileAppender}
-
 import com.typesafe.config.Config
 
 /** configure log4j logging based on a .conf file */
@@ -95,7 +92,8 @@ object ConfigureLog4j extends ConfigureLog {
       
       rootLogger.addAppender(consoleAppender)
     }
-
+    
+    Logger.getLogger(getClass).log(Level.INFO, "started log4j loggin")
   }
 
 }
