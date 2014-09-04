@@ -1,13 +1,13 @@
 package nest.sparkle.loader.kafka
 
 import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.{ Files, Paths }
 
 import scala.collection.JavaConverters._
 
 import org.apache.avro.Schema.Parser
 
-import kafka.serializer.{DefaultEncoder, Encoder}
+import kafka.serializer.{ DefaultEncoder, Encoder }
 import nest.sparkle.loader.kafka.KafkaTestUtil.testTopicName
 import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.CassandraTestConfig
@@ -18,6 +18,9 @@ import nest.sparkle.util.Resources
 import spray.util.pimpFuture
 
 trait AvroLoaderFixture extends CassandraTestConfig {
+
+  override def testConfigFile = Some("kafka-tests")
+
   /** Call a test function after stream loading some data from avro
     *
     * @param schemaFileName the schema file to use in schemaFolder
@@ -74,9 +77,9 @@ trait AvroLoaderFixture extends CassandraTestConfig {
       val avroRecords = readAvroRecords()
       kafkaWriter.write(avroRecords)
       val storeWrite = testStore.writeListener.listen[T](loadColumnPath)
-      val loader = new AvroKafkaLoader[Long](modifiedRootConfig, testStore) 
+      val loader = new AvroKafkaLoader[Long](modifiedRootConfig, testStore)
       storeWrite.take(records).toBlocking.head // await completion of write to store.  
-      
+
       val readColumn = testStore.column[T, U](loadColumnPath).await
       val read = readColumn.readRange(None, None)
       val results = read.initial.toBlocking.toList

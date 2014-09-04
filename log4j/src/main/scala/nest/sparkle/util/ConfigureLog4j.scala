@@ -16,7 +16,7 @@ package nest.sparkle.util
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.JavaConverters._
-import org.apache.log4j.{ConsoleAppender, Level, Logger, PatternLayout, RollingFileAppender}
+import org.apache.log4j.{ ConsoleAppender, Level, Logger, PatternLayout, RollingFileAppender }
 import com.typesafe.config.Config
 
 /** configure log4j logging based on a .conf file */
@@ -25,12 +25,12 @@ object ConfigureLog4j extends ConfigureLog {
   /** configure logging based on the .conf file */
   private val configured = new AtomicBoolean(false)
   def configureLogging(sparkleConfig: Config): Unit = {
-    if (configured.compareAndSet(false,true)) {
+    if (configured.compareAndSet(false, true)) {
       configure(sparkleConfig)
     }
   }
 
-  /** configure log4j logging based on a .conf file 
+  /** configure log4j logging based on a .conf file
     * @param sparkleConfig sparkle config object
     */
   private def configure(sparkleConfig: Config): Unit = {
@@ -41,11 +41,12 @@ object ConfigureLog4j extends ConfigureLog {
 
     val levels = logConfig.getConfig("levels")
     levels.entrySet().asScala.map { entry =>
-      val logger = if (entry.getKey == "root") {
-        rootLogger
-      } else {
-        Logger.getLogger(entry.getKey)
-      }
+      val logger =
+        if (entry.getKey == "root") {
+          rootLogger
+        } else {
+          Logger.getLogger(entry.getKey)
+        }
       val level = entry.getValue.unwrapped.toString
       logger.setLevel(Level.toLevel(level))
     }
@@ -53,26 +54,26 @@ object ConfigureLog4j extends ConfigureLog {
     if (logConfig.getBoolean("file.enable")) {
       val fileAppender = new RollingFileAppender()
       fileAppender.setName("FileLogger")
-      
+
       val pattern = logConfig.getString("file.pattern")
       val patternLayout = new PatternLayout(pattern)
       fileAppender.setLayout(patternLayout)
-      
+
       val level = logConfig.getString("file.level")
       fileAppender.setThreshold(Level.toLevel(level))
-      
+
       val file = logConfig.getString("file.path")
       fileAppender.setFile(file)
-      
+
       val maxSize = logConfig.getString("file.max-size")
       fileAppender.setMaxFileSize(maxSize)
-      
+
       val maxFiles = logConfig.getInt("file.max-files")
       fileAppender.setMaxBackupIndex(maxFiles)
-      
+
       val append = logConfig.getBoolean("file.append")
       fileAppender.setAppend(append)
-      
+
       fileAppender.activateOptions()
       rootLogger.addAppender(fileAppender)
     }
@@ -80,19 +81,19 @@ object ConfigureLog4j extends ConfigureLog {
     if (logConfig.getBoolean("console.enable")) {
       val consoleAppender = new ConsoleAppender()
       consoleAppender.setName("Console")
-      
+
       val pattern = logConfig.getString("console.pattern")
       val patternLayout = new PatternLayout(pattern)
       consoleAppender.setLayout(patternLayout)
-      
+
       val level = logConfig.getString("console.level")
       consoleAppender.setThreshold(Level.toLevel(level))
-      
+
       consoleAppender.activateOptions()
-      
+
       rootLogger.addAppender(consoleAppender)
     }
-    
+
     Logger.getLogger(getClass).log(Level.INFO, "started log4j loggin")
   }
 

@@ -53,7 +53,6 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   with Instrumented
   with Log 
 { // format: ON
-
   private val loaderConfig = ConfigUtil.configForSparkle(rootConfig).getConfig("kafka-loader")
 
   private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
