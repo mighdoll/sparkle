@@ -35,6 +35,7 @@ object ObservableIterator extends Log {
         Collections.newSetFromMap(map).asScala
       }
 
+      // TODO change to atomicBoolean, and definitely set to true somewhere!
       var running = false // true if the iteration thread is running
 
       /** start the background iterator if unstarted */
@@ -66,7 +67,13 @@ object ObservableIterator extends Log {
       def startBackgroundIterator(): Unit = {
         val runnable = new Runnable {
           def run(): Unit = { // run in a background thread.
+            // TODO add try block, and write to onError
             iterator.takeWhile { value =>
+              // TODO add backpressure, either with newish Rx backpressure mechanism
+              // or is onNext sufficiently thread synchronous? (that was the original 
+              // Rx backpressure mechanism.. does it work here?)
+              
+              // TODO consider what if onNext has an exception
               currentSubscribers().foreach { _.onNext(value) }
               stillActiveSubscribers
             }.foreach { _ => } // trigger iteration until cancelled
