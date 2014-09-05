@@ -52,7 +52,8 @@ object BuildSettings {
 
   lazy val eclipseSettings = Seq(
     EclipseKeys.withSource := true,
-    EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource
+    EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource,
+    EclipseKeys.eclipseOutput := Some("eclipse-target")
 //     EclipseKeys.withBundledScalaContainers := false // LATER for eclipse 4.4
   )
 
