@@ -14,7 +14,7 @@ import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.ObservableFuture._
 
-class TestKafkaSlowResponse extends FunSuite with Matchers with SparkleTestConfig {
+class TestKafkaSlowResponse extends FunSuite with Matchers with KafkaTestConfig {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   override def configOverrides = super.configOverrides :+

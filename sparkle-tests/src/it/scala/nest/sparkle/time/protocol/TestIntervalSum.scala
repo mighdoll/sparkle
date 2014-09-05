@@ -72,8 +72,7 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
           "transformParameters": {
           }
         }
-      }
-     """
+      }"""
       val service = new ServiceWithCassandra(store, system)
       val response = service.sendDataMessage(msg).await(4.seconds)
       response.status shouldBe OK

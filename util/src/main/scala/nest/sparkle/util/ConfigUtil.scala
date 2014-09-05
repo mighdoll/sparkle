@@ -15,8 +15,11 @@
 package nest.sparkle.util
 
 import java.io.File
+import java.nio.charset.Charset
+import java.nio.file.{Files, Paths}
+import java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
 
-import scala.collection.JavaConverters._
+import scala.collection.JavaConverters.{asJavaIterableConverter, asScalaBufferConverter, asScalaSetConverter}
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 
@@ -82,5 +85,19 @@ object ConfigUtil {
   }
   
   val sparkleConfigName = "sparkle-time-server"
+
+  
+  /** write a composited version of the .conf file */
+  def dumpConfigToFile(config: Config) {
+    val writeList = config.getStringList(s"$sparkleConfigName.dump-config").asScala
+    writeList.headOption.foreach { fileName =>
+      import java.nio.file.StandardOpenOption._
+      val configString = config.root.render()
+      val charSet = Charset.forName("UTF-8")      
+      val writer = Files.newBufferedWriter(Paths.get(fileName), charSet, TRUNCATE_EXISTING)
+      writer.write(configString)
+      writer.close()
+    }
+  }
 
 }

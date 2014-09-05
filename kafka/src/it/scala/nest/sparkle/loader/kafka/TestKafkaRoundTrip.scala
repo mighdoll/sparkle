@@ -22,7 +22,6 @@ import spray.util._
 import org.scalatest.{FunSuite, Matchers}
 
 import nest.sparkle.loader.kafka.KafkaTestTopic.withKafkaTestTopic
-import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 

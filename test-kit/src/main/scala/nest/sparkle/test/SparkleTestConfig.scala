@@ -4,9 +4,24 @@ import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import nest.sparkle.util.ConfigUtil
 import nest.sparkle.util.LogUtil
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
+import org.scalatest.Suite
+import org.scalatest.BeforeAndAfter
+import org.scalatest.BeforeAndAfterAll
+import java.util.concurrent.atomic.AtomicBoolean
+import java.nio.file.Files
+import java.nio.file.Paths
+import scala.collection.JavaConverters._
+import java.io.BufferedWriter
+import java.io.PrintWriter
 
-trait SparkleTestConfig {
-  var loggingInitialized = false
+trait SparkleTestConfig extends Suite with BeforeAndAfterAll {
+  lazy val loggingInitialized = new AtomicBoolean
+
+  override def beforeAll() {
+    initializeLogging()
+    super.beforeAll()
+  }
 
   /** subclasses may override to modify the Config for particular tests */
   def configOverrides: List[(String, Any)] = List()
@@ -23,19 +38,23 @@ trait SparkleTestConfig {
 
     val withOverrides = ConfigUtil.modifiedConfig(root, configOverrides: _*)
 
-    // uncomment to print out the config
-    //    println(withOverrides.root.render())
-
-    initializeLogging(withOverrides)
+    ConfigUtil.dumpConfigToFile(withOverrides)
+    initLogging(withOverrides)
     withOverrides
   }
 
   /** setup logging for sparkle. Triggered automatically when the caller accesses
     * rootConfig. Idempotent.
     */
-  def initializeLogging(root: Config): Unit = {
-    if (!loggingInitialized) {
-      LogUtil.configureLogging(root)
+  def initializeLogging(): Unit = {
+    rootConfig
+  }
+
+  private def initLogging(config: Config) {
+    if (loggingInitialized.compareAndSet(false, true)) {
+      LogUtil.configureLogging(config)
+    } else {
+      println("attempt to initialize logging twice!")
     }
   }
 

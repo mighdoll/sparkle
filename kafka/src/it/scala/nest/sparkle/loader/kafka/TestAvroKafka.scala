@@ -20,7 +20,6 @@ import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.prop.PropertyChecks
 
 import nest.sparkle.loader.kafka.KafkaTestUtil.{withTestAvroTopic, withTestReader}
-import nest.sparkle.test.SparkleTestConfig
 
 class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with KafkaTestConfig {
   import scala.concurrent.ExecutionContext.Implicits.global
