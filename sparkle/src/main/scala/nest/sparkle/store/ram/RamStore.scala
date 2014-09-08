@@ -14,15 +14,13 @@
 
 package nest.sparkle.store.ram
 
-import java.io.FileNotFoundException
-
 import scala.collection.mutable
 import scala.concurrent.Future
-import scala.reflect.runtime.universe._
 
-import nest.sparkle.store.{DataSet, Column, Store, DataSetNotFound}
+import nest.sparkle.store.{Column, ColumnNotFound, DataSet, DataSetNotFound, Store}
 import nest.sparkle.store.cassandra.WriteableColumn
-import nest.sparkle.util.OptionConversion._
+import nest.sparkle.util.OptionConversion.OptionFuture
+import scala.reflect.runtime.universe._
 
 /** A java heap resident database of Columns */
 class WriteableRamStore extends Store {
@@ -40,7 +38,7 @@ class WriteableRamStore extends Store {
   /** return a column from a columnPath e.g. "fooSet/barSet/columName". */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
     val optTypedColumn = columns.get(columnPath).map { _.asInstanceOf[Column[T, U]] }
-    optTypedColumn.toFutureOr(new FileNotFoundException())
+    optTypedColumn.toFutureOr(ColumnNotFound(columnPath))
   }
 
   /** return a WriteableColumn for the given columnPath.  (returned as a future

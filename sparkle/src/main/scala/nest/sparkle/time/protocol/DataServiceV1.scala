@@ -32,6 +32,7 @@ import nest.sparkle.util.ObservableFuture.WrappedObservable
 import spray.routing.RequestContext
 import akka.actor.ActorSystem
 import nest.sparkle.time.transform.InvalidPeriod
+import nest.sparkle.store.ColumnNotFound
 
 /** Provides the v1 sparkle data api
   */
@@ -150,6 +151,8 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
           Status(612, s"Authentication missing.  request: $requestAsString")
         case ColumnForbidden(msg) =>
           Status(613, s"Access to column forbidden.  $msg request: $requestAsString")
+        case ColumnNotFound(msg) =>
+          Status(601, s"Column not found.  $msg request: $requestAsString")
         case InvalidPeriod(msg) =>
           Status(603, s"Invalid period in Transform parameter.  $msg request: $requestAsString")
         case err =>
