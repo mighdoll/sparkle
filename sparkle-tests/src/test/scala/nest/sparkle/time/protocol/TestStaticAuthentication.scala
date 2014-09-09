@@ -32,33 +32,54 @@ class TestStaticAuthentication extends TestStore with SparkleTestConfig with Tes
     }
   }
 
-  test("try a request with a bad password") {
+  test("bad password should be rejected") {
     makeRequest(Some("wrongPassword")) {
       val statusMessage = responseAs[StatusMessage]
       statusMessage.message.code shouldBe 611
     }
   }
 
-  test("try a request with a good password") {
+  test("good password should be accepted") {
     makeRequest(Some(password)) {
       responseAs[StreamsMessage] // or we'll fail
     }
   }
 
-  test("try a request with a missing password") {
+  test("missing password should be rejected") {
     makeRequest(None) {
       val statusMessage = responseAs[StatusMessage]
       statusMessage.message.code shouldBe 612
     }
   }
 
-  test("try a request with a missing realm") {
+  test("missing realm should be rejected") {
     makeRequest(None) {
       val statusMessage = responseAs[StatusMessage]
       statusMessage.message.code shouldBe 612
     }
   }
 
-  // TODO verify that logs don't have id and auth in them
+  test("unauthorized columnNotFound should be rejected for auth (not columnNotFound)") {
+    val msg ="""
+      {
+        "realm": {
+          "name": "sparkle",
+          "id": "1234"
+        },
+        "messageType": "StreamRequest",
+        "message": {
+          "sources": [
+      		  "not/really/there"
+          ],
+          "transform":"raw", 
+				  "transformParameters": {}
+        }
+      }"""
+
+    Post("/v1/data", msg) ~> route ~> check {
+      val statusMessage = responseAs[StatusMessage]
+      statusMessage.message.code shouldBe 612
+    }
+  }
 
 }

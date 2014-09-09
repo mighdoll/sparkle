@@ -16,7 +16,7 @@ package nest.sparkle.time.protocol
 
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
-import scala.util.control.Exception.catching
+import scala.util.control.Exception.nonFatalCatch
 import com.typesafe.config.Config
 import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
@@ -33,11 +33,13 @@ import spray.routing.RequestContext
 import akka.actor.ActorSystem
 import nest.sparkle.time.transform.InvalidPeriod
 import nest.sparkle.store.ColumnNotFound
+import nest.sparkle.util.TryToFuture.FutureTry
+import spray.routing.Route
 
 /** Provides the v1 sparkle data api
   */
 trait DataServiceV1 extends Directives with RichComplete with CorsDirective with Log {
-  def actorSystem:ActorSystem
+  def actorSystem: ActorSystem
   implicit def executionContext: ExecutionContext // TODO can we just use actorSystem.dispatcher here?
   def store: Store
   def rootConfig: Config
@@ -54,37 +56,20 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
     }
   }
 
-  val exceptionHandler = ExceptionHandler {
-    case err => // TODO this should report the request if it can.  
-      ctx =>
-        completeWithError(ctx, Status(999, s"unexpected error. $err"))
-  }
-
   private lazy val postDataRequest =
     path("data") {
       handleExceptions(exceptionHandler) {
         post {
           entity(as[String]) { entityString =>
-            ctx =>
-              for {
-                postedJson <- catchingFormatError(ctx, entityString){ entityString.asJson }
-                streamRequest <- catchingFormatError(ctx, entityString) {
-                  postedJson.convertTo[StreamRequestMessage](StreamRequestMessageFormat)
-                }
-              } {
-                log.info(s"DataServiceV1.request: ${streamRequest.toLogging}")
-                val futureResponse = httpDataRequest(streamRequest)
-                futureResponse.onComplete {
-                  case Success(response: StreamsMessage) => ctx.complete(response)
-                  case Failure(err)                      => ctx.complete(streamError(streamRequest, err))
-                }
-              }
+            parseStreamRequest(entityString) match {
+              case Success(streamRequest) => completeDataRequest(streamRequest)
+              case Failure(err)           => complete(err)
+            }
           }
         }
       }
     }
 
-  
   private lazy val columnsRequest =
     path("columns" / Rest) { dataSetName =>
       if (dataSetName.isEmpty) {
@@ -117,6 +102,50 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
       }
     }
 
+  /** catch-all in case we don't catch the error elsewhere */
+  private val exceptionHandler = ExceptionHandler {
+    case RequestParsingException(origMessage) => { ctx =>
+      completeWithError(ctx, Status(606, s"Request could not be parsed.  $origMessage"))
+    }
+
+    case err => { ctx =>
+      log.error("shouldn't we catch this error elsewhere?", err)
+      completeWithError(ctx, Status(999, s"unexpected error. $err"))
+    }
+  }
+  
+  /** respond to the caller with the results of a processing their StreamRequest */
+  private def completeDataRequest(request: StreamRequestMessage): Route = { ctx =>
+    log.info(s"DataServiceV1.request: ${request.toLogging}")
+    val futureResponse = httpDataRequest(request)
+    futureResponse.onComplete {
+      case Success(response: StreamsMessage) => ctx.complete(response)
+      case Failure(err)                      => ctx.complete(streamError(request, err))
+    }
+  }
+
+  /** return a StreamRequestMessage if it can be succesfully parsed from a string */
+  private def parseStreamRequest(request: String): Try[StreamRequestMessage] = {
+    val result =
+      for {
+        json <- nonFatalCatch.withTry { request.asJson }
+        streamRequest <- nonFatalCatch.withTry { json.convertTo[StreamRequestMessage] }
+      } yield {
+        streamRequest
+      }
+
+    result match {
+      case Failure(err) =>
+        log.warn(s"parseStreamRequest failed to parse: $request", err)  
+        Failure(RequestParsingException(request))
+      case success => success
+    }
+
+  }
+
+  /** process a streamRequest through the api engine, return the results mapped into
+   *  a StreamsMessage.
+   */
   private def httpDataRequest(request: StreamRequestMessage): Future[StreamsMessage] = {
     val futureResponse = {
       for {
@@ -159,7 +188,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
           log.error("no Status reporter for:", err)
           Status(999, s"unknown error $err in $requestAsString")
       }
-    val realmToClient = request.realm.map { orig => RealmToClient(orig.name)}
+    val realmToClient = request.realm.map { orig => RealmToClient(orig.name) }
     val statusMessage = StatusMessage(requestId = request.requestId, realm = realmToClient,
       traceId = request.traceId, messageType = MessageType.Status, message = status)
     log.warn(s"streamError ${status.code} ${status.description}: request: $requestAsString ")
@@ -173,18 +202,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
       messageType = MessageType.Status, message = status)
     context.complete(statusMessage)
   }
-
-  /** catch errors while decoding the StreamsRequestMessage */
-  private def catchingFormatError[T](context: RequestContext, entityString: String)(fn: => T): Try[T] = {
-    def parseError(err: Throwable) {
-      val status = Status(606, s"request format error. $err request: $entityString")
-      completeWithError(context, status)
-    }
-
-    val triedFn = catching(classOf[RuntimeException]).withTry { fn }
-    triedFn.failed.foreach { err => parseError(err) }
-    triedFn
-  }
-
+  
+  case class RequestParsingException(origRequest: String) extends RuntimeException(origRequest)
 }
 
