@@ -112,7 +112,7 @@ trait ConfiguredCassandra extends Log {
   
   private lazy val storeConfig = config.getConfig("sparkle-store-cassandra")
   private lazy val contactHosts: Seq[String] = storeConfig.getStringList("contact-hosts").asScala.toSeq
-  private lazy val storeKeySpace = storeConfig.getString("key-space")
+  private lazy val storeKeySpace = storeConfig.getString("key-space").toLowerCase
   private lazy val replicationFactor = storeConfig.getInt("replication-factor")
   implicit def execution: ExecutionContext = ExecutionContext.global // TODO use a provided execution context
 
