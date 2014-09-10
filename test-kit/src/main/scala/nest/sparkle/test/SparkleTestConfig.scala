@@ -43,13 +43,14 @@ trait SparkleTestConfig extends Suite with BeforeAndAfterAll {
     withOverrides
   }
 
+  /** setup debug logging for tests (via sl4fj).  */
+  def initializeLogging(): Unit = {
+    rootConfig // reference the lazy val rootConfig to trigger it to evaluate 
+  }
+
   /** setup logging for sparkle. Triggered automatically when the caller accesses
     * rootConfig. Idempotent.
     */
-  def initializeLogging(): Unit = {
-    rootConfig
-  }
-
   private def initLogging(config: Config) {
     if (loggingInitialized.compareAndSet(false, true)) {
       LogUtil.configureLogging(config)
