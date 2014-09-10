@@ -26,7 +26,7 @@ import org.sbtidea.SbtIdeaPlugin._
 object BuildSettings {
 
   lazy val allSettings =
-    Defaults.defaultSettings ++
+    Defaults.coreDefaultSettings ++
       orgSettings ++
       compileSettings ++
       eclipseSettings ++
