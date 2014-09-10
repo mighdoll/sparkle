@@ -27,20 +27,8 @@ import nest.sparkle.util.{Log, ConfigUtil}
 trait ConfiguredDataService extends DataService with Log {
   def rootConfig: Config
   lazy val sparkleApiConfig = ConfigUtil.configForSparkle(rootConfig)
-  override def customRoutes: Iterable[Route] = customApis(sparkleApiConfig, registry)
   override lazy val corsHosts:List[String] = sparkleApiConfig.getStringList("cors-hosts").asScala.toList
 
-  /** Return the routes from the ApiExtensions listed in the "apis" section of
-    * the application.conf.
-    */
-  def customApis(config: Config, dataRegistry: DataRegistry)(implicit actorRefFactory: ActorRefFactory): Iterable[Route] = {
-    val classes = config.getStringList("apis").asScala
-    classes.map { className =>
-      log.info(s"adding api from .conf: $className")
-      val custom = Instance.byName[ApiExtension](className)(actorRefFactory, dataRegistry)
-      custom.route
-    }
-  }
 }
 
 

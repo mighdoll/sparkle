@@ -28,7 +28,7 @@ import spray.routing.{ Directives, HttpService, Route }
 import spray.routing.Directive.pimpApply
 import spray.routing.directives.OnCompleteFutureMagnet.apply
 
-import nest.sparkle.legacy.{ ColumnNotFoundException, DataRegistry, DataServiceV0 }
+import nest.sparkle.legacy.{ ColumnNotFoundException }
 import nest.sparkle.store.DataSetNotFound
 import nest.sparkle.time.protocol.{ DataServiceV1, HttpLogging }
 import nest.sparkle.util.Log
@@ -38,8 +38,7 @@ case class FileLocation(location: String) extends FileOrResourceLocation
 case class ResourceLocation(location: String) extends FileOrResourceLocation
 
 /** http API for serving data and static web content */
-trait DataService extends StaticContent with DataServiceV0 with DataServiceV1 with HttpLogging with Log {
-  def registry: DataRegistry
+trait DataService extends StaticContent with DataServiceV1 with HttpLogging with Log {
   implicit def executionContext: ExecutionContext
 
   /** Subsclasses can override customRoutes to provide additional routes.  The resulting
@@ -52,8 +51,7 @@ trait DataService extends StaticContent with DataServiceV0 with DataServiceV1 wi
   private val health: Route = {
     path("health") {
       dynamic {
-        val registryRequest = registry.allSets().map(_ => "ok")
-        complete(registryRequest)
+        complete("ok")
       }
     }
   }
@@ -68,7 +66,6 @@ trait DataService extends StaticContent with DataServiceV0 with DataServiceV1 wi
       externalRoutes ~
       v1protocol ~
       get {
-        v0protocol ~
         staticContent ~
         health ~
         notFound
