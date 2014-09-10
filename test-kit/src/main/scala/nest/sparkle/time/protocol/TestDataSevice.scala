@@ -41,7 +41,6 @@ import scala.util.Success
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
   self: Suite =>
 
-  override lazy val corsHosts = List("*")
   override def actorSystem = system
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   def executionContext = system.dispatcher

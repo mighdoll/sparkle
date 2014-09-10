@@ -74,7 +74,6 @@ class TestCors extends TestStore with StreamRequestor with TestDataService with 
 
 class TestCorsOff extends TestStore with StreamRequestor with TestDataService
     with ExpectHeaders with LocalHostOrigin {
-  override lazy val corsHosts = List()
 
   def expectNoCorsHeaders() {
     expectNoHeader(`Access-Control-Allow-Origin`)

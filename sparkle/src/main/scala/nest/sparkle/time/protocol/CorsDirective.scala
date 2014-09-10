@@ -14,16 +14,10 @@
 
 package nest.sparkle.time.protocol
 
-import spray.routing.Directives
-import spray.http.AllOrigins
-import spray.http.SomeOrigins
-import spray.http.HttpOrigin
+import spray.http.{ AllOrigins, SomeOrigins, HttpOrigin, HttpHeader, HttpMethod } 
 import spray.http.HttpHeaders._
 import spray.http.HttpMethods._
-import spray.http.HttpHeader
-import spray.routing.Directive1
-import spray.routing.Route
-import spray.http.HttpMethod
+import spray.routing.{ Route, Directives, Directive1 }
 
 /** Mix in to a Directives route structure to add the cors directive. Wrap a route in the cors
   * directive, and route will support OPTIONS preflight requests and cors header generation.
