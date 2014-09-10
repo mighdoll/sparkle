@@ -81,9 +81,7 @@ addDebugger () {
 # so they need not be dorked around with individually.
 get_mem_opts () {
   local mem=${1:-1024}
-  local perm=$(( $mem / 4 ))
-  (( $perm > 256 )) || perm=256
-  (( $perm < 1024 )) || perm=1024
+  local perm=768
   local codecache=$(( $perm / 2 ))
 
   echo "-Xms${mem}m -Xmx${mem}m -XX:MaxPermSize=${perm}m -XX:ReservedCodeCacheSize=${codecache}m"
