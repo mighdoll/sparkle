@@ -43,7 +43,7 @@ class TestV1Api extends TestStore with StreamRequestor with TestDataService {
   }
 
   // cors is causing a 405 instead of a 404.
-  ignore("Missing dataset should get a 404") {
+  test("Missing dataset should get a 404") {
     val path = s"/v1/columns"
     Get(path) ~> sealRoute(v1protocol) ~> check {
       response.status shouldBe StatusCodes.NotFound
