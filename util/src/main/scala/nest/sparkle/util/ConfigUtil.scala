@@ -94,7 +94,7 @@ object ConfigUtil {
       import java.nio.file.StandardOpenOption._
       val configString = config.root.render()
       val charSet = Charset.forName("UTF-8")      
-      val writer = Files.newBufferedWriter(Paths.get(fileName), charSet, TRUNCATE_EXISTING)
+      val writer = Files.newBufferedWriter(Paths.get(fileName), charSet, TRUNCATE_EXISTING, CREATE)
       writer.write(configString)
       writer.close()
     }
