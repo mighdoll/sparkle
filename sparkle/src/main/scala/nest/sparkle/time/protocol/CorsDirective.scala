@@ -14,10 +14,11 @@
 
 package nest.sparkle.time.protocol
 
-import spray.http.{ AllOrigins, SomeOrigins, HttpOrigin, HttpHeader, HttpMethod } 
+import spray.http.{ AllOrigins, SomeOrigins, HttpOrigin, HttpHeader, HttpMethod }
 import spray.http.HttpHeaders._
 import spray.http.HttpMethods._
 import spray.routing.{ Route, Directives, Directive1 }
+import spray.routing.{ MethodRejection, Directive0 }
 
 /** Mix in to a Directives route structure to add the cors directive. Wrap a route in the cors
   * directive, and route will support OPTIONS preflight requests and cors header generation.
@@ -55,14 +56,23 @@ trait CorsDirective {
     * preflight requests.
     */
   def cors(inner: Route): Route = {
-    options {
-      corsWrap {
-        complete("")
+    cancelMethodRejection {
+      options {
+        corsWrap {
+          complete("")
+        }
       }
     } ~
       corsWrap {
         inner
       }
+  }
+
+  val cancelMethodRejection: Directive0 = {
+    cancelAllRejections {
+      case MethodRejection(_) => true
+      case _                  => false
+    }
   }
 
   /** convert a route to a route that responds with CORS headers
