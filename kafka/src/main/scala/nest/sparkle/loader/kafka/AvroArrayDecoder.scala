@@ -19,9 +19,10 @@ import scala.reflect.runtime.universe._
 import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 
-import org.apache.avro.generic.GenericRecord
 import org.apache.avro.Schema
+import org.apache.avro.generic.GenericRecord
 import org.apache.avro.generic.GenericData
+import org.apache.avro.util.Utf8
 
 import nest.sparkle.loader.kafka.SchemaDecodeException.schemaDecodeException
 import nest.sparkle.store.Event
@@ -199,7 +200,15 @@ object AvroArrayDecoder extends Log {
         valueColumns.map { values =>
           keys zip values map {
             case (key, value) =>
-              Event(key, value)
+              val k = key match {
+                case s: Utf8 => s.toString
+                case _       => key
+              }
+              val v = value match {
+                case s: Utf8 => s.toString
+                case _       => value
+              }
+              Event(k, v)
           }
         }
       }

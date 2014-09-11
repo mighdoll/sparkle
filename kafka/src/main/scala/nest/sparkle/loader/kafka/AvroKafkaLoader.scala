@@ -14,7 +14,7 @@
 
 package nest.sparkle.loader.kafka
 
-import java.util.concurrent.{ForkJoinPool, Executors}
+import java.util.concurrent.Executors
 
 import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,9 +34,11 @@ import nest.sparkle.util.Exceptions.NYI
 import nest.sparkle.util.KindCast.castKind
 import nest.sparkle.util.TryToFuture.FutureTry
 import nest.sparkle.util.{Instance, Log, Watched, Instrumented, ConfigUtil}
+import nest.sparkle.util.ObservableFuture._
 
 
-object AvroKafkaLoader {
+object AvroKafkaLoader 
+{
   /** thrown if a nullable id field is null and no default value was defined */
   case class NullableFieldWithNoDefault(msg: String) // format: OFF
      extends RuntimeException(s"nullable id field is null and no default value was defined: $msg") // format: ON
@@ -58,7 +60,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   private val loaderConfig = ConfigUtil.configForSparkle(rootConfig).getConfig("kafka-loader")
   private lazy val topics = loaderConfig.getStringList("topics").asScala.toSeq
   
-  // Each KafkaReader consumes a thread for the underlying Kafka Consumer stream interator
+  // Each KafkaReader consumes a thread for the underlying Kafka Consumer stream iterator
   private lazy val readerThreadPool = Executors.newFixedThreadPool(topics.size)
   private lazy val readerExecutionContext = ExecutionContext.fromExecutor(readerThreadPool)
   
@@ -171,15 +173,16 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   /** Attach a storage writing stage to an Observable pipeline of TaggedBlocks. Return an Observable with
    *  the storage writing stage attached. */
   private def attachWriter[T](pipeline: Observable[TaggedBlock], reader: KafkaReader[T]): Observable[TaggedBlock] = {
-    pipeline.map { block =>
+    pipeline.flatMap { block =>
       val written = writeBlock(block)
-      written.map { updates =>
+      val eventualBlock = written.map { updates =>
         recordComplete(reader, updates)
+        block
       }
-      block
+      eventualBlock.toObservable
     }
   }
-
+  
   /** Return an observable that reads blocks of data from kafka.
     * Reading begins when the caller subscribes to the returned Observable.
     */
