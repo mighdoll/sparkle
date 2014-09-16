@@ -20,6 +20,7 @@ object ColumnTypes {
 
   case class UnsupportedColumnType[T, U](keySerial: CanSerialize[T], valueSerial: CanSerialize[U])
     extends RuntimeException(s"${keySerial.columnType}-${valueSerial.columnType}")
+  
   /** retrieve the serialization info for one of the supported column types */
   def serializationInfo[T: CanSerialize, U: CanSerialize](): SerializeInfo[T, U] = {
     val keySerialize = implicitly[CanSerialize[T]]

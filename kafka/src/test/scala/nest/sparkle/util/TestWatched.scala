@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 /** a simple watchable class of three numbers of testing */
 case class TestWatchable() extends Watched[Int] {
   def publicData: Observer[Int] = watchedData
-  val items = Observable.items(1, 2, 3)
+  val items = Observable.from(Seq(1, 2, 3))
   def start() {
     // RX is there a clearer idiom for connecting observer to observable?
     items.subscribe(publicData)

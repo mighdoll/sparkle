@@ -24,7 +24,7 @@ object sparkleCoreBuild extends Build {
   }
 
   lazy val sparkleRoot = Project(id = "root", base = file("."))
-    .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, testKit, sparkleTests, util, logbackConfig, log4jConfig)
+    .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, sparkShell, testKit, sparkleTests, util, logbackConfig, log4jConfig)
 
   lazy val sparkleDataServer =  // standalone protocol server
     Project(id = "sparkle-data-server", base = file("data-server"))
@@ -55,6 +55,7 @@ object sparkleCoreBuild extends Build {
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
         libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ Seq(
+        libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ spark ++ Seq(
           scalaReflect,
           rxJavaCore,
           rxJavaScala,
@@ -76,7 +77,6 @@ object sparkleCoreBuild extends Build {
 
   lazy val kafkaLoader =    // loading from kafka into the store
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
-      .dependsOn(util)
       .dependsOn(sparkleCore)
       .dependsOn(testKit)
       .dependsOn(log4jConfig)
@@ -85,6 +85,19 @@ object sparkleCoreBuild extends Build {
       .settings(
         libraryDependencies ++= kafka ++ testAndLogging ++ avro ++ Seq(
           metricsScala
+        )
+      )
+
+  lazy val sparkShell =   // admin shell
+    Project(id = "spark-repl", base = file("spark"))
+      .dependsOn(sparkleCore)
+      .dependsOn(testKit)
+      .dependsOn(logbackConfig)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= testAndLogging ++ Seq(
+          sparkRepl
         )
       )
 
@@ -101,7 +114,7 @@ object sparkleCoreBuild extends Build {
     Project(id = "sparkle-tests", base = file("sparkle-tests"))
       .dependsOn(protocol)
       .dependsOn(testKit)
-      .dependsOn(logbackConfig % "test->compile;it->compile")
+      .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(

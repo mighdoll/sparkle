@@ -32,7 +32,7 @@ class ConfiguredDataServer(val registry: DataRegistry, val store: Store, val roo
   override def actorRefFactory: ActorRefFactory = context
   override def actorSystem = context.system
   def receive: Receive = runRoute(route)
-  def executionContext: ExecutionContextExecutor = context.dispatcher
+  def executionContext = context.dispatcher
 
   override lazy val webRoot: Option[FileOrResourceLocation] = configuredWebRoot()
   

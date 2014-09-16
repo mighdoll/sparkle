@@ -17,11 +17,12 @@ import sbt._
 object Dependencies {
   object V {
     val scalaTest = "2.1.0"
-    val akka = "2.3.0"
-    val spray = "1.3.1"
+    val akka = "2.2.3"
+    val spray = "1.2.1"
     val rxJava = "0.20.4"
-    val scalaCheck = "1.11.3"
+    val scalaCheck = "1.11.3" // TODO update to 1.11.5
     val scala = "2.10.4"
+    val spark = "1.0.2"
   }
 
   // To get latest versions
@@ -43,15 +44,37 @@ object Dependencies {
   val spire                 = "org.spire-math"            %% "spire"                  % "0.7.4"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
   val cassandraAll          = "org.apache.cassandra"      % "cassandra-all"           % "2.0.3"
-  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.1.0"
+  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.0.4" // 2.10 is incompatible with spark-cassandra 1.0.0
   val snappy                = "org.xerial.snappy"         % "snappy-java"             % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           % "lz4"                     % "1.2.0"
 
   val scalaReflect          = "org.scala-lang"            % "scala-reflect"           % V.scala
+  val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.1.0"
 
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
-  val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.1.0"
+  val sparkCassandra        = "com.datastax.spark"        %% "spark-cassandra-connector" % "1.0.0" withSources() withJavadoc()
+  val sparkCore             = ("org.apache.spark"         %% "spark-core"             % V.spark
+                                exclude("org.slf4j", "slf4j-log4j12")
+                              )
+  val sparkMllib            = ("org.apache.spark"         %% "spark-mllib"            % V.spark
+                                exclude("com.typesafe", "scalalogging-slf4j_2.10")   // avoid version conflict (and selected explicitly above anyway)
+                                exclude("org.slf4j", "slf4j-log4j12")
+                              )
+  val sparkRepl             = ("org.apache.spark"          %% "spark-repl"             % V.spark          )
+                              /* // TODO are these excludes necessary?
+                                exclude("com.google.guava", "guava")  
+                                exclude("org.apache.spark", "spark-core_2.10") 
+                                exclude("org.apache.spark", "spark-bagel_2.10") 
+                                exclude("org.apache.spark", "spark-mllib_2.10") 
+                                exclude("org.scala-lang", "scala-compiler")          
+                              */
+  val breezeNatives         = ("org.scalanlp"              %% "breeze-natives"         % "0.7"
+                                exclude("com.github.fommil.netlib", "all")
+                              )
+  val nativeNetlibLinux     = "com.github.fommil.netlib" % "netlib-native_system-linux-x86_64" % "1.1" classifier "natives"
+  val nativeNetlibOsX       = "com.github.fommil.netlib" % "netlib-native_system-osx-x86_64" % "1.1" classifier "natives"
+                              
   val apacheAvro            = "org.apache.avro"           % "avro"                    % "1.7.6"
   val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.1.1"
                                   exclude("javax.jms", "jms")
@@ -63,43 +86,43 @@ object Dependencies {
   val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.0" 
   val nettyAll              = "io.netty"                  % "netty-all"               % "4.0.19.Final" 
   
-  val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.1_a2.3"
+  val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.1_a2.2"
   val metricsGraphite       = "com.codahale.metrics"      %  "metrics-graphite"       % "3.0.2"
 
   object Runtime {
-    val logback              = "ch.qos.logback"            % "logback-classic"         % "1.1.2"
-    val log4j                = "log4j"                     % "log4j"                   % "1.2.17"
-    val slf4jlog4j           = "org.slf4j"                 % "slf4j-log4j12"           % "1.7.7"
-    val log4jBridge          = "org.slf4j"                 % "log4j-over-slf4j"        % "1.7.7"
+    val logback             = "ch.qos.logback"            % "logback-classic"         % "1.1.2"
+    val log4j               = "log4j"                     % "log4j"                   % "1.2.17"
+    val slf4jlog4j          = "org.slf4j"                 % "slf4j-log4j12"           % "1.7.7"
+    val log4jBridge         = "org.slf4j"                 % "log4j-over-slf4j"        % "1.7.7"
   }
 
   object Test {
-    val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest  % "test"
-    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck % "test"
-    val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray      % "test"
-    val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       % "test"
+    val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest  % "test"
+    val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck % "test"
+    val sprayTestKit        = "io.spray"                 %  "spray-testkit"          % V.spray      % "test"
+    val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       % "test"
   }
 
   object IT {
-    val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest  % "it"
-    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck % "it"
-    val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray      % "it"
-    val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       % "it"
+    val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest  % "it"
+    val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck % "it"
+    val sprayTestKit        = "io.spray"                 %  "spray-testkit"          % V.spray      % "it"
+    val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       % "it"
   }
   
   object Kit {
-    val scalaTest            = "org.scalatest"            %% "scalatest"              % V.scalaTest 
-    val scalaCheck           = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck        
-    val sprayTestKit         = "io.spray"                 %  "spray-testkit"          % V.spray      
-    val akkaTestKit          = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       
+    val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest 
+    val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck        
+    val sprayTestKit        = "io.spray"                 %  "spray-testkit"          % V.spray      
+    val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       
   }
   
   object Optional {
-    val logback              = Runtime.logback               % "optional"
-    val log4j                = Runtime.log4j                 % "optional"
-    val slf4jlog4j           = Runtime.slf4jlog4j            % "optional"
-    val log4jBridge          = Runtime.log4jBridge           % "optional"
-    val metricsGraphite      = Dependencies.metricsGraphite  % "optional"
+    val logback             = Runtime.logback               % "optional"
+    val log4j               = Runtime.log4j                 % "optional"
+    val slf4jlog4j          = Runtime.slf4jlog4j            % "optional"
+    val log4jBridge         = Runtime.log4jBridge           % "optional"
+    val metricsGraphite     = Dependencies.metricsGraphite  % "optional"
   }
 
   val basicTest = Seq(
@@ -173,5 +196,18 @@ object Dependencies {
     snappy,
     lz4
   )
+
+  val nativeMath = Seq(
+    breezeNatives,
+    nativeNetlibLinux,
+    nativeNetlibOsX
+  )
+
+  val spark = Seq(
+    sparkCassandra,
+    sparkMllib,
+    sparkCore
+  ) ++ nativeMath
+ 
 
 }
