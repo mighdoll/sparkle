@@ -26,17 +26,16 @@ import org.sbtidea.SbtIdeaPlugin._
 object BuildSettings {
 
   lazy val allSettings =
-    Defaults.coreDefaultSettings ++
-      orgSettings ++
-      compileSettings ++
-      eclipseSettings ++
-      ideaSettings ++
-      itSettingsWithEclipse ++
-      slf4jSettings ++
-      testSettings ++
-      publishSettings ++
-      dependencyOverrideSettings ++
-      org.scalastyle.sbt.ScalastylePlugin.Settings
+    orgSettings ++
+    compileSettings ++
+    eclipseSettings ++
+    ideaSettings ++
+    itSettingsWithEclipse ++
+    slf4jSettings ++
+    testSettings ++
+    publishSettings ++
+    dependencyOverrideSettings ++
+    org.scalastyle.sbt.ScalastylePlugin.Settings
 
   lazy val orgSettings = Seq(
     organization := "nest",
