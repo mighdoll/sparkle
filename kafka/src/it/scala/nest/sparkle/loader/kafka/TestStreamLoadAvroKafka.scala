@@ -68,7 +68,7 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
 
         storeWrite.take(records.length).toBlocking.head // await completion
         checkCassandra(testStore, records)
-        loader.close()
+        loader.shutdown()
       }
     }
   }

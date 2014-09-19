@@ -20,7 +20,7 @@ import rx.lang.scala.Observable
 
 import com.typesafe.config.{Config, ConfigFactory}
 
-import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector, ConsumerTimeoutException, Whitelist}
+import kafka.consumer._
 import kafka.serializer.Decoder
 
 import nest.sparkle.loader.kafka.KafkaDecoders.Implicits._
@@ -79,6 +79,11 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
       connected
     }
   }
+  
+  /** return an iterable of decoded data from the kafka topic */
+  def consumerIterator(): ConsumerIterator[String, T] = {
+    whiteListStream().iterator()
+  }
 
   /** return an observable stream of decoded data from the kafka topic */
   def stream()(implicit execution: ExecutionContext): Observable[T] = {
@@ -104,8 +109,24 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
   /** Close the connection, allowing another reader in the same consumerGroup to take
     * over reading from this topic/partition.
     */
-  def close(): Unit = {
-    connection.shutdown()
+  def close(): Unit = synchronized {
+    try {
+      currentConnection.map(_.shutdown())
+    } finally {
+      currentConnection = None
+    }
+  }
+
+  /** Return a stream over the incoming kafka data. We use Kafka's Whitelist based
+    * message stream creator even though we have only one topic because it internally
+    * manages merging data from multiple threads into one stream. (internally inside
+    * the kafka driver, there's one thread for each partition).
+    */
+  private def whiteListStream(): KafkaStream[String, T] = {
+    val decoder = implicitly[Decoder[T]]
+    val topicFilter = new Whitelist(topic)
+    val streams = connection.createMessageStreamsByFilter(topicFilter, 1, StringDecoder, decoder)
+    streams.head
   }
 
   /** Return an iterator over the incoming kafka data. We use Kafka's Whitelist based
@@ -114,10 +135,7 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
     * the kafka driver, there's one thread for each partition).
     */
   private def whiteListIterator(): Iterator[T] = {
-    val decoder = implicitly[Decoder[T]]
-    val topicFilter = new Whitelist(topic)
-    val streams = connection.createMessageStreamsByFilter(topicFilter, 1, StringDecoder, decoder)
-    val stream = streams.head
+    val stream = whiteListStream()
 
     stream.iterator().map { msg => {
       readMetric.mark()
@@ -147,7 +165,7 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
     }
   }
 
-  /** shutdown current connection and reconnect */
+  /** keepRunning current connection and reconnect */
   private def reconnect(): ConsumerConnector = synchronized {
     log.warn(s"reconnecting ConsumerConnector for $topic")
     currentConnection.map(_.shutdown())

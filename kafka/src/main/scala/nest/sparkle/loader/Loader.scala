@@ -18,6 +18,11 @@ object Loader {
   trait LoadingFilter {
     def filter(filter: Observable[TaggedBlock]): Observable[TaggedBlock]
   }
+
+  /** transform a source column slice into a potentially different slice */
+  trait LoadingTransformer {
+    def transform(source: TaggedBlock): TaggedBlock
+  }
 }
 
 /** an update to a watcher about the latest value loaded */
