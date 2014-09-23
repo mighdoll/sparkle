@@ -1,8 +1,8 @@
 package nest.sparkle.util
 
-import org.scalatest.{FunSuite, Matchers}
+import scala.concurrent.duration._
 
-import com.github.nscala_time.time.Implicits._
+import org.scalatest.{FunSuite, Matchers}
 
 /**
  * Add description here.
@@ -16,7 +16,7 @@ class TestRetryManager
 {
   
   test("Execute should succeed on first try") {
-    val mgr = RetryManager(10.millis,1.seconds)
+    val mgr = RetryManager(10 milliseconds,1 seconds)
     val answer = 42
     
     def success: Int = {
@@ -29,12 +29,13 @@ class TestRetryManager
   }
   
   test("Execute should try 5 times") {
-    val mgr = RetryManager(10.millis,1.seconds)
+    val mgr = RetryManager(10 milliseconds,1 seconds)
     val answer = 42
     var count = 0
+    val N = 5
     
-    def failOnce: Int = {
-      if (count == 5) {
+    def failN: Int = {
+      if (count == N) {
         answer
       } else {
         count += 1
@@ -42,14 +43,14 @@ class TestRetryManager
       }
     }
     
-    val result = mgr.execute[Int](failOnce)
+    val result = mgr.execute[Int](failN)
     
     result shouldBe answer
     count shouldBe 5
   }
   
   test("Fatal error should be thrown") {
-    val mgr = RetryManager(10.millis,1.seconds)
+    val mgr = RetryManager(10 millis,1 seconds)
     
     def die: Int = {
       throw new InterruptedException("die")

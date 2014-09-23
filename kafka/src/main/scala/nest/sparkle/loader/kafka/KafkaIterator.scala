@@ -1,11 +1,10 @@
 package nest.sparkle.loader.kafka
 
+import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
 import scala.reflect.runtime.universe._
 import scala.language.existentials
-
-import com.github.nscala_time.time.Implicits._
 
 import kafka.consumer.{ConsumerTimeoutException, ConsumerIterator}
 import kafka.message.MessageAndMetadata
@@ -85,11 +84,11 @@ class KafkaIterator[T: Decoder](val reader: KafkaReader[T])
 
 object KafkaIterator
 {
-  /** Maximum time to wait between consumer iterator create attempts */
-  val initialConnectRetryWait = 200.millis.toDuration
+  /** Initial time to wait between consumer iterator create attempts */
+  val initialConnectRetryWait = 200.milliseconds
   
   /** Maximum time to wait between consumer iterator create attempts */
-  val maxConnectRetryWait = 1.minute.toDuration
+  val maxConnectRetryWait = 1.minutes
   
   def apply[T: Decoder](reader: KafkaReader[T]): KafkaIterator[T] =
     new KafkaIterator[T](reader)

@@ -1,11 +1,8 @@
 package nest.sparkle.util
 
-import scala.util.{Try, Success, Failure}
+import scala.concurrent.duration._
 import scala.util.control.NonFatal
-
-import org.joda.time.Duration
-
-import com.github.nscala_time.time.Implicits._
+import scala.util.{Failure, Success, Try}
 
 /**
  * Class to provide exponentially increasing with limit sleep time.
@@ -73,9 +70,9 @@ case class RetryManager(initial: Duration, limit: Duration)
   
   /** Make the current thread sleep for the current duration then compute the next duration */
   private def sleep(sleepTime: Duration): Duration = {
-    Thread.sleep(sleepTime.millis)
+    Thread.sleep(sleepTime.toMillis)
     
-    val nextSleepTime = sleepTime + sleepTime
+    val nextSleepTime = sleepTime * 2
     nextSleepTime match {
       case t if t >= limit => limit
       case t               => t
