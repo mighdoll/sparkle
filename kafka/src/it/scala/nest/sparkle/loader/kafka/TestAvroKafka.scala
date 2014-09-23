@@ -22,7 +22,6 @@ import org.scalatest.prop.PropertyChecks
 import nest.sparkle.loader.kafka.KafkaTestUtil.{withTestAvroTopic, withTestReader}
 
 class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with KafkaTestConfig {
-  import scala.concurrent.ExecutionContext.Implicits.global
   import AvroRecordGenerators.Implicits.arbitraryMillisDoubleRecord
 
   test("read/write a few avro encoded elements from the kafka queue") {
@@ -31,13 +30,14 @@ class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with Kafk
         withTestAvroTopic(rootConfig, MillisDoubleAvro.schema) { testTopic =>
           testTopic.writer.write(records)
           withTestReader(testTopic){ reader =>
-            val stream = reader.stream()
-            val results = stream.take(records.length).toBlocking.toList
+            val stream = reader.messageAndMetaDataIterator
+            val results = stream.take(records.length).toList
             results.length shouldBe records.length
             records zip results foreach {
               case (record, result) =>
-                record.get("time") shouldBe result.get("time")
-                record.get("value") shouldBe result.get("value")
+                val msg = result.message()
+                record.get("time") shouldBe msg.get("time")
+                record.get("value") shouldBe msg.get("value")
             }
           }
         }

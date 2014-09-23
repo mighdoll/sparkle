@@ -23,7 +23,6 @@ import scala.reflect.runtime.universe._
 
 import com.typesafe.config.Config
 
-import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.store.WriteableStore
 import nest.sparkle.util.{Log, ConfigUtil}
 
@@ -41,8 +40,6 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   // Each KafkaReader consumes a thread for the underlying Kafka Consumer stream iterator
   private lazy val readerThreadPool = Executors.newFixedThreadPool(topics.size)
   private lazy val readerExecutionContext = ExecutionContext.fromExecutor(readerThreadPool)
-
-  //private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
 
   private val loaders = topics.map(new KafkaAvroArrayTopicLoader[K](rootConfig, storage, _)).toList
 

@@ -76,7 +76,7 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
   /** store metadata about a column in Cassandra */ // format: OFF
   def writeCatalogEntry(entry: CassandraCatalogEntry)
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
-    log.info(s"writing catalog entry: $entry")
+    log.debug(s"writing catalog entry: $entry")
     val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef] }.toSeq
     val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
     val result = session.executeAsync(statement).toFuture.map{ _ => }

@@ -31,7 +31,7 @@ object GraphiteReporter extends MetricsGraphiteReporter {
     val reporter = CHGraphiteReporter.forRegistry(MetricsInstrumentation.registry)
       .prefixedWith(prefix)
       .convertRatesTo(TimeUnit.SECONDS)
-      .convertDurationsTo(TimeUnit.SECONDS)
+      .convertDurationsTo(TimeUnit.MILLISECONDS)
       .build(graphite)
     
     reporter.start(interval, TimeUnit.MINUTES)

@@ -17,21 +17,22 @@ package nest.sparkle.store.cassandra
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-import org.slf4j.LoggerFactory
-
-import com.typesafe.scalalogging.slf4j.Logger
-
 import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
-import nest.sparkle.store.cassandra.SparseColumnWriter._
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.{Instrumented, Log}
 
 import com.datastax.driver.core.{BatchStatement, Session}
 
-object SparseColumnWriter extends PrepareTableOperations {
+object SparseColumnWriter 
+  extends PrepareTableOperations
+  with Instrumented
+{
   case class InsertOne(override val tableName: String) extends TableOperation
   case class DeleteAll(override val tableName: String) extends TableOperation
+  
+  /** All SparseColumnWriters use this metric */
+  protected val batchMetric = metrics.timer("store-batch-writes")
 
   override val prepareStatements = List(
     (InsertOne -> insertOneStatement _),
@@ -90,6 +91,7 @@ object SparseColumnWriter extends PrepareTableOperations {
       VALUES (?, ?, ?, ?, ?)
       """
 }
+import nest.sparkle.store.cassandra.SparseColumnWriter._
 
 /** Manages a column of (argument,value) data pairs.  The pair is typically
   * a millisecond timestamp and a double value.
@@ -100,10 +102,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     writeNotifier:WriteNotifier)(implicit session: Session)
   extends WriteableColumn[T, U] 
   with ColumnSupport 
-  with Instrumented 
   with Log { // format: ON
-  
-  private val batchMetric = metrics.timer("store-batch-writes")
 
   val serialInfo = serializationInfo[T, U]()
   val tableName = serialInfo.tableName

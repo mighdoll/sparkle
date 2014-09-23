@@ -2,11 +2,16 @@ package nest.sparkle.loader.kafka
 
 import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
+import scala.reflect.runtime.universe._
+import scala.language.existentials
 
-import kafka.consumer.{ConsumerIterator, ConsumerTimeoutException}
+import com.github.nscala_time.time.Implicits._
+
+import kafka.consumer.{ConsumerTimeoutException, ConsumerIterator}
 import kafka.message.MessageAndMetadata
+import kafka.serializer.Decoder
 
-import nest.sparkle.util.Log
+import nest.sparkle.util.{RetryManager, Log}
 
 import KafkaIterator._
 
@@ -15,15 +20,34 @@ import KafkaIterator._
  * 
  * Kafka messages are converted to TaggedBlocks which may be optionally transformed.
  */
-class KafkaIterator(val reader: KafkaReader[ArrayRecordColumns]) 
-  extends Iterator[Try[MessageAndMetadata[String, ArrayRecordColumns]]]
+class KafkaIterator[T: Decoder](val reader: KafkaReader[T]) 
+  extends Iterator[Try[MessageAndMetadata[String, T]]]
   with Log
 {  
   /** The current consumer iterator */
   private lazy val consumerIterator = createConsumerIterator
 
-  /** Return consumer iterator's hasNext. */
-  override def hasNext: Boolean = consumerIterator.hasNext()
+  /** Return consumer iterator's hasNext. 
+    * 
+    * If the consumer iterator times out keep trying until we get a true or false.
+    * 
+    * Note that false can not be returned if a ConsumerTimeoutException is thrown as that
+    * causes the iterator to terminate prematurely.
+    */
+  override def hasNext: Boolean = {
+    var done = false
+    var result = false
+    while (!done) {
+      try {
+        result = consumerIterator.hasNext()
+        done = true
+      } catch {
+        case err: ConsumerTimeoutException =>
+      }
+    }
+    
+    result
+  }
   
   /** Return next item as a Success.
     * 
@@ -31,16 +55,13 @@ class KafkaIterator(val reader: KafkaReader[ArrayRecordColumns])
     * The caller will likely discard this iterator and close the reader for everything except
     * a ConsumerTimeoutException, which is expected.
     */
-  override def next() : Try[MessageAndMetadata[String, ArrayRecordColumns]] = {
+  override def next() : Try[MessageAndMetadata[String, T]] = {
     try {
       val mm = consumerIterator.next()
       Success(mm)
     } catch {
-      case e: ConsumerTimeoutException =>
-        Failure(e)
-      case NonFatal(err)               =>
-        log.error("Exception calling hasNext()", err)
-        Failure(err)
+      case NonFatal(err) =>
+         Failure(err)
     }
   }
   
@@ -49,34 +70,15 @@ class KafkaIterator(val reader: KafkaReader[ArrayRecordColumns])
    * 
    * Keeps trying if it fails. Current thread is blocked.
    * 
+   * Kafka unfortunately doesn't derive all of it's exceptions from a base class or trait.
+   * This leaves us no easy way to catch just Kafka errors. We use execute that retries on all
+   * non-fatal errors. It would be better to just retry on known Kafka connection exceptions.
+   * 
    * @return iterator
    */
   private def createConsumerIterator = {
-    var iter: ConsumerIterator[String, ArrayRecordColumns] = null
-    var done = false
-    var sleepTime = 200L
-    while (!done) {
-      try {
-        iter = reader.consumerIterator()
-        done = true
-      } catch {
-        case NonFatal(err) =>
-          log.error("Exception getting iterator: {}", err.getMessage)
-          
-          // Connection state is unknown, close it. A reconnect will be tried on next iterator attempt.
-          reader.close()
-          
-          // Sleep with limited back-off
-          Thread.sleep(sleepTime)
-          sleepTime = {
-            sleepTime match {
-              case t if t >= maxConnectRetryWait => maxConnectRetryWait
-              case _                             => sleepTime * 2L
-            }
-          }
-      }
-    }
-    iter
+    val retryManager = RetryManager(initialConnectRetryWait, maxConnectRetryWait)
+    retryManager.execute[ConsumerIterator[String,T]](reader.consumerIterator())
   }
   
 }
@@ -84,8 +86,11 @@ class KafkaIterator(val reader: KafkaReader[ArrayRecordColumns])
 object KafkaIterator
 {
   /** Maximum time to wait between consumer iterator create attempts */
-  val maxConnectRetryWait = 60000L
+  val initialConnectRetryWait = 200.millis.toDuration
   
-  def apply(reader: KafkaReader[ArrayRecordColumns]): KafkaIterator =
-    new KafkaIterator(reader)
+  /** Maximum time to wait between consumer iterator create attempts */
+  val maxConnectRetryWait = 1.minute.toDuration
+  
+  def apply[T: Decoder](reader: KafkaReader[T]): KafkaIterator[T] =
+    new KafkaIterator[T](reader)
 }

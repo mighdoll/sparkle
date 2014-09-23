@@ -78,15 +78,16 @@ trait AvroLoaderFixture extends CassandraTestConfig {
       kafkaWriter.write(avroRecords)
       val storeWrite = testStore.writeListener.listen[T](loadColumnPath)
       val loader = new AvroKafkaLoader[Long](modifiedRootConfig, testStore)
-      loader.start()
-      storeWrite.take(records).toBlocking.head // await completion of write to store.  
-
-      val readColumn = testStore.column[T, U](loadColumnPath).await
-      val read = readColumn.readRange(None, None)
-      val results = read.initial.toBlocking.toList
-      fn(results)
-      
-      loader.shutdown()
+      try {
+        loader.start()
+        storeWrite.take(records).toBlocking.head // await completion of write to store.  
+        val readColumn = testStore.column[T, U](loadColumnPath).await
+        val read = readColumn.readRange(None, None)
+        val results = read.initial.toBlocking.toList
+        fn(results)
+      } finally {
+        loader.shutdown()
+      }
     }
   }
 

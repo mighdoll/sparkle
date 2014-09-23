@@ -59,7 +59,7 @@ object sparkleCoreBuild extends Build {
       .dependsOn(util)
       .dependsOn(sparkleCore)
       .dependsOn(testKit)
-      .dependsOn(log4jConfig % "test->compile;it->compile")
+      .dependsOn(log4jConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(

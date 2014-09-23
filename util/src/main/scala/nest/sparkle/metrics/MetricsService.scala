@@ -61,7 +61,7 @@ trait MetricsService
     val writer = new Graphite(stream)
     val reporter = CHGraphiteReporter.forRegistry(MetricsInstrumentation.registry)
       .convertRatesTo(TimeUnit.SECONDS)
-      .convertDurationsTo(TimeUnit.SECONDS)
+      .convertDurationsTo(TimeUnit.MILLISECONDS)
       .build(writer)
     reporter.report()
     

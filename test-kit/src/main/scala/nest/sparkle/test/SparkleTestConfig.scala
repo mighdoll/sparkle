@@ -31,11 +31,14 @@ trait SparkleTestConfig extends Suite with BeforeAndAfterAll {
 
   /** return the outermost Config object. Also triggers logging initialization */
   lazy val rootConfig: Config = {
+    val baseConfig = ConfigFactory.load()
     val root = testConfigFile match {
-      case Some(confFile) => ConfigFactory.load(confFile)
-      case None           => ConfigFactory.load()
+      case Some(confFile) => 
+        val config = ConfigFactory.parseResources(confFile+".conf").resolve()
+        config.withFallback(baseConfig)
+      case None           => baseConfig
     }
-
+ 
     val withOverrides = ConfigUtil.modifiedConfig(root, configOverrides: _*)
 
     ConfigUtil.dumpConfigToFile(withOverrides)

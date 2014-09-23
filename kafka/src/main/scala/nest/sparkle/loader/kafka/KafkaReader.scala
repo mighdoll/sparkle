@@ -14,18 +14,17 @@
 
 package nest.sparkle.loader.kafka
 
-import scala.concurrent.ExecutionContext
+import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
-import rx.lang.scala.Observable
 
 import com.typesafe.config.{Config, ConfigFactory}
 
 import kafka.consumer._
+import kafka.message.MessageAndMetadata
 import kafka.serializer.Decoder
 
 import nest.sparkle.loader.kafka.KafkaDecoders.Implicits._
-import nest.sparkle.util.ObservableIterator._
-import nest.sparkle.util.{ConfigUtil, Log, RecoverableIterator, Instrumented}
+import nest.sparkle.util.{ConfigUtil, Log, Instrumented}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
 /** Enables reading a stream from a kafka topics.
@@ -45,7 +44,6 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
 {
   // TODO: Make this a Histogram
   private val metricPrefix = topic.replace(".", "_").replace("*", "")
-  private val readMetric = metrics.meter("kafka-messages-read", metricPrefix)
   private val connectionMetric = metrics.meter("kafka-connects", metricPrefix)
   
   lazy val consumerConfig = {
@@ -65,12 +63,6 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
 
   private var currentConnection: Option[ConsumerConnector] = None
 
-  /**
-   * Total count of messages read.
-   * @return message read count
-   */
-  def messageCount: Long = readMetric.count
-
   def connection: ConsumerConnector = synchronized {
     currentConnection.getOrElse{
       log.info(s"connecting to topic: $topic")
@@ -80,21 +72,28 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
     }
   }
   
-  /** return an iterable of decoded data from the kafka topic */
+  /** return a iterator of decoded data from the kafka topic that is
+    * wrapped in a Try.
+    */
+  def iterator(): KafkaIterator[T] = {
+    KafkaIterator(this)
+  }
+  
+  /** return a consumer iterator of decoded data from the kafka topic */
   def consumerIterator(): ConsumerIterator[String, T] = {
     whiteListStream().iterator()
   }
-
-  /** return an observable stream of decoded data from the kafka topic */
-  def stream()(implicit execution: ExecutionContext): Observable[T] = {
-    iterator().toObservable
-  }
   
-  /** return an iterable of decoded data from the kafka topic */
-  def iterator():Iterator[T] = {
-    restartingIterator {
-      currentConnection.foreach(_ => reconnect())
-      whiteListIterator()
+  /** return a iterator of decoded data from the kafka topic that
+    * hides ConsumerTimeoutExceptions.
+    * 
+    * Useful to tests.
+    */
+  def messageAndMetaDataIterator(): Iterator[MessageAndMetadata[String,T]] = {
+    iterator flatMap {
+      case Success(mmd)                           => Option(mmd)
+      case Failure(err: ConsumerTimeoutException) => None
+      case Failure(err)                           => None //throw err
     }
   }
 
@@ -129,29 +128,6 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
     streams.head
   }
 
-  /** Return an iterator over the incoming kafka data. We use Kafka's Whitelist based
-    * message stream creator even though we have only one topic because it internally
-    * manages merging data from multiple threads into one iterator. (internally inside
-    * the kafka driver, there's one thread for each partition).
-    */
-  private def whiteListIterator(): Iterator[T] = {
-    val stream = whiteListStream()
-
-    stream.iterator().map { msg => {
-      readMetric.mark()
-      msg.message()
-    }}
-  }
-
-  /** an iterator that will restart after the consumer times out */
-  private def restartingIterator(fn: => Iterator[T]): Iterator[T] = {
-    RecoverableIterator(fn) {
-      case timeout: ConsumerTimeoutException =>
-        log.info(s"kafka consumer timeout: on topic $topic")
-      case NonFatal(err) => log.warn(s"Kafka interator for $topic threw an exception: ${err.toString}")
-    }
-  }
-
   /** open a connection to kafka */
   private def connect(): ConsumerConnector = {
     try {
@@ -163,14 +139,6 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
         throw e
       }
     }
-  }
-
-  /** keepRunning current connection and reconnect */
-  private def reconnect(): ConsumerConnector = synchronized {
-    log.warn(s"reconnecting ConsumerConnector for $topic")
-    currentConnection.map(_.shutdown())
-    currentConnection = None
-    connection
   }
 
 }

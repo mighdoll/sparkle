@@ -1,6 +1,6 @@
 package nest.sparkle.loader.kafka
 
-import java.util.concurrent.TimeoutException
+import java.util.concurrent.{TimeUnit, TimeoutException}
 
 import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.concurrent.{Await, Future, ExecutionContext}
@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 import scala.compat.Platform.currentTime
 import scala.reflect.runtime.universe._
 import scala.language.existentials
-import scala.util.{Success, Failure}
+import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
 
 import com.typesafe.config.Config
@@ -17,6 +17,7 @@ import kafka.consumer.ConsumerTimeoutException
 
 import nest.sparkle.loader.ColumnUpdate
 import nest.sparkle.loader.Loader.{Events, LoadingTransformer, TaggedBlock}
+import nest.sparkle.loader.kafka.TypeTagUtil.typeTaggedToString
 import nest.sparkle.store.{Event, WriteableStore}
 import nest.sparkle.store.cassandra.{CanSerialize, RecoverCanSerialize}
 import nest.sparkle.util.{Instrumented, Log, Instance, ConfigUtil, Watched}
@@ -37,10 +38,10 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   with Runnable
   with Instrumented
   with Log
-{
+{  
   private val loaderConfig = ConfigUtil.configForSparkle(rootConfig).getConfig("kafka-loader")
 
-  /** ??? */
+  /** Evidence for key serializing when writing to the store */
   private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
   
   val finder  = decoderFinder()
@@ -50,22 +51,28 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   val transformer = makeTransformer()
   
   /** Current Kafka iterator */
-  private var currentIterator: Option[TaggedBlockIterator] = None
+  private var currentIterator: Option[Iterator[Try[TaggedBlock]]] = None
   
-  /** Convert commit interval seconds to millis for compare */
-  val commitTime = {
-    val commitIntervalSeconds = loaderConfig.getInt("commit-interval")
-    commitIntervalSeconds * 1000L
-  }
+  /** Commit interval millis for compare */
+  val commitTime = loaderConfig.getDuration("commit-interval", TimeUnit.MILLISECONDS)
+  
+  /** timestamp when the last Kafka offsets commit was done */
+  private var lastCommit = currentTime
 
   /** Set to false to shutdown in an orderly manner */
   private var keepRunning = true
   
+  // Metrics
+  private val metricPrefix = topic.replace(".", "_").replace("*", "") 
+  
+  /** Read rate */
+  private val readMetric = metrics.meter("kafka-messages-read", metricPrefix)
+  
   /** Meter for writing to C* for this topic */
-  private val writeMetric = metrics.timer(s"store-writes-$topic") // TODO: make histogram
+  private val writeMetric = metrics.timer("store-writes", metricPrefix) // TODO: make histogram
   
   /** Errors writing to C* for this topic */
-  private val writeErrorsMetric = metrics.meter(s"store-write-errors-$topic")
+  private val writeErrorsMetric = metrics.meter("store-write-errors", metricPrefix)
 
   /**
    * Main method of the loader.
@@ -76,24 +83,13 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
     
     log.info("Loader for {} started", topic)
 
-    var lastCommit = currentTime
     while (keepRunning) {
-      // Commit every N seconds
-      val now = currentTime
-      if (now - lastCommit >= commitTime) {
-        try {
-          reader.commit()
-          lastCommit = now
-        } catch {
-          case NonFatal(err) =>
-            log.error(s"Unhandled exception committing kafka offsets for $topic", err)
-            // State of kafka connection is unknown. Discard iterator, new one will be created
-            discardIterator()
-        }
-      }
+      conditionalCommit()
 
       iterator.next() match {
-        case Success(block)                         => blockingWrite(block)
+        case Success(block)                         =>
+          readMetric.mark()
+          blockingWrite(block)
         case Failure(err: ConsumerTimeoutException) => log.trace("consumer timeout reading {}", topic)
         case Failure(err)                           => 
           // Some other Kafka reading error. Discard iterator and try again.
@@ -132,30 +128,37 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   }
 
   /**
-   * Create an Iterator that returns a Try where a Success is the next item and
-   * Failure is an exception.
+   * Return the current iterator if it exists or create a new one and return it.
    * 
-   * The main use for this is to return ConsumerTimeoutExceptions to the user so it can
-   * perform commits or other processing.
-   * 
-   * This also allows handling other exceptions which may require creating a new iterator to
-   * recover.
+   * Note that this method will block the current thread until a new iterator can be obtained.
+   * This will happen if Kafka or Zookeeper are down or failing.
    * 
    * @return iterator
    */
-  private def iterator: TaggedBlockIterator = {
+  private def iterator: Iterator[Try[TaggedBlock]] = {
     currentIterator.getOrElse {
-      val kafkaIterator = KafkaIterator(reader)
-      val decodeIterator = DecodeIterator(kafkaIterator, decoder)
-      val iter = transformer.map(TransformIterator(decodeIterator,_)).getOrElse(decodeIterator)
+      val kafkaIterator = KafkaIterator[ArrayRecordColumns](reader)(decoder)
+      
+      val decodeIterator = kafkaIterator map { 
+          case Success(mm)  => convertMessage(mm.message())
+          case Failure(err) => Failure(err)
+      }
+      
+      val iter = transformer map { t =>
+        decodeIterator map {
+          case Success(block) => transform(block)
+          case Failure(err)   => Failure(err)
+        }
+      } getOrElse decodeIterator
+      
       currentIterator = Some(iter)
-      currentIterator.get
+      iter
     }
   }
   
   private def discardIterator() {
     currentIterator = None
-    reader.close()
+    reader.close()  // Ensure Kafka connection is closed.
   }
 
   /** instantiate the FindDecoder instance specified in the config file. The FindDecoder
@@ -171,6 +174,74 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
     finder.decoderFor(topic) match {
       case keyValueDecoder: KafkaKeyValues => keyValueDecoder
       case _                               => NYI("only KeyValueStreams implemented so far")
+    }
+  }
+  
+  /** Commit the topic offsets if enough time has passed */
+  private def conditionalCommit(): Unit = {
+    val now = currentTime
+    if (now - lastCommit >= commitTime) {
+      try {
+        reader.commit()
+        lastCommit = now
+      } catch {
+        case NonFatal(err) =>
+          log.error(s"Unhandled exception committing kafka offsets for $topic", err)
+          // State of kafka connection is unknown. Discard iterator, new one will be created
+          discardIterator()
+      }
+    }
+  }
+
+  /** Convert an Avro encoded record to a TaggedBlock
+    * 
+    * @param record Message read from Kafka. Expected to be decoded by decoder.
+    *               
+    * @return TaggedBlock created from message.
+    */
+  private def convertMessage(record: ArrayRecordColumns): Try[TaggedBlock] = {
+    // Wrap a try/catch around the whole method so no error crashes the loader.
+    try {
+      val columnPathIds = {
+        val ids = decoder.metaData.ids zip record.ids flatMap { case (NameTypeDefault(name, typed, default), valueOpt) =>
+          // What happens if the original value was explicitly null?
+          val valueOrDefault = valueOpt orElse default orElse {
+            log.debug("{} record contains field {} with no value and no default", topic, name)
+            None
+          }
+          valueOrDefault.map(typeTaggedToString(_, typed))
+        }
+        ids.foldLeft("")(_ + "/" + _).stripPrefix("/")
+      }
+
+      val block =
+        record.typedColumns(decoder.metaData).map { taggedColumn =>
+          val columnPath = decoder.columnPath(columnPathIds, taggedColumn.name)
+
+          /** do the following with type parameters matching each other
+            * (even though our caller will ultimately ignore them) */
+          def withFixedTypes[T, U]() = {
+            val typedEvents = taggedColumn.events.asInstanceOf[Events[T, U]]
+            val keyType: TypeTag[T] = castKind(taggedColumn.keyType)
+            val valueType: TypeTag[U] = castKind(taggedColumn.valueType)
+            TaggedSlice[T, U](columnPath, typedEvents)(keyType, valueType)
+          }
+          withFixedTypes[Any, Any]()
+        }
+
+      log.trace(s"convertMessage: got block.length ${block.length}  head:${block.headOption}")
+      Success(block)
+    } catch {
+      case NonFatal(err) => Failure(err)
+    }
+  }
+  
+  /** Transform the block. Only called if transformer is not None */
+  private def transform(block: TaggedBlock): Try[TaggedBlock] = {
+    try {
+      Success(transformer.get.transform(block))
+    } catch {
+      case NonFatal(err) => Failure(err)
     }
   }
 

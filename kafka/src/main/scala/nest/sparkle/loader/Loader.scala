@@ -14,11 +14,6 @@ object Loader {
   /** thrown if the source schema specifies an unimplemented key or value type */
   case class UnsupportedColumnType(msg: String) extends RuntimeException(msg)
 
-  /** transform a set of source column slices into a potentially different set */
-  trait LoadingFilter {
-    def filter(filter: Observable[TaggedBlock]): Observable[TaggedBlock]
-  }
-
   /** transform a source column slice into a potentially different slice */
   trait LoadingTransformer {
     def transform(source: TaggedBlock): TaggedBlock
