@@ -28,7 +28,7 @@ class KafkaIterator[T: Decoder](val reader: KafkaReader[T])
 
   /** Return consumer iterator's hasNext. 
     * 
-    * If the consumer iterator times out keep trying until we get a true or false.
+    * If the consumer iterator times out, keep trying until we get a true or false.
     * 
     * Note that false can not be returned if a ConsumerTimeoutException is thrown as that
     * causes the iterator to terminate prematurely.
@@ -41,7 +41,7 @@ class KafkaIterator[T: Decoder](val reader: KafkaReader[T])
         result = consumerIterator.hasNext()
         done = true
       } catch {
-        case err: ConsumerTimeoutException =>
+        case err: ConsumerTimeoutException => // Ignore timeout and retry until we get a result.
       }
     }
     

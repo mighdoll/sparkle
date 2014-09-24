@@ -1,11 +1,13 @@
 package nest.sparkle.util
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
+import scala.util.control.Exception.nonFatalCatch
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 /**
- * Class to provide exponentially increasing with limit sleep time.
+ * Class to provide retries with exponentially increasing with limit sleep time between attempts.
  */
 case class RetryManager(initial: Duration, limit: Duration)
 {  
@@ -16,17 +18,9 @@ case class RetryManager(initial: Duration, limit: Duration)
    */
   def execute[T](fn: => T): T = {
     
-    @annotation.tailrec
+    @tailrec
     def attempt(sleepTime: Duration): T = {
-      def tryRun: Try[T] = {
-        try {
-          Success(fn)
-        } catch {
-          case NonFatal(err) => Failure(err)
-        }
-      }
-      
-      tryRun match {
+      nonFatalCatch withTry fn match {
         case Success(result) => result
         case Failure(err)    =>
           val newSleep = sleep(sleepTime)

@@ -93,7 +93,7 @@ class KafkaReader[T: Decoder](val topic: String, rootConfig: Config = ConfigFact
     iterator flatMap {
       case Success(mmd)                           => Option(mmd)
       case Failure(err: ConsumerTimeoutException) => None
-      case Failure(err)                           => None //throw err
+      case Failure(err)                           => throw err
     }
   }
 

@@ -139,15 +139,16 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
     currentIterator.getOrElse {
       val kafkaIterator = KafkaIterator[ArrayRecordColumns](reader)(decoder)
       
-      val decodeIterator = kafkaIterator map { 
-          case Success(mm)  => convertMessage(mm.message())
-          case Failure(err) => Failure(err)
+      val decodeIterator = kafkaIterator map { tryMessageAndMetadata =>
+        tryMessageAndMetadata flatMap { messageAndMetadata =>
+          convertMessage(messageAndMetadata.message())
+        }
       }
       
-      val iter = transformer map { t =>
-        decodeIterator map {
-          case Success(block) => transform(block)
-          case Failure(err)   => Failure(err)
+      // Use transformer if one exists
+      val iter = transformer map { _ =>
+        decodeIterator map {tryBlock => 
+          tryBlock flatMap {block => transform(block)}
         }
       } getOrElse decodeIterator
       

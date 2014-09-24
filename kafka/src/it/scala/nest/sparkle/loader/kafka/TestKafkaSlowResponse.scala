@@ -23,8 +23,8 @@ class TestKafkaSlowResponse extends FunSuite with Matchers with KafkaTestConfig 
       val writer2 = KafkaWriter[String](kafka.topic, rootConfig)
       writer2.writeStream(toWrite)
       
-      val stream = kafka.reader.messageAndMetaDataIterator
-      val result = stream.take(6).toList
+      val iter = kafka.reader.messageAndMetaDataIterator()
+      val result = iter.take(6).toList
       
       // result should be 0,1,2 written twice
       val groups = result.map(_.message()).groupBy { value => value}

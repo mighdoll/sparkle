@@ -37,9 +37,9 @@ class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
     withKafkaTestTopic(rootConfig) { kafka =>
       val testData = randomStrings(entries)
       writerFn(kafka, testData)
-      val stream = kafka.reader.messageAndMetaDataIterator
+      val stream = kafka.reader.messageAndMetaDataIterator()
       val results = stream.map(_.message())
-        .take(entries) // should this be collect() or omitted?
+        .take(entries)
         .toList
       results shouldBe testData
     }
@@ -64,14 +64,14 @@ class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
 
     val kafka1 = new KafkaTestTopic(rootConfig, testId)
     kafka1.writer.write(testData)
-    val stream1 = kafka1.reader.messageAndMetaDataIterator
+    val stream1 = kafka1.reader.messageAndMetaDataIterator()
     val results1 = stream1.take(entries / 2).map(_.message()).toList
 
     kafka1.reader.commit()
     kafka1.reader.close() // trigger rebalancing immediately for test
 
     val kafka2 = new KafkaTestTopic(rootConfig, testId)
-    val stream2 = kafka2.reader.messageAndMetaDataIterator
+    val stream2 = kafka2.reader.messageAndMetaDataIterator()
     val results2 = stream2.take(entries / 2).map(_.message()).toList
     (results1 ++ results2) shouldBe testData
 
