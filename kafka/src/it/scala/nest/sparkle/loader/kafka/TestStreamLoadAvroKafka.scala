@@ -30,7 +30,7 @@ import nest.sparkle.util.Watch
 import spray.util.pimpFuture
 
 class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks with TableDrivenPropertyChecks
-    with CassandraTestConfig with Log {
+    with KafkaTestConfig with CassandraTestConfig with Log {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 

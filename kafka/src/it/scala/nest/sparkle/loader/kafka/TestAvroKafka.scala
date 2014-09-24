@@ -16,29 +16,27 @@ package nest.sparkle.loader.kafka
 
 import org.apache.avro.generic.GenericData
 
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{ FunSuite, Matchers }
 import org.scalatest.prop.PropertyChecks
 
-import nest.sparkle.loader.kafka.KafkaTestUtil.{withTestAvroTopic, withTestReader}
+import nest.sparkle.loader.kafka.KafkaTestUtil.{ withTestAvroTopic, withTestReader }
 
 class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with KafkaTestConfig {
   import AvroRecordGenerators.Implicits.arbitraryMillisDoubleRecord
 
   test("read/write a few avro encoded elements from the kafka queue") {
-    forAll(MinSuccessful(5)){ records: List[GenericData.Record] =>
-      whenever(records.length > 0) {
-        withTestAvroTopic(rootConfig, MillisDoubleAvro.schema) { testTopic =>
-          testTopic.writer.write(records)
-          withTestReader(testTopic){ reader =>
-            val stream = reader.messageAndMetaDataIterator
-            val results = stream.take(records.length).toList
-            results.length shouldBe records.length
-            records zip results foreach {
-              case (record, result) =>
-                val msg = result.message()
-                record.get("time") shouldBe msg.get("time")
-                record.get("value") shouldBe msg.get("value")
-            }
+    forAll(MinSuccessful(5), MinSize(1)) { records: List[GenericData.Record] =>
+      withTestAvroTopic(rootConfig, MillisDoubleAvro.schema) { testTopic =>
+        testTopic.writer.write(records)
+        withTestReader(testTopic) { reader =>
+          val stream = reader.messageAndMetaDataIterator
+          val results = stream.take(records.length).toList
+          results.length shouldBe records.length
+          records zip results foreach {
+            case (record, result) =>
+              val msg = result.message()
+              record.get("time") shouldBe msg.get("time")
+              record.get("value") shouldBe msg.get("value")
           }
         }
       }

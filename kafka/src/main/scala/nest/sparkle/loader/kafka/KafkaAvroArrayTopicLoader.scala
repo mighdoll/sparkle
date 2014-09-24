@@ -191,7 +191,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
           // State of kafka connection is unknown. Discard iterator, new one will be created
           discardIterator()
       }
-    }
+    } 
   }
 
   /** Convert an Avro encoded record to a TaggedBlock
@@ -230,7 +230,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
           withFixedTypes[Any, Any]()
         }
 
-      log.trace(s"convertMessage: got block.length ${block.length}  head:${block.headOption}")
+      log.trace(s"convertMessage: got block.length ${block.length}  head:${block.headOption.map { _.shortPrint(3)}}")
       Success(block)
     } catch {
       case NonFatal(err) => Failure(err)

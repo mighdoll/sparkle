@@ -20,7 +20,7 @@ object Dependencies {
     val akka = "2.2.3"
     val spray = "1.2.1"
     val rxJava = "0.20.4"
-    val scalaCheck = "1.11.3" // TODO update to 1.11.5
+    val scalaCheck = "1.11.5" 
     val scala = "2.10.4"
     val spark = "1.0.2"
   }

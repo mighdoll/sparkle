@@ -39,6 +39,10 @@ case class TaggedColumn(name: String, keyType: TypeTag[_], valueType: TypeTag[_]
 /** a chunk of data to load into the store into one column */
 case class TaggedSlice[T: TypeTag, U: TypeTag](columnPath: String, events: Seq[Event[T, U]]) {
   def valueType = implicitly[TypeTag[U]]
+  def shortPrint(maxEvents: Int): String = {
+    val eventsString = events.take(maxEvents).map { case Event(k, v) => s"($k, $v)" }.mkString(", ")
+    s"columnPath:$columnPath  events: $eventsString"
+  }
 }
 
 /** a decoder that transforms avro generic records to ArrayRecordColumns, bundled with the meta data

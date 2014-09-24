@@ -19,7 +19,7 @@ import scala.concurrent.Future
 import rx.lang.scala.Observable
 import scala.reflect.runtime.universe._
 
-case class OngoingEvents[T,U](initial:Observable[Event[T,U]], ongoing:Observable[Event[T,U]])
+case class OngoingEvents[T, U](initial: Observable[Event[T, U]], ongoing: Observable[Event[T, U]])
 
 /** a readable column of data that supports simple range queries.  */
 trait Column[T, U] {
@@ -29,7 +29,7 @@ trait Column[T, U] {
   def keyType: TypeTag[_]
   def valueType: TypeTag[_]
 
-  /** read a slice of events from the column, inclusive of the start and end values.
+  /** read a slice of events from the column, inclusive of the start and ends.
    *  If start is missing, read from the first element in the column.  If end is missing
    *  read from the last element in the column.  */      // format: OFF
   def readRange(start:Option[T] = None, end:Option[T] = None, limit:Option[Long] = None)
@@ -45,8 +45,8 @@ trait Column[T, U] {
 // TODO name this something else: Item?  Datum?
 // TODO rename argument to key, for consistency with other key-value terminology
 /** an single item in the datastore, e.g. a timestamp and value */
-case class Event[T, V](argument: T, value: V) 
+case class Event[T, V](argument: T, value: V)
 
 object Event {
-  type Events[T,U] = Seq[Event[T,U]]
+  type Events[T, U] = Seq[Event[T, U]]
 }

@@ -18,6 +18,7 @@ import scala.language._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
+import scala.util.control.Exception._
 
 import com.datastax.driver.core.{ Cluster, Session }
 import com.datastax.driver.core.PreparedStatement
@@ -78,7 +79,11 @@ object CassandraStore extends Log {
     */
   protected[cassandra] def getClusterSession(contactHosts: Seq[String]): ClusterSession = {
     val builder = Cluster.builder()
-    contactHosts.foreach{ builder.addContactPoint(_) }
+    contactHosts.foreach { host =>
+      val added = nonFatalCatch.withTry { builder.addContactPoint(host) }
+      added.failed.map { err => log.error(s"unable to add cassandra contact point: $host", err) }
+    }  // TODO add test for me
+
     val cluster = builder.build()
     val session = cluster.connect()
     ClusterSession(cluster, session)
@@ -95,11 +100,10 @@ object CassandraStore extends Log {
 }
 
 /** a cassandra store data access layer configured by a config file */
-class ConfiguredCassandraReader(override val config: Config, override val writeListener: WriteListener) extends ConfiguredCassandra with CassandraStoreReader 
+class ConfiguredCassandraReader(override val config: Config, override val writeListener: WriteListener) extends ConfiguredCassandra with CassandraStoreReader
 
 /** a cassandra store data access layer configured by a config file */
-class ConfiguredCassandraWriter(override val config: Config, override val writeNotifier: WriteNotifier) extends ConfiguredCassandra with CassandraStoreWriter 
-
+class ConfiguredCassandraWriter(override val config: Config, override val writeNotifier: WriteNotifier) extends ConfiguredCassandra with CassandraStoreWriter
 
 class ConfiguredCassandraReaderWriter(override val config: Config, writeNotification: WriteListener with WriteNotifier) // format: OFF
   extends ConfiguredCassandra with CassandraReaderWriter {  // TODO DRY these
@@ -217,14 +221,14 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   def writeNotifier: WriteNotifier
 
   this.session // trigger creating connection, and create schemas if necessary
-  
+
   /** return a column from a fooSet/barSet/columName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     SparseColumnWriter.instance[T, U](dataSetName, columnName, columnCatalog,
       dataSetCatalog, writeNotifier)
   }
-  
+
   /** Create the tables using the session passed.
     * The session's keyspace itself must already exist.
     * Any existing tables are deleted.
@@ -242,7 +246,7 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   */
 trait CassandraStoreReader extends ConfiguredCassandra with Store with Log {
   def writeListener: WriteListener
-  
+
   this.session // trigger creating connection, and create schemas if necessary 
 
   /** Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
@@ -264,8 +268,8 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log {
   /** return a column from a fooSet/barSet/columName path */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
-    val futureColumn = SparseColumnReader.instance[T, U](dataSetName, columnName, 
-        columnCatalog, writeListener)
+    val futureColumn = SparseColumnReader.instance[T, U](dataSetName, columnName,
+      columnCatalog, writeListener)
     futureColumn
   }
 

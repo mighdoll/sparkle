@@ -54,7 +54,6 @@ object sparkleCoreBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
-        libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ Seq(
         libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ spark ++ Seq(
           scalaReflect,
           rxJavaCore,
