@@ -17,23 +17,43 @@ import sbt.Keys._
 
 object sparkleCoreBuild extends Build {
   import Dependencies._
+
   // set prompt to name of current project
   override lazy val settings = super.settings :+ {
     shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
   }
 
   lazy val sparkleRoot = Project(id = "root", base = file("."))
-    .aggregate(sparkleCore, kafkaLoader, testKit, sparkleTests, util, logbackConfig, log4jConfig)
+    .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, testKit, sparkleTests, util, logbackConfig, log4jConfig)
 
-  lazy val sparkleCore =
-    Project(id = "sparkle", base = file("sparkle"))
-      .dependsOn(util)
+  lazy val sparkleDataServer =  // standalone protocol server
+    Project(id = "sparkle-data-server", base = file("data-server"))
+      .dependsOn(protocol)
+      .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BuildSettings.sparkleAssemblySettings: _*) 
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
+
+
+  lazy val protocol =       // protocol server library serving the sparkle data api
+    Project(id = "sparkle-protocol", base = file("protocol"))
+      .dependsOn(sparkleCore)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
       .settings(
-        resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases",
+        libraryDependencies ++= kafka ++ testAndLogging ++ avro ++ Seq(
+          metricsScala
+        )
+      )
+
+  lazy val sparkleCore =      // core libraries shared by protocol server and stream loader
+    Project(id = "sparkle-core", base = file("sparkle"))
+      .dependsOn(util)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
         libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ Seq(
           scalaReflect,
           rxJavaCore,
@@ -54,7 +74,7 @@ object sparkleCoreBuild extends Build {
           """
       )
 
-  lazy val kafkaLoader =
+  lazy val kafkaLoader =    // loading from kafka into the store
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
       .dependsOn(util)
       .dependsOn(sparkleCore)
@@ -68,7 +88,7 @@ object sparkleCoreBuild extends Build {
         )
       )
 
-  lazy val testKit =
+  lazy val testKit =        // utilities for testing sparkle stuff
     Project(id = "sparkle-test-kit", base = file("test-kit"))
       .dependsOn(sparkleCore)
       .configs(IntegrationTest)
@@ -77,9 +97,9 @@ object sparkleCoreBuild extends Build {
         libraryDependencies ++= kitTestsAndLogging ++ spray
       )
 
-  lazy val sparkleTests =
+  lazy val sparkleTests =   // unit and integration for sparkle core and protocol libraries
     Project(id = "sparkle-tests", base = file("sparkle-tests"))
-      .dependsOn(sparkleCore)
+      .dependsOn(protocol)
       .dependsOn(testKit)
       .dependsOn(logbackConfig % "test->compile;it->compile")
       .configs(IntegrationTest)
@@ -90,7 +110,7 @@ object sparkleCoreBuild extends Build {
         )
       )
 
-  lazy val util =
+  lazy val util =           // scala utilities useful in other projects too
     Project(id = "sparkle-util", base = file("util"))
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
@@ -106,7 +126,7 @@ object sparkleCoreBuild extends Build {
           ) ++ allTest
       )
 
-  lazy val logbackConfig =
+  lazy val logbackConfig =  // mix in to projects choosing logback
     Project(id = "logback-config", base = file("logback"))
       .dependsOn(util)
       .settings(BuildSettings.allSettings: _*)
@@ -116,7 +136,7 @@ object sparkleCoreBuild extends Build {
         ) ++ logbackLogging
       )
 
-  lazy val log4jConfig =
+  lazy val log4jConfig =   // mix in to projects choosing log4j (kafka requires log4j)
     Project(id = "log4j-config", base = file("log4j"))
       .dependsOn(util)
       .settings(BuildSettings.allSettings: _*)
