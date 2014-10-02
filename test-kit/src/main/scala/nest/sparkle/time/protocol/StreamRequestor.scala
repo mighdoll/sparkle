@@ -32,12 +32,12 @@ trait StreamRequestor {
     (currentRequestId, "trace-" + currentRequestId.toString)
   }
 
-  private val defaultSummaryParameters = SummaryParameters[Long](maxPartitions = Some(10))
+  private val defaultSummaryParameters = SummaryParameters[Long](partByCount = Some(10))
 
   /** return a new StreamRequestMessage for a summary transform, summarizing the full range into one partition */
   def summaryRequestOne[T: JsonFormat](transform: String, selector: TestSelector = SelectString(defaultColumnPath)) // format: OFF
       : StreamRequestMessage = { // format: ON
-    summaryRequest[T](transform, selector, SummaryParameters(maxPartitions = Some(1)))
+    summaryRequest[T](transform, selector, SummaryParameters())
   }
 
   /** return a new StreamRequestMessage for a summary transform */

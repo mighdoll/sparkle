@@ -37,7 +37,7 @@ class TestSummarizeCount extends TestStore with StreamRequestor with TestDataSer
 
   test("summarizeCount simple set to 7") {
     val message = summaryRequest[Long]("SummarizeCount", selector = SelectString(simpleColumnPath),
-      params = SummaryParameters(maxPartitions = Some(7)))
+      params = SummaryParameters(partByCount = Some(7)))
 
     v1TypicalRequest(message){ events =>
       expectOnePerSimpleEvent(events)
@@ -46,7 +46,7 @@ class TestSummarizeCount extends TestStore with StreamRequestor with TestDataSer
 
   test("summarizeCount simple set to 10") {
     val message = summaryRequest("SummarizeCount", selector = SelectString(simpleColumnPath),
-      params = SummaryParameters[Long](maxPartitions = Some(10)))
+      params = SummaryParameters[Long](partByCount = Some(10)))
 
     v1TypicalRequest(message){ events =>
       expectOnePerSimpleEvent(events)

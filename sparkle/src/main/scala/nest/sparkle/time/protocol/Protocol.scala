@@ -54,8 +54,6 @@ protected object LoggableRealmToServer {
   }
 }
 
-
-
 /** request a transformed stream.  sent from from client to server */
 case class StreamRequest(sendUpdates: Option[Boolean], itemLimit: Option[Long], sources: Array[JsValue],
                          transform: String, transformParameters: JsObject) {
@@ -82,7 +80,7 @@ object LoggableStreamRequestMessage extends DefaultJsonProtocol {
 
 /** a version of the StreamRequestMessage that doesn't include realm id and auth */
 case class LoggableStreamRequestMessage(requestId: Option[Long], realm: Option[LoggableRealmToServer], traceId: Option[String],
-                                     messageType: String, message: StreamRequest)
+                                        messageType: String, message: StreamRequest)
 
 /** a Stream inside a Distribution Message */
 case class StreamsMessage(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
@@ -103,7 +101,7 @@ case class StreamsMessage(requestId: Option[Long], realm: Option[RealmToClient],
 
 // TODO find a way to do less copy-pasting on encoding various message types
 case class StatusMessage(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
-                         messageType: String, message: Status) 
+                         messageType: String, message: Status)
 
 case class UpdateMessage(requestId: Option[Long], realm: Option[RealmToClient], traceId: Option[String],
                          messageType: String, message: Update) {
@@ -138,9 +136,8 @@ case class RangeInterval[T](
 /** transformParameters for SummaryTransforms */
 case class SummaryParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,
-  maxPartitions: Option[Int] // TODO rename to parts or partCount 
-  // TODO consider allowing partSize
-  )
+  partBySize: Option[String] = None,
+  partByCount: Option[Int] = None)
 
 case class IntervalParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,

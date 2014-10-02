@@ -14,6 +14,7 @@ class TestSummarizeSum extends TestStore with StreamRequestor with TestDataServi
       events.head shouldBe Event("2013-01-19T22:13:40Z".toMillis, sum)
     }
   }
+  
   test("summarizeSum uneven set to one") {
     val message = summaryRequestOne[Long]("SummarizeSum", selector = SelectString(unevenColumnPath))
 

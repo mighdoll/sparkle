@@ -458,7 +458,7 @@ function chart() {
                 until: domain[1]  
               }
             ],
-            maxPartitions: maxResults
+            partByCount: maxResults
           };
 
         // LATER tranform should be adjustable per dataset..

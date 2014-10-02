@@ -8,7 +8,7 @@ class TestSummarizeMax extends TestStore with StreamRequestor with TestDataServi
   nest.sparkle.util.InitializeReflection.init
 
   test("summarizeMax two raw events") { // note that this test just copies input to output
-    val message = summaryRequest[Long]("SummarizeMax", params = SummaryParameters(maxPartitions = Some(2)))
+    val message = summaryRequest[Long]("SummarizeMax", params = SummaryParameters(partByCount = Some(2)))
     v1TypicalRequest(message){ events =>
       events.length shouldBe 2
       events(0).value shouldBe 1
@@ -27,7 +27,7 @@ class TestSummarizeMax extends TestStore with StreamRequestor with TestDataServi
   test("summarizeMax, 3->2 events, selecting by start") {
     val range = RangeInterval(start = Some("2013-01-19T22:13:50Z".toMillis))
     val message = summaryRequest("SummarizeMax", SelectString(simpleColumnPath),
-      SummaryParameters[Long](maxPartitions = Some(2), ranges = Some(Seq(range))))
+      SummaryParameters[Long](partByCount = Some(2), ranges = Some(Seq(range))))
 
     v1TypicalRequest(message){ events =>
       events.length shouldBe 2
@@ -39,7 +39,7 @@ class TestSummarizeMax extends TestStore with StreamRequestor with TestDataServi
   test("summarizeMax, selecting end") {
     val range = RangeInterval(until = Some("2013-01-19T22:13:50Z".toMillis))
     val message = summaryRequest[Long]("SummarizeMax", SelectString(simpleColumnPath),
-      SummaryParameters[Long](maxPartitions = Some(2), ranges = Some(Seq(range))))
+      SummaryParameters[Long](partByCount = Some(2), ranges = Some(Seq(range))))
     v1TypicalRequest(message){ events =>      
       events.length shouldBe 2
       events.head shouldBe Event("2013-01-19T22:13:20Z".toMillis, 26)
@@ -52,7 +52,7 @@ class TestSummarizeMax extends TestStore with StreamRequestor with TestDataServi
       start = Some("2013-01-19T22:13:30Z".toMillis),
       until = Some("2013-01-19T22:14:20Z".toMillis))
     val message = summaryRequest("SummarizeMax", SelectString(simpleColumnPath),
-      SummaryParameters[Long](maxPartitions = Some(3), ranges = Some(Seq(range))))
+      SummaryParameters[Long](partByCount = Some(3), ranges = Some(Seq(range))))
     v1TypicalRequest(message){ events =>
       events.length shouldBe 3
       events.head shouldBe Event("2013-01-19T22:13:40Z".toMillis, 32)
@@ -66,7 +66,7 @@ class TestSummarizeMax extends TestStore with StreamRequestor with TestDataServi
         until = Some("2013-01-19T22:13:41Z".toMillis))
  
     val message = summaryRequest[Long]("SummarizeMax", SelectString(unevenColumnPath),
-      SummaryParameters[Long](maxPartitions = Some(2), ranges = Some(Seq(range))))
+      SummaryParameters[Long](partByCount = Some(2), ranges = Some(Seq(range))))
     v1TypicalRequest(message){ events =>
       events.length shouldBe 2
       events.head shouldBe Event("2013-01-19T22:13:12Z".toMillis, 31)

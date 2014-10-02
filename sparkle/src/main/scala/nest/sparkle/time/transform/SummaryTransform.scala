@@ -32,6 +32,8 @@ import nest.sparkle.util.RecoverFractional
 import nest.sparkle.time.protocol.SummaryParameters
 import nest.sparkle.time.protocol.TransformParametersJson.SummaryParametersFormat
 import scala.util.Try
+import nest.sparkle.store.OngoingEvents
+import nest.sparkle.util.Exceptions.NYI
 
 object SummaryTransform {
   /** a handy alias for a block of events */
@@ -124,8 +126,7 @@ trait SummaryTransform extends ColumnTransform {
     nonFatalCatch.withTry { transformParameters.convertTo[SummaryParameters[T]] }
   }
 
-  /** read a range of column data, divide it into blocks, returning an observable
-    * with each block replaced with a summarized value
+  /** divide the source range into parts, and return an observable containing a summarized event for each part
     */
   def summarizeColumn[T, U](column: Column[T, U], summarizePartition: PartitionSummarizer[T, U], // format: OFF
        params: SummaryParameters[T])(implicit execution: ExecutionContext)
@@ -133,26 +134,31 @@ trait SummaryTransform extends ColumnTransform {
 
     val eventsIntervals = SelectRanges.fetchRanges(column, params.ranges)
     implicit val keyTag = column.keyType.asInstanceOf[TypeTag[T]]
-    val numericResults = {
-      val optResults =
-        RecoverNumeric.optNumeric[T](column.keyType) map { implicit numeric =>
-          eventsIntervals.map { case IntervalAndEvents(intervalOpt, events) =>
-            summarizeOneNumericInterval(events.initial, params.maxPartitions.get, intervalOpt, summarizePartition)
-          }
-        }
-      optResults.map { results =>
-        results.reduce{ (a, b) => a ++ b }
+
+    def numericKeyByPartCount(count: Int)(numericKey: Numeric[T]): Seq[Observable[Seq[Event[T, U]]]] = {
+      eventsIntervals.map {
+        case IntervalAndEvents(intervalOpt, events) =>
+          summarizeOneNumericInterval(events.initial, count, intervalOpt, summarizePartition)(keyTag, numericKey, execution)
       }
     }
 
+    val partResults =
+      (RecoverNumeric.optNumeric[T](keyTag), params.partByCount, params.partBySize) match {
+        case (_, Some(_), Some(_))                  => ??? // TODO return an error here, shouldn't be allowed to set both
+        case (Some(numericKey), Some(count), None)  => numericKeyByPartCount(count)(numericKey)
+        case (Some(numericKey), None, None)         => numericKeyByPartCount(1)(numericKey)
+        case (Some(numericKey), None, Some(period)) => NYI("summarize by period string")
+        case (None, Some(count), None)              => ??? //  partitionEventsByCount(events, partitions) // TODO fix me
+        case (None, None, Some(period))             => ??? //  partitionEventsByCount(events, partitions) // TODO fix me
+        case (None, None, None)                     => ??? // TODO 
+      }
+
+    partResults.reduce { (a, b) => a ++ b }
     // TODO summarize ongoing event data as well
-    
-    numericResults.getOrElse {
-        //          partitionEventsByCount(events, partitions) // TODO fix me
-      ???
-    }
+
   }
 
+  /** summarize all the partitions in one specified time interval */
   def summarizeOneNumericInterval[T: TypeTag: Numeric, U](events: Observable[Event[T, U]], // format: OFF
       partitions: Int, intervalOpt:Option[RangeInterval[T]], summarizePartition: PartitionSummarizer[T, U])
       (implicit execution: ExecutionContext): Observable[Seq[Event[T, U]]] = { // format: ON
@@ -162,7 +168,7 @@ trait SummaryTransform extends ColumnTransform {
           // TODO pass along the partition boundaries too, so that summarizers can report summary values
           // aligned to the the bounds of the partition range (e.g. at the midpoint) 
           summarizePartition.summarizePart(part)
-        } else { Seq() }  // TODO this will skip empty parts, consider instead reporting an event with no value 
+        } else { Seq() } // TODO this will skip empty parts, consider instead reporting an event with no value 
       }
     }
     Observable.from(summarizedEvents)
@@ -176,7 +182,7 @@ trait SummaryTransform extends ColumnTransform {
     if (events.isEmpty) {
       Seq()
     } else {
-      val interval = intervalOpt.getOrElse {RangeInterval()}
+      val interval = intervalOpt.getOrElse { RangeInterval() }
       partitionIterator(events, interval, partitions).toSeq
     }
   }
@@ -220,7 +226,7 @@ trait SummaryTransform extends ColumnTransform {
 
     // return an iterator that walks through the event sequence, one partition at a time
     new Iterator[Seq[Event[T, U]]] {
-      override def hasNext(): Boolean = !remaining.isEmpty && (partStart < end || (partStart == end && includeEnd)) 
+      override def hasNext(): Boolean = !remaining.isEmpty && (partStart < end || (partStart == end && includeEnd))
       override def next(): Seq[Event[T, U]] = {
         val partEnd = partStart + step
         val (inPartition, remainder) = {
