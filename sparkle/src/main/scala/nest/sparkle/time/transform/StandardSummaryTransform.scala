@@ -27,6 +27,7 @@ object StandardSummaryTransform extends TransformMatcher {
 }
 
 protected[transform] object SummaryTransformUtil {
+  
   /** return the middle value from a sequence.  (the median if the sequence is sorted) */
   protected[transform] def middle[T](seq: IndexedSeq[T]): T = {
     require(seq.length > 0)
@@ -130,7 +131,7 @@ object SummarizeRandom extends OneSummarizer {
   }
 }
 
-/** summarize the minimum value in the partition */
+/** summarize the count of values in the partition */
 object SummarizeCount extends OneSummarizer {
   def summarizeEvents[T, U](data: Events[T, U],
                             columnMetadata: ColumnMetadata[T, U]): Events[T, U] = {

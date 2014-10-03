@@ -9,6 +9,6 @@ class TestSummarizeParameters extends TestStore with StreamRequestor with TestDa
       events.length shouldBe 1
       events(0).value shouldBe 2
     }
-
   }
+
 }

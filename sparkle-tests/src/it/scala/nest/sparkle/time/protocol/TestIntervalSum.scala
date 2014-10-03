@@ -1,40 +1,25 @@
 package nest.sparkle.time.protocol
 
+import scala.concurrent.duration.DurationInt
 import org.scalatest.{ FunSuite, Matchers }
-import nest.sparkle.store.cassandra.CassandraTestConfig
-import nest.sparkle.store.Store
-import nest.sparkle.time.protocol.TransformParametersJson.IntervalParametersFormat
-import spray.json.DefaultJsonProtocol._
-import nest.sparkle.store.Event
 import akka.actor.ActorSystem
-import nest.sparkle.util.StringToMillis._
-import scala.concurrent.duration._
+import akka.util.Timeout.durationToTimeout
+import nest.sparkle.store.{ Event, Store }
+import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.util.StringToMillis.IsoDateString
 import spray.http.StatusCodes.OK
-import spray.util._
+import spray.json.DefaultJsonProtocol._
+import spray.util.pimpFuture
+import nest.sparkle.time.transform.IntervalSum
 
-class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor {
-
-  def withIntervalTest(resource: String, partSize: String = "1 hour") // format: OFF
-      (fn: Seq[Event[Long, Seq[Long]]] => Unit): Unit = { // format: ON
-    val resourceFile = resource + ".csv"
-    withLoadedFile(resourceFile) { (store, system) =>
-      val service = new ServiceWithCassandra(store, system)
-      val params = IntervalParameters[Long](ranges = None, partSize = Some(partSize))
-      val selector = SelectString(s"$resource/millis")
-      val message = streamRequest("IntervalSum", params, selector)
-      service.v1TypedRequest(message) { events: Seq[Seq[Event[Long, Seq[Long]]]] =>
-        val data = events.head
-        fn(data)
-      }
-    }
-  }
-
+class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor with IntervalSumFixture {
+ 
   test("test identifying some basic overlaps") {
     withIntervalTest("intervals-basic") { data =>
-      data(0) shouldBe Event("2014-07-05T17:00:00.000-07:00".toMillis, Seq(1.hour.toMillis))
-      data(1) shouldBe Event("2014-07-05T18:00:00.000-07:00".toMillis, Seq(1.hour.toMillis))
-      data(2) shouldBe Event("2014-07-05T19:00:00.000-07:00".toMillis, Seq(0))
-      data(3) shouldBe Event("2014-07-05T20:00:00.000-07:00".toMillis, Seq(10.seconds.toMillis))
+      data(0) shouldBe Event("2014-07-06T00:00:00.000Z".toMillis, Seq(1.hour.toMillis))
+      data(1) shouldBe Event("2014-07-06T01:00:00.000Z".toMillis, Seq(1.hour.toMillis))
+      data(2) shouldBe Event("2014-07-06T02:00:00.000Z".toMillis, Seq(0))
+      data(3) shouldBe Event("2014-07-06T03:00:00.000Z".toMillis, Seq(10.seconds.toMillis))
     }
   }
 
@@ -51,12 +36,18 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
     }
   }
 
+  test("test two overlapping") {
+    withIntervalTest("intervals-overlap") { data =>
+      data(0) shouldBe Event("2014-07-06T00:00:00.000Z".toMillis, Seq(1.hour.toMillis))
+      data(1) shouldBe Event("2014-07-06T01:00:00.000Z".toMillis, Seq(1.hour.toMillis))
+    }
+  }
+
   test("test summing by minute") {
-    withIntervalTest("intervals-short", "1 minute") { data =>
+    withIntervalTest("intervals-short", Some("1 minute")) { data =>
       data(0) shouldBe Event("2014-07-05T17:00:00.000-07:00".toMillis, Seq(1.minute.toMillis))
       data(1) shouldBe Event("2014-07-05T17:01:00.000-07:00".toMillis, Seq(1.minute.toMillis))
       data(2) shouldBe Event("2014-07-05T17:02:00.000-07:00".toMillis, Seq(1.minute.toMillis))
-      // TODO generates an extra empty event. Should be fixed
     }
   }
 
@@ -76,10 +67,29 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
       val service = new ServiceWithCassandra(store, system)
       val response = service.sendDataMessage(msg).await(4.seconds)
       response.status shouldBe OK
-      val data = TestDataService.dataFromStreamsResponse[Seq[Long]](response).head.head       // remove the type parameter to crash the compiler (2.10.4)! see SI-8824
-      val expectedTime = "2014-07-05T18:30:00.000-07:00".toMillis // mean of start times
-      val expectedValue = 2.hours.toMillis + 10.seconds.toMillis  // total intervals
+      val data = TestDataService.dataFromStreamsResponse[Seq[Long]](response).head.head // remove the type parameter to crash the compiler (2.10.4)! see SI-8824
+      val expectedTime = "2014-07-06T00:00:00.000Z".toMillis // first start time
+      val expectedValue = 2.hours.toMillis + 10.seconds.toMillis // total intervals
       data shouldBe Event(expectedTime, Seq(expectedValue))
+    }
+  }
+
+  test("partSize 1 millisecond only returns max 3000 points") {
+    withIntervalTest("intervals-basic", Some("1 millisecond")) { data =>
+      data.length shouldBe 3000
+    }
+  }
+  
+  test("partSize 0 returns 0 points") {
+    withIntervalTest("intervals-basic", Some("0 days")) { data =>
+      data.length shouldBe 0
+    }
+  }
+  
+  test("no partSize, with overlap") {
+    withIntervalTest("intervals-overlap", None) { data =>
+      data.length shouldBe 1
+      data(0).value shouldBe Seq(2.hours.toMillis)
     }
   }
 

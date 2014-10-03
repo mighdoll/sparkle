@@ -61,10 +61,10 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   /** make a stream request, and report all stream data returned as events */
   def v1TypedRequest[U: JsonFormat](message: StreamRequestMessage)(fn: Seq[Seq[Event[Long, U]]] => Unit) {
     //     uncomment when debugging
-    //    implicit val timeout: RouteTestTimeout = {
-    //      println("setting timeout to 1 hour for debugging")
-    //      RouteTestTimeout(1.hour)
-    //    }
+//    implicit val timeout: RouteTestTimeout = {
+//      println("setting timeout to 1 hour for debugging")
+//      RouteTestTimeout(1.hour)
+//    }
     Post("/v1/data", message) ~> v1protocol ~> check {
       val events = TestDataService.dataFromStreamsResponse[U](response)
       fn(events)

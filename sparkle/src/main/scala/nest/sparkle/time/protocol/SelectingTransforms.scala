@@ -22,6 +22,8 @@ trait SelectingTransforms extends Log {
   protected def rootConfig: Config
   private lazy val customTransforms: Map[String, CustomTransform] = createCustomTransforms()
 
+  private lazy val standardInterval = StandardIntervalTransform(rootConfig)
+  
   /** return the results of the transform selected by the `transform` field in a StreamsRequest message
     * or TransformNotFound
     */
@@ -33,7 +35,7 @@ trait SelectingTransforms extends Log {
     val futureStreams = transform match {
       case StandardSummaryTransform(columnTransform) =>
         runTransform(futureColumns, columnTransform, transformParameters)
-      case StandardIntervalTransform(columnTransform) =>
+      case standardInterval(columnTransform) =>
         runMultiColumnTransform(futureColumns, columnTransform, transformParameters)
       case StandardObjectTransform(columnTransform) =>
         runTransform(futureColumns, columnTransform, transformParameters)
@@ -48,7 +50,7 @@ trait SelectingTransforms extends Log {
   }
 
   /** Instantiate the custom transforms listed in the .conf file. These will be addressable
-    * by name in future StreamRequest messages.
+    * by name in StreamRequest messages.
     */
   private def createCustomTransforms(): Map[String, CustomTransform] = {
     val sparkleApiConfig = ConfigUtil.configForSparkle(rootConfig)

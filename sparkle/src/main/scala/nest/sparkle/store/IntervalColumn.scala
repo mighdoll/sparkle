@@ -104,6 +104,7 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]], earlyRead: 
   private def compositeIntervals(intervals: Seq[Observable[Event[T, T]]]) // format: OFF
       : Observable[Event[T,T]] = { // format: ON
 
+    // TODO DRY this copypasta with RawInterval!
     case class State(current: Option[Event[T, T]], emit: Option[Event[T, T]])
     def combineEvents(events: Seq[Event[T, T]]): Seq[Event[T, T]] = {
       val states = events.scanLeft(State(None, None)) { (state, event) =>

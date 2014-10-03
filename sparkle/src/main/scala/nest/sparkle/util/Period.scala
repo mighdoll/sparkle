@@ -5,19 +5,12 @@ import scala.util.control.Exception._
 import org.joda.time.{ Period => JodaPeriod }
 import com.github.nscala_time.time.Implicits._
 import org.joda.time.DateTime
+import org.joda.time.DateTimeZone
 
-private object FieldTypes {
-  val millis = DurationFieldType.millis
-  val seconds = DurationFieldType.seconds
-  val minutes = DurationFieldType.minutes
-  val hours = DurationFieldType.hours
-  val days = DurationFieldType.days
-  val weeks = DurationFieldType.weeks
-  val months = DurationFieldType.months
-  val years = DurationFieldType.years
-}
 
-/** a period of time*/
+case class PeriodWithZone(period:Period, dateTimeZone:DateTimeZone)
+
+/** A period that supports rounding date times to the same resolution, and converting to JodaPeriod */
 case class Period(value: Int, durationType: DurationFieldType) {
 
   def toJoda: JodaPeriod = {
@@ -89,4 +82,17 @@ object Period {
   /** parse a string like "1 hour" into a Period */
   def unapply(duration: String): Option[Period] = parse(duration)
 }
+
+/** convenience names for joda field types, so that we can pattern match with them */
+private object FieldTypes {
+  val millis = DurationFieldType.millis
+  val seconds = DurationFieldType.seconds
+  val minutes = DurationFieldType.minutes
+  val hours = DurationFieldType.hours
+  val days = DurationFieldType.days
+  val weeks = DurationFieldType.weeks
+  val months = DurationFieldType.months
+  val years = DurationFieldType.years
+}
+
 
