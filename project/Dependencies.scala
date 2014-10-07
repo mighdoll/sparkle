@@ -82,7 +82,7 @@ object Dependencies {
                                   exclude("com.sun.jmx", "jmxri")
                                   exclude("org.slf4j", "slf4j-simple")
                               )
-  val zookeeper             = ("org.apache.zookeeper"      % "zookeeper"               % "3.4.5"
+  val zookeeper             = ("org.apache.zookeeper"      % "zookeeper"              % "3.4.5"
                                   exclude ("org.jboss.netty", "netty")
                                   exclude("javax.jms", "jms")
                                   exclude("com.sun.jdmk", "jmxtools")

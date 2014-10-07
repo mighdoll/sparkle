@@ -24,7 +24,7 @@ class TestLargeKafkaStream extends FunSuite with Matchers with PropertyChecks wi
   val elementsPerRecord = 120
   val records = 1000
 
-  /** run a test runction with a fixed threadpool available */
+  /** run a test function with a fixed threadpool available */
   def withFixedThreadPool[T](threads: Int = 10)(fn: ExecutionContext => T): T = {
     val execution = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(10))
     try {
@@ -55,7 +55,11 @@ class TestLargeKafkaStream extends FunSuite with Matchers with PropertyChecks wi
           val rows = records * elementsPerRecord
           printTime(s"loading $rows rows ($elementsPerRecord elements per record) takes:") {
             loader.start()
-            storeWrite.take(generated.size).toBlocking.toList // await completion
+            try {
+              storeWrite.take(generated.size).toBlocking.toList // await completion
+            } finally {
+              loader.shutdown()
+            }
           }
         }
       }

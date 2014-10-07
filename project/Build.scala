@@ -89,10 +89,13 @@ object SparkleBuild extends Build {
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
+      .settings(BackgroundService.settings: _*)
       .settings(
         libraryDependencies ++= testAndLogging ++ Seq(
           sparkRepl
-        )
+        ),
+        dependenciesToStart := Seq(cassandraServer),
+        test in IntegrationTest := BackgroundService.itTestTask.value
       )
 
   lazy val testKit =        // utilities for testing sparkle stuff
@@ -163,7 +166,7 @@ object SparkleBuild extends Build {
       .settings(BackgroundService.settings: _*)
       .settings(BuildSettings.setMainClass("org.apache.cassandra.service.CassandraDaemon"): _*)
       .settings(
-        libraryDependencies ++= Seq(cassandraAll),
+        libraryDependencies ++= Seq(cassandraAll, lz4, snappy),
         jmxPort := Some(7199),
         healthCheckFn <<= HealthChecks.cassandraIsHealthy
       )

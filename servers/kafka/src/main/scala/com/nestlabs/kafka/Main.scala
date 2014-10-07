@@ -17,7 +17,7 @@ object Main {
     val kafkaLog4jMBeanName = "kafka:type=kafka.KafkaLog4j"
     Utils.swallow(logger.warn, Utils.registerMBean(new LoggerDynamicMBean(Logger.getRootLogger()), kafkaLog4jMBeanName))
 
-    val props = Option(this.getClass().getClassLoader().getResourceAsStream("server.properties")).map { propStream => {
+    val props = Option(this.getClass.getClassLoader.getResourceAsStream("server.properties")).map { propStream => {
       try {
         val props = new Properties()
         props.load(propStream)

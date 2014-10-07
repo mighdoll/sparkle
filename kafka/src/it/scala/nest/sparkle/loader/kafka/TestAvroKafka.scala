@@ -29,8 +29,8 @@ class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with Kafk
       withTestAvroTopic(rootConfig, MillisDoubleAvro.schema) { testTopic =>
         testTopic.writer.write(records)
         withTestReader(testTopic) { reader =>
-          val stream = reader.messageAndMetaDataIterator
-          val results = stream.take(records.length).toList
+          val iter = reader.messageAndMetaDataIterator()
+          val results = iter.take(records.length).toList
           results.length shouldBe records.length
           records zip results foreach {
             case (record, result) =>

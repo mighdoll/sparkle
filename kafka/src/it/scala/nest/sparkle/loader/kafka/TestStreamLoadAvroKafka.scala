@@ -66,9 +66,13 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
         val loader = new AvroKafkaLoader[Long](modifiedRoot, testStore)
         loader.start()
 
-        storeWrite.take(records.length).toBlocking.head // await completion
-        checkCassandra(testStore, records)
-        loader.shutdown()
+        try {
+          storeWrite.take(records.length).toBlocking.head // await completion
+          checkCassandra(testStore, records)
+        } finally {
+          log.debug("shutting down loader")
+          loader.shutdown()
+        }
       }
     }
   }

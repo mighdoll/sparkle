@@ -14,7 +14,6 @@
 
 package nest.sparkle.loader.kafka
 
-import scala.concurrent.ExecutionContext
 import rx.lang.scala.Observable
 
 import spray.util._
@@ -22,11 +21,9 @@ import spray.util._
 import org.scalatest.{FunSuite, Matchers}
 
 import nest.sparkle.loader.kafka.KafkaTestTopic.withKafkaTestTopic
-import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 
 class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
-  import scala.concurrent.ExecutionContext.Implicits.global
   
   def randomStrings(count: Int, length: Int = 3): Seq[String] = {
     (0 until count).map { _ => randomAlphaNum(length) }.toSeq
@@ -37,8 +34,8 @@ class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
     withKafkaTestTopic(rootConfig) { kafka =>
       val testData = randomStrings(entries)
       writerFn(kafka, testData)
-      val stream = kafka.reader.messageAndMetaDataIterator()
-      val results = stream.map(_.message())
+      val iter = kafka.reader.messageAndMetaDataIterator()
+      val results = iter.map(_.message())
         .take(entries)
         .toList
       results shouldBe testData
