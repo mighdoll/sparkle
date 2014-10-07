@@ -60,6 +60,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   private var lastCommit = currentTime
 
   /** Set to false to shutdown in an orderly manner */
+  @volatile
   private var keepRunning = true
   
   // Metrics
