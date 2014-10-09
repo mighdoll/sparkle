@@ -26,21 +26,17 @@ import nest.sparkle.store.cassandra.ObservableResultSet._
 import scala.reflect.runtime.universe._
 import nest.sparkle.util._
 import nest.sparkle.util.Log
-import SparseColumnReader.{ log, statement, ReadAll, ReadRange, ReadFromStart }
 import com.datastax.driver.core.BoundStatement
 import nest.sparkle.store.OngoingEvents
 import rx.lang.scala.Subject
 import scala.util.Random
 import scala.concurrent.duration._
+import nest.sparkle.store.cassandra.SparseColumnReaderStatements._
 
-object SparseColumnReader extends PrepareTableOperations with Log {
-  case class ReadAll(override val tableName: String) extends TableOperation
-  case class ReadRange(override val tableName: String) extends TableOperation
-  case class ReadFromStart(override val tableName: String) extends TableOperation
-
+object SparseColumnReader extends Log {
   def instance[T, U](dataSetName: String, columnName: String, catalog: ColumnCatalog, // format: OFF
-      writeListener:WriteListener) 
-      (implicit session: Session, execution: ExecutionContext): Future[SparseColumnReader[T,U]] = { // format: ON
+      writeListener:WriteListener, preparedSession:PreparedSession) 
+      (implicit execution: ExecutionContext): Future[SparseColumnReader[T,U]] = { // format: ON
 
     val columnPath = ColumnSupport.constructColumnPath(dataSetName, columnName)
 
@@ -48,7 +44,7 @@ object SparseColumnReader extends PrepareTableOperations with Log {
       * (presumably _) type of instance()s T,U parameters.
       */
     def makeReader[X, Y](key: CanSerialize[X], value: CanSerialize[Y]): SparseColumnReader[T, U] = {
-      val typed = new SparseColumnReader(dataSetName, columnName, catalog, writeListener)(key, value, session)
+      val typed = new SparseColumnReader(dataSetName, columnName, catalog, writeListener, preparedSession)(key, value)
       typed.asInstanceOf[SparseColumnReader[T, U]]
     }
 
@@ -72,31 +68,18 @@ object SparseColumnReader extends PrepareTableOperations with Log {
     }
   }
 
-  override val prepareStatements =
-    (ReadAll -> readAllStatement _) ::
-      (ReadRange -> readRangeStatement _) ::
-      (ReadFromStart -> readFromStartStatement _) ::
-      Nil
-
-  def readAllStatement(tableName: String): String = s"""
-      SELECT argument, value FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ?
-      """
-
-  def readRangeStatement(tableName: String): String = s"""
-      SELECT argument, value FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? AND argument >= ? AND argument < ?
-      """
-
-  def readFromStartStatement(tableName: String): String = s"""
-      SELECT argument, value FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? AND argument >= ? 
-      """
 }
 
+import SparseColumnReader._
+
+
 /** read only access to a cassandra source event column */
-class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: String, // format: OFF
-      val columnName: String, catalog: ColumnCatalog, writeListener:WriteListener) (implicit val session: Session)
+class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF 
+    val dataSetName: String, 
+    val columnName: String, 
+    catalog: ColumnCatalog, 
+    writeListener:WriteListener, 
+    prepared: PreparedSession)
       extends Column[T, U] with ColumnSupport { // format: ON
 
   def name: String = columnName
@@ -123,7 +106,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
   /** read all the column values from the column */
   private def readAll()(implicit executionContext: ExecutionContext): OngoingEvents[T, U] = { // format: ON
     log.trace(s"readAll from $tableName $columnPath")
-    val readStatement = statement(ReadAll(tableName)).bind(
+    val readStatement = prepared.statement(ReadAll(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
 
     OngoingEvents(initial = readEventRows(readStatement), ongoing = ongoingRead())
@@ -141,7 +124,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
   private def readFromStartCurrent(start: T) // format: OFF
       (implicit execution:ExecutionContext): Observable[Event[T,U]] = { // format: ON
     log.trace(s"readFromStartCurrent from $tableName $columnPath $start")
-    val readStatement = statement(ReadFromStart(tableName)).bind(
+    val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef]): _*)
     readEventRows(readStatement)
@@ -169,7 +152,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
   private def readBoundedRange(start: T, end: T) // format: OFF
       (implicit execution:ExecutionContext): OngoingEvents[T, U] = { // format: ON
     log.trace(s"readRange from $tableName $columnPath $start $end")
-    val readStatement = statement(ReadRange(tableName)).bind(
+    val readStatement = prepared.statement(ReadRange(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
 
@@ -185,7 +168,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize](val dataSetName: Stri
 
   private def readEventRows(statement: BoundStatement) // format: OFF
       (implicit execution:ExecutionContext): Observable[Event[T, U]] = { // format: ON
-    val rows = session.executeAsync(statement).observerableRows
+    val rows = prepared.session.executeAsync(statement).observerableRows
     rows map rowDecoder
   }
 

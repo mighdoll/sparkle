@@ -217,16 +217,20 @@ trait ConfiguredCassandra extends Log {
 
 trait CassandraReaderWriter extends CassandraStoreReader with CassandraStoreWriter
 
+/** a data access object for Cassandra writing. 
+  */
 trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with Log {
   def writeNotifier: WriteNotifier
 
   this.session // trigger creating connection, and create schemas if necessary
 
+  private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements)
+  
   /** return a column from a fooSet/barSet/columName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     SparseColumnWriter.instance[T, U](dataSetName, columnName, columnCatalog,
-      dataSetCatalog, writeNotifier)
+      dataSetCatalog, writeNotifier, preparedSession)
   }
 
   /** Create the tables using the session passed.
@@ -241,13 +245,12 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
 
 }
 
-/** a Storage data access object for Cassandra. Supports the Store and WriteableStore apis for
-  * reading/writing columns and column metadata.
-  */
+/** a data access object for reading cassandra column data and the catalog of columns. */
 trait CassandraStoreReader extends ConfiguredCassandra with Store with Log {
   def writeListener: WriteListener
 
   this.session // trigger creating connection, and create schemas if necessary 
+  private lazy val preparedSession = PreparedSession(session, SparseColumnReaderStatements)
 
   /** Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
     *
@@ -269,7 +272,7 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log {
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     val futureColumn = SparseColumnReader.instance[T, U](dataSetName, columnName,
-      columnCatalog, writeListener)
+      columnCatalog, writeListener, preparedSession)
     futureColumn
   }
 

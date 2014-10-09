@@ -14,8 +14,6 @@
 
 package nest.sparkle.store.cassandra
 
-import com.datastax.driver.core.Session
-
 trait PreparedStatements[T] {
   private var preparedOpt: Option[T] = None
 
