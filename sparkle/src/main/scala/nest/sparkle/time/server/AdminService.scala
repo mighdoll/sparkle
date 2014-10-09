@@ -1,31 +1,23 @@
 package nest.sparkle.time.server
 
-import scala.concurrent.duration._
-import scala.concurrent.{ Future, ExecutionContext }
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
+
 import com.typesafe.config.Config
-import akka.actor.ActorSystem
+
+import akka.actor.{Actor, ActorRefFactory, ActorSystem, Props}
 import akka.io.IO
-import akka.util.Timeout
-import akka.actor.{ Props, Actor, ActorRefFactory }
 import akka.pattern.ask
-import spray.can.Http
-import spray.routing.{ Route, HttpService, RequestContext }
-import spray.http._
-import spray.httpx.SprayJsonSupport._
-import spray.routing.Directives
-import spray.http.StatusCodes.NotFound
-import spray.http.MediaTypes.`text/tab-separated-values`
-import spray.http.HttpHeaders.{ `Content-Disposition`, `Content-Type` }
-import spray.util._
-import nest.sparkle.util.Log
+import akka.util.Timeout
 import nest.sparkle.store.Store
-import nest.sparkle.time.protocol.{ ExportData, HttpLogging }
-import nest.sparkle.time.protocol.AdminProtocol._
+import nest.sparkle.time.protocol.HttpLogging
 import nest.sparkle.tools.DownloadExporter
-import nest.sparkle.util.StringUtil
-import nest.sparkle.store.DataSetNotFound
-import scala.util.Failure
-import scala.util.Success
+import nest.sparkle.util.ConfigUtil.configForSparkle
+import nest.sparkle.util.Log
+import spray.can.Http
+import spray.http.HttpHeaders.{ `Content-Disposition` }
+import spray.routing.{Directives, Route}
+import spray.routing.Directive.pimpApply
 
 // TODO DRY with DataService
 /** a web api for serving an administrative page about data stored in sparkle: downlaod .tsv files, etc. */
@@ -78,8 +70,8 @@ object AdminService {
       Props(new ConcreteAdminService(system, store, rootConfig)),
       "admin-server"
     )
-    val port = rootConfig.getInt("sparkle-time-server.admin.port")
-    val interface = rootConfig.getString("sparkle-time-server.admin.interface")
+    val port = configForSparkle(rootConfig).getInt("admin.port")
+    val interface = configForSparkle(rootConfig).getString("admin.interface")
 
     import system.dispatcher
     implicit val timeout = Timeout(10.seconds)

@@ -1,26 +1,26 @@
 package nest.sparkle.time.transform
 
+import com.github.nscala_time.time.Implicits.{richReadableInstant, richReadableInterval}
+import com.typesafe.config.Config
 import java.util.TimeZone
-import scala.Iterator
-import scala.concurrent.ExecutionContext
-import scala.util.{ Failure, Success, Try }
-import scala.util.control.Exception.nonFatalCatch
-import rx.lang.scala.Observable
-import org.joda.time.{ DateTime, DateTimeZone, Interval }
-import org.joda.time.format.ISODateTimeFormat
-import com.github.nscala_time.time.Implicits.{ richReadableInstant, richReadableInterval }
-import nest.sparkle.store.{ Column, Event, EventGroup }
-import nest.sparkle.time.protocol.{ IntervalParameters, JsonDataStream, JsonEventWriter, KeyValueType, RangeInterval }
+import nest.sparkle.store.{Column, Event, EventGroup}
+import nest.sparkle.time.protocol.{IntervalParameters, JsonDataStream, JsonEventWriter, KeyValueType, RangeInterval}
 import nest.sparkle.time.protocol.TransformParametersJson.IntervalParametersFormat
-import nest.sparkle.util.{ Period, PeriodWithZone, RecoverJsonFormat, RecoverNumeric }
+import nest.sparkle.util.{Period, PeriodWithZone, RecoverJsonFormat, RecoverNumeric}
+import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.Log
 import nest.sparkle.util.OptionConversion.OptionFuture
+import org.joda.time.{DateTime, DateTimeZone, Interval}
+import org.joda.time.format.ISODateTimeFormat
+import rx.lang.scala.Observable
+import scala.Iterator
+import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.universe._
+import scala.util.{Failure, Success, Try}
+import scala.util.control.Exception.nonFatalCatch
 import spire.math.Numeric
-import spire.implicits._
-import spray.json._
+import spray.json.{JsObject, JsonFormat}
 import spray.json.DefaultJsonProtocol._
-import com.typesafe.config.Config
 
 case class StandardIntervalTransform(rootConfig: Config) extends TransformMatcher {
   override type TransformType = MultiColumnTransform
@@ -42,7 +42,7 @@ case class InvalidPeriod(msg: String) extends RuntimeException(msg)
   */
 class IntervalSum(rootConfig: Config) extends MultiColumnTransform with Log {
 
-  val maxParts = rootConfig.getInt("sparkle-time-server.transforms.max-parts")
+  val maxParts = configForSparkle(rootConfig).getInt("transforms.max-parts")
 
   /** Return a json data stream that contains the total coverage of the intervals across the
     * report periods specified in the protocol request transformParameters. Coverage from each
