@@ -17,9 +17,11 @@ package nest.sparkle.loader.kafka
 import java.util.concurrent.Executors
 
 import scala.collection.JavaConverters.asScalaBufferConverter
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future, Await, TimeoutException}
+import scala.concurrent.duration._
 import scala.language.existentials
 import scala.reflect.runtime.universe._
+import scala.util.control.NonFatal
 
 import com.typesafe.config.Config
 
@@ -55,7 +57,20 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   }
   
   /** terminate all loaders */
-  def shutdown(): Unit = {
-    loaders.foreach(_.shutdown())
+  def shutdown() {
+    val futures = loaders.map(_.shutdown())
+    val future = Future.sequence(futures)
+    try {
+      Await.ready(future, 8 seconds)
+    } catch {
+      case e:InterruptedException => 
+        log.error("Interrupted while waiting for topic threads to shutdown")
+      case e:TimeoutException     => 
+        log.error("Timeout while waiting for topic threads to shutdown")
+      case NonFatal(err)          =>
+        log.error("Exception waiting for topic threads to shutdown", err)
+    }
+    
+    readerThreadPool.shutdownNow()
   }
 }

@@ -3,7 +3,7 @@ package nest.sparkle.loader.kafka
 import java.util.concurrent.{TimeUnit, TimeoutException}
 
 import scala.collection.JavaConverters.asScalaBufferConverter
-import scala.concurrent.{Await, Future, ExecutionContext}
+import scala.concurrent.{Await, Future, ExecutionContext, promise}
 import scala.concurrent.duration._
 import scala.compat.Platform.currentTime
 import scala.reflect.runtime.universe._
@@ -63,8 +63,17 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   @volatile
   private var keepRunning = true
   
+  /** Promise backing shutdown future */
+  private val shutdownPromise = promise[Unit]()
+  
+  /** Allows any other code to take action when this loader terminates */
+  val shutdownFuture = shutdownPromise.future
+  
   // Metrics
   private val metricPrefix = topic.replace(".", "_").replace("*", "") 
+  
+  /** Record convert timer */
+  private val convertMetric = metrics.timer("kafka-message-convert", metricPrefix)
   
   /** Read rate */
   private val readMetric = metrics.meter("kafka-messages-read", metricPrefix)
@@ -82,33 +91,39 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
    */
   override def run(): Unit = {
     
-    log.info("Loader for {} started", topic)
+    try {
+      log.info("Loader for {} started", topic)
 
-    while (keepRunning) {
-      conditionalCommit()
+      while (keepRunning) {
+        conditionalCommit()
 
-      iterator.next() match {
-        case Success(block)                         =>
-          readMetric.mark()
-          blockingWrite(block)
-        case Failure(err: ConsumerTimeoutException) => log.trace("consumer timeout reading {}", topic)
-        case Failure(err)                           => 
-          // Some other Kafka reading error. Discard iterator and try again.
-          discardIterator()
+        iterator.next() match {
+          case Success(block)                         =>
+            readMetric.mark()
+            blockingWrite(block)
+          case Failure(err: ConsumerTimeoutException) =>
+            log.trace("consumer timeout reading {}", topic)
+          case Failure(err)                           =>
+            // Some other Kafka reading error. Discard iterator and try again.
+            discardIterator()
+        }
       }
-    }
 
-    log.info(s"$topic loader is terminating")
-    
-    reader.commit()  // commit any outstanding offsets
-    reader.close()
-    
-    log.info(s"$topic loader has terminated")
+      log.info(s"$topic loader is terminating")
+
+      reader.commit() // commit any outstanding offsets
+      reader.close()
+
+      log.info(s"$topic loader has terminated")
+    } finally {
+      shutdownPromise.success()
+    }
   }
   
   /** Shutdown this loader nicely */
-  def shutdown(): Unit = {
+  def shutdown(): Future[Unit] = {
     keepRunning = false
+    shutdownFuture  // this is public but convenient to return to caller
   }
 
   /** Create the transformer, if any, for this topic.
@@ -204,35 +219,41 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   private def convertMessage(record: ArrayRecordColumns): Try[TaggedBlock] = {
     // Wrap a try/catch around the whole method so no error crashes the loader.
     try {
-      val columnPathIds = {
-        val ids = decoder.metaData.ids zip record.ids flatMap { case (NameTypeDefault(name, typed, default), valueOpt) =>
-          // What happens if the original value was explicitly null?
-          val valueOrDefault = valueOpt orElse default orElse {
-            log.debug("{} record contains field {} with no value and no default", topic, name)
-            None
+      convertMetric.time {
+        val columnPathIds = {
+          val ids = decoder.metaData.ids zip record.ids flatMap { case (NameTypeDefault(name, typed, default), valueOpt) =>
+            // What happens if the original value was explicitly null?
+            val valueOrDefault = valueOpt orElse default orElse {
+              log.debug("{} record contains field {} with no value and no default", topic, name)
+              None
+            }
+            valueOrDefault.map(typeTaggedToString(_, typed))
           }
-          valueOrDefault.map(typeTaggedToString(_, typed))
+          ids.foldLeft("")(_ + "/" + _).stripPrefix("/")
         }
-        ids.foldLeft("")(_ + "/" + _).stripPrefix("/")
+
+        val block =
+          record.typedColumns(decoder.metaData).map { taggedColumn =>
+            val columnPath = decoder.columnPath(columnPathIds, taggedColumn.name)
+
+            /** do the following with type parameters matching each other
+              * (even though our caller will ultimately ignore them) */
+            def withFixedTypes[T, U]() = {
+              val typedEvents = taggedColumn.events.asInstanceOf[Events[T, U]]
+              val keyType: TypeTag[T] = castKind(taggedColumn.keyType)
+              val valueType: TypeTag[U] = castKind(taggedColumn.valueType)
+              TaggedSlice[T, U](columnPath, typedEvents)(keyType, valueType)
+            }
+            withFixedTypes[Any, Any]()
+          }
+
+        log.trace(
+            s"convertMessage: got block.length ${block.length}  head:${
+              block.headOption.map {_.shortPrint(3)}
+            }"
+          )
+        Success(block)
       }
-
-      val block =
-        record.typedColumns(decoder.metaData).map { taggedColumn =>
-          val columnPath = decoder.columnPath(columnPathIds, taggedColumn.name)
-
-          /** do the following with type parameters matching each other
-            * (even though our caller will ultimately ignore them) */
-          def withFixedTypes[T, U]() = {
-            val typedEvents = taggedColumn.events.asInstanceOf[Events[T, U]]
-            val keyType: TypeTag[T] = castKind(taggedColumn.keyType)
-            val valueType: TypeTag[U] = castKind(taggedColumn.valueType)
-            TaggedSlice[T, U](columnPath, typedEvents)(keyType, valueType)
-          }
-          withFixedTypes[Any, Any]()
-        }
-
-      log.trace(s"convertMessage: got block.length ${block.length}  head:${block.headOption.map { _.shortPrint(3)}}")
-      Success(block)
     } catch {
       case NonFatal(err) => Failure(err)
     }
