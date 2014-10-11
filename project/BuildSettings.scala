@@ -14,14 +14,17 @@
 
 import sbt._
 import sbt.Keys._
+
+import sbtrelease.ReleasePlugin
+import spray.revolver.RevolverPlugin._
+
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseKeys
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
+
 import sbtassembly.Plugin.AssemblyKeys._
 import sbtassembly.Plugin._
-import spray.revolver.RevolverPlugin._
-import sbtrelease.ReleasePlugin
-import bintray.Plugin._
-import org.sbtidea.SbtIdeaPlugin._
+
+import BackgroundServiceKeys._
 
 object BuildSettings {
 
@@ -29,7 +32,6 @@ object BuildSettings {
     orgSettings ++
     compileSettings ++
     eclipseSettings ++
-    ideaSettings ++
     itSettingsWithEclipse ++
     slf4jSettings ++
     testSettings ++
@@ -56,10 +58,6 @@ object BuildSettings {
 //     EclipseKeys.withBundledScalaContainers := false // LATER for eclipse 4.4
   )
 
-  lazy val ideaSettings = Seq(
-    ideaExcludeFolders := ".idea" :: ".idea_module" :: Nil
-  )
-
   lazy val itSettingsWithEclipse = Defaults.itSettings ++ Seq(
     // include integration test code (src/it) in generated eclipse projects
     EclipseKeys.configurations := Set(sbt.Compile, sbt.Test, sbt.IntegrationTest)
@@ -78,7 +76,7 @@ object BuildSettings {
         invoke(null, "ROOT")
     )
   )
-
+  
   lazy val sparkleAssemblySettings = assemblySettings ++ Seq(
     defaultMergeStrategy
   )
@@ -95,7 +93,7 @@ object BuildSettings {
     sbtassembly.Plugin.assemblySettings ++
       ReleasePlugin.releaseSettings ++
       MavenPublish.settings ++
-      Revolver.settings
+      Revolver.settings  // TODO Revolver isn't really 'publish' settings, and BackgroundService includes revolver
   
   lazy val dependencyOverrideSettings = Seq(
     dependencyOverrides ++= Dependencies.dependencyOverrides

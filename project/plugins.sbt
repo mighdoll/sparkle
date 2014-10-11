@@ -9,13 +9,19 @@ resolvers ++= Seq(
   )(Resolver.ivyStylePatterns)
 )
 
-libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.5"
+libraryDependencies ++= Seq(
+  "org.slf4j"                %  "slf4j-simple"           % "1.7.7",
+  ("org.apache.kafka"        %% "kafka"                  % "0.8.1.1"
+                                  exclude("javax.jms", "jms")
+                                  exclude("com.sun.jdmk", "jmxtools")
+                                  exclude("com.sun.jmx", "jmxri")
+                                  exclude("org.slf4j", "slf4j-simple")
+  )
+)
 
 addSbtPlugin("me.lessis" % "bintray-sbt" % "0.1.1")
 
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.10.2")
-
-addSbtPlugin("com.github.mpeltonen" % "sbt-idea" % "1.6.0")
 
 addSbtPlugin("com.typesafe.sbteclipse" % "sbteclipse-plugin" % "2.5.0")
 

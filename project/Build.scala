@@ -1,30 +1,20 @@
-/* Copyright 2013  Nest Labs
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.  */
-
 import sbt._
 import sbt.Keys._
+import BackgroundService._
+import BackgroundServiceKeys._
 
-object sparkleCoreBuild extends Build {
+object SparkleBuild extends Build {
   import Dependencies._
 
   // set prompt to name of current project
-  override lazy val settings = super.settings :+ {
+  override lazy val settings = super.settings ++ Seq(
     shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
-  }
+  )
 
   lazy val sparkleRoot = Project(id = "root", base = file("."))
-    .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, sparkShell, testKit, sparkleTests, util, logbackConfig, log4jConfig)
+    .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, sparkShell, testKit, sparkleTests, util, logbackConfig, log4jConfig,
+      cassandraServer, zookeeperServer, kafkaServer
+    )
 
   lazy val sparkleDataServer =  // standalone protocol server
     Project(id = "sparkle-data-server", base = file("data-server"))
@@ -32,7 +22,7 @@ object sparkleCoreBuild extends Build {
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
-      .settings(BuildSettings.sparkleAssemblySettings: _*) 
+      .settings(BuildSettings.sparkleAssemblySettings: _*)
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
 
 
@@ -65,6 +55,8 @@ object sparkleCoreBuild extends Build {
           openCsv,
           metricsScala
         ),
+//        adminPort := Some(18000), // enable when admin supports /shutdown
+        healthPort := Some(18001), 
         initialCommands in console := """
           import nest.sg.Plot._
           import nest.sg.StorageConsole._
@@ -81,10 +73,13 @@ object sparkleCoreBuild extends Build {
       .dependsOn(log4jConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
+      .settings(BackgroundService.settings: _*)
       .settings(
         libraryDependencies ++= kafka ++ testAndLogging ++ avro ++ Seq(
           metricsScala
-        )
+        ),
+        dependenciesToStart := Seq(kafkaServer, cassandraServer),
+        test in IntegrationTest := BackgroundService.itTestTask.value
       )
 
   lazy val sparkShell =   // admin shell
@@ -116,10 +111,13 @@ object sparkleCoreBuild extends Build {
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
+      .settings(BackgroundService.settings: _*)
       .settings(
         libraryDependencies ++= testAndLogging ++ spray ++ Seq(
           metricsGraphite
-        )
+        ),
+        dependenciesToStart := Seq(cassandraServer),
+        test in IntegrationTest := BackgroundService.itTestTask.value
       )
 
   lazy val util =           // scala utilities useful in other projects too
@@ -133,9 +131,9 @@ object sparkleCoreBuild extends Build {
           metricsScala,
           scalaConfig,
           Optional.metricsGraphite,
-          sprayCan     % "optional",
+          sprayCan % "optional",
           sprayRouting % "optional"
-          ) ++ allTest
+        ) ++ allTest
       )
 
   lazy val logbackConfig =  // mix in to projects choosing logback
@@ -156,6 +154,40 @@ object sparkleCoreBuild extends Build {
         libraryDependencies ++= Seq(
           scalaConfig
         ) ++ log4jLogging
+      )
+
+  // The following projects are for starting servers for integration tests
+
+  lazy val cassandraServer =
+    Project(id = "cassandra-server", base = file("servers/cassandra"))
+      .settings(BackgroundService.settings: _*)
+      .settings(BuildSettings.setMainClass("org.apache.cassandra.service.CassandraDaemon"): _*)
+      .settings(
+        libraryDependencies ++= Seq(cassandraAll),
+        jmxPort := Some(7199),
+        healthCheckFn <<= HealthChecks.cassandraIsHealthy
+      )
+
+  lazy val kafkaServer =
+    Project(id = "kafka-server", base = file("servers/kafka"))
+      .settings(BackgroundService.settings: _*)
+      .settings(BuildSettings.setMainClass("com.nestlabs.kafka.Main"): _*)
+      .settings(
+        libraryDependencies ++= Seq(
+          apacheKafka,
+          Runtime.slf4jlog4j
+        ),
+        healthCheckFn <<= HealthChecks.kafkaIsHealthy,
+        dependenciesToStart := Seq(zookeeperServer)
+      )
+
+  lazy val zookeeperServer =
+    Project(id = "zookeeper-server", base = file("servers/zookeeper"))
+      .settings(BackgroundService.settings: _*)
+      .settings(BuildSettings.setMainClass("com.nestlabs.zookeeper.Main"): _*)
+      .settings(
+        libraryDependencies ++= Seq(zookeeper),
+        healthCheckFn <<= HealthChecks.zookeeperIsHealthy
       )
 
 }
