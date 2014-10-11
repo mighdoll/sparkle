@@ -24,6 +24,10 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(BuildSettings.sparkleAssemblySettings: _*)
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
+      .settings(BackgroundService.settings: _*)
+      .settings(
+        dependenciesToStart := Seq(cassandraServer)
+      )
 
 
   lazy val protocol =       // protocol server library serving the sparkle data api
@@ -168,7 +172,7 @@ object SparkleBuild extends Build {
       .settings(
         libraryDependencies ++= Seq(cassandraAll, lz4, snappy),
         jmxPort := Some(7199),
-        healthCheckFn <<= HealthChecks.cassandraIsHealthy
+        healthCheckFn := HealthChecks.cassandraIsHealthy.value
       )
 
   lazy val kafkaServer =
@@ -180,7 +184,7 @@ object SparkleBuild extends Build {
           apacheKafka,
           Runtime.slf4jlog4j
         ),
-        healthCheckFn <<= HealthChecks.kafkaIsHealthy,
+        healthCheckFn := HealthChecks.kafkaIsHealthy.value,
         dependenciesToStart := Seq(zookeeperServer)
       )
 
@@ -190,7 +194,7 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.setMainClass("com.nestlabs.zookeeper.Main"): _*)
       .settings(
         libraryDependencies ++= Seq(zookeeper),
-        healthCheckFn <<= HealthChecks.zookeeperIsHealthy
+        healthCheckFn := HealthChecks.zookeeperIsHealthy.value
       )
 
 }
