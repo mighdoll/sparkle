@@ -14,28 +14,16 @@
 
 package nest.sparkle.time.server
 
-import java.io.FileNotFoundException
-import java.nio.file.NoSuchFileException
+import scala.concurrent.ExecutionContext
 
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.{ Failure, Success }
-
-import spray.http.StatusCodes
 import spray.http.StatusCodes.NotFound
-import spray.httpx.marshalling.Marshaller
 import spray.httpx.marshalling.ToResponseMarshallable.isMarshallable
-import spray.routing.{ Directives, HttpService, Route }
 import spray.routing.Directive.pimpApply
-import spray.routing.directives.OnCompleteFutureMagnet.apply
+import spray.routing.Route
 
-import nest.sparkle.legacy.{ ColumnNotFoundException }
-import nest.sparkle.store.DataSetNotFound
-import nest.sparkle.time.protocol.{ DataServiceV1, HttpLogging }
+import nest.sparkle.http.{HttpLogging, StaticContent}
+import nest.sparkle.time.protocol.DataServiceV1
 import nest.sparkle.util.Log
-
-sealed trait FileOrResourceLocation
-case class FileLocation(location: String) extends FileOrResourceLocation
-case class ResourceLocation(location: String) extends FileOrResourceLocation
 
 /** http API for serving data and static web content */
 trait DataService extends StaticContent with DataServiceV1 with HttpLogging with Log {

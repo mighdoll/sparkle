@@ -15,11 +15,12 @@
 package nest.sparkle.graph
 
 import org.scalatest.{FunSuite, Matchers}
+
 import spray.http.StatusCodes
 import spray.testkit.ScalatestRouteTest
+import nest.sparkle.http.FileLocation
 import nest.sparkle.legacy.{PreloadedRegistry, PreloadedStore, SampleData}
 import nest.sparkle.time.protocol.TestDataService
-import nest.sparkle.time.server.FileLocation
 import nest.sparkle.util.Resources
 
 /** test serving a custom webroot */

@@ -1,7 +1,7 @@
 package nest.sparkle.time.server
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
 
 import com.typesafe.config.Config
 
@@ -9,15 +9,17 @@ import akka.actor.{Actor, ActorRefFactory, ActorSystem, Props}
 import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
+
+import spray.can.Http
+import spray.http.HttpHeaders.`Content-Disposition`
+import spray.routing.Directive.pimpApply
+import spray.routing.{Directives, Route}
+
+import nest.sparkle.http.{HttpLogging, ResourceLocation, StaticContent}
 import nest.sparkle.store.Store
-import nest.sparkle.time.protocol.HttpLogging
 import nest.sparkle.tools.DownloadExporter
 import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.Log
-import spray.can.Http
-import spray.http.HttpHeaders.{ `Content-Disposition` }
-import spray.routing.{Directives, Route}
-import spray.routing.Directive.pimpApply
 
 // TODO DRY with DataService
 /** a web api for serving an administrative page about data stored in sparkle: downlaod .tsv files, etc. */

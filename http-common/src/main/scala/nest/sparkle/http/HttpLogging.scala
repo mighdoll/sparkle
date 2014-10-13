@@ -1,8 +1,8 @@
-package nest.sparkle.time.protocol
+package nest.sparkle.http
 
 import spray.http.{HttpMessage, HttpRequest, HttpResponse}
-import spray.routing.{Directive1, Directives, Directive0}
 import spray.routing.Directive.SingleValueModifiers
+import spray.routing.{Directive0, Directive1, Directives}
 
 import nest.sparkle.util.Log
 

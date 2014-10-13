@@ -1,15 +1,21 @@
-package nest.sparkle.time.server
+package nest.sparkle.http
 
-import spray.routing.HttpService
+import spray.routing.{HttpService, Route}
+
 import nest.sparkle.util.Log
-import spray.routing.Route
 
-/** Spray Routes for a an http service that serves static content.
+sealed trait FileOrResourceLocation
+case class FileLocation(location: String) extends FileOrResourceLocation
+case class ResourceLocation(location: String) extends FileOrResourceLocation
+
+/** Spray Routes for an http service that serves static content.
  *  
  *  static content comes from the web resource and optionally also from a configurable 
- *  webRoot directory. The directory can be on the file sytem or in a classpath resource folder. */
-trait StaticContent extends HttpService with Log {
-
+ *  webRoot directory. The directory can be on the file system or in a classpath resource folder. */
+trait StaticContent 
+  extends HttpService 
+          with Log 
+{
   /** Subclasses set this to the default web page to display (e.g. the dashboard) */
   def webRoot: Option[FileOrResourceLocation] = None
 
@@ -44,6 +50,5 @@ trait StaticContent extends HttpService with Log {
     staticBuiltIn ~
     webRootRoute
   } // format: ON
-
 
 }

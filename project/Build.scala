@@ -43,12 +43,12 @@ object SparkleBuild extends Build {
 
   lazy val sparkleCore =      // core libraries shared by protocol server and stream loader
     Project(id = "sparkle-core", base = file("sparkle"))
-      .dependsOn(util)
+      .dependsOn(httpCommon)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
-        libraryDependencies ++= cassandraClient ++ akka ++ spray ++ testAndLogging ++ spark ++ Seq(
+        libraryDependencies ++= cassandraClient ++ spark ++ Seq(
           scalaReflect,
           rxJavaCore,
           rxJavaScala,
@@ -141,6 +141,15 @@ object SparkleBuild extends Build {
           sprayCan % "optional",
           sprayRouting % "optional"
         ) ++ allTest
+      )
+
+  lazy val httpCommon =           // http/spray common code
+    Project(id = "http-common", base = file("http-common"))
+      .dependsOn(util)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= akka ++ spray ++ testAndLogging
       )
 
   lazy val logbackConfig =  // mix in to projects choosing logback

@@ -49,6 +49,8 @@ trait Main
     log.trace("alive")
   }
   
+  log.info("Main loader thread terminating")
+  
   override def overrides = {
     erase.value.map { (s"$sparkleConfigName.erase-store", _) }.toSeq
   }
