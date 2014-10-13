@@ -1,0 +1,9 @@
+time,one,two,three,four,five,six,a,b
+# one: 1 minute. 
+# two: 2 minutes (overlaps with one: in the same group)
+# a: 2 minutes (overlaps with one: and two:, but in a different group)
+# b: 1 minute, starts after others end
+2014-07-06T00:00:00.000,true,true,false,false,false,false,true,false
+2014-07-06T00:01:00.000,false,true,false,false,false,false,true,false
+2014-07-06T00:02:00.000,false,false,false,false,false,false,false,true
+2014-07-06T00:03:00.000,false,false,false,false,false,false,false,false

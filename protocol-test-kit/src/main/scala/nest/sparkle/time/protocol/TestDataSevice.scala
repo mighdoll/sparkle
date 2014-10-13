@@ -70,9 +70,14 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
       fn(events)
     }
   }
-
+  
   /** send a json string to the data port and report back the http response */
   def sendDataMessage(message: String):Future[HttpResponse] = {
+    //     uncomment when debugging
+//    implicit val timeout: RouteTestTimeout = {
+//      println("setting timeout to 1 hour for debugging")
+//      RouteTestTimeout(1.hour)
+//    }
     val promised = Promise[HttpResponse]
     Post("/v1/data", message) ~> v1protocol ~> check { 
       promised.complete(Success(response))

@@ -26,34 +26,41 @@ trait Store {
   def dataSet(name: String): Future[DataSet]
 
   /** return a column from a columnPath e.g. "fooSet/barSet/columName". */
-  def column[T,U](columnPath: String): Future[Column[T, U]]
+  def column[T, U](columnPath: String): Future[Column[T, U]]
 
   def close(): Unit
 }
 
 object Store {
   /** return an instance of Store, based on the store class specified in the config file */
-  def instantiateStore(config: Config, writeListener:WriteListener): Store = {
+  def instantiateStore(config: Config, writeListener: WriteListener): Store = {
     val storeClass = config.getString("store")
     val store = Instance.byName[Store](storeClass)(config, writeListener)
     store
   }
-  
+
   /** return an instance of Store, based on the store class specified in the config file */
-  def instantiateWritableStore(config: Config, writeNotifier:WriteNotifier): WriteableStore = {
+  def instantiateWritableStore(config: Config, writeNotifier: WriteNotifier): WriteableStore = {
     val storeClass = config.getString("writeable-store")
     val store = Instance.byName[WriteableStore](storeClass)(config, writeNotifier)
     store
   }
 
+  case class MalformedColumnPath(msg: String) extends RuntimeException(msg)
   /** split a columnPath into a dataSet and column components */
   def setAndColumn(columnPath: String): (String, String) = {
     val separator = columnPath.lastIndexOf("/")
-    val dataSetName = columnPath.substring(0, separator)
-    val columnName = columnPath.substring(separator + 1)
-    assert (dataSetName.length > 0)
-    assert (columnName.length > 0)
-    (dataSetName, columnName)
+    separator match {
+      case -1                              => ("default", columnPath)
+      case 0 if columnPath.tail.length > 0 => ("default", columnPath.tail)
+      case 0                               => throw MalformedColumnPath(columnPath)
+      case n =>
+        val dataSetName = columnPath.substring(0, separator)
+        val columnName = columnPath.substring(separator + 1)
+        assert(dataSetName.length > 0)
+        assert(columnName.length > 0)
+        (dataSetName, columnName)
+    }
   }
 }
 

@@ -48,6 +48,7 @@ trait RowInfo {
   val rows: Iterator[RowData] // produces a RowData for each row in the input file
 }
 
+/** metadata about the column header in a .csv or .tsv file */
 case class StringColumnInfo[T](name: String, index: Int, parser: ParseStringTo[T])
 
 case class ConcreteRowInfo(valueColumns: Seq[StringColumnInfo[_]], keyColumn: Boolean, rows: Iterator[RowData])

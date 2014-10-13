@@ -1,6 +1,6 @@
 package nest.sparkle.http
 
-import spray.routing.{HttpService, Route}
+import spray.routing.{ HttpService, Route }
 
 import nest.sparkle.util.Log
 
@@ -9,13 +9,13 @@ case class FileLocation(location: String) extends FileOrResourceLocation
 case class ResourceLocation(location: String) extends FileOrResourceLocation
 
 /** Spray Routes for an http service that serves static content.
- *  
- *  static content comes from the web resource and optionally also from a configurable 
- *  webRoot directory. The directory can be on the file system or in a classpath resource folder. */
-trait StaticContent 
-  extends HttpService 
-          with Log 
-{
+  *
+  * static content comes from the web resource and optionally also from a configurable
+  * webRoot directory. The directory can be on the file system or in a classpath resource folder.
+  */
+trait StaticContent
+    extends HttpService
+    with Log {
   /** Subclasses set this to the default web page to display (e.g. the dashboard) */
   def webRoot: Option[FileOrResourceLocation] = None
 
@@ -27,12 +27,12 @@ trait StaticContent
     webRoot.map {
       case FileLocation(path)     => getFromDirectory(path)
       case ResourceLocation(path) => getFromResourceDirectory(path)
-    } getOrElse {      
+    } getOrElse {
       reject
     }
   }
 
-  private lazy val indexHtml: Route = { // return index.html from custom folder if provided, otherwise use built in default page
+  private lazy val indexHtml: Route = { // return index.html from custom folder if web-root is provided, otherwise use built in default page
     pathSingleSlash {
       webRoot.map {
         case FileLocation(path)     => getFromFile(path + "/index.html")
@@ -44,7 +44,8 @@ trait StaticContent
   }
 
   /** server static content (html,js,css, etc.) from the built in web resource directory and from an optionally
-   *  configured webRoot */
+    * configured webRoot
+    */
   lazy val staticContent: Route = get { // format: OFF
     indexHtml ~
     staticBuiltIn ~

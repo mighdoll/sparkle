@@ -42,7 +42,7 @@ object JsonEventWriter {
   }
 
   /** return an Observable containing sequence-chunks of json data from an Observable containing sequence-chunks
-    * of event data
+    * of event data. 
     */
   def fromObservableSeq[T: JsonWriter, U: JsonWriter](observed: Observable[Seq[Event[T, U]]]): Observable[Seq[JsArray]] = {
     observed.map { eventSeq =>

@@ -1,42 +1,41 @@
 package nest.sparkle.time.transform
 
 import nest.sparkle.store.Event
-import spire.implicits._
 import spire.math.Numeric
+import spire.implicits._
+import nest.sparkle.util.Log
+import IntervalItem._
+import org.joda.time.format.ISODateTimeFormat
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
-import org.joda.time.format.ISODateTimeFormat
-import nest.sparkle.util.Log
 import org.joda.time.{Interval => JodaInterval}
 import com.github.nscala_time.time.Implicits._
 
-/** A closed numeric interval (start,end). Supports intersection (project) and merging (combine).  */
-case class RawInterval[T: Numeric](start: T, end: T) extends Log {
 
-  private val numeric = implicitly[Numeric[T]]
-
-  /** length of the interval */
-  def length:T = end - start
-
+/** A closed numeric interval [start,end). Supports intersection (project) and merging (combine).  */
+class IntervalItem[T:Numeric](val start:T, val length:T) extends Event[T,T](start, length) with Log {
+  def end:T = argument + value
+  
   /** intersect this interval with a target interval, optionally return their intersection. */
-  def project(target: RawInterval[T]): Option[RawInterval[T]] = {
+  def project(target: IntervalItem[T]): Option[IntervalItem[T]] = {
     if (start >= target.end || end <= target.start) { // no overlap
       None
     } else if (start >= target.start && end < target.end) { // totally within target
       Some(this)
     } else if (start < target.start && end > target.start && end < target.end) { // starts before target, ends within
-      Some(RawInterval(target.start, end))
+      Some(IntervalItem(target.start, end - target.start))
     } else if (start < target.start && end >= target.end) { // starts before target ends after
       Some(target)
     } else if (start >= target.start && start < target.end && end >= target.end) { // starts within, ends after
-      Some(RawInterval(start, target.end))
+      Some(IntervalItem(start, target.end - start))
     } else {
       log.error(s"- no overlap, fall through case. ${this.toTimeString}  atop: ${target.toTimeString}")
       None
     }
   }
   
-  /** for debugging, interpret the interval as milliseconds and print as hours*/
+  
+    /** for debugging, interpret the interval as milliseconds and print as hours*/
   def toTimeString:String = {
     def dateToTimeString(dateTime: DateTime): String = {
       dateTime.toString(ISODateTimeFormat.hourMinuteSecond.withZone(DateTimeZone.UTC))
@@ -44,42 +43,29 @@ case class RawInterval[T: Numeric](start: T, end: T) extends Log {
     
     dateToTimeString(new DateTime(start)) + "|" + dateToTimeString(new DateTime(end))
   }
-  
 }
 
-/** Support for RawIntervals including a factory for creating an Interval from an event and a method
- *  for coalescing a collection of RawIntervals. */
-object RawInterval {
 
-  /** Create a RawInterval from an Event. The event key is interpreted as the start and the event
-   *  value is interpreted as a length. Supports long or double keys and long or double lenghts. */
-  def apply[T: Numeric, U: Numeric](event: Event[T, U]): RawInterval[T] = {
-    val numericKey = implicitly[Numeric[T]]
-    val numericValue = implicitly[Numeric[U]]
+/** Support for Intervalitem including a factory for creating an IntervalItem from an event and a method
+ *  for coalescing a collection of IntervalItems. */
+object IntervalItem {
+  def apply[T:Numeric](start:T, length:T):IntervalItem[T] =
+    new IntervalItem(start, length)
 
-    def start: T = event.argument
-
-    val end: T = start match { // DRY with addLong
-      case startDouble: Double => numericKey.fromDouble(startDouble + event.value.toDouble)
-      case startFloat: Float   => numericKey.fromDouble(startFloat + event.value.toDouble)
-      case integer             => numericKey.fromLong(integer.toLong + event.value.toLong)
-    }
-
-    RawInterval(start, end)
-  }
-
+  // SCALA how could we unapply here?
+  
   /** Combine a collection of intervals, returning a non-overlapping set of intervals that
    *  match the coverage.  Assumes that the intervals are presented in sorted order. */
-  def combine[T:Numeric](intervals: Seq[RawInterval[T]]): Seq[RawInterval[T]] = {
+  def combine[T:Numeric](intervals: Seq[IntervalItem[T]]): Seq[IntervalItem[T]] = {
     
     /** return true if two intervals overlap. the two intervals must be in start-sorted order */
-    def overlapNext[T:Numeric](current:RawInterval[T], next:RawInterval[T]):Boolean = {
-      next.start < current.end
+    def overlapNext[T:Numeric](current:IntervalItem[T], next:IntervalItem[T]):Boolean = {
+      next.start <= current.end
     }
     
     /** combine two intervals that are known to overlap each other. The two intervals must be in start sorted order */
-    def combineOverlapped[T:Numeric](current:RawInterval[T], next:RawInterval[T]):RawInterval[T] = {
-      RawInterval(current.start, spire.math.max(current.end, next.end))
+    def combineOverlapped[T:Numeric](current:IntervalItem[T], next:IntervalItem[T]):IntervalItem[T] = {
+      IntervalItem(current.start, spire.math.max(current.end, next.end) - current.start)
     }
 
     /** State for incremental processing of combined intervals.
@@ -87,7 +73,7 @@ object RawInterval {
       * @current active interval, might still be combined with subsequent intervals
       * @emit complete interval ready to be output, won't be combined anymore
       */
-    case class State(current: Option[RawInterval[T]], emit: Option[RawInterval[T]])
+    case class State(current: Option[IntervalItem[T]], emit: Option[IntervalItem[T]])
 
     val states = intervals.scanLeft(State(None, None)) { (state, event) =>
       (state, event) match {
@@ -105,33 +91,17 @@ object RawInterval {
     initial ++ last
   }
 
-  /** Return the sum of the lengths of the intervals. (Note does not check for overlap.*/
-  def sumIntervals[T: Numeric, U: Numeric](intervals: Seq[RawInterval[T]]): U = {
-    val numericKey = implicitly[Numeric[T]]
-    val numericValue = implicitly[Numeric[U]]
-    val lengths = intervals.map(_.length)
-    lengths match {
-      case Seq() =>
-        numericValue.zero
-      case nonEmpty =>
-        val sumT = nonEmpty.reduce(_ + _)
-        numericKey.toType[U](sumT)
-    }
-  }
-
-
+  
   /** Return the intersection of a set of intervals with a joda Interval,
    *  interpreting the intervals as containg epoch milliseconds */
   def jodaMillisIntersections[T: Numeric]( // format: OFF
-      intervals: Seq[RawInterval[T]],
-      jodaInterval: JodaInterval): Seq[RawInterval[T]] = { // format: ON
+      intervals: Seq[IntervalItem[T]],
+      jodaInterval: JodaInterval): Seq[IntervalItem[T]] = { // format: ON
     val start: T = Numeric[Long].toType[T](jodaInterval.start.millis)
     val end: T = Numeric[Long].toType[T](jodaInterval.end.millis)
-    val period = RawInterval[T](start, end)
+    val period = IntervalItem[T](start, end - start)
     intervals.flatMap { interval => interval.project(period) }
   }
 
 
-  
-  
 }

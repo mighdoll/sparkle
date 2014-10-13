@@ -1,26 +1,27 @@
 package nest.sparkle.time.transform
 
-import com.github.nscala_time.time.Implicits.{richReadableInstant, richReadableInterval}
+import com.github.nscala_time.time.Implicits.{ richReadableInstant, richReadableInterval }
 import com.typesafe.config.Config
 import java.util.TimeZone
-import nest.sparkle.store.{Column, Event, EventGroup}
-import nest.sparkle.time.protocol.{IntervalParameters, JsonDataStream, JsonEventWriter, KeyValueType, RangeInterval}
+import nest.sparkle.store.{ Column, Event, EventGroup }
+import nest.sparkle.time.protocol.{ IntervalParameters, JsonDataStream, JsonEventWriter, KeyValueType, RangeInterval }
 import nest.sparkle.time.protocol.TransformParametersJson.IntervalParametersFormat
-import nest.sparkle.util.{Period, PeriodWithZone, RecoverJsonFormat, RecoverNumeric}
+import nest.sparkle.util.{ Period, PeriodWithZone, RecoverJsonFormat, RecoverNumeric }
 import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.Log
 import nest.sparkle.util.OptionConversion.OptionFuture
-import org.joda.time.{DateTime, DateTimeZone, Interval}
+import org.joda.time.{ DateTime, DateTimeZone, Interval }
 import org.joda.time.format.ISODateTimeFormat
 import rx.lang.scala.Observable
 import scala.Iterator
 import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.universe._
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 import scala.util.control.Exception.nonFatalCatch
 import spire.math.Numeric
-import spray.json.{JsObject, JsonFormat}
+import spray.json.{ JsObject, JsonFormat }
 import spray.json.DefaultJsonProtocol._
+import nest.sparkle.store.EventGroup.{ OptionRows, KeyedRow }
 
 case class StandardIntervalTransform(rootConfig: Config) extends TransformMatcher {
   override type TransformType = MultiColumnTransform
@@ -30,10 +31,11 @@ case class StandardIntervalTransform(rootConfig: Config) extends TransformMatche
   override def suffixMatch = _ match {
     case "sum" => intervalSum
   }
-  
+
 }
 
 case object NoColumnSpecified extends RuntimeException
+case class InconsistentColumnsSpecified() extends RuntimeException
 case class IncompatibleColumn(msg: String) extends RuntimeException(msg)
 case class InvalidPeriod(msg: String) extends RuntimeException(msg)
 
@@ -69,10 +71,11 @@ class IntervalSum(rootConfig: Config) extends MultiColumnTransform with Log {
         for {
           firstColumn <- columns.headOption.toTryOr(NoColumnSpecified)
           keyFormat <- RecoverJsonFormat.tryJsonFormat[T](firstColumn.keyType)
+          numericKey <- RecoverNumeric.tryNumeric[T](firstColumn.keyType)
           parameters <- parseParameters[T](transformParameters)(keyFormat)
         } yield {
           val castColumns = columns.asInstanceOf[Seq[Column[T, T]]]
-          summarizeColumns[T](castColumns, parameters)(keyFormat, execution)
+          summarizeColumns[T](castColumns, parameters)(numericKey, keyFormat, execution)
         }
 
       result.recover {
@@ -85,7 +88,7 @@ class IntervalSum(rootConfig: Config) extends MultiColumnTransform with Log {
   }
 
   /** summarize the intervals in each column and combine into a stream that reports both  */
-  def summarizeColumns[T: JsonFormat](columns: Seq[Column[T, T]], intervalParameters: IntervalParameters[T]) // format: OFF
+  def summarizeColumns[T: Numeric: JsonFormat](columns: Seq[Column[T, T]], intervalParameters: IntervalParameters[T]) // format: OFF
     (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
     val summarizedColumns =
@@ -93,11 +96,27 @@ class IntervalSum(rootConfig: Config) extends MultiColumnTransform with Log {
         summarizeColumn(column, intervalParameters)
       }
 
-    val grouped = EventGroup.groupByKey(summarizedColumns)
+    val rowBlocks = EventGroup.groupByKey(summarizedColumns)
+    val noNoneRows = blanksToZeros(rowBlocks)
+
     JsonDataStream(
-      dataStream = JsonEventWriter.fromObservableSeq(grouped),
+      dataStream = JsonEventWriter.fromObservableSeq(noNoneRows),
       streamType = KeyValueType
     )
+  }
+
+  /** convert rows with optional values into rows with zeros for None */
+  private def blanksToZeros[T, U: Numeric](rowBlocks: Observable[OptionRows[T, U]]) // format: OFF
+      : Observable[KeyedRow[T, U]] = { // format: ON
+    val zero = implicitly[Numeric[U]].zero
+
+    rowBlocks map { rows =>
+      rows.map { row =>
+        val optValues: Seq[Option[U]] = row.value
+        val zeroedValues = optValues.map(_.getOrElse(zero))
+        Event(row.argument, zeroedValues)
+      }
+    }
   }
 
   /** a key,value event interpreted as start, duration */
@@ -108,7 +127,7 @@ class IntervalSum(rootConfig: Config) extends MultiColumnTransform with Log {
     * IntervalParameters.
     */
   private def periodParameter[T](parameters: IntervalParameters[T]): Try[Option[Period]] = {
-    parameters.partSize match {
+    parameters.partBySize match {
       case Some(periodString) =>
         val tryResult = Period.parse(periodString).toTryOr(InvalidPeriod(s"periodString"))
         tryResult.map { Some(_) } // wrap successful result in an option (we parsed it and there was a period string)
@@ -217,7 +236,7 @@ class IntervalSum(rootConfig: Config) extends MultiColumnTransform with Log {
     // TODO remove stuff from active
     // TODO don't check stuff in active that starts after the end of this period
 
-    timePartitions.parts.take(maxParts).map { jodaInterval =>
+    timePartitions.partIterator().take(maxParts).map { jodaInterval =>
       val start: T = Numeric[Long].toType[T](jodaInterval.start.millis)
       val intersections = RawInterval.jodaMillisIntersections(activeIntervals, jodaInterval)
       val totalOverlap: U = RawInterval.sumIntervals[T, U](intersections)

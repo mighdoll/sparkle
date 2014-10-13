@@ -15,8 +15,8 @@ import nest.sparkle.util.PeriodWithZone
 object PeriodPartitioner {
   def timePartitions(period: Period, fullInterval: Interval): Iterator[Interval] = {
     val partPeriod = period.toJoda
-    
-    def nonEmptyParts():Iterator[Interval] = {
+
+    def nonEmptyParts(): Iterator[Interval] = {
       var partStart = period.roundDate(fullInterval.start)
       var partEnd = fullInterval.start
 
@@ -36,8 +36,6 @@ object PeriodPartitioner {
       nonEmptyParts()
     }
   }
-
-  case class TimePartitions(parts: Iterator[Interval], includeEnd: Boolean, dateTimeZone: DateTimeZone)
 
   /** events keys are interpreted as epoch milliseconds
     * event values are interpeted as millisceond durations
@@ -63,7 +61,7 @@ object PeriodPartitioner {
       period.roundDate(baseStartDate)
     }
     val fullRange = new Interval(startDate, endDate)
-    val partIterator = timePartitions(period, fullRange)
+    def partIterator() = timePartitions(period, fullRange)
 
     TimePartitions(partIterator, includeEnd, dateTimeZone)
   }
@@ -75,3 +73,5 @@ object PeriodPartitioner {
   }
 
 }
+
+case class TimePartitions(partIterator: () => Iterator[Interval], includeEnd: Boolean, dateTimeZone: DateTimeZone)

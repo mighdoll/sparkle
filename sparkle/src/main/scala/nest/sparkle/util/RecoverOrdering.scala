@@ -1,5 +1,7 @@
 package nest.sparkle.util
 import scala.reflect.runtime.universe._
+import nest.sparkle.util.OptionConversion._
+import scala.util.Try
 
 case class OrderingNotFound(msg: String) extends RuntimeException(msg)
 
@@ -9,17 +11,15 @@ case class OrderingNotFound(msg: String) extends RuntimeException(msg)
   * $ordering
   */
 object RecoverOrdering {
-  object Implicits {
-    /** mapping from typeTag to Ordering for standard types */
-    implicit val standardOrderings: Map[TypeTag[_], Ordering[_]] = Map(
-      typeToOrdering[Double],
-      typeToOrdering[Long],
-      typeToOrdering[Int],
-      typeToOrdering[Short],
-      typeToOrdering[Char],
-      typeToOrdering[String]
-    )
-  }
+  /** mapping from typeTag to Ordering for standard types */
+  val standardOrderings: Map[TypeTag[_], Ordering[_]] = Map(
+    typeToOrdering[Double],
+    typeToOrdering[Long],
+    typeToOrdering[Int],
+    typeToOrdering[Short],
+    typeToOrdering[Char],
+    typeToOrdering[String]
+  )
 
   /** return a mapping from a typetag to an Ordering */
   private def typeToOrdering[T: TypeTag: Ordering]: (TypeTag[T], Ordering[T]) = {
@@ -34,13 +34,18 @@ object RecoverOrdering {
     * Throws OrderingNotFound if no Ordering is available
     */
   def ordering[T](targetTag: TypeTag[_]) // format: OFF 
-      (implicit orderings: Map[TypeTag[_], Ordering[_]] = Implicits.standardOrderings)
+      (implicit orderings: Map[TypeTag[_], Ordering[_]] = standardOrderings)
       : Ordering[T] = { // format: ON
 
-    val untypedOrdering = orderings.get(targetTag).getOrElse { 
-      throw OrderingNotFound(targetTag.tpe.toString) 
+    val untypedOrdering = orderings.get(targetTag).getOrElse {
+      throw OrderingNotFound(targetTag.tpe.toString)
     }
     untypedOrdering.asInstanceOf[Ordering[T]]
+  }
+
+  def tryOrdering[T](targetTag: TypeTag[_]): Try[Ordering[T]] = {
+    val untyped = standardOrderings.get(targetTag).toTryOr(OrderingNotFound(targetTag.tpe.toString))
+    untyped.asInstanceOf[Try[Numeric[T]]]
   }
 }
 

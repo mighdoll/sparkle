@@ -11,6 +11,7 @@ import spray.http.StatusCodes.OK
 import spray.json.DefaultJsonProtocol._
 import spray.util.pimpFuture
 import nest.sparkle.time.transform.IntervalSum
+import nest.sparkle.store.cassandra.TestServiceWithCassandra
 
 class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor with IntervalSumFixture {
  
@@ -64,7 +65,7 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
           }
         }
       }"""
-      val service = new ServiceWithCassandra(store, system)
+      val service = new TestServiceWithCassandra(store, system)
       val response = service.sendDataMessage(msg).await(4.seconds)
       response.status shouldBe OK
       val data = TestDataService.dataFromStreamsResponse[Seq[Long]](response).head.head // remove the type parameter to crash the compiler (2.10.4)! see SI-8824
@@ -96,8 +97,3 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig wi
   // TODO verify combined results with missing values result in an aligned array with a missing values (not a mis-aligned array!)
 
 }
-
-/** separate instance of test service, so we can create it within a withLoadedPath block */
-class ServiceWithCassandra(override val store: Store, actorSystem: ActorSystem) extends FunSuite with TestDataService {
-  override def actorRefFactory: ActorSystem = actorSystem
-} 

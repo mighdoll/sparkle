@@ -1,0 +1,7 @@
+time,a,b
+
+# a 20 seconds, a 10 seconds, (should sum to 30 seconds)
+2014-07-06T00:04:00.000,false,true
+2014-07-06T00:04:10.000,false,false
+2014-07-06T00:04:20.000,true,false
+2014-07-06T00:04:40.000,false,false

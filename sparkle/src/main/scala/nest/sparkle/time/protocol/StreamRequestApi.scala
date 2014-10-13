@@ -18,7 +18,6 @@ import scala.concurrent.{ ExecutionContext, Future }
 import com.typesafe.config.Config
 import spray.json._
 import nest.sparkle.store.Store
-import nest.sparkle.time.transform.Transform
 import nest.sparkle.util.ObservableFuture._
 import rx.lang.scala.Observable
 import akka.actor.ActorSystem
@@ -199,9 +198,9 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
     val futureAuthorizer = authProvider.authenticate(streamRequestMessage.realm)
     futureAuthorizer.flatMap { authorizer =>
       val request = streamRequestMessage.message
-      val futureColumns = Future.sequence(sourceColumns(request.sources, authorizer))
+      val futureGroups = sourceColumns(request.sources, authorizer)
       // completes with Observable output streams
-      selectTransform(request.transform, request.transformParameters, futureColumns)
+      selectAndRunTransform(request.transform, request.transformParameters, futureGroups)
     }
   }
 

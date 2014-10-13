@@ -16,12 +16,10 @@ package nest.sparkle.time.protocol
 
 import scala.annotation.implicitNotFound
 import scala.concurrent.{ExecutionContext, Future}
-
 import com.typesafe.config.Config
-
 import spray.json._
-
 import nest.sparkle.store.{Column, Store}
+import nest.sparkle.time.transform.ColumnGroup
 
 /** Trait for developer provided subclasses that identify source columns
   * in response to protocol StreamRequests
@@ -39,7 +37,7 @@ trait CustomSourceSelector {
     * MalformedSourceSelector exception.
     */
   def selectColumns(selectorParameters: JsObject)(implicit execution: ExecutionContext) // format: OFF
-      :Seq[Future[Column[_,_]]] // format: ON
+      :Future[Seq[ColumnGroup]] // format: ON
 }
 
 /** Implementors of CustomSourceSelector should have a constructor that takes a Config and a Store
@@ -49,6 +47,6 @@ class ExampleCustomSelector(rootConfig: Config, store: Store) extends CustomSour
   override val name = "MyStuff.MySelectorName"
 
   def selectColumns(selectorParameters: JsObject)(implicit execution: ExecutionContext) // format: OFF
-      :Seq[Future[Column[_,_]]] = ??? // format: ON
+      :Future[Seq[ColumnGroup]] = ??? // format: ON
 }
 

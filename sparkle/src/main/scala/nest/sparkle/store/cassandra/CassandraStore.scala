@@ -19,22 +19,19 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 import scala.util.control.Exception._
-
 import com.datastax.driver.core.{ Cluster, Session }
 import com.datastax.driver.core.PreparedStatement
-
 import rx.lang.scala.Observable
-
 import com.typesafe.config.Config
-
 import spray.util._
-
 import nest.sparkle.util.Log
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.store.{ Store, DataSet, Column, WriteableStore, DataSetNotFound }
 import nest.sparkle.store.cassandra.ObservableResultSet._
+import nest.sparkle.util.TryToFuture._
+import com.datastax.driver.core.Row
 
 case class AsciiString(val string: String) extends AnyVal
 case class NanoTime(val nanos: Long) extends AnyVal
@@ -82,7 +79,7 @@ object CassandraStore extends Log {
     contactHosts.foreach { host =>
       val added = nonFatalCatch.withTry { builder.addContactPoint(host) }
       added.failed.map { err => log.error(s"unable to add cassandra contact point: $host", err) }
-    }  // TODO add test for me
+    } // TODO add test for me
 
     val cluster = builder.build()
     val session = cluster.connect()
@@ -96,6 +93,18 @@ object CassandraStore extends Log {
     */
   protected def getClusterSession(contactHost: String): ClusterSession = {
     getClusterSession(Seq(contactHost))
+  }
+
+  /** (for debug logging) Return a string containing the cassandra table name 
+   *  and the cassandra column names and storage types. */
+  def rowColumnTypes(row: Row): String = {
+    val definitions = row.getColumnDefinitions.asList.asScala
+    val columnStrings = definitions.map { definition =>
+      s"${definition.getName}:${definition.getType}"
+    }
+    val table = definitions.head.getTable
+    val allColumnStrings = columnStrings.mkString(", ")
+    s"$table: $allColumnStrings"
   }
 }
 
@@ -217,7 +226,7 @@ trait ConfiguredCassandra extends Log {
 
 trait CassandraReaderWriter extends CassandraStoreReader with CassandraStoreWriter
 
-/** a data access object for Cassandra writing. 
+/** a data access object for Cassandra writing.
   */
 trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with Log {
   def writeNotifier: WriteNotifier
@@ -225,7 +234,7 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   this.session // trigger creating connection, and create schemas if necessary
 
   private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements)
-  
+
   /** return a column from a fooSet/barSet/columName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
@@ -268,12 +277,13 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log {
     }
   }
 
-  /** return a column from a fooSet/barSet/columName path */
+  /** return a column from a fooSet/barSet/columnName path */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
-    val (dataSetName, columnName) = Store.setAndColumn(columnPath)
-    val futureColumn = SparseColumnReader.instance[T, U](dataSetName, columnName,
-      columnCatalog, writeListener, preparedSession)
-    futureColumn
+    for {
+      (dataSetName, columnName) <- nonFatalCatch.withTry { Store.setAndColumn(columnPath) }.toFuture
+      futureColumn <- SparseColumnReader.instance[T, U](dataSetName, columnName,
+        columnCatalog, writeListener, preparedSession)
+    } yield futureColumn
   }
 
 }

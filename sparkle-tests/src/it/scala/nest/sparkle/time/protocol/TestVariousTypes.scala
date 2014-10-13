@@ -8,6 +8,7 @@ import nest.sparkle.time.protocol.TransformParametersJson.RawParametersFormat
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 import spray.json.JsValue
+import nest.sparkle.store.cassandra.TestServiceWithCassandra
 
 class TestVariousTypes extends FunSuite with Matchers with CassandraTestConfig
     with StreamRequestor {
@@ -15,7 +16,7 @@ class TestVariousTypes extends FunSuite with Matchers with CassandraTestConfig
   def testExplicitType[T: JsonFormat](columnName: String)(fn: T => Unit) {
     val columnPath = s"explicitTypes/$columnName"
     withLoadedFile("explicitTypes.csv") { (store, system) =>
-      val service = new ServiceWithCassandra(store, system)
+      val service = new TestServiceWithCassandra(store, system)
       val message = streamRequest("Raw", RawParameters[Long](), SelectString(columnPath))
       service.v1TypedRequest(message) { events: Seq[Seq[Event[Long, T]]] =>
         fn(events.head.head.value)

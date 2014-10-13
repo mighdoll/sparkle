@@ -1,6 +1,8 @@
 package nest.sparkle.util
 import scala.reflect.runtime.universe._
 import spire.math.Numeric
+import scala.util.Try
+import nest.sparkle.util.OptionConversion._
 
 case class NumericNotFound(msg: String) extends RuntimeException(msg)
 
@@ -11,26 +13,29 @@ case class NumericNotFound(msg: String) extends RuntimeException(msg)
   * (The type is recovered at runtime during deserialization)
   */
 object RecoverNumeric {
-  object Implicits {
-    /** mapping from typeTag to Numeric for standard types */
-    implicit val standardNumeric: Map[TypeTag[_], Numeric[_]] = Map(
-      typeToNumeric[Double],
-      typeToNumeric[Long],
-      typeToNumeric[Int],
-      typeToNumeric[Short]
-    )
-  }
+  /** mapping from typeTag to Numeric for standard types */
+  val standardNumeric: Map[TypeTag[_], Numeric[_]] = Map(
+    typeToNumeric[Double],
+    typeToNumeric[Float],
+    typeToNumeric[Long],
+    typeToNumeric[Int],
+    typeToNumeric[Short]
+  )
 
-  /** return a mapping from a typetag to an Ordering */
+  /** return a mapping from a typetag to an Numeric */
   private def typeToNumeric[T: TypeTag: Numeric]: (TypeTag[T], Numeric[T]) = {
     typeTag[T] -> implicitly[Numeric[T]]
   }
 
   /** return a Numeric instance at runtime based a typeTag. */
   def optNumeric[T](targetTag: TypeTag[_]) // format: OFF 
-      (implicit numerics: Map[TypeTag[_], Numeric[_]] = Implicits.standardNumeric)
       : Option[Numeric[T]] = { // format: ON
-    val untypedNumeric = numerics.get(targetTag)
+    val untypedNumeric = standardNumeric.get(targetTag)
     untypedNumeric.asInstanceOf[Option[Numeric[T]]]
+  }
+
+  def tryNumeric[T](targetTag: TypeTag[_]): Try[Numeric[T]] = {
+    val untyped = standardNumeric.get(targetTag).toTryOr(NumericNotFound(targetTag.tpe.toString))
+    untyped.asInstanceOf[Try[Numeric[T]]]
   }
 }

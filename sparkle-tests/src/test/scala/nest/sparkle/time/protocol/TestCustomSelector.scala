@@ -10,6 +10,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import nest.sparkle.store.Column
 import spray.json._
+import nest.sparkle.time.transform.ColumnGroup
 
 case class TestingSelectorParams(columnPath: String)
 
@@ -23,16 +24,18 @@ class TestingSelector(rootConfig: Config, store: Store) extends CustomSourceSele
     def unapply(params: JsObject)(implicit execution: ExecutionContext): Option[String] = {
       params.fields.toList.headOption match {
         case Some((name, JsString(path))) if name == "columnPath" => Some(path)
-        case _                                                    => None
+        case _ => None
       }
     }
   }
 
-  override def selectColumns(selectorParameters:JsObject)(implicit execution: ExecutionContext) // format: OFF
-      :Seq[Future[Column[_,_]]] = {// format: ON
+  override def selectColumns(selectorParameters: JsObject)(implicit execution: ExecutionContext) // format: OFF
+      :Future[Seq[ColumnGroup]] = { // format: ON
     selectorParameters match {
-      case SelectorParameters(columnPath) => Seq(store.column(columnPath))
-      case x                              => Seq(Future.failed(MalformedSourceSelector(x.toString)))
+      case SelectorParameters(columnPath) =>
+        store.column(columnPath).map { column:Column[_,_] => Seq(ColumnGroup(columns = Seq(column)))}
+      case x =>
+        Future.failed(MalformedSourceSelector(x.toString))
     }
   }
 
@@ -45,7 +48,7 @@ class TestCustomSelector extends TestStore with StreamRequestor with TestDataSer
   nest.sparkle.util.InitializeReflection.init
 
   lazy val testSelectorClassName = classOf[TestingSelector].getName
-  
+
   override def configOverrides = {
     val selectors = Seq(s"$testSelectorClassName").asJava
     super.configOverrides :+ s"$sparkleConfigName.custom-selectors" -> selectors

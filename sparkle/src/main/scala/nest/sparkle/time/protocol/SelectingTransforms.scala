@@ -5,15 +5,20 @@ import scala.collection.JavaConverters._
 import spray.json._
 import nest.sparkle.store.Column
 import nest.sparkle.time.transform.{ DomainRangeTransform, RawTransform }
-import nest.sparkle.time.transform.{ SummaryTransform, TransformNotFound }
-import nest.sparkle.time.transform.StandardColumnTransform.{runTransform, runMultiColumnTransform}
+import nest.sparkle.time.transform.SummaryTransform 
+import nest.sparkle.time.transform.StandardColumnTransform.{ runTransform, runColumnGroupsTransform, runMultiColumnTransform }
 import com.typesafe.config.Config
 import nest.sparkle.time.transform.CustomTransform
-import nest.sparkle.util.{Instance, ConfigUtil}
+import nest.sparkle.util.{ Instance, ConfigUtil }
 import nest.sparkle.util.Log
 import nest.sparkle.time.transform.StandardSummaryTransform
 import nest.sparkle.time.transform.StandardObjectTransform
 import nest.sparkle.time.transform.StandardIntervalTransform
+import nest.sparkle.time.transform.OnOffTransform
+import nest.sparkle.time.transform.ColumnGroup
+
+
+case class TransformNotFound(msg: String) extends RuntimeException(msg)
 
 /** Identify the transform from a StreamRequest, including built in and custom
   * transforms specified in the .conf file.
@@ -23,26 +28,35 @@ trait SelectingTransforms extends Log {
   private lazy val customTransforms: Map[String, CustomTransform] = createCustomTransforms()
 
   private lazy val standardInterval = StandardIntervalTransform(rootConfig)
-  
+  private lazy val onOffInterval = OnOffTransform(rootConfig)
+
   /** return the results of the transform selected by the `transform` field in a StreamsRequest message
     * or TransformNotFound
     */
-  protected def selectTransform( // format: OFF
-        transform: String, transformParameters: JsObject,
-        futureColumns: Future[Seq[Column[_, _]]]
+  protected def selectAndRunTransform( // format: OFF
+        transform: String, 
+        transformParameters: JsObject,
+        futureColumnGroups: Future[Seq[ColumnGroup]]
       ) (implicit execution: ExecutionContext): Future[Seq[JsonDataStream]] = { // format: ON
 
+    // TODO move transform processing to FutureColumnGroup style
+    val allFutureColumns: Future[Seq[Column[_, _]]] = {
+      futureColumnGroups.map { groups => groups.flatMap(_.columns)}
+    }
+    
     val futureStreams = transform match {
       case StandardSummaryTransform(columnTransform) =>
-        runTransform(futureColumns, columnTransform, transformParameters)
+        runTransform(allFutureColumns, columnTransform, transformParameters)
       case standardInterval(columnTransform) =>
-        runMultiColumnTransform(futureColumns, columnTransform, transformParameters)
+        runMultiColumnTransform(allFutureColumns, columnTransform, transformParameters)
+      case onOffInterval(columnTransform) =>
+        runColumnGroupsTransform(futureColumnGroups, columnTransform, transformParameters)
       case StandardObjectTransform(columnTransform) =>
-        runTransform(futureColumns, columnTransform, transformParameters)
+        runTransform(allFutureColumns, columnTransform, transformParameters)
       case RawTransform(columnTransform) =>
-        runTransform(futureColumns, columnTransform, transformParameters)
+        runTransform(allFutureColumns, columnTransform, transformParameters)
       case MatchCustomName(customTransform) =>
-        runTransform(futureColumns, customTransform, transformParameters)
+        runTransform(allFutureColumns, customTransform, transformParameters)
       case _ => Future.failed(TransformNotFound(transform))
     }
 

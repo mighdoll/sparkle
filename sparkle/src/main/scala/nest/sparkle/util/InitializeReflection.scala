@@ -9,10 +9,10 @@ import nest.sparkle.store.cassandra.RecoverCanSerialize
   */
 object InitializeReflection {
   lazy val init = {
-    RecoverOrdering.Implicits.standardOrderings.foreach { _ => }
+    RecoverOrdering.standardOrderings.foreach { _ => }
     RecoverJsonFormat.jsonFormats.foreach { _ => }
     RecoverCanSerialize.canSerializers.foreach { _ => }
     RecoverFractional.Implicits.standardFractional.foreach { _ => }
-    RecoverNumeric.Implicits.standardNumeric.foreach { _ => }
+    RecoverNumeric.standardNumeric.foreach { _ => }
   }
 }

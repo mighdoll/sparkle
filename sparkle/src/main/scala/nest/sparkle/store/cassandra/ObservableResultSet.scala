@@ -27,10 +27,12 @@ import scala.annotation.tailrec
 import com.datastax.driver.core.ResultSetFuture
 import rx.lang.scala.Subscriber
 import nest.sparkle.util.Log
+import java.util.concurrent.atomic.AtomicBoolean
 
 object ObservableResultSet {
   /** a ResultSetFuture that can be converted into an Observable for asynchronously
-   *  working with the stream of Rows as the arrive from the database */
+    * working with the stream of Rows as the arrive from the database
+    */
   implicit class WrappedResultSet(val resultSetFuture: ResultSetFuture) extends Log {
 
     /** return an Observable[Row] for the Future[ResultSet].  */
@@ -38,42 +40,49 @@ object ObservableResultSet {
 
       val asScalaFuture = resultSetFuture.toFuture
 
+      val subscribed = new AtomicBoolean
+
       /** A constructor function for making an Observable.  The function takes an Observer to which it
         * feeds rows as they arrive.  It returns a Subscription so that the Observer can can abort the stream
         * early if necessary.
         */
-     Observable {subscriber:Subscriber[Row] =>
-        asScalaFuture.foreach { resultSet =>
-          /** Iterate through the rows as they arrive from the network, calling observer.onNext for each row.
-            *
-            * rowChunk() is called once for each available group ('chunk') of resultSet rows.  It
-            * recursively calls itself to process the next fetched set of rows until there are now more rows left.
-            */
-          def rowChunk(): Unit = {
-            if (!subscriber.isUnsubscribed) {
-              val iterator = resultSet.iterator().asScala
-              val availableNow = resultSet.getAvailableWithoutFetching()
+      Observable { subscriber: Subscriber[Row] =>
+        if (subscribed.compareAndSet(false, true)) {
+          asScalaFuture.foreach { resultSet =>
+            /** Iterate through the rows as they arrive from the network, calling observer.onNext for each row.
+              *
+              * rowChunk() is called once for each available group ('chunk') of resultSet rows.  It
+              * recursively calls itself to process the next fetched set of rows until there are now more rows left.
+              */
+            def rowChunk(): Unit = {
+              if (!subscriber.isUnsubscribed) {
+                val iterator = resultSet.iterator().asScala
+                val availableNow = resultSet.getAvailableWithoutFetching()
+                iterator.take(availableNow).foreach { row =>
+                  subscriber.onNext(row) // note blocks the thread here if consumer is slow. RX
+                }
 
-              iterator.take(availableNow).foreach { row =>
-                subscriber.onNext(row) // note blocks the thread here if consumer is slow. RX
-              }
-
-              if (!resultSet.isFullyFetched()) {    // CONSIDER - is this a race with availableNow?
-                resultSet.fetchMoreResults().toFuture.foreach { _ => rowChunk() }
-              } else {
-                subscriber.onCompleted()
+                if (!resultSet.isFullyFetched()) { // CONSIDER - is this a race with availableNow?
+                  resultSet.fetchMoreResults().toFuture.foreach { _ => rowChunk() }
+                } else {
+                  subscriber.onCompleted()
+                }
               }
             }
+
+            rowChunk()
           }
 
-          rowChunk()
-        }
-
-        asScalaFuture.onFailure {
-          case error: Throwable =>
-            subscriber.onError(error)
+          asScalaFuture.onFailure {
+            case error: Throwable =>
+              subscriber.onError(error)
+          }
+        } else {
+          log.error(s"only one subscription allowed to each ObservableResultSet: $resultSetFuture")
+          Observable.empty
         }
       }
+
     }
 
   }

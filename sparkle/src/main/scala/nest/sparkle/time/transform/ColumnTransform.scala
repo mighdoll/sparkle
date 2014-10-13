@@ -1,12 +1,13 @@
 package nest.sparkle.time.transform
 
 import scala.concurrent.{ ExecutionContext, Future }
-
 import spray.json._
 import spray.json.DefaultJsonProtocol._
-
 import nest.sparkle.store.{ Column, LongDoubleColumn, LongLongColumn }
 import nest.sparkle.time.protocol.JsonDataStream
+
+/** a group of columns with an optional name */
+case class ColumnGroup(columns: Seq[Column[_, _]], name: Option[String] = None)
 
 /** A function that constructs a JsonDataStream.  The JsonDataStream will transform a single
   * source column into a json output column when its dataStream is subscribed.
@@ -25,6 +26,16 @@ trait MultiColumnTransform {
       (column: Seq[Column[_,_]], transformParameters: JsObject)
       (implicit execution: ExecutionContext): JsonDataStream // format: ON
 }
+
+/** A function that constructs a JsonDataStream.  The JsonDataStream will transform multiple
+  * source columns into a json output column when its dataStream is subscribed.
+  */
+trait MultiTransform {
+  def transform  // format: OFF
+      (columns:Future[Seq[ColumnGroup]], transformParameters: JsObject)
+      (implicit execution: ExecutionContext): Future[Seq[JsonDataStream]] // format: ON
+}
+
 
 object StandardColumnTransform {
   /** return a future that will execute a transform on a each column in
@@ -48,5 +59,16 @@ object StandardColumnTransform {
       Seq(multiColumnTransform(columns, transformParameters))
     }
   }
-
+  
+  /** return a future that contains the json formattable results of executing 
+   *  a transform on the provided FutureColumnGroups */
+  def runColumnGroupsTransform( // format: OFF
+      futureColumns: Future[Seq[ColumnGroup]],
+      mutliTransform:MultiTransform, 
+      transformParameters:JsObject
+    )(implicit execution: ExecutionContext):Future[Seq[JsonDataStream]] = { // format: ON
+    mutliTransform.transform(futureColumns, transformParameters)
+  }
 }
+
+

@@ -9,7 +9,7 @@ import nest.sparkle.store.cassandra.MilliTime
 object TransformParametersJson extends DefaultJsonProtocol {
   implicit def RangeIntervalFormat[T: JsonFormat]: RootJsonFormat[RangeInterval[T]] = jsonFormat3(RangeInterval.apply[T])
   implicit def SummaryParametersFormat[T: JsonFormat]: RootJsonFormat[SummaryParameters[T]] = jsonFormat3(SummaryParameters.apply[T])
-  implicit def IntervalParametersFormat[T: JsonFormat]: RootJsonFormat[IntervalParameters[T]] = jsonFormat2(IntervalParameters.apply[T])
+  implicit def IntervalParametersFormat[T: JsonFormat]: RootJsonFormat[IntervalParameters[T]] = jsonFormat3(IntervalParameters.apply[T])
   implicit def RawParametersFormat[T: JsonFormat]: RootJsonFormat[RawParameters[T]] = jsonFormat1(RawParameters.apply[T])
 }
 

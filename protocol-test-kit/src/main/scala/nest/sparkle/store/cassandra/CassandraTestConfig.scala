@@ -141,9 +141,11 @@ trait CassandraTestConfig extends SparkleTestConfig {
     }
   }
 
+  /** run a test function after loading some data into cassandra */
   def withLoadedFile[T](resourcePath: String) // format: OFF
       (fn: (Store, ActorSystem) => T): T = { // format: ON
     withLoadedFileInResource(resourcePath, resourcePath)(fn)  // TODO this seems incorrect..
   }
 
 }
+

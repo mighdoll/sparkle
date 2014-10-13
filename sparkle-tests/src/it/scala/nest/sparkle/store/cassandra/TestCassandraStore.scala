@@ -24,7 +24,7 @@ import org.scalatest.{FunSuite, Matchers}
 
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
-import nest.sparkle.time.protocol.ArbitraryColumn2
+import nest.sparkle.time.protocol.ArbitraryColumn
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 
@@ -113,7 +113,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
   def testOneEvent[T: CanSerialize: Arbitrary, U: CanSerialize: Arbitrary]() {
     withTestDb { store =>
       withTestColumn[T, U](store) { (writeColumn, testColumnPath) =>
-        val eventMaker = ArbitraryColumn2.arbitraryEvent[T, U]
+        val eventMaker = ArbitraryColumn.arbitraryEvent[T, U]
         val event = eventMaker.arbitrary.sample.get
 
         writeColumn.write(event :: Nil).await

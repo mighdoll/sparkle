@@ -20,6 +20,7 @@ import rx.lang.scala.Observable
 import scala.concurrent.Promise
 import scala.util.Success
 import scala.util.Failure
+import java.util.NoSuchElementException
 
 /** convert a scala Future to an Observable and back */
 object ObservableFuture {
@@ -36,12 +37,17 @@ object ObservableFuture {
     /** return an Future that will return a single sequence for the observable stream */
     def toFutureSeq: Future[Seq[T]] = {
       val promise = Promise[Seq[T]]()
-      def onNext(value:Seq[T]): Unit = {
+      def onNext(value: Seq[T]): Unit = {
         promise.complete(Success(value))
       }
 
-      def onError(error:Throwable): Unit = {
-        promise.complete(Failure(error))
+      def onError(error: Throwable): Unit = {
+        error match {
+          case e:NoSuchElementException =>
+            promise.complete(Success(Seq()))
+          case _ =>
+            promise.complete(Failure(error))
+        }
       }
 
       observable.toSeq.subscribe(onNext _, onError _)

@@ -168,7 +168,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
 
   private def readEventRows(statement: BoundStatement) // format: OFF
       (implicit execution:ExecutionContext): Observable[Event[T, U]] = { // format: ON
-    val rows = prepared.session.executeAsync(statement).observerableRows
+    val rows = prepared.session.executeAsync(statement).observerableRows      
     rows map rowDecoder
   }
 

@@ -31,12 +31,9 @@ object GuavaConverters {
       // a value class in 2.10.x.  This is fixed in scala 2.11
 
       val callBack = new FutureCallback[Any] {
-        def onSuccess(result: Any): Unit = {
-          promise.success(result.asInstanceOf[T])
-        }
-        def onFailure(t: Throwable): Unit = {
-          promise.failure(t)
-        }
+        def onSuccess(result: Any): Unit = promise.success(result.asInstanceOf[T])
+
+        def onFailure(t: Throwable): Unit = promise.failure(t)
       }
 
       GuavaFutures.addCallback(guavaFuture, callBack.asInstanceOf[FutureCallback[T]])

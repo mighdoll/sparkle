@@ -19,10 +19,11 @@ import spray.json._
 
 /** Contains an observable stream of json encoded arrays suitable for use in a protocol json data stream.  */
 case class JsonDataStream(
-  /** An observable that produces json encoded data to send in Streams or Update messages 
-   *  Each JsArray corresponds to one Datum, ready to serialize to a protocol message.
-   *  Each Seq is normally sent in separate protocol message. The first Seq is sent
-   *  in a Streams message, and each subsequent Seq in an Update message. */
+  /** An observable that produces json encoded data to send in Streams or Update messages
+    * Each JsArray corresponds to one Datum, ready to serialize to a protocol message.
+    * Each Seq is normally sent in separate protocol message. The first Seq is sent
+    * in a Streams message, and each subsequent Seq in an Update message.
+    */
   dataStream: Observable[Seq[JsArray]],
 
   /** Format of the produced JsArrays */
@@ -34,7 +35,15 @@ case class JsonDataStream(
 
 object JsonDataStream {
   /** return a stream that immediately generates an error (and no other data) */
-  def error(err:Throwable):JsonDataStream = {
+  def error(err: Throwable): JsonDataStream = {
     JsonDataStream(Observable.error(err), KeyValueType)
   }
+
+  /** a JsonDataStream containing no data */
+  def empty: JsonDataStream =
+    JsonDataStream(
+      dataStream = Observable.empty,
+      streamType = KeyValueType,
+      metadata = None)
+
 }

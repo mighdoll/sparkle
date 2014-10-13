@@ -185,7 +185,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
         case InvalidPeriod(msg) =>
           Status(603, s"Invalid period in Transform parameter.  $msg request: $requestAsString")
         case err =>
-          log.error("no Status reporter for:", err)
+          log.error("unexpected error processing request", err)
           Status(999, s"unknown error $err in $requestAsString")
       }
     val realmToClient = request.realm.map { orig => RealmToClient(orig.name) }
