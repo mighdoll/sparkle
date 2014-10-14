@@ -75,9 +75,19 @@ object Dependencies {
   val nativeNetlibLinux     = "com.github.fommil.netlib" % "netlib-native_system-linux-x86_64" % "1.1" classifier "natives"
   val nativeNetlibOsX       = "com.github.fommil.netlib" % "netlib-native_system-osx-x86_64" % "1.1" classifier "natives"
                               
-  val apacheAvro            = "org.apache.avro"           %  "avro"                    % "1.7.6"
-  val apacheKafka           = "org.apache.kafka"          %% "kafka"                   % "0.8.1.1"
-  val zookeeper             = "org.apache.zookeeper"      %  "zookeeper"               % "3.4.5"
+  val apacheAvro            = "org.apache.avro"           % "avro"                    % "1.7.6"
+  val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.1.1"
+                                  exclude("javax.jms", "jms")
+                                  exclude("com.sun.jdmk", "jmxtools")
+                                  exclude("com.sun.jmx", "jmxri")
+                                  exclude("org.slf4j", "slf4j-simple")
+                              )
+  val zookeeper             = ("org.apache.zookeeper"      % "zookeeper"              % "3.4.5"
+                                  exclude ("org.jboss.netty", "netty")
+                                  exclude("javax.jms", "jms")
+                                  exclude("com.sun.jdmk", "jmxtools")
+                                  exclude("com.sun.jmx", "jmxri")
+                              )
 
   val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.0" 
   val nettyAll              = "io.netty"                  % "netty-all"               % "4.0.19.Final" 
