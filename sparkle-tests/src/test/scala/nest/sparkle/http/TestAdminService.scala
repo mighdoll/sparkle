@@ -23,8 +23,7 @@ class TestAdminService
     value.startsWith("<!DOCTYPE html>") && value.contains("Default admin page!")
   }
   
-  // this suite will be moved the http common problem to avoid resource conflicts on classpath
-  ignore("load the default index page from resources") {
+  test("load the default index page from resources") {
     //implicit val ref = actorRefFactory
     Get() ~> routes ~> check {
       handled shouldBe true
