@@ -21,7 +21,6 @@ import nest.sparkle.loader.kafka.TypeTagUtil.typeTaggedToString
 import nest.sparkle.store.{Event, WriteableStore}
 import nest.sparkle.store.cassandra.{CanSerialize, RecoverCanSerialize}
 import nest.sparkle.util.{Instrumented, Log, Instance, ConfigUtil, Watched}
-import nest.sparkle.util.Exceptions.NYI
 import nest.sparkle.util.KindCast.castKind
 import nest.sparkle.util.TryToFuture.FutureTry
 
@@ -32,8 +31,9 @@ import KafkaAvroArrayTopicLoader._
  * records that contains an array of values and writes the values to the Sparkle store.
  */
 class KafkaAvroArrayTopicLoader[K: TypeTag]( 
-    val rootConfig: Config, val store: WriteableStore, val topic: String
-  ) (implicit execution: ExecutionContext) 
+    val rootConfig: Config, val store: WriteableStore, 
+  val topic: String, val decoder: KafkaKeyValues
+) (implicit execution: ExecutionContext) 
   extends Watched[ColumnUpdate[K]]
   with Runnable
   with Instrumented
@@ -44,9 +44,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   /** Evidence for key serializing when writing to the store */
   private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
   
-  val finder  = decoderFinder()
-  val decoder = columnDecoder(finder, topic)
-  val reader  = KafkaReader(topic, rootConfig, None)(decoder)
+  val reader = KafkaReader(topic, rootConfig, None)(decoder)
   
   val transformer = makeTransformer()
   
@@ -176,22 +174,6 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   private def discardIterator() {
     currentIterator = None
     reader.close()  // Ensure Kafka connection is closed.
-  }
-
-  /** instantiate the FindDecoder instance specified in the config file. The FindDecoder
-    * is used to map topic names to kafka decoders
-    */
-  private def decoderFinder(): FindDecoder = {
-    val className = loaderConfig.getString("find-decoder")
-    Instance.byName[FindDecoder](className)(rootConfig)
-  }
-
-  /** return the kafka decoder for a given kafka topic */
-  private def columnDecoder(finder: FindDecoder, topic: String): KafkaKeyValues = {
-    finder.decoderFor(topic) match {
-      case keyValueDecoder: KafkaKeyValues => keyValueDecoder
-      case _                               => NYI("only KeyValueStreams implemented so far")
-    }
   }
   
   /** Commit the topic offsets if enough time has passed */

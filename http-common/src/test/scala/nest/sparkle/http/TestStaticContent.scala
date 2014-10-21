@@ -9,8 +9,8 @@ import akka.actor.ActorRefFactory
 abstract class TestStaticContent
   extends FunSuite
     with Matchers
-    with StaticContent
     with ScalatestRouteTest
+    with StaticContent
 {
   /** Set actor reference */
   override def actorRefFactory: ActorRefFactory = system

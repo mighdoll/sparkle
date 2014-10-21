@@ -14,17 +14,16 @@
 
 package nest.sparkle.time.protocol
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import spray.testkit.ScalatestRouteTest
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.BeforeAndAfterAll
-import nest.sparkle.store.ram.WriteableRamStore
-import spray.util._
-import scala.concurrent.ExecutionContext
-import nest.sparkle.store.Event
-import spray.http.DateTime
 import scala.reflect.runtime.universe._
+
+import org.scalatest.prop.PropertyChecks
+import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
+import spray.testkit.ScalatestRouteTest
+
+import spray.util._
+
+import nest.sparkle.store.Event
+import nest.sparkle.store.ram.WriteableRamStore
 
 /** (for unit tests) a ram based Store with a sample column */
 trait TestStore extends FunSuite with Matchers with ScalatestRouteTest

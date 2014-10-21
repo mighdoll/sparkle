@@ -13,10 +13,13 @@ import nest.sparkle.util.ConfigUtil.sparkleConfigName
 /** main() entry point to launch a kafka loader.  Pass a command line argument (--conf) to
   * point to the config file to use.  The server will launch with default configuration otherwise.
   */
-trait Main 
+object Main 
   extends SparkleApp 
           with Log 
 {
+  val appName = "kafka-loader"
+  val appVersion = "0.6.0"
+  
   val erase = parser.flag[Boolean](List("format"), "erase and format the database")
   
   initialize()

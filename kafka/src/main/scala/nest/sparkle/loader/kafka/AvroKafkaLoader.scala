@@ -26,7 +26,8 @@ import scala.util.control.NonFatal
 import com.typesafe.config.Config
 
 import nest.sparkle.store.WriteableStore
-import nest.sparkle.util.{Log, ConfigUtil}
+import nest.sparkle.util.Exceptions.NYI
+import nest.sparkle.util.{Instance, Log, ConfigUtil}
 
 /** Start stream loaders that will load data from kafka topics into cassandra
   * type parameter K is the type of the key in the store, (which is not necessarily the same as the type
@@ -43,7 +44,17 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   private lazy val readerThreadPool = Executors.newFixedThreadPool(topics.size)
   private lazy val readerExecutionContext = ExecutionContext.fromExecutor(readerThreadPool)
 
-  private val loaders = topics.map(new KafkaAvroArrayTopicLoader[K](rootConfig, storage, _)).toList
+  /** instantiate the FindDecoder instance specified in the config file. The FindDecoder
+    * is used to map topic names to kafka decoders
+    */
+  private lazy val finder: FindDecoder = {
+    val className = loaderConfig.getString("find-decoder")
+    Instance.byName[FindDecoder](className)(rootConfig)
+  }
+
+  private lazy val loaders = topics.map { topic =>
+    new KafkaAvroArrayTopicLoader[K](rootConfig, storage, topic, columnDecoder(topic))
+  }.toList
 
   /** Start the loader for topic.
     *
@@ -72,5 +83,13 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
     }
     
     readerThreadPool.shutdownNow()
+  }
+
+  /** return the kafka decoder for a given kafka topic */
+  private def columnDecoder(topic: String): KafkaKeyValues = {
+    finder.decoderFor(topic) match {
+      case keyValueDecoder: KafkaKeyValues => keyValueDecoder
+      case _                               => NYI("only KeyValueStreams implemented so far")
+    }
   }
 }

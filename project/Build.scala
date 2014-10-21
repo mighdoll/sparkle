@@ -73,7 +73,8 @@ object SparkleBuild extends Build {
   lazy val kafkaLoader =    // loading from kafka into the store
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
       .dependsOn(sparkleCore)
-      .dependsOn(testKit)
+      .dependsOn(protocolTestKit)
+      .dependsOn(storeTestKit)
       .dependsOn(log4jConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
@@ -89,7 +90,8 @@ object SparkleBuild extends Build {
   lazy val sparkShell =   // admin shell
     Project(id = "spark-repl", base = file("spark"))
       .dependsOn(sparkleCore)
-      .dependsOn(testKit)
+      .dependsOn(protocolTestKit)
+      .dependsOn(storeTestKit)
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
@@ -104,17 +106,32 @@ object SparkleBuild extends Build {
 
   lazy val testKit =        // utilities for testing sparkle stuff
     Project(id = "sparkle-test-kit", base = file("test-kit"))
-      .dependsOn(sparkleCore)
+      .dependsOn(util)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= kitTestsAndLogging ++ spray
+        libraryDependencies ++= spray ++ kitTestsAndLogging ++ Seq(nScalaTime)
       )
+
+  lazy val protocolTestKit =        // utilities for testing sparkle protocol
+    Project(id = "sparkle-protocol-test-kit", base = file("protocol-test-kit"))
+      .dependsOn(testKit)
+      .dependsOn(sparkleCore)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+
+  lazy val storeTestKit =        // utilities for testing sparkle store
+    Project(id = "sparkle-store-test-kit", base = file("store-test-kit"))
+      .dependsOn(testKit)
+      .dependsOn(sparkleCore)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
 
   lazy val sparkleTests =   // unit and integration for sparkle core and protocol libraries
     Project(id = "sparkle-tests", base = file("sparkle-tests"))
       .dependsOn(protocol)
-      .dependsOn(testKit)
+      .dependsOn(protocolTestKit)
+      .dependsOn(storeTestKit)
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
@@ -144,7 +161,7 @@ object SparkleBuild extends Build {
       )
 
   lazy val httpCommon =           // http/spray common code
-    Project(id = "http-common", base = file("http-common"))
+    Project(id = "sparkle-http", base = file("http-common"))
       .dependsOn(util)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
