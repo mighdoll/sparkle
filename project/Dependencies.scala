@@ -43,8 +43,8 @@ object Dependencies {
   val nScalaTime            = "com.github.nscala-time"    %% "nscala-time"            % "1.0.0"  // 1.4.0 version available but compile fails
   val spire                 = "org.spire-math"            %% "spire"                  % "0.7.4"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
-  val cassandraAll          = "org.apache.cassandra"      % "cassandra-all"           % "2.0.10"
-  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.0.4" // 2.10 is incompatible with spark-cassandra 1.0.0
+  val cassandraAll          = "org.apache.cassandra"      % "cassandra-all"           % "2.1.0"
+  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.1.2"  // 2.1 is incompatible with spark-cassandra 1.0.0
   val snappy                = "org.xerial.snappy"         % "snappy-java"             % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           % "lz4"                     % "1.2.0"
 

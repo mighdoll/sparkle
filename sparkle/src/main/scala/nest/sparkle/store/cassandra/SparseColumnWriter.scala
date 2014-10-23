@@ -15,15 +15,15 @@
 package nest.sparkle.store.cassandra
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
+
+import com.datastax.driver.core.{BatchStatement, Session}
 
 import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
-import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.util.{ Instrumented, Log }
-
-import com.datastax.driver.core.{ BatchStatement, Session }
 import nest.sparkle.store.cassandra.SparseColumnWriterStatements._
+import nest.sparkle.util.GuavaConverters._
+import nest.sparkle.util.{Instrumented, Log}
 
 object SparseColumnWriter
     extends Instrumented with Log {
@@ -46,28 +46,29 @@ object SparseColumnWriter
 
   /** create columns for default data types */
   def createColumnTables(session: Session)(implicit execution: ExecutionContext): Future[Unit] = {
-    val futures = ColumnTypes.supportedColumnTypes.map { serialInfo =>
-      createEmptyColumn(session)(serialInfo.domain, serialInfo.range, execution)
+    // This gets rid of duplicate column table creates which C* 2.1 doesn't handle correctly.
+    val tables = ColumnTypes.supportedColumnTypes.map { serialInfo =>
+      serialInfo.tableName -> ColumnTableInfo(serialInfo.tableName, serialInfo.domain.columnType, serialInfo.range.columnType)
+    }.toMap
+    val futures = tables.values.map { tableInfo =>
+      createColumnTable(tableInfo, session)(execution)
     }
     Future.sequence(futures).map { _ => () }
   }
 
-  /** create a column asynchronously (idempotent) */
-  private def createEmptyColumn[T: CanSerialize, U: CanSerialize](session: Session) // format: OFF
+  /** create a column asynchronously
+    * This should be idempotent. With C* 2.1 there appears to be a bug where creating the same table
+    * simultaneously can fail.
+    */
+  private def createColumnTable(tableInfo: ColumnTableInfo, session: Session) // format: OFF
       (implicit execution:ExecutionContext): Future[Unit] = { // format: ON
-    val serialInfo = serializationInfo[T, U]()
-    // cassandra storage types for the argument and value
-    val argumentStoreType = serialInfo.domain.columnType
-    val valueStoreType = serialInfo.range.columnType
-    val tableName = serialInfo.tableName
-
     val createTable = s"""
-      CREATE TABLE IF NOT EXISTS "$tableName" (
+      CREATE TABLE IF NOT EXISTS "${tableInfo.tableName}" (
         dataSet ascii,
         rowIndex int,
         column ascii,
-        argument $argumentStoreType,
-        value $valueStoreType,
+        argument ${tableInfo.keyType},
+        value ${tableInfo.valueType},
         PRIMARY KEY((dataSet, column, rowIndex), argument)
       ) WITH COMPACT STORAGE
       """
@@ -75,6 +76,9 @@ object SparseColumnWriter
     created.onFailure { case error => log.error("createEmpty failed", error) }
     created
   }
+
+  /** For creating column tables */
+  private case class ColumnTableInfo(tableName: String, keyType: String, valueType: String)
 
 }
 
@@ -176,4 +180,3 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
   }
 
 }
-

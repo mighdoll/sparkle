@@ -15,7 +15,6 @@
 package nest.sparkle.store.cassandra
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext
 
 import spray.util._
 
@@ -34,7 +33,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
   override def testKeySpace = "testcassandrastore"
 
-  private def replicationFactor = 2 // override just to see that we can
+  private def replicationFactor = 1 // ensure replication factor so we can validate
 
   override def configOverrides: List[(String, Any)] =
     super.configOverrides :+
