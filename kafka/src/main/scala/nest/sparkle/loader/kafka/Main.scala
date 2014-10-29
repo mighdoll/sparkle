@@ -1,10 +1,12 @@
 package nest.sparkle.loader.kafka
 
 import scala.reflect.runtime.universe._
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import org.clapper.argot.ArgotConverters._
 
+import nest.sparkle.http.{AdminServiceActor, AdminService}
 import nest.sparkle.store.Store
 import nest.sparkle.store.cassandra.WriteNotification  // TODO: shouldn't require cassandra
 import nest.sparkle.util.{Log, InitializeReflection, SparkleApp}
@@ -32,7 +34,7 @@ object Main
     new AvroKafkaLoader(rootConfig, writeableStore)(storeKeyType, global)
   }
   
-  loader.start()
+  //loader.start()
   log.info("Kafka loaders started")
   
   @volatile
@@ -46,11 +48,14 @@ object Main
     }
   })
   
-  // FUTURE: write status info to the log
+  KafkaLoaderAdminService.start(rootConfig)
+  
   while (keepRunning) {
-    Thread.sleep(15 * 60 * 1000L)
-    log.trace("alive")
+    Thread.sleep(5.seconds.toMillis)
+    log.trace("alive") // FUTURE: write status info to the log or some other housekeeping
   }
+  
+  system.shutdown()
   
   log.info("Main loader thread terminating")
   

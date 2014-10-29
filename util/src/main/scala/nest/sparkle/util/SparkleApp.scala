@@ -17,8 +17,6 @@ package nest.sparkle.util
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-import com.typesafe.config.Config
-
 import akka.actor.ActorSystem
 
 import org.clapper.argot.{ArgotParser, ArgotUsageException}
