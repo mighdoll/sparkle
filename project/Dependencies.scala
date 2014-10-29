@@ -53,7 +53,7 @@ object Dependencies {
 
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
-  val sparkCassandra        = "com.datastax.spark"        %% "spark-cassandra-connector" % "1.0.0" withSources() withJavadoc()
+  val sparkCassandra        = "com.datastax.spark"        %% "spark-cassandra-connector" % "1.0.3" withSources() withJavadoc()
   val sparkCore             = ("org.apache.spark"         %% "spark-core"             % V.spark
                                 exclude("org.slf4j", "slf4j-log4j12")
                               )
