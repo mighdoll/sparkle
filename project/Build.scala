@@ -12,7 +12,8 @@ object SparkleBuild extends Build {
   )
 
   lazy val sparkleRoot = Project(id = "root", base = file("."))
-    .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, sparkShell, testKit, sparkleTests, util, logbackConfig, log4jConfig,
+    .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, sparkShell, testKit, 
+      sparkleTests, util, logbackConfig, log4jConfig, httpCommon,
       cassandraServer, zookeeperServer, kafkaServer
     )
 
