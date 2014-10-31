@@ -34,7 +34,7 @@ object Main
     new AvroKafkaLoader(rootConfig, writeableStore)(storeKeyType, global)
   }
   
-  //loader.start()
+  loader.start()
   log.info("Kafka loaders started")
   
   @volatile

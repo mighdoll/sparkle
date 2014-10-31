@@ -18,7 +18,7 @@ import nest.sparkle.http.{ResourceLocation, AdminServiceActor, AdminService}
  */
 trait KafkaLoaderAdminService extends AdminService
 {
-  override lazy val webRoot = Some(ResourceLocation("web/kafka/admin"))
+  override lazy val webRoot = Some(ResourceLocation("web/admin/loader"))
 
   lazy val temp: Route =
     get {
