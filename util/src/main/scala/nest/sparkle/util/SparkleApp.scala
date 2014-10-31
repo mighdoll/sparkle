@@ -23,7 +23,6 @@ import org.clapper.argot.{ArgotParser, ArgotUsageException}
 import org.clapper.argot.ArgotConverters._
 
 import nest.sparkle.metrics.MetricsSupport
-import nest.sparkle.util.ConfigUtil.configForSparkle
 
 /** a utility trait for making a main class that uses Argot command line parsing,
   * loads and modifies the configuration, configures logging, and starts
@@ -42,9 +41,11 @@ trait SparkleApp
   
   lazy val rootConfig = {
     val fileConfig = ConfigUtil.configFromFile(confFile.value)
-    ConfigUtil.modifiedConfig(fileConfig, overrides: _*)
+    val config = ConfigUtil.modifiedConfig(fileConfig, overrides: _*)
+    ConfigUtil.dumpConfigToFile(config)
+    config
   }
-  lazy val sparkleConfig = configForSparkle(rootConfig)
+  lazy val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
     
   // TODO: Use DI or something for this
   implicit lazy val system = ActorSystem("sparkle", sparkleConfig)
