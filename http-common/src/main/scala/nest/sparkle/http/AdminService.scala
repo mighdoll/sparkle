@@ -2,6 +2,7 @@ package nest.sparkle.http
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Failure}
 
 import com.typesafe.config.Config
 
@@ -11,6 +12,8 @@ import akka.pattern.ask
 import akka.util.Timeout
 
 import spray.can.Http
+import spray.http.StatusCodes
+import spray.httpx.marshalling.Marshaller
 import spray.routing.Directive.pimpApply
 import spray.routing.Route
 
@@ -23,7 +26,8 @@ trait AdminService
 {
   implicit def executionContext: ExecutionContext
   def rootConfig: Config
-
+  lazy val sparkleConfig = configForSparkle(rootConfig)
+  
   override lazy val webRoot = Some(ResourceLocation("web/admin"))
   
   /** Subclasses override this with specific admin routes */
@@ -41,8 +45,15 @@ trait AdminService
       routes ~
       health ~
       staticContent
-    }    
+    }
   } // format: ON
+  
+  def futureComplete[T](future: Future[T])(implicit marshaller: Marshaller[T]): Route = {
+    onComplete(future) {
+      case Success(s)   => complete(s)
+      case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
+    }
+  }
 
 }
 

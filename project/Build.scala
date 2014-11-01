@@ -13,7 +13,7 @@ object SparkleBuild extends Build {
 
   lazy val sparkleRoot = Project(id = "root", base = file("."))
     .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, sparkShell, testKit, 
-      sparkleTests, util, logbackConfig, log4jConfig, httpCommon,
+      sparkleTests, util, logbackConfig, log4jConfig, httpCommon, utilKafka,
       cassandraServer, zookeeperServer, kafkaServer
     )
 
@@ -76,14 +76,14 @@ object SparkleBuild extends Build {
       .dependsOn(sparkleCore)
       .dependsOn(protocolTestKit)
       .dependsOn(storeTestKit)
+      .dependsOn(utilKafka)
       .dependsOn(log4jConfig)
+      .dependsOn(httpCommon)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= kafka ++ testAndLogging ++ avro ++ Seq(
-          metricsScala
-        ),
+        libraryDependencies ++= avro,
         dependenciesToStart := Seq(kafkaServer, cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value
       )
@@ -170,6 +170,15 @@ object SparkleBuild extends Build {
         libraryDependencies ++= akka ++ spray ++ testAndLogging ++ Seq(
           Runtime.logback % "test"
         )
+      )
+
+  lazy val utilKafka =           // utilities useful in other projects too
+    Project(id = "sparkle-util-kafka", base = file("util-kafka"))
+      .dependsOn(util)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= kafka ++ testAndLogging ++ Seq(sprayJson)
       )
 
   lazy val logbackConfig =  // mix in to projects choosing logback
