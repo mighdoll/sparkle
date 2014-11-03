@@ -4,6 +4,7 @@ import com.typesafe.config.Config
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import com.datastax.spark.connector._
+import com.datastax.spark.connector.rdd.reader._
 import com.datastax.spark.connector.rdd.CassandraRDD
 import nest.sparkle.util.ConfigUtil
 import scala.collection.JavaConverters._
@@ -60,19 +61,21 @@ case class SparkConnection(rootConfig: Config, applicationName: String = "Sparkl
         ColumnTypes.serializationInfo[K, V]()(keySerialize, valueSerialize).tableName
       }
 
-    val keyConverter = TypeConverter.forType[K]
-    val valueConverter = TypeConverter.forType[V]
+    // tells cassandra Spark connector to to parse the row
+    implicit val keyConverter : TypeConverter[K] = TypeConverter.forType[K]
+    implicit val valueConverter : TypeConverter[V] = TypeConverter.forType[V]
+    implicit val rrf = new KeyValueRowReaderFactory[K,V]( new ValueRowReaderFactory[K], new ValueRowReaderFactory[V] )
+
     val keyspace = sparkleConfig.getString("sparkle-store-cassandra.key-space")
     val sc = sparkContext  // spark can't serialize sparkContext directly
-    
+
     val rddTry =
       for {
         tableName <- tableNameTry
-        rdd <- nonFatalCatch withTry { sc.cassandraTable(keyspace, tableName).select("argument", "value") }
+        rdd <- nonFatalCatch withTry { sc.cassandraTable[(K,V)](keyspace, tableName).select("argument", "value") }
       } yield {
         rdd.map { row =>
-          val key = row.get(0)(keyConverter)
-          val value = row.get(1)(valueConverter)
+          val (key, value) = row
           Event(key, value)
         }
       }

@@ -22,7 +22,7 @@ object Dependencies {
     val rxJava = "0.20.4"
     val scalaCheck = "1.11.5" 
     val scala = "2.10.4"
-    val spark = "1.0.2"
+    val spark = "1.1.0"
   }
 
   // To get latest versions
@@ -53,8 +53,11 @@ object Dependencies {
 
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
-  val sparkCassandra        = "com.datastax.spark"        %% "spark-cassandra-connector" % "1.0.3" withSources() withJavadoc()
+  val sparkCassandra        = "com.datastax.spark"        %% "spark-cassandra-connector" % "1.1.0-beta1" withSources() withJavadoc()
   val sparkCore             = ("org.apache.spark"         %% "spark-core"             % V.spark
+                                exclude("org.slf4j", "slf4j-log4j12")
+                              )
+  val sparkSql              = ("org.apache.spark"         %% "spark-sql"             % V.spark
                                 exclude("org.slf4j", "slf4j-log4j12")
                               )
   val sparkMllib            = ("org.apache.spark"         %% "spark-mllib"            % V.spark
@@ -212,7 +215,8 @@ object Dependencies {
   val spark = Seq(
     sparkCassandra,
     sparkMllib,
-    sparkCore
+    sparkCore,
+    sparkSql
   ) ++ nativeMath
  
 
