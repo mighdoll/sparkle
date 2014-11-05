@@ -44,7 +44,7 @@ object Dependencies {
   val spire                 = "org.spire-math"            %% "spire"                  % "0.7.4"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
   val cassandraAll          = "org.apache.cassandra"      % "cassandra-all"           % "2.1.0"
-  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.1.2"  // 2.1 is incompatible with spark-cassandra 1.0.0
+  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.1.1"  // 2.1 is incompatible with spark-cassandra 1.0.0
   val snappy                = "org.xerial.snappy"         % "snappy-java"             % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           % "lz4"                     % "1.2.0"
 
@@ -72,7 +72,10 @@ object Dependencies {
                                 exclude("org.apache.spark", "spark-mllib_2.10") 
                                 exclude("org.scala-lang", "scala-compiler")          
                               */
-  val breezeNatives         = ("org.scalanlp"              %% "breeze-natives"         % "0.7"
+  val breeze                = "org.scalanlp"               %% "breeze"                 % "0.9"
+
+  // we can add this back to speed up breeze
+  val breezeNatives         = ("org.scalanlp"              %% "breeze-natives"         % "0.9"
                                 exclude("com.github.fommil.netlib", "all")
                               )
   val nativeNetlibLinux     = "com.github.fommil.netlib" % "netlib-native_system-linux-x86_64" % "1.1" classifier "natives"
@@ -207,9 +210,7 @@ object Dependencies {
   )
 
   val nativeMath = Seq(
-    breezeNatives,
-    nativeNetlibLinux,
-    nativeNetlibOsX
+    breeze
   )
 
   val spark = Seq(
