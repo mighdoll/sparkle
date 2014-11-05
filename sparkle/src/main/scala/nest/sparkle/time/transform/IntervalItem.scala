@@ -46,7 +46,7 @@ class IntervalItem[T:Numeric](val start:T, val length:T) extends Event[T,T](star
 }
 
 
-/** Support for Intervalitem including a factory for creating an IntervalItem from an event and a method
+/** Support for Intervalitem, including a factory for creating an IntervalItem from an event and a method
  *  for coalescing a collection of IntervalItems. */
 object IntervalItem {
   def apply[T:Numeric](start:T, length:T):IntervalItem[T] =

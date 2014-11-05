@@ -10,6 +10,7 @@ import nest.sparkle.store.{ Column, Store }
 import nest.sparkle.time.protocol.RequestJson.CustomSelectorFormat
 import nest.sparkle.util.{ Instance, ConfigUtil }
 import nest.sparkle.time.transform.ColumnGroup
+import nest.sparkle.util.OptionConversion._
 
 case class CustomSourceNotFound(msg: String) extends RuntimeException(msg)
 case class MalformedSourceSelector(msg: String) extends RuntimeException(msg)
@@ -30,14 +31,18 @@ trait SelectingSources {
     /** extractor to apply to an element in the sources parameter */
     def unapply(jsObject: JsObject)(implicit execution: ExecutionContext) // format: OFF
         : Option[Future[Seq[ColumnGroup]]] = { // format: ON
+
       val selectorOpt =
         catching(classOf[DeserializationException]) opt jsObject.convertTo[CustomSelector]
 
       for {
         selector <- selectorOpt
-        customSelector <- customSelectors.get(selector.selector)
       } yield {
-        customSelector.selectColumns(selector.selectorParameters)
+        val optSelector = customSelectors.get(selector.selector)
+        val futureSelector = optSelector.toFutureOr(CustomSourceNotFound(selector.selector))
+        futureSelector.flatMap { customSelector =>
+          customSelector.selectColumns(selector.selectorParameters)
+        }
       }
     }
   }
@@ -57,11 +62,9 @@ trait SelectingSources {
           case MatchCustom(columns) => columns
           case _ =>
             Future.failed(MalformedSourceSelector(jsValue.toString))
-          // TODO report a custom error when source selector not found
         }
       }
     Future.sequence(seqFutures).map { _.flatten }
-
   }
 
   /** Instantiate the custom selectors listed in the .conf file. These will be addressable

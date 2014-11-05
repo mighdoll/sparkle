@@ -170,20 +170,22 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
     val requestAsString = request.toJson.compactPrint
     val status =
       error match {
-        case err: DeserializationException =>
-          Status(603, s"parameter error in transform.  request: $requestAsString")
+        case ColumnNotFound(msg) =>
+          Status(601, s"Column not found.  $msg request: $requestAsString")
+        case InvalidPeriod(msg) =>
+          Status(603, s"Invalid period in Transform parameter.  $msg request: $requestAsString")
         case err: MalformedSourceSelector =>
+          Status(603, s"parameter error in transform.  request: $requestAsString")
+        case err: DeserializationException =>
           Status(604, s"parameter error in source selector.  request: $requestAsString")
+        case CustomSourceNotFound(msg) =>
+          Status(605, s"custom source selector not found: $msg.  request: $requestAsString")
         case AuthenticationFailed =>
           Status(611, s"Authentication failed.  request: $requestAsString")
         case AuthenticationMissing =>
           Status(612, s"Authentication missing.  request: $requestAsString")
         case ColumnForbidden(msg) =>
           Status(613, s"Access to column forbidden.  $msg request: $requestAsString")
-        case ColumnNotFound(msg) =>
-          Status(601, s"Column not found.  $msg request: $requestAsString")
-        case InvalidPeriod(msg) =>
-          Status(603, s"Invalid period in Transform parameter.  $msg request: $requestAsString")
         case err =>
           log.error("unexpected error processing request", err)
           Status(999, s"unknown error $err in $requestAsString")
