@@ -18,12 +18,12 @@ import scala.collection.JavaConverters._
 
 import spray.util._
 
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.{ Arbitrary, Gen }
 import org.scalatest.prop.PropertyChecks
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{ FunSuite, Matchers }
 
 import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
+import nest.sparkle.store.{ ColumnNotFound, DataSetNotFound, Event }
 import nest.sparkle.time.protocol.ArbitraryColumn
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.RandomUtil.randomAlphaNum
@@ -79,7 +79,7 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
   }
 
   test("erase works") {
-    withTestDb{ store =>
+    withTestDb { store =>
       withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
         store.format()
         // columnPath no longer in the store
@@ -140,10 +140,10 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
 
   test("read+write many long double events") {
     withTestDb { implicit store =>
-      withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
-        val readColumn = store.column[Long, Double](testColumnPath).await
-        forAll(Gen.chooseNum(0, 1000), minSuccessful(10)) { rowCount =>
-          writeColumn.erase().await
+      forAll(Gen.chooseNum(100, 100000), minSuccessful(5)) { rowCount =>
+        withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
+          val readColumn = store.column[Long, Double](testColumnPath).await
+          //          writeColumn.erase().await // intermittently fails. race in cassandra? // for now runnng one iteration per column
 
           val events = Range(0, rowCount).map { index =>
             Event(index.toLong, index.toDouble)

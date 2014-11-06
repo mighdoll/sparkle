@@ -135,7 +135,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     preparedSession.session.executeAsync(deleteAll).toFuture.map { _ => () }
   }
 
-  private val batchSize = 25000 // CQL driver has a match batch size of 64K
+  private val batchSize = 25000 // CQL driver has a max batch size of 64K
   
   /** write a bunch of column values in a batch */ // format: OFF
   private def writeMany(events:Iterable[Event[T,U]])
