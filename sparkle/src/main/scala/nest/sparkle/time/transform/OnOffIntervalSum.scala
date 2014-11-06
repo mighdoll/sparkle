@@ -1,29 +1,29 @@
 package nest.sparkle.time.transform
 
-import com.github.nscala_time.time.Implicits.{richReadableInstant, richReadableInterval}
+import com.github.nscala_time.time.Implicits.{ richReadableInstant, richReadableInterval }
 import com.typesafe.config.Config
 import java.util.TimeZone
 import nest.sparkle.store.Event
-import nest.sparkle.store.EventGroup.{OptionRows, transposeSlices}
-import nest.sparkle.time.protocol.{IntervalParameters, JsonDataStream, JsonEventWriter, KeyValueType}
+import nest.sparkle.store.EventGroup.{ OptionRows, transposeSlices }
+import nest.sparkle.time.protocol.{ IntervalParameters, JsonDataStream, JsonEventWriter, KeyValueType }
 import nest.sparkle.time.transform.ItemStreamTypes._
 import nest.sparkle.time.transform.FetchItems.fetchItems
 import nest.sparkle.time.transform.PeriodPartitioner.timePartitionsFromRequest
-import nest.sparkle.util.{Period, PeriodWithZone, RecoverJsonFormat, RecoverNumeric, RecoverOrdering}
+import nest.sparkle.util.{ Period, PeriodWithZone, RecoverJsonFormat, RecoverNumeric, RecoverOrdering }
 import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.KindCast.castKind
 import nest.sparkle.util.Log
 import nest.sparkle.util.OptionConversion.OptionFuture
 import nest.sparkle.util.TryToFuture.FutureTry
 import rx.lang.scala.Observable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 import scala.reflect.runtime.universe._
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 import scala.util.control.Exception.nonFatalCatch
 import spire.math.Numeric
 import spire.implicits._
-import spray.json.{JsObject, JsonFormat}
+import spray.json.{ JsObject, JsonFormat }
 import spray.json.DefaultJsonProtocol._
 
 /** support for protocol request parsing by matching the onOffIntervalSum transform by string name */
@@ -37,9 +37,10 @@ case class OnOffTransform(rootConfig: Config) extends TransformMatcher {
   }
 }
 
-/** convert boolean on off events to intervals from multiple columns, then sum for each requested period. 
- *  Returns a json stream of the results. The results are in tabular form, with one summed amount for
- *  each group of columns specified in the request. */
+/** convert boolean on off events to intervals from multiple columns, then sum for each requested period.
+  * Returns a json stream of the results. The results are in tabular form, with one summed amount for
+  * each group of columns specified in the request.
+  */
 class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
   val maxParts = configForSparkle(rootConfig).getInt("transforms.max-parts")
   val onOffParameters = OnOffParameters(rootConfig)
@@ -54,9 +55,9 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
     }
   }
 
-  /** Convert boolean on off events to intervals, then merge and sum the interval lengths. 
-   *  Return a json stream of the results in tabular form, with one sum per each requested group of columns.
-   */
+  /** Convert boolean on off events to intervals, then merge and sum the interval lengths.
+    * Return a json stream of the results in tabular form, with one sum per each requested group of columns.
+    */
   private def transformData[K: TypeTag: Numeric: JsonFormat: Ordering] // format: OFF
       (futureGroups:Future[Seq[ColumnGroup]],
        intervalParameters:IntervalParameters[K],
@@ -82,11 +83,12 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
       Seq(jsonStream)
     }
   }
-  
-  /** Convert data values to json. 
-   *  
-   *  Normally called on a single stream. (if more streams are provided, concatenates all the 
-   *  streams in all the groups and stacks to a single stream.) */
+
+  /** Convert data values to json.
+    *
+    * Normally called on a single stream. (if more streams are provided, concatenates all the
+    * streams in all the groups and stacks to a single stream.)
+    */
   private def rowsToJson[K: JsonFormat, V: JsonFormat] // format: OFF
     (itemSet:BufferedMultiValueSet[K,V])
     (implicit execution:ExecutionContext)
@@ -111,7 +113,6 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
       streamType = KeyValueType
     )
   }
-  
 
   /** return an optional Period wrapped in a Try, by parsing the client-protocol supplied
     * IntervalParameters.
@@ -163,7 +164,6 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
 
     val intervalStates =
       onOffs.scan(IntervalState(None, None)) { (state, event) =>
-        //        println(s"toIntervals scanning: ($state, $event)")
         (state.current, event.value) match {
           case (None, true) => // start a new zero length interval
             val current = IntervalItem(event.argument, numeric.zero)
@@ -228,8 +228,7 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
       // LATER merge ongoing intervals as well (probably requires buffering to find overlaps..)
       val ongoing = Observable.empty
 
-      // For now we just take the first range provided. 
-      // TODO intelligently merge request ranges
+      // For now we just take the first range provided. TODO intelligently merge request ranges
       val mergedRange =
         for {
           stack <- group.stacks.headOption
@@ -296,10 +295,8 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
       val stacks = group.stacks.map { stack =>
         val streams = stack.streams.map { stream =>
           stream.timeParts match {
-            case Some(times) =>
-              sumPerPeriod(stream, times)
-            case None =>
-              sumEntire(stream)
+            case Some(times) => sumPerPeriod(stream, times)
+            case None        => sumEntire(stream)
           }
         }
         new BufferedRawItemStack(streams)
@@ -334,7 +331,7 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
             val sum = inPeriod.map(_.value).reduceOption(_ + _).getOrElse(zeroValue)
             Event(start, sum)
           }
-        summaryItems.toSeq
+        summaryItems.toVector
       }
     new BufferedItemStream[K, V, Event[K, V]](futureItems, stream.ongoing, stream.fromRange)
   }
@@ -364,19 +361,21 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
       (implicit execution: ExecutionContext)
       : BufferedOptionRowSet[K, V] = { // format: ON
 
-    val futureStreams = // flatten groups and stacks to get a collection of streams
+    val futureSeqPerGroup: Seq[Future[Seq[Event[K, V]]]] = // flatten stacks to get a collection of item sequences
       for {
         group <- itemSet.groups
         stack <- group.stacks
         futureStackItems = stack.streams.map(_.initialEntire)
       } yield {
-        val stackCombinedItems = Future.sequence(futureStackItems).map { streams => streams.reduce(_ ++ _) }
+        val stackCombinedItems = Future.sequence(futureStackItems).map { items =>
+          items.reduce(_ ++ _)
+        }
         stackCombinedItems
       }
 
-    // group by key 
-    val grouped: Future[OptionRows[K, V]] = Future.sequence(futureStreams).map { slices =>
-      val rows = transposeSlices(slices)
+    // composite each group into rows with multiple values
+    val grouped: Future[OptionRows[K, V]] = Future.sequence(futureSeqPerGroup).map { seqPerGroup =>
+      val rows = transposeSlices(seqPerGroup)
       rows.map { row =>
         val key = row.head.get.asInstanceOf[K]
         val values = row.tail.asInstanceOf[Seq[Option[V]]]
@@ -384,11 +383,11 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
       }
     }
 
-    // return a set with the composite option rows
-    val newStream = new BufferedOptionRowStream(grouped, Observable.empty, None)
-    val newStack = new BufferedOptionRowStack(Seq(newStream))
-    val newGroup = new BufferedOptionRowGroup(Seq(newStack), None)
-    new BufferedOptionRowSet(Seq(newGroup))
+    // return a set wwith the composited array of option-values rows as values
+    val stream = new BufferedOptionRowStream(grouped, Observable.empty, None)
+    val stack = new BufferedOptionRowStack(Seq(stream))
+    val group = new BufferedOptionRowGroup(Seq(stack), None)
+    new BufferedOptionRowSet(Seq(group))
   }
 
   /** convert table rows containing Option values into zeros */
@@ -415,6 +414,5 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
     }
     new BufferedMultiValueSet(groups)
   }
-  
 
 }

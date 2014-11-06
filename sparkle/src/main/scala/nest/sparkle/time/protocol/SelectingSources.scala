@@ -11,6 +11,7 @@ import nest.sparkle.time.protocol.RequestJson.CustomSelectorFormat
 import nest.sparkle.util.{ Instance, ConfigUtil }
 import nest.sparkle.time.transform.ColumnGroup
 import nest.sparkle.util.OptionConversion._
+import nest.sparkle.util.Log
 
 case class CustomSourceNotFound(msg: String) extends RuntimeException(msg)
 case class MalformedSourceSelector(msg: String) extends RuntimeException(msg)
@@ -18,7 +19,7 @@ case class MalformedSourceSelector(msg: String) extends RuntimeException(msg)
 /** Support for managing custom and columnPath source selectors in protocol StreamRequest source
   * messages.
   */
-trait SelectingSources {
+trait SelectingSources extends Log {
   def store: Store
   def rootConfig: Config
   private lazy val customSelectors: Map[String, CustomSourceSelector] = createCustomSelectors()
@@ -74,6 +75,7 @@ trait SelectingSources {
     val sparkleApiConfig = ConfigUtil.configForSparkle(rootConfig)
     sparkleApiConfig.getStringList("custom-selectors").asScala.map { className =>
       val selector: CustomSourceSelector = Instance.byName(className)(rootConfig, store)
+      log.info(s"custom selector registered for: ${selector.name}")
       (selector.name, selector)
     }.toMap
   }

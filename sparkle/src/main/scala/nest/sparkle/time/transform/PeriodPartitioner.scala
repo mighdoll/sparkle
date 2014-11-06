@@ -3,7 +3,6 @@ package nest.sparkle.time.transform
 import nest.sparkle.util.Period
 import java.util.TimeZone
 import org.joda.time.DateTime
-import org.joda.time.Interval
 import com.github.nscala_time.time.Implicits._
 import nest.sparkle.store.Event
 import nest.sparkle.time.protocol.RangeInterval
@@ -11,20 +10,23 @@ import spire.math.Numeric
 import spire.implicits._
 import org.joda.time.DateTimeZone
 import nest.sparkle.util.PeriodWithZone
+import org.joda.time.{Interval => JodaInterval}
 
+/** Support for dividing time segments into periods, e.g. 1984 into months */
 object PeriodPartitioner {
-  def timePartitions(period: Period, fullInterval: Interval): Iterator[Interval] = {
+  /** return an iterator that iterates over period sized portions of a joda interval  */
+  def timePartitions(period: Period, fullInterval: JodaInterval): Iterator[JodaInterval] = {
     val partPeriod = period.toJoda
 
-    def nonEmptyParts(): Iterator[Interval] = {
+    def nonEmptyParts(): Iterator[JodaInterval] = {
       var partStart = period.roundDate(fullInterval.start)
       var partEnd = fullInterval.start
 
-      new Iterator[Interval] {
+      new Iterator[JodaInterval] {
         override def hasNext(): Boolean = partEnd < fullInterval.end
-        override def next(): Interval = {
+        override def next(): JodaInterval = {
           partEnd = partStart + partPeriod
-          val interval = new Interval(partStart, partEnd)
+          val interval = new JodaInterval(partStart, partEnd)
           partStart = partEnd
           interval
         }
@@ -49,29 +51,42 @@ object PeriodPartitioner {
 
     val PeriodWithZone(period, dateTimeZone) = periodWithZone
     val range = rangeOpt.getOrElse(RangeInterval())
-    val start = range.start.getOrElse(events.head.argument)
-    val (end, includeEnd) = range.until match {
-      case Some(explicitEnd) => (explicitEnd, false)
-      case None              => (endOfLatestInterval(events), true)
+    val startOpt = range.start.orElse(events.headOption.map(_.argument))
+    val (endOpt, includeEnd) = range.until match {
+      case explicitEnd: Some[T] => (explicitEnd, false)
+      case None                 => (endOfLatestInterval(events), true)
     }
 
-    val endDate = new DateTime(end)
-    val startDate = {
-      val baseStartDate = new DateTime(start, dateTimeZone)
-      period.roundDate(baseStartDate)
-    }
-    val fullRange = new Interval(startDate, endDate)
-    def partIterator() = timePartitions(period, fullRange)
+    // iterator that walks period by period (defined if the period ends are available)
+    val iteratorByPeriod:Option[() => Iterator[JodaInterval]] =
+      for {
+        start <- startOpt
+        end <- endOpt
+      } yield {
+        val endDate = new DateTime(end)
+        val startDate = {
+          val baseStartDate = new DateTime(start, dateTimeZone)
+          period.roundDate(baseStartDate)
+        }
+        val fullRange = new JodaInterval(startDate, endDate)
+        () => timePartitions(period, fullRange)
+      }
+
+    val partIterator = iteratorByPeriod.getOrElse { () => Iterator.empty }
 
     TimePartitions(partIterator, includeEnd, dateTimeZone)
   }
 
-  private def endOfLatestInterval[T: Numeric, U: Numeric](events: Seq[Event[T, U]]): T = {
-    val numericKey = implicitly[Numeric[T]]
-    val ends = events.map { case Event(key, value) => key.toLong + value.toLong }
-    numericKey.fromLong(ends.max)
+  /** Optionally returns the end of the last item, where the item is interpreted as
+   *  a start, duration pair.  */
+  private def endOfLatestInterval[T: Numeric, U: Numeric](events: Seq[Event[T, U]]): Option[T] = {
+    events.headOption.map { _ =>
+      val numericKey = implicitly[Numeric[T]]
+      val ends = events.map { case Event(key, value) => key.toLong + value.toLong }
+      numericKey.fromLong(ends.max)
+    }
   }
-
 }
 
-case class TimePartitions(partIterator: () => Iterator[Interval], includeEnd: Boolean, dateTimeZone: DateTimeZone)
+/** Enables iterating over partitions of time */
+case class TimePartitions(partIterator: () => Iterator[JodaInterval], includeEnd: Boolean, dateTimeZone: DateTimeZone)

@@ -30,13 +30,16 @@ import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat }
 import org.scalatest.Matchers
 import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
-import nest.sparkle.util.{InitializeReflection, ConfigUtil}
+import nest.sparkle.util.{ InitializeReflection, ConfigUtil }
 import spray.routing.RoutingSettings
 import spray.http.DateTime
 import spray.http.HttpResponse
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.Success
+import nest.sparkle.store.Store
+import akka.actor.ActorSystem
+import org.scalatest.FunSuite
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
   self: Suite =>
@@ -61,33 +64,40 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   /** make a stream request, and report all stream data returned as events */
   def v1TypedRequest[U: JsonFormat](message: StreamRequestMessage)(fn: Seq[Seq[Event[Long, U]]] => Unit) {
     //     uncomment when debugging
-//    implicit val timeout: RouteTestTimeout = {
-//      println("setting timeout to 1 hour for debugging")
-//      RouteTestTimeout(1.hour)
-//    }
+    implicit val timeout: RouteTestTimeout = {
+      println("setting timeout to 1 hour for debugging")
+      RouteTestTimeout(1.hour)
+    }
     Post("/v1/data", message) ~> v1protocol ~> check {
       val events = TestDataService.dataFromStreamsResponse[U](response)
       fn(events)
     }
   }
-  
+
   /** send a json string to the data port and report back the http response */
-  def sendDataMessage(message: String):Future[HttpResponse] = {
+  def sendDataMessage(message: String): Future[HttpResponse] = {
     //     uncomment when debugging
-//    implicit val timeout: RouteTestTimeout = {
-//      println("setting timeout to 1 hour for debugging")
-//      RouteTestTimeout(1.hour)
-//    }
+    implicit val timeout: RouteTestTimeout = {
+      println("setting timeout to 1 hour for debugging")
+      RouteTestTimeout(1.hour)
+    }
     val promised = Promise[HttpResponse]
-    Post("/v1/data", message) ~> v1protocol ~> check { 
+    Post("/v1/data", message) ~> v1protocol ~> check {
       promised.complete(Success(response))
     }
     promised.future
   }
-
 }
 
 object TestDataService {
+
+  class TestDataServiceInstance(override val store: Store, actorSystem: ActorSystem)
+      extends FunSuite with TestDataService {
+    override def actorRefFactory: ActorSystem = actorSystem
+  }
+
+  def apply(store: Store, actorSystem: ActorSystem) = new TestDataServiceInstance(store, actorSystem)
+
   /** return the data array portion from a Streams response as a sequence of Event objects */
   def typicalStreamData(response: HttpResponse): Seq[Event[Long, Double]] = {
     dataFromStreamsResponse[Double](response).head
