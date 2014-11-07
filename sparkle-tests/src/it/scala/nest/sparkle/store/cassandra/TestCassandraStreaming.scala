@@ -8,34 +8,38 @@ import scala.concurrent.ExecutionContext
 import nest.sparkle.store.Event
 import nest.sparkle.util.ObservableFuture._
 import spray.util._
+import scala.concurrent.Future
 
 class TestCassandraStreaming extends FunSuite with Matchers with CassandraTestConfig {
   override def testKeySpace = "testcassandrastreaming"
-  import ExecutionContext.Implicits.global
 
-  test("verify notification") {
+  test("verify notification of ongoing writes") {
     val columnPath = "streaming/column"
-    withTestDb { store =>
-      val futureWriteColumn = store.writeableColumn[Long, Double](columnPath)
-      val futureSubscribe =
-        futureWriteColumn.map { writeColumn =>
-          val subscribe =
-            Observable.interval(100.milliseconds).subscribe { item =>
-              val event = Event(System.currentTimeMillis(), item.toDouble)
+    withTestActors { system =>
+      import system.dispatcher
+      
+      withTestDb { store =>
+        val done: Future[Unit] =
+          for {
+            writeColumn <- store.writeableColumn[Long, Long](columnPath)
+            readColumn <- store.column[Long, Long](columnPath)
+            read = readColumn.readRange()
+            initial <- read.initial.toFutureSeq // wait for inital read to complete, all writes should appear in ongoing
+          } yield {
+            initial.isEmpty shouldBe true
+
+            // write items every 100ms so that we're not writing everything thread synchronously and might not test notification
+            Observable.interval(100.milliseconds).take(3).subscribe { value =>
+              val event = Event(System.currentTimeMillis(), value)
               writeColumn.write(Seq(event))
             }
 
-          val ongoing =
-            store.column[Long, Double](columnPath).toObservable.flatMap { column =>
-              column.readRange().ongoing
-            }
-          
-          val collected = ongoing.take(3).toBlocking.toList.map(_.value)
-          collected shouldBe List(0,1,2)
+            val collected = read.ongoing.take(3).toBlocking.toList.map(_.value)
+            collected shouldBe List(0, 1, 2)
+          }
 
-          subscribe
-        }
-      futureSubscribe.await.unsubscribe()
+        done.await
+      }
     }
   }
 }
