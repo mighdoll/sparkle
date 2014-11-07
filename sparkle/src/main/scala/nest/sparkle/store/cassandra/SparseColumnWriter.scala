@@ -15,15 +15,15 @@
 package nest.sparkle.store.cassandra
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 
-import com.datastax.driver.core.{BatchStatement, Session}
+import com.datastax.driver.core.{ BatchStatement, Session }
 
 import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
 import nest.sparkle.store.cassandra.SparseColumnWriterStatements._
 import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.util.{Instrumented, Log}
+import nest.sparkle.util.{ Instrumented, Log }
 
 object SparseColumnWriter
     extends Instrumented with Log {

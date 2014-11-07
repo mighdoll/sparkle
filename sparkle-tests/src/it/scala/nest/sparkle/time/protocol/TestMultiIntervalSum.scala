@@ -22,10 +22,12 @@ import spray.http.HttpResponse
 import nest.sparkle.store.Event
 import nest.sparkle.util.StringToMillis.IsoDateString
 import scala.concurrent.duration._
+import MultiIntervalSum._
+import akka.actor.ActorSystem
 
-class TestMultiIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor with IntervalSumFixture {
-  def withMultiSelect(csvFile: String, columnPaths: String)(fn: Seq[Seq[Event[Long, Seq[Long]]]] => Unit): Unit = {
-    val message = s"""{
+object MultiIntervalSum {
+  def requestMessage(columnPaths: String, partBySize: String = "1 minute"): String =
+    s"""{
       |  "messageType": "StreamRequest",
       |  "message": {
       |    "sources": [
@@ -37,21 +39,32 @@ class TestMultiIntervalSum extends FunSuite with Matchers with CassandraTestConf
       |    ],
       |    "transform": "OnOffIntervalSum",
       |    "transformParameters": {
-      |      "partBySize" : "1 minute"
+      |      "partBySize" : "$partBySize"
       |    }
       |  }
       |}""".stripMargin
 
-    withLoadedFile(s"$csvFile.csv") { (store, system) =>
-      val service = new TestServiceWithCassandra(store, system) {
-        override def configOverrides = {
-          val selectors = Seq(s"${classOf[MultiSelect].getName}").asJava
-          super.configOverrides :+ s"$sparkleConfigName.custom-selectors" -> selectors
-        }
+  def withTestService[T](store: Store, system: ActorSystem)(fn: TestDataService => T): T = {
+    val service = new TestServiceWithCassandra(store, system) {
+      override def configOverrides = {
+        val selectors = Seq(s"${classOf[MultiSelect].getName}").asJava
+        super.configOverrides :+ s"$sparkleConfigName.custom-selectors" -> selectors
       }
-      val response = service.sendDataMessage(message).await
-      val data = TestDataService.dataFromStreamsResponse[Seq[Long]](response)
-      fn(data)
+    }
+    fn(service)
+  }
+}
+
+class TestMultiIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor with IntervalSumFixture {
+  def withMultiSelect(csvFile: String, columnPaths: String)(fn: Seq[Seq[Event[Long, Seq[Long]]]] => Unit): Unit = {
+    val message = requestMessage(columnPaths)
+
+    withLoadedFile(s"$csvFile.csv") { (store, system) =>
+      withTestService(store, system) { service =>
+        val response = service.sendDataMessage(message).await
+        val data = TestDataService.dataFromStreamsResponse[Seq[Long]](response)
+        fn(data)
+      }
     }
 
   }
