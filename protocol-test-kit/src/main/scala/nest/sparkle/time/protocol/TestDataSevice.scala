@@ -40,10 +40,13 @@ import scala.util.Success
 import nest.sparkle.store.Store
 import akka.actor.ActorSystem
 import org.scalatest.FunSuite
+import nest.sparkle.measure.Measurements
+import nest.sparkle.measure.ConfiguredMeasurements
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
   self: Suite =>
 
+  override def measurements = new ConfiguredMeasurements(rootConfig)
   override def actorSystem = system
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   def executionContext = system.dispatcher

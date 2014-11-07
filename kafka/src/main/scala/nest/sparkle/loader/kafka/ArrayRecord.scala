@@ -2,9 +2,7 @@ package nest.sparkle.loader.kafka
 
 import scala.language.existentials
 import scala.reflect.runtime.universe._
-
 import org.apache.avro.generic.GenericRecord
-
 import nest.sparkle.store.Event
 
 /** metadata about a column e.g. from Avro array field

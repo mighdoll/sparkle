@@ -35,6 +35,7 @@ import nest.sparkle.time.transform.InvalidPeriod
 import nest.sparkle.store.ColumnNotFound
 import nest.sparkle.util.TryToFuture.FutureTry
 import spray.routing.Route
+import nest.sparkle.measure.Measurements
 
 /** Provides the v1 sparkle data api
   */
@@ -43,8 +44,9 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
   implicit def executionContext: ExecutionContext // TODO can we just use actorSystem.dispatcher here?
   def store: Store
   def rootConfig: Config
+  def measurements:Measurements
 
-  val api = StreamRequestApi(store, rootConfig)(actorSystem)
+  val api = StreamRequestApi(store, rootConfig)(actorSystem, measurements)
 
   lazy val v1protocol = {
     cors {

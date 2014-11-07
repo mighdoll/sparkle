@@ -28,12 +28,14 @@ import io.netty.channel.ChannelFuture
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.TryToFuture._
 import nest.sparkle.util.ObservableUtil
+import nest.sparkle.measure.TraceId
+import nest.sparkle.measure.Measurements
 
 // TODO break this up into something per session/socket and something per service for
 // looking up transforms
 /** Handle transformation requests from a v1 protocol StreamRequest. */
 case class StreamRequestApi(val store: Store, val rootConfig: Config) // format: OFF
-    (implicit actorFactory:ActorRefFactory)
+    (implicit actorFactory:ActorRefFactory, override val measurements:Measurements)
     extends SelectingSources with SelectingTransforms { // format: ON
   val authProvider = AuthProvider.instantiate(rootConfig) 
   
@@ -197,6 +199,10 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
       (implicit context: ExecutionContext): Future[Seq[JsonDataStream]] = { // format: ON
     val futureAuthorizer = authProvider.authenticate(streamRequestMessage.realm)
     futureAuthorizer.flatMap { authorizer =>
+      implicit val traceId = {
+        val id = streamRequestMessage.traceId.getOrElse(RandomUtil.randomAlphaNum(6))
+        TraceId(id)
+      }
       val request = streamRequestMessage.message
       val futureGroups = sourceColumns(request.sources, authorizer)
       // completes with Observable output streams

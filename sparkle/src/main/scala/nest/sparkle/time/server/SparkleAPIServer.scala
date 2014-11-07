@@ -34,6 +34,7 @@ import nest.sparkle.loader.{ FilesLoader, LoadPathDoesNotExist }
 import nest.sparkle.store.Store
 import nest.sparkle.store.cassandra.WriteNotification
 import nest.sparkle.util._
+import nest.sparkle.measure.ConfiguredMeasurements
 
 protected class SparkleAPIServer(val rootConfig: Config)(implicit val system: ActorSystem) extends Log {
   val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
@@ -41,6 +42,7 @@ protected class SparkleAPIServer(val rootConfig: Config)(implicit val system: Ac
   val store = Store.instantiateStore(sparkleConfig, notification)
   lazy val writeableStore = Store.instantiateWritableStore(sparkleConfig, notification)
   lazy val webPort = sparkleConfig.getInt("port")
+  implicit val measurements = new ConfiguredMeasurements(rootConfig)
   
   def actorSystem = system
 
@@ -84,7 +86,8 @@ protected class SparkleAPIServer(val rootConfig: Config)(implicit val system: Ac
     *
     * This call will block until the server is ready to accept incoming requests.
     */
-  private def startServer(serviceActor: ActorRef, port: Int)(implicit system: ActorSystem) {
+  private def startServer(serviceActor: ActorRef, port: Int) // format: OFF
+      (implicit system: ActorSystem) { // format: ON
     if (sparkleConfig.getBoolean("auto-start")) {
       log.info("---- starting server ----")
       implicit val timeout = Timeout(10.seconds)

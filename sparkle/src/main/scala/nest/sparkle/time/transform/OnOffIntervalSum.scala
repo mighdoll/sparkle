@@ -25,9 +25,14 @@ import spire.math.Numeric
 import spire.implicits._
 import spray.json.{ JsObject, JsonFormat }
 import spray.json.DefaultJsonProtocol._
+import nest.sparkle.util.Instrumented
+import nest.sparkle.measure.TraceId
+import nest.sparkle.measure.Span
+import nest.sparkle.measure.Measurements
+import nest.sparkle.measure.UnstartedSpan
 
 /** support for protocol request parsing by matching the onOffIntervalSum transform by string name */
-case class OnOffTransform(rootConfig: Config) extends TransformMatcher {
+case class OnOffTransform(rootConfig: Config)(implicit measurements: Measurements) extends TransformMatcher {
   override type TransformType = MultiTransform
   override def prefix = "onoff"
   lazy val onOffIntervalSum = new OnOffIntervalSum(rootConfig)
@@ -41,17 +46,35 @@ case class OnOffTransform(rootConfig: Config) extends TransformMatcher {
   * Returns a json stream of the results. The results are in tabular form, with one summed amount for
   * each group of columns specified in the request.
   */
-class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
+class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) extends MultiTransform with Log with Instrumented {
   val maxParts = configForSparkle(rootConfig).getInt("transforms.max-parts")
   val onOffParameters = OnOffParameters(rootConfig)
+
   override def transform  // format: OFF
       (futureGroups:Future[Seq[ColumnGroup]], transformParameters: JsObject)
-      (implicit execution: ExecutionContext)
+      (implicit execution: ExecutionContext, traceId:TraceId)
       : Future[Seq[JsonDataStream]] = { // format: ON
+
+    val track = TrackObservable()
+    val span = Span.start("IntervalSum.total", traceId, opsReport = true)
 
     onOffParameters.validate[Any](futureGroups, transformParameters).flatMap { params: ValidParameters[Any] =>
       import params._
-      transformData(futureGroups, intervalParameters, periodSize)(keyType, numeric, jsonFormat, ordering, execution)
+      val result = ( // format: OFF
+            transformData
+              (futureGroups, intervalParameters, periodSize)
+              (keyType, numeric, jsonFormat, ordering, execution, span)
+          ) // format: ON
+
+      val monitoredResult =
+        result.map { streams =>
+          val trackedStreams = streams.map { jsonStream =>
+            jsonStream.copy(dataStream = track.finish(jsonStream.dataStream))
+          }
+          track.allFinished.foreach { _ => span.complete() }
+          trackedStreams
+        }
+      monitoredResult
     }
   }
 
@@ -62,22 +85,26 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
       (futureGroups:Future[Seq[ColumnGroup]],
        intervalParameters:IntervalParameters[K],
        periodSize:Option[PeriodWithZone])
-      (implicit execution: ExecutionContext)
+      (implicit execution: ExecutionContext, parentSpan:Span)
       : Future[Seq[JsonDataStream]] = { // format: ON
+
+    val fetchSpan = Span.prepare("IntervalSum.fetch", parentSpan)
+    val onOffSpan = Span.prepare("IntervalSum.onOffToIntervals", parentSpan)
 
     for {
       // fetch the data
-      itemSet <- fetchItems[K](futureGroups, intervalParameters.ranges, Some(rangeExtender))
+      itemSet <- fetchItems[K](futureGroups, intervalParameters.ranges, Some(rangeExtender), fetchSpan)
       booleanValues = itemSet.castValues[Boolean] // TODO combine with fetchItems
 
       // transform on/off to a table reporting total overlap (one column per group, one row per period)
-      intervalSet = onOffToIntervals(booleanValues)
+      intervalSet = onOffToIntervals(booleanValues, onOffSpan)
       bufferedIntervals = BufferedIntervalSet.fromRangedSet(intervalSet)
       intervalPerGroup = mergeIntervals(bufferedIntervals)
       intervalsByPeriod = intersectPerPeriod(intervalPerGroup, periodSize)
       sums = sumIntervals(intervalsByPeriod)
       asTable = tabularGroups[K, K](sums)
       tableWithZeros = tabularBlanksToZeros(asTable)
+      // tableWithZeros.onLast { timer.report() }
       jsonStream = rowsToJson[K, K](tableWithZeros)
     } yield {
       Seq(jsonStream)
@@ -132,20 +159,24 @@ class OnOffIntervalSum(rootConfig: Config) extends MultiTransform with Log {
     ExtendRange[T](before = Some(numericKey.fromLong(-1.day.toMillis))) // TODO make adjustable in the .conf file
   }
 
-  def onOffToIntervals[K: TypeTag: Numeric](onOffSet: RawRangedSet[K, Boolean]) // format: OFF
+  def onOffToIntervals[K: TypeTag: Numeric] // format: OFF
+      (onOffSet: RawRangedSet[K, Boolean], span:UnstartedSpan) 
+      (implicit execution: ExecutionContext)
       : RangedIntervalSet[K] = { // format: ON
-
+    val track = TrackObservable()
+    val started = span.start()
     val groups = onOffSet.groups.map { group =>
       val groups = group.stacks.map { stack =>
         val streams = stack.streams.map { stream =>
           val initial = oneStreamToIntervals(stream.initial)
           val ongoing = oneStreamToIntervals(stream.ongoing)
-          new RangedIntervalStream(initial, ongoing, stream.fromRange)
+          new RangedIntervalStream(track.finish(initial), ongoing, stream.fromRange)
         }
         new RangedIntervalStack(streams)
       }
       new RangedIntervalGroup(groups, group.name)
     }
+    track.allFinished.foreach { _ => started.complete() }
     new RangedIntervalSet(groups)
   }
 

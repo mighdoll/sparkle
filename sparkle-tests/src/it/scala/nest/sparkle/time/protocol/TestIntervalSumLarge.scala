@@ -61,7 +61,6 @@ class TestIntervalSumLarge extends FunSuite with Matchers with CassandraTestConf
 
     def itemSets(times: Seq[Long], onOffs: Seq[Boolean]*): Seq[Seq[Event[Long, Boolean]]] =
       onOffs.map { booleans => makeItems(times, booleans) }
-
   }
 
   /** Load MultiRecord data into the store and summarize
@@ -165,5 +164,15 @@ class TestIntervalSumLarge extends FunSuite with Matchers with CassandraTestConf
     intervalSumLargeTest(nodes = 2, records = 100, delta = 1.hour, flipChance = .01,
       summary = "1 day", repeats = 2, parallel = 10, warmups = 2)
   }
-
+  
+  ignore("timed intervalSum on 10K records") {
+    intervalSumLargeTest(nodes = 10, records = 10000, delta = 1.hour, flipChance = .01,
+      summary = "1 month", repeats = 10, parallel = 10, warmups = 2)
+  }
+  
+  ignore("timed intervalSum on 10K records, 1000 times") {
+    intervalSumLargeTest(nodes = 10, records = 10000, delta = 1.hour, flipChance = .01,
+      summary = "1 month", repeats = 1000, parallel = 10, warmups = 2)
+  }
 }
+

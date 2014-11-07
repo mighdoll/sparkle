@@ -5,7 +5,7 @@ import scala.collection.JavaConverters._
 import spray.json._
 import nest.sparkle.store.Column
 import nest.sparkle.time.transform.{ DomainRangeTransform, RawTransform }
-import nest.sparkle.time.transform.SummaryTransform 
+import nest.sparkle.time.transform.SummaryTransform
 import nest.sparkle.time.transform.StandardColumnTransform.{ runTransform, runColumnGroupsTransform, runMultiColumnTransform }
 import com.typesafe.config.Config
 import nest.sparkle.time.transform.CustomTransform
@@ -16,7 +16,8 @@ import nest.sparkle.time.transform.StandardObjectTransform
 import nest.sparkle.time.transform.StandardIntervalTransform
 import nest.sparkle.time.transform.OnOffTransform
 import nest.sparkle.time.transform.ColumnGroup
-
+import nest.sparkle.measure.TraceId
+import nest.sparkle.measure.Measurements
 
 case class TransformNotFound(msg: String) extends RuntimeException(msg)
 
@@ -25,6 +26,7 @@ case class TransformNotFound(msg: String) extends RuntimeException(msg)
   */
 trait SelectingTransforms extends Log {
   protected def rootConfig: Config
+  protected implicit def measurements:Measurements
   private lazy val customTransforms: Map[String, CustomTransform] = createCustomTransforms()
 
   private lazy val standardInterval = StandardIntervalTransform(rootConfig)
@@ -37,7 +39,8 @@ trait SelectingTransforms extends Log {
         transform: String, 
         transformParameters: JsObject,
         futureColumnGroups: Future[Seq[ColumnGroup]]
-      ) (implicit execution: ExecutionContext): Future[Seq[JsonDataStream]] = { // format: ON
+      ) (implicit execution: ExecutionContext, traceId:TraceId)
+      : Future[Seq[JsonDataStream]] = { // format: ON
 
     // TODO move transform processing to FutureColumnGroup style
     val allFutureColumns: Future[Seq[Column[_, _]]] = {

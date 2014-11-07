@@ -13,9 +13,10 @@ import nest.sparkle.time.protocol.StreamsMessage
 import nest.sparkle.time.protocol.MessageType
 import akka.actor.ActorSystem
 import nest.sparkle.time.protocol.ServerResponse
+import nest.sparkle.measure.Measurements
 
 class DataWebSocket(store: Store, rootConfig: Config) // format: OFF
-    (implicit system: ActorSystem) extends Log { // format: ON
+    (implicit system: ActorSystem, measurements:Measurements) extends Log { // format: ON
   import system.dispatcher
   var sockets = new scala.collection.mutable.ListBuffer[WebSocket]()
   val webSocketServer = new WebSocketServer()

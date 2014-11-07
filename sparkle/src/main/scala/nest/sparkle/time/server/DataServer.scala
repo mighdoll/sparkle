@@ -10,12 +10,17 @@ import nest.sparkle.http.{FileLocation, FileOrResourceLocation, ResourceLocation
 import nest.sparkle.legacy.DataRegistry
 import nest.sparkle.store.Store
 import nest.sparkle.util.ConfigUtil
+import nest.sparkle.measure.Measurements
 
 case class ConfigurationError(msg: String) extends RuntimeException
 /** An actor serving data DataRegistry data via a spray based REST api.  The
   * server is configured with user provided extensions extracted from the config file.
   */
-class ConfiguredDataServer(val registry: DataRegistry, val store: Store, val rootConfig: Config) // format: OFF
+class ConfiguredDataServer // format: OFF
+    (val registry: DataRegistry, 
+     val store: Store, 
+     val rootConfig: Config
+    )(implicit val measurements:Measurements) 
     extends Actor with ConfiguredDataService { // format: ON
   override def actorRefFactory: ActorRefFactory = context
   override def actorSystem = context.system

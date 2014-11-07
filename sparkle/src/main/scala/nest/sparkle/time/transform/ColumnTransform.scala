@@ -5,6 +5,7 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 import nest.sparkle.store.{ Column, LongDoubleColumn, LongLongColumn }
 import nest.sparkle.time.protocol.JsonDataStream
+import nest.sparkle.measure.TraceId
 
 /** a group of columns with an optional name */
 case class ColumnGroup(columns: Seq[Column[_, _]], name: Option[String] = None)
@@ -33,7 +34,8 @@ trait MultiColumnTransform {
 trait MultiTransform {
   def transform  // format: OFF
       (columns:Future[Seq[ColumnGroup]], transformParameters: JsObject)
-      (implicit execution: ExecutionContext): Future[Seq[JsonDataStream]] // format: ON
+      (implicit execution: ExecutionContext, traceId:TraceId)
+      : Future[Seq[JsonDataStream]] // format: ON
 }
 
 
@@ -66,7 +68,8 @@ object StandardColumnTransform {
       futureColumns: Future[Seq[ColumnGroup]],
       mutliTransform:MultiTransform, 
       transformParameters:JsObject
-    )(implicit execution: ExecutionContext):Future[Seq[JsonDataStream]] = { // format: ON
+    ) (implicit execution: ExecutionContext, traceID:TraceId)
+    : Future[Seq[JsonDataStream]] = { // format: ON
     mutliTransform.transform(futureColumns, transformParameters)
   }
 }
