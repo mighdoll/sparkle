@@ -6,7 +6,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 import org.clapper.argot.ArgotConverters._
 
-import nest.sparkle.http.{AdminServiceActor, AdminService}
 import nest.sparkle.store.Store
 import nest.sparkle.store.cassandra.WriteNotification  // TODO: shouldn't require cassandra
 import nest.sparkle.util.{Log, InitializeReflection, SparkleApp}

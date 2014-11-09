@@ -136,6 +136,7 @@ object Dependencies {
     val log4jBridge         = Runtime.log4jBridge           % "optional"
     val metricsGraphite     = Dependencies.metricsGraphite  % "optional"
   }
+  
 
   val basicTest = Seq(
     Test.scalaTest,

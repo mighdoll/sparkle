@@ -1,47 +1,73 @@
 package nest.sparkle.util.kafka
 
-import java.util.concurrent.{SynchronousQueue, TimeUnit, ThreadPoolExecutor}
+import java.util.concurrent.{Executors, SynchronousQueue, TimeUnit, ThreadPoolExecutor}
 
+import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future, future}
 import scala.concurrent.duration._
 
-import org.I0Itec.zkclient.ZkClient
+import spray.json._
 
-import kafka.utils.ZkUtils
-import kafka.utils.ZKStringSerializer
+import org.I0Itec.zkclient.ZkClient
+import org.apache.zookeeper.data.Stat
+
+import kafka.utils.{ZkUtils, ZKStringSerializer}
 
 import nest.sparkle.util.Log
+
+import KafkaJsonProtocol._
 
 /** Functions to get data about Kafka topics.
  */
 class Utils(
   val connectString: String, 
-  val sessionTimeout: FiniteDuration = 30.seconds, 
-  val connectionTimeout: FiniteDuration = 30.seconds
+  val connectionTimeout: FiniteDuration = 30.seconds,
+  val sessionTimeout: FiniteDuration = 30.seconds
   )(implicit executionContext: ExecutionContext)
   extends Log
 {
-  lazy val client = new ZkClient(
+  val client = new ZkClient(
     connectString, 
     sessionTimeout.toMillis.toInt, 
     connectionTimeout.toMillis.toInt, 
     ZKStringSerializer
   )
   
+  def this(props: ZkConnectProps)(implicit executionContext: ExecutionContext) {
+    this(props.connectString, props.connectionTimeout, props.sessionTimeout)
+  }
+  
+  def close() = {
+    client.close()
+  }
+  
   def getBrokers: Future[Seq[KafkaBroker]] = {
     future {
-      val brokerIds = ZkUtils.getChildrenParentMayNotExist(client, ZkUtils.BrokerIdsPath).map(_.toInt).sorted
-      val brokers = (brokerIds map { brokerId =>
-        ZkUtils.readDataMaybeNull(client, ZkUtils.BrokerIdsPath + "/" + brokerId)._1 match {
-          case Some(s) => Some(KafkaBroker(brokerId,s))
-          case None    => None
-        }
-      }).filter(_.isDefined).map(_.get)
+      val brokerIds = client.getChildren(ZkUtils.BrokerIdsPath).map(_.toInt).sorted
+      val brokers = brokerIds map { brokerId =>
+        val path = s"${ZkUtils.BrokerIdsPath}/$brokerId"
+        val stat = new Stat
+        val json = client.readData[String](path, stat)
+        val ast = json.asJson
+        val info = ast.convertTo[BrokerInfo]
+        KafkaBroker(brokerId, info.host, info.port)
+      }
       brokers
     }
   }
-  
-  def getTopics: Future[Seq[String]] = {
+   
+  def getBroker(brokerId: Int): Future[KafkaBroker] = {
+    future {
+      val path = s"${ZkUtils.BrokerIdsPath}/$brokerId"
+      val json = client.readData[String](path)
+      val ast = json.asJson
+      val info = ast.convertTo[BrokerInfo]
+      KafkaBroker(brokerId, info.host, info.port)
+    }
+  }
+ 
+  def getTopicNames: Future[Seq[String]] = {
     future {
       ZkUtils.getAllTopics(client).sorted
     }
@@ -53,24 +79,229 @@ class Utils(
     }
   }
   
-  def getConsumers(group: String): Future[Seq[String]] = {
+  def getConsumersInGroup(group: String): Future[Seq[String]] = {
     future {
       ZkUtils.getConsumersInGroup(client, group).sorted
+    }
+  }
+  
+  def getConsumerGroupTopics(group: String): Future[Seq[String]] = {
+    future {
+      val path = s"${ZkUtils.ConsumersPath}/$group/offsets"
+      client.getChildren(path).sorted
+    }
+  }
+  
+  def getTopicPartitionIds(topic: String): Future[Seq[Int]] = {
+    future {
+     val path = s"${ZkUtils.BrokerTopicsPath}/$topic/partitions"
+     client.getChildren(path).map(_.toInt).sorted
+    }
+  }
+  
+  def getTopicInfo(topic: String): Future[KafkaTopic] = {
+    def getTopicPartitions(partsIds: Seq[Int]) = {
+      partsIds map { partId =>
+        val pathPart = s"${ZkUtils.BrokerTopicsPath}/$topic/partitions/$partId/state"
+        val source = client.readData[String](pathPart, true)
+        val ast = source.asJson
+        val state = ast.convertTo[BrokerTopicPartitionState]
+        KafkaTopicPartition(partId, state.isr, state.leader)
+      }
+    }
+    
+    for {
+      partsIds <- getTopicPartitionIds(topic)
+      partitions = getTopicPartitions(partsIds)
+    } yield {
+      KafkaTopic(topic, partitions.toIndexedSeq)
+    }
+  }
+  
+  def getGroupTopicPartitionIds(group: String, topic: String): Future[Seq[Int]] = {
+    future {
+     val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic"
+     client.getChildren(path).map(_.toInt).sorted
+    }
+  }
+  
+  def getPartitionOffset(group: String, topic: String, partition: Int): Future[KafkaPartitionOffset] = {
+    future {
+      val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic/$partition"
+      val offset = client.readData[String](path).toLong
+      KafkaPartitionOffset(partition, offset)
     }
   }
 }
 
 object Utils {
-  // Like Executors.newCachedThreadPool() except limited to 10 threads and 10s instead of 60s lifetime.
-  private lazy val threadPool = new ThreadPoolExecutor(0, 10, 10L, TimeUnit.SECONDS, new SynchronousQueue[Runnable])
-  private lazy val executionContext = ExecutionContext.fromExecutor(threadPool)
+  // Like Executors.newCachedThreadPool() except limited to 10 threads and 20s instead of 60s lifetime.
+  //private lazy val threadPool = new ThreadPoolExecutor(0, 10, 20L, TimeUnit.SECONDS, new SynchronousQueue[Runnable])
+  private lazy val threadPool = Executors.newCachedThreadPool()
+  implicit lazy val executionContext = ExecutionContext.fromExecutor(threadPool)
   
   def apply(
     connectString: String, 
     sessionTimeout: FiniteDuration = 30.seconds,
     connectionTimeout: FiniteDuration = 30.seconds
   ): Utils = {
-    implicit val context = executionContext
     new Utils(connectString, sessionTimeout, connectionTimeout)
   }
+  
+  def apply(props: ZkConnectProps): Utils = {
+    new Utils(props)
+  }
+
+  /** Return a future for the list of brokers.
+    * 
+    * @return Future
+    */
+  def getBrokers(implicit props: ZkConnectProps): Future[Seq[KafkaBroker]] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getBrokers
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+
+  /** Return a future for the broker.
+    * 
+    * @return Future
+    */
+  def getBroker(brokerId: Int)(implicit props: ZkConnectProps): Future[KafkaBroker] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getBroker(brokerId)
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+
+  def getTopicNames(implicit props: ZkConnectProps): Future[Seq[String]] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getTopicNames
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+
+  def getTopicPartitionIds(topicName: String)(implicit props: ZkConnectProps): Future[Seq[Int]] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getTopicPartitionIds(topicName)
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+  
+  def getTopics(implicit props: ZkConnectProps): Future[Seq[KafkaTopic]] = {
+    def getTopics(topicNames: Seq[String]) = {
+      val futures = topicNames map { topicName =>
+        getTopicInfo(topicName)
+      }
+      Future.sequence(futures)
+    }
+    
+    for {
+      topicNames <- getTopicNames
+      topics <- getTopics(topicNames)
+    } yield {
+      topics
+    }
+  }
+
+  def getConsumerGroups(implicit props: ZkConnectProps): Future[Seq[String]] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getConsumerGroups
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+
+  def getConsumersInGroup(group: String)(implicit props: ZkConnectProps): Future[Seq[String]] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getConsumersInGroup(group)
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+  
+  def getConsumerGroupTopics(group: String)(implicit props: ZkConnectProps): Future[Seq[String]] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getConsumerGroupTopics(group)
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+  
+  def getGroupTopicPartitionIds(group: String, topic: String)
+    (implicit props: ZkConnectProps): Future[Seq[Int]] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getGroupTopicPartitionIds(group, topic)
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+  
+  def getPartitionOffset(group: String, topic: String, partition: Int)
+    (implicit props: ZkConnectProps): Future[KafkaPartitionOffset] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getPartitionOffset(group, topic, partition)
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+  
+  def getTopicInfo(topic: String)(implicit props: ZkConnectProps): Future[KafkaTopic] = {
+    val zkutils = Utils(props)
+    val future = zkutils.getTopicInfo(topic)
+    future onComplete { _ =>
+      zkutils.close()
+    }
+    future
+  }
+    
+  def getGroupOffsets(group: String)(implicit props: ZkConnectProps): Future[KafkaGroupOffsets] = {
+    def getPartitionOffsets(group: String, topicName: String, partIds: Seq[Int]) = {
+      val futures = partIds map { partId =>
+        getPartitionOffset(group, topicName, partId)
+      }
+      Future.sequence(futures)
+    }
+    
+    def getTopicOffsets(topicNames: Seq[String]): Future[Seq[KafkaGroupTopicOffsets]] = {
+      val futures = topicNames map { topicName =>
+        for {
+          partIds <- getGroupTopicPartitionIds(group, topicName)
+          offsets <- getPartitionOffsets(group, topicName, partIds)
+        } yield {
+          KafkaGroupTopicOffsets(topicName, offsets.toIndexedSeq)
+        }
+      }
+      Future.sequence(futures)
+    }
+    
+    for {
+      topicNames <- getConsumerGroupTopics(group)
+      topicOffsets <- getTopicOffsets(topicNames)
+    } yield {
+      val topicMap = (topicOffsets map {offsets => offsets.topic -> offsets}).toMap
+      KafkaGroupOffsets(group, topicMap)
+    }
+  }
 }
+
+case class ZkConnectProps(
+    connectString: String, 
+    sessionTimeout: FiniteDuration = 30.seconds,
+    connectionTimeout: FiniteDuration = 30.seconds
+  )
+
+private case class GroupTopicNames(group: String, topics: Seq[String])

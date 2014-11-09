@@ -169,7 +169,7 @@ object AvroArrayDecoder extends Log {
       }
 
       val array = record.get(arrayField).asInstanceOf[GenericData.Array[GenericData.Record]]
-      log.debug(s"reading record containing ${array.size} elements")
+      log.trace(s"reading record containing ${array.size} elements")
 
       /** map over all the rows in the array embedded in the record */
       def mapRows[T](fn: GenericData.Record => T): Seq[T] = {

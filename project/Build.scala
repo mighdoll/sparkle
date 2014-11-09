@@ -178,7 +178,7 @@ object SparkleBuild extends Build {
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= kafka ++ testAndLogging ++ Seq(sprayJson)
+        libraryDependencies ++= kafka ++ testAndLogging ++ log4jLogging ++ Seq(sprayJson)
       )
 
   lazy val logbackConfig =  // mix in to projects choosing logback
