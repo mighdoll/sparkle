@@ -25,16 +25,21 @@ class TestKafkaLoaderAdminService
   // Some of the requests currently take a very long time
   implicit val routeTestTimeout = RouteTestTimeout(1.minute)
   
+  /** validate the response is JSON and convert to T */
+  protected def convertJsonResponse[T: JsonFormat]: T = {
+    assert(handled, "request was not handled")
+    assert(status == OK, "response not OK")
+    mediaType shouldBe `application/json`
+    
+    val json = body.asString
+    json.length > 0 shouldBe true
+    val ast = json.asJson
+    ast.convertTo[T]
+  }
+  
   test("The list of brokers is correct") {
     Get("/brokers") ~> allRoutes ~> check {
-      assert(handled, "request was not handled")
-      assert(status == OK, "response not OK")
-      mediaType shouldBe `application/json`
-      val json = body.asString
-      
-      json.length > 0 shouldBe true
-      val ast = json.asJson
-      val brokers = ast.convertTo[Seq[KafkaBroker]]
+      val brokers = convertJsonResponse[Seq[KafkaBroker]]
       brokers.length shouldBe 1
       val broker = brokers(0)
       broker.id shouldBe 0
@@ -45,19 +50,12 @@ class TestKafkaLoaderAdminService
   
   test("The list of topics includes the test topic") {
     Get("/topics") ~> allRoutes ~> check {
-      assert(handled, "request was not handled")
-      assert(status == OK, "response not OK")
-      mediaType shouldBe `application/json`
-      val json = body.asString
-      
-      json.length > 0 shouldBe true
-      val ast = json.asJson
-      val topics = ast.convertTo[Seq[KafkaTopic]]
-      topics.exists(_.name.contentEquals(TOPIC)) shouldBe true
-      val optTopic = topics.find(_.name.contentEquals(TOPIC))
+      val topics = convertJsonResponse[Seq[KafkaTopic]]
+      topics.exists(_.name.contentEquals(TopicName)) shouldBe true
+      val optTopic = topics.find(_.name.contentEquals(TopicName))
       optTopic match {
         case Some(topic) =>
-          topic.partitions.length shouldBe NUM_PARTITIONS
+          topic.partitions.length shouldBe NumPartitions
           topic.partitions.zipWithIndex foreach { case (partition, i) =>
             partition.id shouldBe i
             partition.leader shouldBe 0
@@ -71,41 +69,27 @@ class TestKafkaLoaderAdminService
   
   test("The list of consumer groups includes the test group") {
     Get("/groups") ~> allRoutes ~> check {
-      assert(handled, "request was not handled")
-      assert(status == OK, "response not OK")
-      mediaType shouldBe `application/json`
-      val json = body.asString
-      
-      json.length > 0 shouldBe true
-      val ast = json.asJson
-      val groups = ast.convertTo[Seq[String]]
-      groups.contains(CONSUMER_GROUP) shouldBe true
+      val groups = convertJsonResponse[Seq[String]]
+      groups.contains(ConsumerGroup) shouldBe true
     }
   }
   
   test("The list of consumer group topic offsets is correct") {
     Get("/offsets") ~> allRoutes ~> check {
-      assert(handled, "request was not handled")
-      assert(status == OK, "response not OK")
-      mediaType shouldBe `application/json`
-      val json = body.asString
-      
-      json.length > 0 shouldBe true
-      val ast = json.asJson
-      val groups = ast.convertTo[Seq[KafkaGroupOffsets]]
+      val groups = convertJsonResponse[Seq[KafkaGroupOffsets]]
       assert(groups.length > 1, "no consumer groups found")
-      val optGroup = groups.find(_.group.contentEquals(CONSUMER_GROUP))
+      val optGroup = groups.find(_.group.contentEquals(ConsumerGroup))
       optGroup match {
         case Some(group)  =>
           assert(group.topics.size == 1, "not one topic in the consumer group")
-          assert(group.topics.contains(TOPIC), "topic not in the consumer group")
-          val topic = group.topics(TOPIC)
-          assert(topic.partitions.length == NUM_PARTITIONS, s"${topic.topic} does not have $NUM_PARTITIONS partitions")
+          assert(group.topics.contains(TopicName), "topic not in the consumer group")
+          val topic = group.topics(TopicName)
+          assert(topic.partitions.length == NumPartitions, s"${topic.topic} does not have $NumPartitions partitions")
           topic.partitions.zipWithIndex foreach { case (offset,i) =>
             assert(offset.partition == i, s"${topic.topic}:$i partition id doesn't equal index")
             assert(offset.offset == 2, s"${topic.topic}:$i partition offset doesn't equal 2")
           }
-        case _            => fail(s"consumer group $CONSUMER_GROUP not found")
+        case _            => fail(s"consumer group $ConsumerGroup not found")
       }
     }
   }

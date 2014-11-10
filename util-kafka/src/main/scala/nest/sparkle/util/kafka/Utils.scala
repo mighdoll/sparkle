@@ -18,7 +18,13 @@ import nest.sparkle.util.Log
 
 import KafkaJsonProtocol._
 
-/** Functions to get data about Kafka topics.
+/**
+ * Functions to get Kafka information
+ * 
+ * @param connectString Zookeeper connect string, e.g. "localhost:2181"
+ * @param connectionTimeout Zookeeper connection timeout
+ * @param sessionTimeout Zookeeper session timeout
+ * @param executionContext Thread pool to use for synchronous Zookeeper requests.
  */
 class Utils(
   val connectString: String, 
@@ -134,6 +140,10 @@ class Utils(
   }
 }
 
+/**
+ * This object can be used to make Kafka info requests w/o having to define a thread pool
+ * or do connection mananagemnt.
+ */
 object Utils {
   // Like Executors.newCachedThreadPool() except limited to 10 threads and 20s instead of 60s lifetime.
   //private lazy val threadPool = new ThreadPoolExecutor(0, 10, 20L, TimeUnit.SECONDS, new SynchronousQueue[Runnable])

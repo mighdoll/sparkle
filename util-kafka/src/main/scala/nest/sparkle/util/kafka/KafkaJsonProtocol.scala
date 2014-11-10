@@ -21,14 +21,16 @@ object KafkaJsonProtocol
   implicit val partitionStateFormat = jsonFormat4(BrokerTopicPartitionState)
 }
 
-case class BrokerTopicPartitionState(
+/** To parse JSON stored as node value in zookeeper for the topic's partition state. */
+private[kafka] case class BrokerTopicPartitionState(
   controller_epoch: Int,
   isr: Seq[Int],
   leader: Int,
   version: Int
   )
 
-case class BrokerInfo(
+/** To parse JSON stored as node value in zookeeper for the broker. */
+private[kafka] case class BrokerInfo(
   jmx_port: Int,
   timestamp: Option[String] = None,
   host: String,

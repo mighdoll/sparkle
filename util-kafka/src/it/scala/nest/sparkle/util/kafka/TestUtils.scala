@@ -37,15 +37,15 @@ class TestUtils
     val future = Utils.getTopicNames
     val topicNames = Await.result(future, timeout)
     
-    topicNames.contains(TOPIC) shouldBe true
+    topicNames.contains(TopicName) shouldBe true
   }
    
   test("get the test topic") {
-    val future = Utils.getTopicInfo(TOPIC)
+    val future = Utils.getTopicInfo(TopicName)
     val topic = Await.result(future, timeout)
     
-    topic.name shouldBe TOPIC
-    topic.partitions.length shouldBe NUM_PARTITIONS
+    topic.name shouldBe TopicName
+    topic.partitions.length shouldBe NumPartitions
     val partitions = topic.partitions
     partitions.zipWithIndex foreach { case (partition,i) =>
       partition.id shouldBe i
@@ -56,10 +56,10 @@ class TestUtils
   }
    
   test("get the test topic partition ids") {
-    val future = Utils.getTopicPartitionIds(TOPIC)
+    val future = Utils.getTopicPartitionIds(TopicName)
     val partIds = Await.result(future, timeout)
     
-    partIds.length shouldBe NUM_PARTITIONS
+    partIds.length shouldBe NumPartitions
     partIds.zipWithIndex foreach { case (partId,i) =>
       partId shouldBe i
     }
@@ -69,27 +69,27 @@ class TestUtils
     val future = Utils.getConsumerGroups
     val groups = Await.result(future, timeout)
     
-    groups.contains(CONSUMER_GROUP) shouldBe true
+    groups.contains(ConsumerGroup) shouldBe true
   }
  
   test("should be one consumer in the consumer group") {
-    val future = Utils.getConsumersInGroup(CONSUMER_GROUP)
+    val future = Utils.getConsumersInGroup(ConsumerGroup)
     val consumers = Await.result(future, timeout)
     
     consumers.length shouldBe 1
     val consumerId = consumers(0)
-    consumerId shouldBe s"${CONSUMER_GROUP}_$CONSUMER_ID"
+    consumerId shouldBe s"${ConsumerGroup}_$ConsumerId"
   }
   
   test("consumer group should contain topic") {
-    val future = Utils.getConsumerGroupTopics(CONSUMER_GROUP)
+    val future = Utils.getConsumerGroupTopics(ConsumerGroup)
     val topics = Await.result(future, timeout)
     
-    topics.contains(TOPIC) shouldBe true
+    topics.contains(TopicName) shouldBe true
   }
    
   test("get consumer group topic partition 0 offset") {
-    val future = Utils.getPartitionOffset(CONSUMER_GROUP, TOPIC, 0)
+    val future = Utils.getPartitionOffset(ConsumerGroup, TopicName, 0)
     val partitionOffset = Await.result(future, timeout)
     
     partitionOffset.partition shouldBe 0
@@ -97,14 +97,14 @@ class TestUtils
   }
    
   test("get consumer group topic offsets") {
-    val future = Utils.getGroupOffsets(CONSUMER_GROUP)
+    val future = Utils.getGroupOffsets(ConsumerGroup)
     val groupOffsets = Await.result(future, timeout)
     
-    groupOffsets.group shouldBe CONSUMER_GROUP
+    groupOffsets.group shouldBe ConsumerGroup
     groupOffsets.topics.size shouldBe 1
-    groupOffsets.topics.keySet.contains(TOPIC) shouldBe true
-    val topicOffsets = groupOffsets.topics(TOPIC)
-    topicOffsets.topic shouldBe TOPIC
+    groupOffsets.topics.keySet.contains(TopicName) shouldBe true
+    val topicOffsets = groupOffsets.topics(TopicName)
+    topicOffsets.topic shouldBe TopicName
     topicOffsets.partitions.zipWithIndex foreach { case (partitionOffset,i) =>
       partitionOffset.partition shouldBe i
       partitionOffset.offset shouldBe 2

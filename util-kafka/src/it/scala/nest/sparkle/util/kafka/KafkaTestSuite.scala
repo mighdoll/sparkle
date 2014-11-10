@@ -23,10 +23,10 @@ trait KafkaTestSuite
   with Matchers
   with BeforeAndAfterAll
 {
-  val TOPIC = "test-" + RandomUtil.randomAlphaNum(4)
-  val CONSUMER_GROUP = s"itConsumer-$TOPIC"
-  val CONSUMER_ID = "it"
-  val NUM_PARTITIONS = 16
+  val TopicName = "test-" + RandomUtil.randomAlphaNum(4)
+  val ConsumerGroup = s"itConsumer-$TopicName"
+  val ConsumerId = "it"
+  val NumPartitions = 16
   
   val messages = (0 to 1000).map("message " + _)
   
@@ -38,12 +38,14 @@ trait KafkaTestSuite
   //implicit val timeout = 3.seconds 
   implicit val timeout = 1.hours  // use when running with a debugger
   
+  /** Create an immutable Kafka topic & consumer group status to run tests against. */
   override protected def beforeAll(): Unit = {
-    writeTopic(TOPIC, messages)
-    setupConsumerGroup(CONSUMER_GROUP, TOPIC)
+    writeTopic(TopicName, messages)
+    setupConsumerGroup(ConsumerGroup, TopicName)
     super.beforeAll()
   }
   
+  /** Teardown any open connections, iterators, etc. after tests run */
   override protected def afterAll(): Unit = {
     consumerIterators = Seq[ConsumerIterator[String,String]]()
     consumer.map(_.shutdown())
@@ -90,7 +92,7 @@ trait KafkaTestSuite
     try {
       var messageKey = 0
       messages foreach { message =>
-        val keyedMessage = new KeyedMessage[String,String](TOPIC,messageKey.toString,message)
+        val keyedMessage = new KeyedMessage[String,String](TopicName,messageKey.toString,message)
         producer.send(keyedMessage)
         messageKey += 1
       }
@@ -112,7 +114,7 @@ trait KafkaTestSuite
     props.put("consumer.timeout.ms", "-1")
     props.put("group.id", name)
     props.put("client.id", "it")
-    props.put("consumer.id", CONSUMER_ID)
+    props.put("consumer.id", ConsumerId)
     val config = new ConsumerConfig(props)
     Consumer.create(config)
   }
@@ -121,7 +123,7 @@ trait KafkaTestSuite
   protected def setupConsumerGroup(groupName: String, topicName: String): Unit = {
     consumer = Some(createConsumer(groupName))
     try {
-      val numPartitions = NUM_PARTITIONS
+      val numPartitions = NumPartitions
       val topicCountMap = Map(topicName -> numPartitions)
       val decoder = new StringDecoder
       val streamMap = consumer.get.createMessageStreams[String,String](topicCountMap, decoder, decoder)
