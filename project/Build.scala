@@ -76,7 +76,7 @@ object SparkleBuild extends Build {
       .dependsOn(sparkleCore)
       .dependsOn(protocolTestKit)
       .dependsOn(storeTestKit)
-      .dependsOn(utilKafka)
+      .dependsOn(utilKafka % "compile->compile;it->it")
       .dependsOn(log4jConfig)
       .dependsOn(httpCommon)
       .configs(IntegrationTest)
@@ -172,13 +172,16 @@ object SparkleBuild extends Build {
         )
       )
 
-  lazy val utilKafka =           // utilities useful in other projects too
+  lazy val utilKafka =           // kafka utilities useful in other projects too
     Project(id = "sparkle-util-kafka", base = file("util-kafka"))
       .dependsOn(util)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
+      .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= kafka ++ testAndLogging ++ log4jLogging ++ Seq(sprayJson)
+        libraryDependencies ++= kafka ++ testAndLogging ++ log4jLogging ++ Seq(sprayJson),
+        dependenciesToStart := Seq(kafkaServer),
+        test in IntegrationTest := BackgroundService.itTestTask.value
       )
 
   lazy val logbackConfig =  // mix in to projects choosing logback
