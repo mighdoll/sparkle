@@ -7,6 +7,7 @@ import scala.util.control.NonFatal
 
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
 
+import kafka.common.FailedToSendMessageException
 import kafka.consumer.{ConsumerIterator, ConsumerConnector, Consumer, ConsumerConfig}
 import kafka.producer.{Partitioner, KeyedMessage, Producer, ProducerConfig}
 import kafka.utils.VerifiableProperties
@@ -14,21 +15,26 @@ import kafka.utils.VerifiableProperties
 import kafka.serializer.StringDecoder
 
 import nest.sparkle.util.RandomUtil
+import nest.sparkle.util.Log
 
 /**
- * Test Utils.
+ * Use to add known state of kafka topic and consumer groups.
  */
 trait KafkaTestSuite
   extends FunSuite
   with Matchers
   with BeforeAndAfterAll
+  with Log
 {
   val TopicName = "test-" + RandomUtil.randomAlphaNum(4)
   val ConsumerGroup = s"itConsumer-$TopicName"
   val ConsumerId = "it"
   val NumPartitions = 16
   
-  val messages = (0 to 1000).map("message " + _)
+  private val SendMaxRetries = 20
+  private val SendRetryWait = 10L
+  
+  val messages = (0 to 5*NumPartitions).map("message " + _)
   
   var consumer: Option[ConsumerConnector] = None
   var consumerIterators = Seq[ConsumerIterator[String,String]]()
@@ -84,16 +90,34 @@ trait KafkaTestSuite
         props.put("request.required.acks", "1")
         props.put("serializer.class", "kafka.serializer.StringEncoder")
         props.put("partitioner.class", "nest.sparkle.util.kafka.SparkleTestPartitioner")
+        props.put("message.send.max.retries", "20")
+        props.put("retry.backoff.ms", "200")
         new ProducerConfig(props)
       }
       new Producer[String, String](config)
+    }
+    
+    def send(message: KeyedMessage[String,String]): Unit = {
+        var count = SendMaxRetries
+        while (true) {
+          try {
+            producer.send(message)
+            return
+          } catch {
+            case e: FailedToSendMessageException  => 
+              count -= 1
+              if (count == 0) throw e
+              log.warn(s"kafka producer send failed ${SendMaxRetries-count} times, retrying")
+              Thread.sleep(SendRetryWait)
+          }
+        }
     }
 
     try {
       var messageKey = 0
       messages foreach { message =>
         val keyedMessage = new KeyedMessage[String,String](TopicName,messageKey.toString,message)
-        producer.send(keyedMessage)
+        send(keyedMessage)
         messageKey += 1
       }
     } finally {

@@ -105,7 +105,7 @@ trait KafkaLoaderAdminService extends AdminService
   }
   
   private def getOffsets: Future[Seq[KafkaGroupOffsets]] = {
-    def processGroups(groups: Seq[String]) = {
+    def processGroups(groups: Seq[String]): Future[Seq[KafkaGroupOffsets]] = {
       val futures = groups map { group => 
         Utils.getGroupOffsets(group)
       }

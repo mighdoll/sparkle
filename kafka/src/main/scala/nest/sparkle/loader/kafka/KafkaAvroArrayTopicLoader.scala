@@ -54,6 +54,12 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   /** Commit interval millis for compare */
   val commitTime = loaderConfig.getDuration("commit-interval", TimeUnit.MILLISECONDS)
   
+  /** ms to wait between the first write failure and the first retry. */
+  val InitialWriteSleepTime = 10L
+  
+  /** Number of events to write to the log when tracing writes */
+  val NumberOfEventsToTrace = 3
+  
   /** timestamp when the last Kafka offsets commit was done */
   private var lastCommit = currentTime
 
@@ -171,7 +177,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
     }
   }
   
-  private def discardIterator() {
+  private def discardIterator(): Unit = {
     currentIterator = None
     reader.close()  // Ensure Kafka connection is closed.
   }
@@ -220,7 +226,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
 
             /** do the following with type parameters matching each other
               * (even though our caller will ultimately ignore them) */
-            def withFixedTypes[T, U]() = {
+            def withFixedTypes[T, U](): TaggedSlice[T,U] = {
               val typedEvents = taggedColumn.events.asInstanceOf[Events[T, U]]
               val keyType: TypeTag[T] = castKind(taggedColumn.keyType)
               val valueType: TypeTag[U] = castKind(taggedColumn.valueType)
@@ -231,7 +237,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
 
         log.trace(
             s"convertMessage: got block.length ${block.length}  head:${
-              block.headOption.map {_.shortPrint(3)}
+              block.headOption.map {_.shortPrint(NumberOfEventsToTrace)}
             }"
           )
         Success(block)
@@ -254,10 +260,10 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
     * 
     * @param block TaggedBlock from a Kafka message.
     */
-  private def blockingWrite(block: TaggedBlock) {
+  private def blockingWrite(block: TaggedBlock): Unit = {
     writeMetric.time {
       var writeComplete = false
-      var sleepTime = 10L
+      var sleepTime = InitialWriteSleepTime
       while (!writeComplete) {
         val writeFuture = writeBlock(block)
         try {
@@ -291,7 +297,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
   private def writeBlock(taggedBlock: TaggedBlock)(implicit keyType: TypeTag[K]): Future[Seq[ColumnUpdate[K]]] = {
     val writeFutures =
       taggedBlock.map { slice => 
-        def withFixedType[U]() = {
+        def withFixedType[U](): Future[Option[ColumnUpdate[K]]] = {
           implicit val valueType = slice.valueType
           log.debug(
             "loading {} events to column: {}  keyType: {}  valueType: {}",

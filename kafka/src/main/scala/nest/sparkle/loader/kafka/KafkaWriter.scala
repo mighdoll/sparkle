@@ -14,23 +14,31 @@
 
 package nest.sparkle.loader.kafka
 
-import kafka.producer.ProducerConfig
-import kafka.javaapi.producer.Producer
-import kafka.producer.KeyedMessage
-import kafka.serializer.Encoder
+import java.util.concurrent.TimeUnit
+
 import rx.lang.scala.Observable
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import nest.sparkle.util.ConfigUtil
+
+import com.typesafe.config.{Config, ConfigFactory}
+
+import kafka.common.FailedToSendMessageException
+import kafka.javaapi.producer.Producer
+import kafka.producer.{KeyedMessage, ProducerConfig}
+import kafka.serializer.Encoder
+
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
-import nest.sparkle.util.Log
+import nest.sparkle.util.{ConfigUtil, Log}
 
 /** enables writing to a kafka topic */
-class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log{
+class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log
+{
   private val writer = implicitly[Encoder[T]]
-
+  
+  private lazy val writerConfig = rootConfig.getConfig(s"$sparkleConfigName.kafka-loader.kafka-writer")
+  private lazy val SendRetryWait = writerConfig.getDuration("send-retry-wait", TimeUnit.MILLISECONDS)
+  private lazy val SendMaxRetries = writerConfig.getInt("send-max-retries")
+  
   private lazy val producer: Producer[String, Array[Byte]] = {
-    val properties = ConfigUtil.properties(rootConfig.getConfig(s"$sparkleConfigName.kafka-loader.kafka-writer"))
+    val properties = ConfigUtil.properties(writerConfig.getConfig("producer"))
     new Producer[String, Array[Byte]](new ProducerConfig(properties))
   }
 
@@ -46,23 +54,37 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log{
     data foreach writeElement
   }
 
-  /** close the underlying kafka producer connection */
-  def close(): Unit = {
-    producer.close  // KAFKA should have parens on close
-  }
-
   /** write a single item to a kafka topic. */
   private def writeElement(item: T): Unit = {
     val encoded = writer.toBytes(item)
     log.trace(s"writing ${encoded.take(8)} length = ${encoded.length}  to topic: $topic")
     val message = new KeyedMessage[String, Array[Byte]](topic, encoded)
-    producer.send(message)
+      
+    var count = SendMaxRetries
+    while (true) {
+      try {
+        producer.send(message)
+        return
+      } catch {
+        case e: FailedToSendMessageException =>
+          count -= 1
+          if (count == 0) throw e
+          log.warn(s"kafka producer send failed ${SendMaxRetries-count} times, retrying")
+          Thread.sleep(SendRetryWait)
+      }
+    }
+  }
+
+  /** close the underlying kafka producer connection */
+  def close(): Unit = {
+    producer.close // KAFKA should have parens on close
   }
 
 }
 
 /** enables writing to a kafka topic */
-object KafkaWriter {
+object KafkaWriter
+{
   def apply[T: Encoder](topic: String, config: Config = ConfigFactory.load()): KafkaWriter[T] =
     new KafkaWriter[T](topic, config)
 }
