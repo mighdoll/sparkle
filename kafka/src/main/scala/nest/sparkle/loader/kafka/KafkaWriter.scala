@@ -16,6 +16,8 @@ package nest.sparkle.loader.kafka
 
 import java.util.concurrent.TimeUnit
 
+import scala.util.control.NonFatal
+import scala.util.{Try, Failure, Success}
 import rx.lang.scala.Observable
 
 import com.typesafe.config.{Config, ConfigFactory}
@@ -45,34 +47,51 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log
   /** write an Observable stream to kafka.  */
   def writeStream(stream: Observable[T]): Unit = {
     stream.subscribe { datum =>
-      writeElement(datum)
+      writeElement(datum, true)
     }
   }
 
   /** write a collection of items to kafka. Note that this blocks the calling thread until it is done. */
-  def write(data: Iterable[T]): Unit = {
-    data foreach writeElement
+  def write(data: Seq[T]): Seq[Try[Unit]] = {
+    data.map(writeElement(_, false))
+  }
+
+  /** write a collection of items to kafka. Note that this blocks the calling thread until it is done. */
+  def writeIterable(data: Iterable[T]): Unit = {
+    data.foreach(writeElement(_, true))
   }
 
   /** write a single item to a kafka topic. */
-  private def writeElement(item: T): Unit = {
+  private def writeElement(item: T, throwException: Boolean): Try[Unit] = {
     val encoded = writer.toBytes(item)
     log.trace(s"writing ${encoded.take(8)} length = ${encoded.length}  to topic: $topic")
     val message = new KeyedMessage[String, Array[Byte]](topic, encoded)
-      
-    var count = SendMaxRetries
-    while (true) {
+    
+    val iter = Iterator.range(1,SendMaxRetries) map { count =>
       try {
         producer.send(message)
-        return
+        Success(())
       } catch {
         case e: FailedToSendMessageException =>
-          count -= 1
-          if (count == 0) throw e
-          log.warn(s"kafka producer send failed ${SendMaxRetries-count} times, retrying")
+          log.warn(s"kafka producer send failed $count times")
           Thread.sleep(SendRetryWait)
+          Failure(e)
+        case NonFatal(err) => 
+          log.error("Exception in producer.send", err)
+          Failure(err)
       }
     }
+    
+    val found = iter find {
+      case Success(_)   => true
+      case Failure(err) => false
+    }
+    
+    if (throwException && found.isEmpty) {
+      throw new RuntimeException("could not write message")
+    }
+    
+    found.getOrElse(Failure(new RuntimeException("could not write message")))
   }
 
   /** close the underlying kafka producer connection */

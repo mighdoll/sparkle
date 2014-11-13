@@ -3,6 +3,7 @@ package nest.sparkle.util.kafka
 import java.util.Properties
 
 import scala.concurrent.duration._
+import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
 
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
@@ -66,7 +67,7 @@ trait KafkaTestSuite
     * @param name topic name
     * @param messages list of strings to write to the topic
     */
-  protected def writeTopic(name: String, messages: Traversable[String]) = {
+  protected def writeTopic(name: String, messages: Seq[String]) = {
     
 /*  Alas, this code doesn't work so we must spam the it kafka with random topics & consumers.
     val zkClient = new ZkClient(
@@ -97,28 +98,34 @@ trait KafkaTestSuite
       new Producer[String, String](config)
     }
     
-    def send(message: KeyedMessage[String,String]): Unit = {
-        var count = SendMaxRetries
-        while (true) {
-          try {
-            producer.send(message)
-            return
-          } catch {
-            case e: FailedToSendMessageException  => 
-              count -= 1
-              if (count == 0) throw e
-              log.warn(s"kafka producer send failed ${SendMaxRetries-count} times, retrying")
-              Thread.sleep(SendRetryWait)
-          }
+    def send(message: KeyedMessage[String,String]): Boolean = {
+      val iter = Iterator.range(1,SendMaxRetries) map { count =>
+        try {
+          producer.send(message)
+          Success(())
+        } catch {
+          case e: FailedToSendMessageException =>
+            log.warn(s"kafka producer send failed $count times")
+            Thread.sleep(SendRetryWait)
+            Failure(e)
+          case NonFatal(err) => 
+            log.error("Exception in producer.send", err)
+            Failure(err)
         }
+      }
+      
+      val found = iter find {
+        case Success(_)   => true
+        case Failure(err) => false
+      }
+      found.isDefined
     }
 
     try {
-      var messageKey = 0
-      messages foreach { message =>
-        val keyedMessage = new KeyedMessage[String,String](TopicName,messageKey.toString,message)
-        send(keyedMessage)
-        messageKey += 1
+      messages.zipWithIndex foreach {
+        case (message, messageKey) =>
+          val keyedMessage = new KeyedMessage[String,String](TopicName,messageKey.toString,message)
+          if (! send(keyedMessage)) fail("producer failed to send")
       }
     } finally {
       producer.close()
@@ -135,7 +142,7 @@ trait KafkaTestSuite
     props.put("auto.commit.enable", "false")
     props.put("auto.offset.reset", "smallest")
     props.put("consumer.timeout.ms", "5000")
-    props.put("consumer.timeout.ms", "-1")
+    //props.put("consumer.timeout.ms", "-1")  // uncomment for debugging
     props.put("group.id", name)
     props.put("client.id", "it")
     props.put("consumer.id", ConsumerId)
