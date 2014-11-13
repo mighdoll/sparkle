@@ -16,6 +16,8 @@ package nest.sparkle.loader.kafka
 
 import java.util.concurrent.TimeUnit
 
+import scala.annotation.tailrec
+import scala.util.control.Exception._
 import scala.util.control.NonFatal
 import scala.util.{Try, Failure, Success}
 import rx.lang.scala.Observable
@@ -51,13 +53,9 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log
     }
   }
 
-  /** write a collection of items to kafka. Note that this blocks the calling thread until it is done. */
-  def write(data: Seq[T]): Seq[Try[Unit]] = {
-    data.map(writeElement(_, false))
-  }
-
-  /** write a collection of items to kafka. Note that this blocks the calling thread until it is done. */
-  def writeIterable(data: Iterable[T]): Unit = {
+  /** write a collection of items to kafka. Note that this blocks the calling thread until it is done. 
+    * An exception is thrown if an element write fails. */
+  def write(data: Iterable[T]): Unit = {
     data.foreach(writeElement(_, true))
   }
 
@@ -66,32 +64,37 @@ class KafkaWriter[T: Encoder](topic: String, rootConfig: Config) extends Log
     val encoded = writer.toBytes(item)
     log.trace(s"writing ${encoded.take(8)} length = ${encoded.length}  to topic: $topic")
     val message = new KeyedMessage[String, Array[Byte]](topic, encoded)
-    
-    val iter = Iterator.range(1,SendMaxRetries) map { count =>
-      try {
-        producer.send(message)
-        Success(())
-      } catch {
-        case e: FailedToSendMessageException =>
-          log.warn(s"kafka producer send failed $count times")
-          Thread.sleep(SendRetryWait)
-          Failure(e)
-        case NonFatal(err) => 
-          log.error("Exception in producer.send", err)
-          Failure(err)
-      }
+        
+    val result = send(message, SendMaxRetries)
+    result match {
+      case Success(_)   => result
+      case Failure(err) =>
+        throwException match {
+          case true  => throw err
+          case false => result
+        }
     }
+  }
     
-    val found = iter find {
-      case Success(_)   => true
-      case Failure(err) => false
+  /** Send message with retrying a specified number of times w/delay between attempts */
+  @tailrec
+  private def send(message: KeyedMessage[String, Array[Byte]], retries: Int): Try[Unit] = {
+    val result = nonFatalCatch withTry { producer.send(message) }
+    result match {
+      case Success(_)   => result
+      case Failure(err) =>
+        err match {
+          case e: FailedToSendMessageException =>
+            retries match {
+              case _ if retries <= SendMaxRetries =>
+                Thread.sleep(SendRetryWait)
+                send(message, retries - 1)
+              case _                              =>
+                result
+            }
+          case _ => result
+        }
     }
-    
-    if (throwException && found.isEmpty) {
-      throw new RuntimeException("could not write message")
-    }
-    
-    found.getOrElse(Failure(new RuntimeException("could not write message")))
   }
 
   /** close the underlying kafka producer connection */

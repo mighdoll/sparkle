@@ -38,7 +38,7 @@ class TestLargeKafkaStream extends FunSuite with Matchers with PropertyChecks wi
     val generated = manyRecords(id1, id2, elementsPerRecord, records)
 
     withTestAvroTopic(rootConfig, MillisDoubleArrayAvro.schema) { testTopic =>
-      testTopic.writer.writeIterable(generated.map { _.record })
+      testTopic.writer.write(generated.map { _.record })
 
       withTestDb { testStore =>
         val overrides =

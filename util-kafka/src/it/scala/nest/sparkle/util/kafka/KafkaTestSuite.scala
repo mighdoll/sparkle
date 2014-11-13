@@ -2,9 +2,11 @@ package nest.sparkle.util.kafka
 
 import java.util.Properties
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
+import scala.util.control.Exception._
 
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
 
@@ -98,34 +100,35 @@ trait KafkaTestSuite
       new Producer[String, String](config)
     }
     
-    def send(message: KeyedMessage[String,String]): Boolean = {
-      val iter = Iterator.range(1,SendMaxRetries) map { count =>
-        try {
-          producer.send(message)
-          Success(())
-        } catch {
-          case e: FailedToSendMessageException =>
-            log.warn(s"kafka producer send failed $count times")
-            Thread.sleep(SendRetryWait)
-            Failure(e)
-          case NonFatal(err) => 
-            log.error("Exception in producer.send", err)
-            Failure(err)
-        }
+    /** Send message with retrying a specified number of times w/delay between attempts */
+    @tailrec
+    def send(message: KeyedMessage[String,String], retries: Int): Try[Unit] = {
+      val result = nonFatalCatch withTry { producer.send(message) }
+      result match {
+        case Success(_)   => result
+        case Failure(err) =>
+          err match {
+            case e: FailedToSendMessageException =>
+              retries match {
+                case _ if retries <= SendMaxRetries =>
+                  Thread.sleep(SendRetryWait)
+                  send(message, retries - 1)
+                case _                              =>
+                  result
+              }
+            case _ => result
+          }
       }
-      
-      val found = iter find {
-        case Success(_)   => true
-        case Failure(err) => false
-      }
-      found.isDefined
     }
 
     try {
       messages.zipWithIndex foreach {
         case (message, messageKey) =>
           val keyedMessage = new KeyedMessage[String,String](TopicName,messageKey.toString,message)
-          if (! send(keyedMessage)) fail("producer failed to send")
+          send(keyedMessage, SendMaxRetries) match {
+            case Success(_)   =>
+            case Failure(err) => fail("topic setup failed", err)
+          }
       }
     } finally {
       producer.close()

@@ -54,7 +54,7 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
       KafkaTestUtil.withTestAvroTopic(rootConfig, MillisDoubleArrayAvro.schema) { kafka =>
 
         // prefill kafka queue
-        kafka.writer.writeIterable(records.map { _.record })
+        kafka.writer.write(records.map { _.record })
         // run loader
         val overrides =
           s"$sparkleConfigName.kafka-loader.topics" -> List(kafka.topic) ::
