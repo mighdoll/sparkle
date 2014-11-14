@@ -18,6 +18,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import rx.lang.scala.Observable
 import scala.reflect.runtime.universe._
+import nest.sparkle.measure.Span
 
 case class OngoingEvents[T, U](initial: Observable[Event[T, U]], ongoing: Observable[Event[T, U]])
 
@@ -32,7 +33,7 @@ trait Column[T, U] {
   /** read a slice of events from the column, inclusive of the start and ends.
    *  If start is missing, read from the first element in the column.  If end is missing
    *  read from the last element in the column.  */      // format: OFF
-  def readRange(start:Option[T] = None, end:Option[T] = None, limit:Option[Long] = None)
+  def readRange(start:Option[T] = None, end:Option[T] = None, limit:Option[Long] = None, parentSpan:Option[Span] = None)
       (implicit execution: ExecutionContext): OngoingEvents[T,U] // format: ON
 
   // LATER add authorization hook, to validate permission to read a range

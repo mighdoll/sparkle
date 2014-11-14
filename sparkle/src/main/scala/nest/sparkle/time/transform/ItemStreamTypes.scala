@@ -8,6 +8,9 @@ import scala.reflect.runtime.universe._
 import scala.concurrent.Future
 import nest.sparkle.time.protocol.RangeInterval
 import nest.sparkle.util.ObservableFuture._
+import nest.sparkle.measure.UnstartedSpan
+import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.ExecutionContext
 
 /** Shortcut type signatures for ItemGroupSet, ItemStream, etc.
   */
@@ -107,7 +110,12 @@ class BufferedItemGroup[K, V, I, S <: BufferedItemStream[K, V, I]]( // format: O
 /** a BufferedItemSet where the items are IntervalItem */
 object BufferedIntervalSet {
   /** factory to create a BufferedIntervalSet from a RangedIntervalSet */
-  def fromRangedSet[K](ranged: RangedIntervalSet[K]): BufferedIntervalSet[K] = {
+  def fromRangedSet[K] // format: OFF
+      (ranged: RangedIntervalSet[K], span:UnstartedSpan)
+      (implicit execution:ExecutionContext)
+      : BufferedIntervalSet[K] = { // format: ON
+    val startedSpan = span.start()
+    val tracks = ArrayBuffer[Future[Unit]]()
     val groups =
       ranged.groups.map { group =>
         val stacks =
@@ -115,6 +123,7 @@ object BufferedIntervalSet {
             val streams =
               stack.streams.map { stream =>
                 val initial = stream.initial.toFutureSeq
+                tracks += initial.map(_ =>())
                 implicit val tag = stream.keyType
                 new BufferedIntervalStream(initial, stream.ongoing, stream.fromRange)
               }
@@ -122,6 +131,7 @@ object BufferedIntervalSet {
           }
         new BufferedIntervalGroup(stacks, group.name)
       }
+    Future.sequence(tracks).foreach{ _ => startedSpan.complete()}
     new BufferedIntervalSet(groups)
   }
 }

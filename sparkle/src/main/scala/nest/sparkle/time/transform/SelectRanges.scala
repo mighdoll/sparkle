@@ -13,24 +13,26 @@ import spire.implicits._
 import scala.reflect.runtime.universe._
 import nest.sparkle.util.KindCast.castKind
 import nest.sparkle.time.transform.ItemStreamTypes._
+import nest.sparkle.measure.Span
 
 
 /** support for fetching ranges of column data */
 object SelectRanges {
   
   /** read mulitple ranges from a column */
-  def fetchRanges[T, U](column: Column[T, U], ranges: Option[Seq[RangeInterval[T]]]) // format: OFF
+  def fetchRanges[T, U] // format: OFF
+      (column: Column[T, U], ranges: Option[Seq[RangeInterval[T]]], parentSpan:Option[Span] = None) 
       (implicit execution:ExecutionContext):Seq[IntervalAndEvents[T,U]] = { // format: ON
 
     def readAllIntervals(intervals: Seq[RangeInterval[T]]): Seq[IntervalAndEvents[T, U]] = {
       intervals.map { interval =>
-        val events = column.readRange(interval.start, interval.until, interval.limit)
+        val events = column.readRange(interval.start, interval.until, interval.limit, parentSpan)
         IntervalAndEvents(Some(interval), events)
       }
     }
 
     ranges match {
-      case None            => Seq(IntervalAndEvents(None, column.readRange(None, None)))
+      case None            => Seq(IntervalAndEvents(None, column.readRange(None, None, None, parentSpan)))
       case Some(intervals) => readAllIntervals(intervals)
     }
   }
@@ -38,14 +40,15 @@ object SelectRanges {
   /** read a single range from a column (or the entire column if no range is specified) */
   def fetchRange[K]( // format: OFF
       column: Column[K, Any], 
-      optRange: Option[RangeInterval[K]] = None) 
+      optRange: Option[RangeInterval[K]] = None,
+      parentSpan: Option[Span]) 
       (implicit execution:ExecutionContext):RawItemStream[K] = { // format: ON
 
     val ongoingEvents =
       optRange.map { range =>
-        column.readRange(range.start, range.until, range.limit)
+        column.readRange(range.start, range.until, range.limit, parentSpan)
       }.getOrElse {
-        column.readRange(None, None)
+        column.readRange(None, None, None, parentSpan)
       }
       
     val keyType: TypeTag[K] = castKind(column.keyType)

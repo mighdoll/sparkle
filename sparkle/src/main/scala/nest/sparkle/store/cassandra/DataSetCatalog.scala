@@ -132,7 +132,7 @@ case class DataSetCatalog(session:Session)
     val statement = catalogStatements.childrenOfParentPath.bind(parentPath)
 
     // result will be a zero or more rows for each child.
-    val rows = session.executeAsync(statement).observerableRows
+    val rows = session.executeAsync(statement).observerableRows()
     rows map rowDecoder
   }
 

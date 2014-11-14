@@ -25,13 +25,12 @@ object FetchItems {
         futureGroups: Future[Seq[ColumnGroup]],
         optRequestRanges: Option[Seq[RangeInterval[K]]],
         rangeExtend: Option[ExtendRange[K]],
-        span:UnstartedSpan
+        parentSpan:Option[Span]
       )(implicit execution: ExecutionContext)
       : Future[FetchedGroupSet[K]] = { // format: ON
     val track = TrackObservable()
     case class RangeAndExtended(range: RangeInterval[K], extended: RangeInterval[K])
 
-    val started = span.start()
     // extend the provided request range by the rangeExtend amount. Resutls
     // in a collection containing both the original requested range and the extended range.
     val optRangeAndExtendeds: Option[Seq[RangeAndExtended]] =
@@ -49,22 +48,14 @@ object FetchItems {
         case Some(rangeAndExtendeds) =>
           rangeAndExtendeds map {
             case RangeAndExtended(requestRange, extendedRange) =>
-              val stream = trackedFetch(typedColumn, Some(extendedRange))
+              val stream: RawItemStream[K] = SelectRanges.fetchRange(typedColumn, Some(extendedRange), parentSpan)
               implicit val keyType = stream.keyType
               // record the requested range with the data, not the extended range
               new RawItemStream[K](stream.initial, stream.ongoing, Some(requestRange))
           }
         case None =>
-          Seq(trackedFetch(typedColumn))
+          Seq(SelectRanges.fetchRange(typedColumn, None, parentSpan))
       }
-    }
-
-    /** fetch some items, while tracking the duration of the fetches */
-    def trackedFetch(column: Column[K, Any], range: Option[RangeInterval[K]] = None): RawItemStream[K] = {
-      val stream: RawItemStream[K] = SelectRanges.fetchRange(column, range)
-      val trackedInitial = track.finish(stream.initial)
-      implicit val keyType = stream.keyType
-      new RawItemStream(trackedInitial, stream.ongoing, range)
     }
 
     val result: Future[FetchedGroupSet[K]] =
@@ -79,7 +70,6 @@ object FetchItems {
 
             new RawItemGroup[K](stacks, columnGroup.name)
           }
-        track.allFinished.foreach { _ => started.complete() }
         new FetchedGroupSet(fetchedGroups)
       }
 

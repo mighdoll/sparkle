@@ -30,6 +30,7 @@ import nest.sparkle.measure.TraceId
 import nest.sparkle.measure.Span
 import nest.sparkle.measure.Measurements
 import nest.sparkle.measure.UnstartedSpan
+import scala.collection.mutable.ArrayBuffer
 
 /** support for protocol request parsing by matching the onOffIntervalSum transform by string name */
 case class OnOffTransform(rootConfig: Config)(implicit measurements: Measurements) extends TransformMatcher {
@@ -56,7 +57,7 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
       : Future[Seq[JsonDataStream]] = { // format: ON
 
     val track = TrackObservable()
-    val span = Span.start("IntervalSum.total", traceId, opsReport = true)
+    val span = Span.prepareRoot("IntervalSum", traceId, opsReport = true).start()
 
     onOffParameters.validate[Any](futureGroups, transformParameters).flatMap { params: ValidParameters[Any] =>
       import params._
@@ -88,18 +89,25 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
       (implicit execution: ExecutionContext, parentSpan:Span)
       : Future[Seq[JsonDataStream]] = { // format: ON
 
-    val fetchSpan = Span.prepare("IntervalSum.fetch", parentSpan)
-    val onOffSpan = Span.prepare("IntervalSum.onOffToIntervals", parentSpan)
+    val fetchSpan = Span.prepare("fetch", parentSpan)
+    val onOffSpan = Span.prepare("onOffToIntervals", parentSpan)
+    val bufferedSpan = Span.prepare("bufferedConvert", parentSpan)
+    val mergeSpan = Span.prepare("mergeIntervals", parentSpan)
+    val intersectSpan = Span.prepare("intersectPerPeriod", parentSpan)
+    val sumSpan = Span.prepare("sumIntervals", parentSpan)
+    val tabularSpan = Span.prepare("tabularGroups", parentSpan)
+    val blanksToZerosSpan = Span.prepare("blanksToZeros", parentSpan)
+    val toJsonSpan = Span.prepare("toJson", parentSpan)
 
     for {
       // fetch the data
-      itemSet <- fetchItems[K](futureGroups, intervalParameters.ranges, Some(rangeExtender), fetchSpan)
+      itemSet <- fetchItems[K](futureGroups, intervalParameters.ranges, Some(rangeExtender), Some(parentSpan))
       booleanValues = itemSet.castValues[Boolean] // TODO combine with fetchItems
 
       // transform on/off to a table reporting total overlap (one column per group, one row per period)
       intervalSet = onOffToIntervals(booleanValues, onOffSpan)
-      bufferedIntervals = BufferedIntervalSet.fromRangedSet(intervalSet)
-      intervalPerGroup = mergeIntervals(bufferedIntervals)
+      bufferedIntervals = BufferedIntervalSet.fromRangedSet(intervalSet, bufferedSpan)
+      intervalPerGroup = mergeIntervals(bufferedIntervals, mergeSpan)
       intervalsByPeriod = intersectPerPeriod(intervalPerGroup, periodSize)
       sums = sumIntervals(intervalsByPeriod)
       asTable = tabularGroups[K, K](sums)
@@ -237,8 +245,11 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
 
   /** merge intervals into one stream per group */
   def mergeIntervals[K: TypeTag: Numeric: Ordering] // format: OFF
-      (set: BufferedIntervalSet[K])(implicit execution: ExecutionContext) 
+      (set: BufferedIntervalSet[K], span:UnstartedSpan)
+      (implicit execution: ExecutionContext) 
       : BufferedIntervalSet[K] = { // format: ON
+
+    val startedSpan = span.start()
 
     val groups = set.groups.map { group =>
       val eachStackCombined: Seq[Future[Seq[IntervalItem[K]]]] =
@@ -252,9 +263,13 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
         }
       val allCombined = Future.sequence(eachStackCombined).map(_.flatten)
       val allMerged = allCombined.map { items =>
-        val sorted = items.sortBy(_.argument)
-        IntervalItem.combine(sorted)
+        Span.prepare("directMerge", startedSpan).time {
+          val sorted = items.sortBy(_.argument)
+          IntervalItem.combine(sorted)
+        }
       }
+
+      allMerged.foreach { _ => startedSpan.complete() }
 
       // LATER merge ongoing intervals as well (probably requires buffering to find overlaps..)
       val ongoing = Observable.empty

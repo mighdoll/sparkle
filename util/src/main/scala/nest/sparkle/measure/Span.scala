@@ -18,25 +18,39 @@ protected trait Span {
 /** convenient ways to create a Span for timing */
 object Span {
   /** return an UnstartedSpan without a parent Span (e.g. parent is a trace) */
-  def parentSpan(name: String, traceId: TraceId)(implicit measurements: Measurements): UnstartedSpan = ???
+  def prepareRoot(name: String, traceId: TraceId, opsReport:Boolean = false) // format: OFF
+      (implicit measurements: Measurements): UnstartedSpan = {  // format: ON
+     UnstartedSpan(name = name, traceId = traceId, spanId = SpanId.create(), parentId = None, 
+         annotations = Seq(), opsReport = opsReport, measurements = measurements) 
+  }
   
   /** return an UnstartedSpan with a parent Span */
   def prepare(name: String, parent: Span, opsReport:Boolean = false): UnstartedSpan = {
-    UnstartedSpan(name = name, traceId = parent.traceId, spanId = SpanId.create(),
+    val myName = s"${parent.name}.$name"    
+    UnstartedSpan(name = myName, traceId = parent.traceId, spanId = SpanId.create(),
       parentId = Some(parent.spanId), annotations = Seq(), opsReport = opsReport,
       measurements = parent.measurements)
   }
 
   /** return a StartedSpan that starts now */
   def start // format: OFF
-      (name: String, traceId: TraceId, parentSpan: Option[SpanId] = None, opsReport:Boolean = false)
+      (name: String, parentSpan: Span, opsReport:Boolean = false)
+      : StartedSpan = { // format: ON 
+    val myName = s"${parentSpan.name}.$name"    
+    StartedSpan(name = myName, spanId = SpanId.create(), traceId = parentSpan.traceId, parentId = Some(parentSpan.spanId),
+      start = NanoSeconds.current(), annotations = Seq(), 
+      opsReport = opsReport, measurements = parentSpan.measurements)
+  }
+  
+  /** return a StartedSpan that starts now */
+  def startNoParent // format: OFF
+      (name: String, traceId: TraceId, opsReport:Boolean = false)
       (implicit measurements: Measurements)
       : StartedSpan = { // format: ON 
-    StartedSpan(name = name, spanId = SpanId.create(), traceId = traceId, parentId = parentSpan,
+    StartedSpan(name = name, spanId = SpanId.create(), traceId = traceId, parentId = None,
       start = NanoSeconds.current(), annotations = Seq(), 
       opsReport = opsReport, measurements = measurements)
   }
-  
 }
 
 
@@ -66,6 +80,13 @@ case class UnstartedSpan(
     val start = NanoSeconds.current()
     StartedSpan(name = name, traceId = traceId, spanId = spanId, parentId = parentId, start = start,
       annotations = annotations, opsReport = opsReport, measurements = measurements)
+  }
+  
+  def time[T](fn: => T):T = {
+    val started = start()
+    val result = fn
+    started.complete()
+    result
   }
 }
 

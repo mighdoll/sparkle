@@ -20,7 +20,7 @@ class TestMeasurements extends FunSuite with Matchers {
   def publishSpan()(implicit measurements: Measurements): String = {
     val name = "short-test"
     val traceId = TraceId("foo") // TODO replace with RandomUtil.RandomAlphaNum
-    val span = Span.start(name, traceId)
+    val span = Span.startNoParent(name, traceId, opsReport=true)
     span.complete()
     name
   }
@@ -29,6 +29,7 @@ class TestMeasurements extends FunSuite with Matchers {
     withMeasurements { implicit measurements =>
       val name = publishSpan()
       val timers = MetricsInstrumentation.registry.getTimers.asScala
+      println(s"$timers: {timers.keys.mkString}")
       val x = timers(name)
       x.getCount shouldBe 1
     }

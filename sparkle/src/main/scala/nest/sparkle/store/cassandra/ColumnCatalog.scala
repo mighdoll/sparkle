@@ -123,7 +123,7 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
       LIMIT 50000000;
     """
 
-    val rows = session.executeAsync(allColumnsStatement).observerableRows
+    val rows = session.executeAsync(allColumnsStatement).observerableRows()
     // result should be rows containing a single string: the columnPath
     rows.map { row =>
       row.getString(0)

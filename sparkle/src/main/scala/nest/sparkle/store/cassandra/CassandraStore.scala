@@ -163,7 +163,7 @@ trait ConfiguredCassandra extends Log {
     */
   private def useKeySpace(session: Session): Unit = {
     val keySpacesRows = session.executeAsync(s"""
-        SELECT keyspace_name FROM system.schema_keyspaces""").observerableRows
+        SELECT keyspace_name FROM system.schema_keyspaces""").observerableRows()
 
     val keySpaces = keySpacesRows.toFutureSeq.await
     log.debug(s"useKeySpace checking keySpaces: $keySpaces")
@@ -206,7 +206,7 @@ trait ConfiguredCassandra extends Log {
   private def dropTables(session: Session) = {
     val query = s"""SELECT columnfamily_name FROM system.schema_columnfamilies
       WHERE keyspace_name = '$storeKeySpace'"""
-    val rows = session.executeAsync(query).observerableRows
+    val rows = session.executeAsync(query).observerableRows()
     val drops = rows.map { row =>
       val tableName = row.getString(0)
       dropTable(session, tableName)

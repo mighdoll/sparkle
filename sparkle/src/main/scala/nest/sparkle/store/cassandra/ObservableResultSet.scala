@@ -28,6 +28,7 @@ import com.datastax.driver.core.ResultSetFuture
 import rx.lang.scala.Subscriber
 import nest.sparkle.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
+import nest.sparkle.measure.StartedSpan
 
 object ObservableResultSet {
   /** a ResultSetFuture that can be converted into an Observable for asynchronously
@@ -36,7 +37,7 @@ object ObservableResultSet {
   implicit class WrappedResultSet(val resultSetFuture: ResultSetFuture) extends Log {
 
     /** return an Observable[Row] for the Future[ResultSet].  */
-    def observerableRows(implicit executionContext: ExecutionContext): Observable[Row] = {
+    def observerableRows(span: Option[StartedSpan] = None)(implicit executionContext: ExecutionContext): Observable[Row] = {
 
       val asScalaFuture = resultSetFuture.toFuture
 
@@ -62,10 +63,11 @@ object ObservableResultSet {
                   subscriber.onNext(row) // note blocks the thread here if consumer is slow. RX
                 }
 
-                if (!resultSet.isFullyFetched()) { // CONSIDER - is this a race with availableNow?
-                  resultSet.fetchMoreResults().toFuture.foreach { _ => rowChunk() }
-                } else {
+                if (resultSet.isFullyFetched()) { // CONSIDER - is this a race with availableNow?
+                  span.foreach(_.complete())
                   subscriber.onCompleted()
+                } else {
+                  resultSet.fetchMoreResults().toFuture.foreach { _ => rowChunk() }
                 }
               }
             }

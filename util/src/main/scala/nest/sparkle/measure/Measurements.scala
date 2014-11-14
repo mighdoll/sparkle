@@ -1,17 +1,18 @@
 package nest.sparkle.measure
 
-import nest.sparkle.util.MetricsInstrumentation
-import nest.sparkle.util.Instrumented
-import nl.grons.metrics.scala.Timer
-import com.typesafe.config.Config
-import nest.sparkle.util.Log
 import scala.collection.JavaConverters._
-import java.util.concurrent.TimeUnit
-import nest.sparkle.util.ConfigUtil
-import nest.sparkle.util.BooleanOption._
-import java.nio.file.{ Files, Paths }
-import java.nio.file.StandardOpenOption._
+
 import java.nio.charset.Charset
+import java.nio.file.{Files, Paths}
+import java.nio.file.StandardOpenOption.{CREATE, TRUNCATE_EXISTING}
+import java.util.concurrent.TimeUnit
+
+import com.typesafe.config.Config
+
+import nest.sparkle.util.{ConfigUtil, Instrumented, Log, MetricsInstrumentation}
+import nest.sparkle.util.BooleanOption.BooleanToOption
+
+import nl.grons.metrics.scala.Timer
 
 /** A measurement system configured to where to publish its metrics */
 class ConfiguredMeasurements(rootConfig: Config) extends Measurements with Log {
@@ -62,7 +63,6 @@ class MeasurementToTsvFile(fileName: String) extends Measurements {
     writer.write(csv)
     writer.flush() // LATER only flush every few seconds
   }
-
 }
 
 /** a gateway that sends measurements to Coda's Metrics library */
@@ -83,19 +83,22 @@ class MeasurementToMetrics() extends Measurements with Instrumented {
 }
 
 /** optionally return a gateway that sends measurements to a .tsv file */
-object MeasurementToTsvFile extends MeasurementGateway {
+object MeasurementToTsvFile extends MeasurementGateway with Log {
   override def configured(measureConfig: Config): Option[Measurements] = {
     val tsvConfig = measureConfig.getConfig("tsv-gateway")
     tsvConfig.getBoolean("enable").toOption.map { _ =>
-      new MeasurementToTsvFile(tsvConfig.getString("file"))
+      val file = tsvConfig.getString("file")
+      log.info("Measurements to .tsv enabled, to file $file")
+      new MeasurementToTsvFile(file)
     }
   }
 }
 
 /** optionally return a gateway that sends measurements to coda's Metrics library */
-object MeasurementToMetrics extends MeasurementGateway {
+object MeasurementToMetrics extends MeasurementGateway with Log {
   override def configured(measureConfig: Config): Option[Measurements] = {
     measureConfig.getBoolean("metrics-gateway.enable").toOption.map { _ =>
+      log.info("Measurements to Metrics gateway enabled")
       new MeasurementToMetrics()
     }
   }
