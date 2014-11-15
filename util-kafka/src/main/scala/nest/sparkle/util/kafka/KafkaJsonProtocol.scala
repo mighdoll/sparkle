@@ -11,7 +11,7 @@ object KafkaJsonProtocol
   implicit val brokerInfoFormat = jsonFormat5(BrokerInfo)
   implicit val brokerFormat = jsonFormat3(KafkaBroker)
   
-  implicit val topicPartitionFormat = jsonFormat3(KafkaTopicPartition)
+  implicit val topicPartitionFormat = jsonFormat5(KafkaTopicPartition)
   implicit val topicFormat = jsonFormat2(KafkaTopic)
   
   implicit val partitionOffsetFormat = jsonFormat2(KafkaPartitionOffset)

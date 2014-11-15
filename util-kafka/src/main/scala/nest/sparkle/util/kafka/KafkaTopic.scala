@@ -1,10 +1,16 @@
 package nest.sparkle.util.kafka
 
-case class KafkaTopic(name: String, partitions: IndexedSeq[KafkaTopicPartition]) {
+case class KafkaTopic(name: String, partitions: Vector[KafkaTopicPartition]) {
   override def toString: String = name
 }
 
-case class KafkaTopicPartition(id: Int, brokerIds: Seq[Int], leader: Int) {
+case class KafkaTopicPartition(
+  id: Int, 
+  brokerIds: Seq[Int], 
+  leader: Int,
+  earliest: Long,
+  latest: Long
+) {
   override def toString: String = s"$id:$leader($brokerIds)"
 }
 
@@ -17,7 +23,7 @@ case class KafkaGroupOffsets(
 
 case class KafkaGroupTopicOffsets(
   topic: String,
-  partitions: IndexedSeq[KafkaPartitionOffset]
+  partitions: Vector[KafkaPartitionOffset]
   ) {
   override def toString: String = s"$topic"
 }

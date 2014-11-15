@@ -37,7 +37,7 @@ trait KafkaTestSuite
   private val SendMaxRetries = 20
   private val SendRetryWait = 10L
   
-  val messages = (0 to 5*NumPartitions).map("message " + _)
+  val messages = (0 to 5*NumPartitions-1).map("message " + _)
   
   var consumer: Option[ConsumerConnector] = None
   var consumerIterators = Seq[ConsumerIterator[String,String]]()

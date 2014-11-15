@@ -61,6 +61,8 @@ class TestKafkaLoaderAdminService
             partition.leader shouldBe 0
             partition.brokerIds.length shouldBe 1
             partition.brokerIds(0) shouldBe 0
+            partition.earliest shouldBe 0
+            partition.latest shouldBe 5
           }
         case _       => fail("topic not found in topics")
       }

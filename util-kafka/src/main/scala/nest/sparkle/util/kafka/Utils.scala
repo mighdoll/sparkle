@@ -2,7 +2,6 @@ package nest.sparkle.util.kafka
 
 import java.util.concurrent.{Executors, SynchronousQueue, TimeUnit, ThreadPoolExecutor}
 
-import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future, future}
 import scala.concurrent.duration._
@@ -12,6 +11,9 @@ import spray.json._
 import org.I0Itec.zkclient.ZkClient
 import org.apache.zookeeper.data.Stat
 
+import kafka.common.TopicAndPartition
+import kafka.consumer.SimpleConsumer
+import kafka.api.{OffsetRequest, Request}
 import kafka.utils.{ZkUtils, ZKStringSerializer}
 
 import nest.sparkle.util.Log
@@ -48,7 +50,7 @@ class Utils(
     client.close()
   }
   
-  def getBrokers: Future[Seq[KafkaBroker]] = {
+  def getBrokers: Future[Vector[KafkaBroker]] = {
     future {
       val brokerIds = client.getChildren(ZkUtils.BrokerIdsPath).map(_.toInt).sorted
       val brokers = brokerIds map { brokerId =>
@@ -59,7 +61,7 @@ class Utils(
         val info = ast.convertTo[BrokerInfo]
         KafkaBroker(brokerId, info.host, info.port)
       }
-      brokers
+      brokers.toVector
     }
   }
    
@@ -105,22 +107,38 @@ class Utils(
     }
   }
   
+  /** Get all topic specific info */
   def getTopicInfo(topic: String): Future[KafkaTopic] = {
-    def getTopicPartitions(partsIds: Seq[Int]) = {
+    
+    def earliestAndLatestOffset(consumer: SimpleConsumer, partId: Int): PartitionOffsetRange = {
+      val tap = TopicAndPartition(topic, partId)
+      val earliest = consumer.earliestOrLatestOffset(tap, OffsetRequest.EarliestTime, Request.OrdinaryConsumerId)
+      val latest   = consumer.earliestOrLatestOffset(tap, OffsetRequest.LatestTime,   Request.OrdinaryConsumerId)
+      PartitionOffsetRange(earliest, latest)
+    }
+    
+    def getTopicPartitions(consumers: Vector[BrokerConsumer], partsIds: Seq[Int]) = {
       partsIds map { partId =>
         val pathPart = s"${ZkUtils.BrokerTopicsPath}/$topic/partitions/$partId/state"
         val source = client.readData[String](pathPart, true)
         val ast = source.asJson
         val state = ast.convertTo[BrokerTopicPartitionState]
-        KafkaTopicPartition(partId, state.isr, state.leader)
+        
+        val broker = consumers(state.leader)
+        val range  = earliestAndLatestOffset(broker.consumer, partId)
+        
+        KafkaTopicPartition(partId, state.isr, state.leader, range.earliest, range.latest)
       }
     }
     
     for {
-      partsIds <- getTopicPartitionIds(topic)
-      partitions = getTopicPartitions(partsIds)
+      brokers    <- getBrokers
+      consumers  =  brokers.map(BrokerConsumer)
+      partsIds   <- getTopicPartitionIds(topic)
+      partitions =  getTopicPartitions(consumers, partsIds)
     } yield {
-      KafkaTopic(topic, partitions.toIndexedSeq)
+      consumers.foreach(_.consumer.close())
+      KafkaTopic(topic, partitions.toVector)
     }
   }
   
@@ -138,11 +156,12 @@ class Utils(
       KafkaPartitionOffset(partition, offset)
     }
   }
+  
 }
 
 /**
  * This object can be used to make Kafka info requests w/o having to define a thread pool
- * or do connection mananagemnt.
+ * or do connection management.
  */
 object Utils {
   // Like Executors.newCachedThreadPool() except limited to 10 threads and 20s instead of 60s lifetime.
@@ -292,7 +311,7 @@ object Utils {
           partIds <- getGroupTopicPartitionIds(group, topicName)
           offsets <- getPartitionOffsets(group, topicName, partIds)
         } yield {
-          KafkaGroupTopicOffsets(topicName, offsets.toIndexedSeq)
+          KafkaGroupTopicOffsets(topicName, offsets.toVector)
         }
       }
       Future.sequence(futures)
@@ -314,4 +333,14 @@ case class ZkConnectProps(
     connectionTimeout: FiniteDuration = 30.seconds
   )
 
+private case class PartitionOffsetRange(earliest: Long, latest: Long)
+
 private case class GroupTopicNames(group: String, topics: Seq[String])
+
+private case class BrokerConsumer(broker: KafkaBroker) {
+  private val timeout = 60.seconds.toMillis.toInt
+  private val bufferSize = 100000
+  private val clientName = "KafkaStatus"
+  
+  lazy val consumer = new SimpleConsumer(broker.host, broker.port, timeout, bufferSize, clientName)
+}
