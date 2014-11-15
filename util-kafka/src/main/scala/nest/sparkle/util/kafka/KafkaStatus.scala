@@ -12,6 +12,8 @@ import org.I0Itec.zkclient.ZkClient
 import org.apache.zookeeper.data.Stat
 
 import kafka.common.TopicAndPartition
+import kafka.common.UnknownTopicOrPartitionException
+import kafka.common.NotLeaderForPartitionException
 import kafka.consumer.SimpleConsumer
 import kafka.api.{OffsetRequest, Request}
 import kafka.utils.{ZkUtils, ZKStringSerializer}
@@ -50,7 +52,7 @@ class KafkaStatus(
     client.close()
   }
   
-  def getBrokers: Future[Vector[KafkaBroker]] = {
+  def getBrokers: Future[Seq[KafkaBroker]] = {
     future {
       val brokerIds = client.getChildren(ZkUtils.BrokerIdsPath).map(_.toInt).sorted
       val brokers = brokerIds map { brokerId =>
@@ -61,7 +63,7 @@ class KafkaStatus(
         val info = ast.convertTo[BrokerInfo]
         KafkaBroker(brokerId, info.host, info.port)
       }
-      brokers.toVector
+      brokers
     }
   }
    
@@ -112,12 +114,23 @@ class KafkaStatus(
     
     def earliestAndLatestOffset(consumer: SimpleConsumer, partId: Int): PartitionOffsetRange = {
       val tap = TopicAndPartition(topic, partId)
-      val earliest = consumer.earliestOrLatestOffset(tap, OffsetRequest.EarliestTime, Request.OrdinaryConsumerId)
-      val latest   = consumer.earliestOrLatestOffset(tap, OffsetRequest.LatestTime,   Request.OrdinaryConsumerId)
-      PartitionOffsetRange(earliest, latest)
+      try {
+        val earliest = consumer
+          .earliestOrLatestOffset(tap, OffsetRequest.EarliestTime, Request.OrdinaryConsumerId)
+        val latest = consumer
+          .earliestOrLatestOffset(tap, OffsetRequest.LatestTime, Request.OrdinaryConsumerId)
+        PartitionOffsetRange(earliest, latest)
+      } catch {
+        case e: UnknownTopicOrPartitionException => 
+          log.error(s"Unknown topic/partId $topic::$partId")
+          PartitionOffsetRange(-1L, -1L)
+        case e: NotLeaderForPartitionException => 
+          log.error(s"${consumer.host} not leader for $topic::$partId")
+          PartitionOffsetRange(-1L, -1L)
+      }
     }
     
-    def getTopicPartitions(consumers: Vector[BrokerConsumer], partsIds: Seq[Int]) = {
+    def getTopicPartitions(consumers: Map[Int,BrokerConsumer], partsIds: Seq[Int]) = {
       partsIds map { partId =>
         val pathPart = s"${ZkUtils.BrokerTopicsPath}/$topic/partitions/$partId/state"
         val source = client.readData[String](pathPart, true)
@@ -133,11 +146,11 @@ class KafkaStatus(
     
     for {
       brokers    <- getBrokers
-      consumers  =  brokers.map(BrokerConsumer)
+      consumers  =  brokers.map(BrokerConsumer).map {bc => bc.broker.id -> bc}.toMap
       partsIds   <- getTopicPartitionIds(topic)
       partitions =  getTopicPartitions(consumers, partsIds)
     } yield {
-      consumers.foreach(_.consumer.close())
+      consumers.values.foreach(_.consumer.close())
       KafkaTopic(topic, partitions.toVector)
     }
   }
