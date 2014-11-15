@@ -29,7 +29,6 @@ class TestMeasurements extends FunSuite with Matchers {
     withMeasurements { implicit measurements =>
       val name = publishSpan()
       val timers = MetricsInstrumentation.registry.getTimers.asScala
-      println(s"$timers: {timers.keys.mkString}")
       val x = timers(name)
       x.getCount shouldBe 1
     }
