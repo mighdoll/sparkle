@@ -28,7 +28,7 @@ import KafkaJsonProtocol._
  * @param sessionTimeout Zookeeper session timeout
  * @param executionContext Thread pool to use for synchronous Zookeeper requests.
  */
-class Utils(
+class KafkaStatus(
   val connectString: String, 
   val connectionTimeout: FiniteDuration = 30.seconds,
   val sessionTimeout: FiniteDuration = 30.seconds
@@ -163,7 +163,7 @@ class Utils(
  * This object can be used to make Kafka info requests w/o having to define a thread pool
  * or do connection management.
  */
-object Utils {
+object KafkaStatus {
   // Like Executors.newCachedThreadPool() except limited to 10 threads and 20s instead of 60s lifetime.
   //private lazy val threadPool = new ThreadPoolExecutor(0, 10, 20L, TimeUnit.SECONDS, new SynchronousQueue[Runnable])
   private lazy val threadPool = Executors.newCachedThreadPool()
@@ -173,12 +173,12 @@ object Utils {
     connectString: String, 
     sessionTimeout: FiniteDuration = 30.seconds,
     connectionTimeout: FiniteDuration = 30.seconds
-  ): Utils = {
-    new Utils(connectString, sessionTimeout, connectionTimeout)
+  ): KafkaStatus = {
+    new KafkaStatus(connectString, sessionTimeout, connectionTimeout)
   }
   
-  def apply(props: ZkConnectProps): Utils = {
-    new Utils(props)
+  def apply(props: ZkConnectProps): KafkaStatus = {
+    new KafkaStatus(props)
   }
 
   /** Return a future for the list of brokers.
@@ -186,7 +186,7 @@ object Utils {
     * @return Future
     */
   def getBrokers(implicit props: ZkConnectProps): Future[Seq[KafkaBroker]] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getBrokers
     future onComplete { _ =>
       zkutils.close()
@@ -199,7 +199,7 @@ object Utils {
     * @return Future
     */
   def getBroker(brokerId: Int)(implicit props: ZkConnectProps): Future[KafkaBroker] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getBroker(brokerId)
     future onComplete { _ =>
       zkutils.close()
@@ -208,7 +208,7 @@ object Utils {
   }
 
   def getTopicNames(implicit props: ZkConnectProps): Future[Seq[String]] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getTopicNames
     future onComplete { _ =>
       zkutils.close()
@@ -217,7 +217,7 @@ object Utils {
   }
 
   def getTopicPartitionIds(topicName: String)(implicit props: ZkConnectProps): Future[Seq[Int]] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getTopicPartitionIds(topicName)
     future onComplete { _ =>
       zkutils.close()
@@ -242,7 +242,7 @@ object Utils {
   }
 
   def getConsumerGroups(implicit props: ZkConnectProps): Future[Seq[String]] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getConsumerGroups
     future onComplete { _ =>
       zkutils.close()
@@ -251,7 +251,7 @@ object Utils {
   }
 
   def getConsumersInGroup(group: String)(implicit props: ZkConnectProps): Future[Seq[String]] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getConsumersInGroup(group)
     future onComplete { _ =>
       zkutils.close()
@@ -260,7 +260,7 @@ object Utils {
   }
   
   def getConsumerGroupTopics(group: String)(implicit props: ZkConnectProps): Future[Seq[String]] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getConsumerGroupTopics(group)
     future onComplete { _ =>
       zkutils.close()
@@ -270,7 +270,7 @@ object Utils {
   
   def getGroupTopicPartitionIds(group: String, topic: String)
     (implicit props: ZkConnectProps): Future[Seq[Int]] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getGroupTopicPartitionIds(group, topic)
     future onComplete { _ =>
       zkutils.close()
@@ -280,7 +280,7 @@ object Utils {
   
   def getPartitionOffset(group: String, topic: String, partition: Int)
     (implicit props: ZkConnectProps): Future[KafkaPartitionOffset] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getPartitionOffset(group, topic, partition)
     future onComplete { _ =>
       zkutils.close()
@@ -289,7 +289,7 @@ object Utils {
   }
   
   def getTopicInfo(topic: String)(implicit props: ZkConnectProps): Future[KafkaTopic] = {
-    val zkutils = Utils(props)
+    val zkutils = KafkaStatus(props)
     val future = zkutils.getTopicInfo(topic)
     future onComplete { _ =>
       zkutils.close()

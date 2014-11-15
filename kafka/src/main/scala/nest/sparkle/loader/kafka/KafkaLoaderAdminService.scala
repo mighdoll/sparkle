@@ -15,7 +15,7 @@ import spray.routing._
 import spray.util._
 
 import nest.sparkle.http.{ResourceLocation, AdminServiceActor, AdminService}
-import nest.sparkle.util.kafka.Utils
+import nest.sparkle.util.kafka.KafkaStatus
 import nest.sparkle.util.kafka._
 import nest.sparkle.util.kafka.KafkaJsonProtocol._
 
@@ -46,7 +46,7 @@ trait KafkaLoaderAdminService extends AdminService
   lazy val allTopics: Route = {
     get {
       path("topics") {
-        onComplete(Utils.getTopics) {
+        onComplete(KafkaStatus.getTopics) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
@@ -58,7 +58,7 @@ trait KafkaLoaderAdminService extends AdminService
   lazy val brokers: Route = {
     get {
       path("brokers") {
-        onComplete(Utils.getBrokers) {
+        onComplete(KafkaStatus.getBrokers) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
@@ -99,7 +99,7 @@ trait KafkaLoaderAdminService extends AdminService
     * @return Future
     */
   private def getConsumerGroups: Future[Seq[String]] = {
-    Utils.getConsumerGroups.map { groups => 
+    KafkaStatus.getConsumerGroups.map { groups => 
       groups.filter(_.startsWith(groupPrefix))
     }
   }
@@ -107,7 +107,7 @@ trait KafkaLoaderAdminService extends AdminService
   private def getOffsets: Future[Seq[KafkaGroupOffsets]] = {
     def processGroups(groups: Seq[String]): Future[Seq[KafkaGroupOffsets]] = {
       val futures = groups map { group => 
-        Utils.getGroupOffsets(group)
+        KafkaStatus.getGroupOffsets(group)
       }
       Future.sequence(futures)
     }
