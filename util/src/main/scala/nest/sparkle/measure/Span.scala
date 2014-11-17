@@ -3,6 +3,7 @@ package nest.sparkle.measure
 import com.typesafe.config.Config
 import nest.sparkle.util.Log
 import scala.concurrent.forkjoin.ThreadLocalRandom
+import nest.sparkle.util.RandomUtil
 
 /** a measurement of a span of time. Subclasses encode various states of a Span: Unstarted, Started, Completed, etc.) 
  *  All Spans are immutable */
@@ -111,6 +112,14 @@ case class StartedSpan(
   }
 }
 
+object DummySpan extends Span {
+  override val name = "dummy"
+  override val traceId = TraceId("dummyId")
+  override val spanId = SpanId(-1)
+  override val parentId = None
+  override val opsReport = false
+  override val measurements = DummyMeasurements
+}
 
 /** a nanosecond value. Note the underlying storage is a signed long, so durations over 250 years will get weird */
 case class NanoSeconds(val value: Long) extends AnyVal
@@ -138,7 +147,11 @@ object EpochMicroseconds {
 case class EpochMilliseconds(val value:Long) extends AnyVal
 
 /** The id for a single top level request (typically a request initiated by an external client into our distributed system) */
-case class TraceId(val value: String) extends AnyVal
+case class TraceId(val value: String) extends AnyVal 
+
+object TraceId {
+  def create(): TraceId = new TraceId(RandomUtil.randomAlphaNum(8))
+}
 
 /** The id for a single duration record */
 case class SpanId(val value: Long) extends AnyVal

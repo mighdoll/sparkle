@@ -31,6 +31,7 @@ import nest.sparkle.measure.Span
 import nest.sparkle.measure.Measurements
 import nest.sparkle.measure.UnstartedSpan
 import scala.collection.mutable.ArrayBuffer
+import nest.sparkle.measure.Span
 
 /** support for protocol request parsing by matching the onOffIntervalSum transform by string name */
 case class OnOffTransform(rootConfig: Config)(implicit measurements: Measurements) extends TransformMatcher {
@@ -67,7 +68,7 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
               (keyType, numeric, jsonFormat, ordering, execution, span)
           ) // format: ON
 
-      val monitoredResult =
+      val monitoredResult = // attach a reporter on the result
         result.map { streams =>
           val trackedStreams = streams.map { jsonStream =>
             jsonStream.copy(dataStream = track.finish(jsonStream.dataStream))
@@ -89,31 +90,20 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
       (implicit execution: ExecutionContext, parentSpan:Span)
       : Future[Seq[JsonDataStream]] = { // format: ON
 
-    val fetchSpan = Span.prepare("fetch", parentSpan)
-    val onOffSpan = Span.prepare("onOffToIntervals", parentSpan)
-    val bufferedSpan = Span.prepare("bufferedConvert", parentSpan)
-    val mergeSpan = Span.prepare("mergeIntervals", parentSpan)
-    val intersectSpan = Span.prepare("intersectPerPeriod", parentSpan)
-    val sumSpan = Span.prepare("sumIntervals", parentSpan)
-    val tabularSpan = Span.prepare("tabularGroups", parentSpan)
-    val blanksToZerosSpan = Span.prepare("blanksToZeros", parentSpan)
-    val toJsonSpan = Span.prepare("toJson", parentSpan)
-
     for {
       // fetch the data
       itemSet <- fetchItems[K](futureGroups, intervalParameters.ranges, Some(rangeExtender), Some(parentSpan))
       booleanValues = itemSet.castValues[Boolean] // TODO combine with fetchItems
 
       // transform on/off to a table reporting total overlap (one column per group, one row per period)
-      intervalSet = onOffToIntervals(booleanValues, onOffSpan)
-      bufferedIntervals = BufferedIntervalSet.fromRangedSet(intervalSet, bufferedSpan)
-      intervalPerGroup = mergeIntervals(bufferedIntervals, mergeSpan)
-      intervalsByPeriod = intersectPerPeriod(intervalPerGroup, periodSize)
-      sums = sumIntervals(intervalsByPeriod)
-      asTable = tabularGroups[K, K](sums)
-      tableWithZeros = tabularBlanksToZeros(asTable)
-      // tableWithZeros.onLast { timer.report() }
-      jsonStream = rowsToJson[K, K](tableWithZeros)
+      intervalSet = onOffToIntervals(booleanValues, parentSpan)
+      bufferedIntervals = BufferedIntervalSet.fromRangedSet(intervalSet, parentSpan)
+      intervalPerGroup = mergeIntervals(bufferedIntervals, parentSpan)
+      intervalsByPeriod = intersectPerPeriod(intervalPerGroup, periodSize, parentSpan)
+      sums = sumIntervals(intervalsByPeriod, parentSpan)
+      asTable = tabularGroups[K, K](sums, parentSpan)
+      tableWithZeros = tabularBlanksToZeros(asTable, parentSpan)
+      jsonStream = rowsToJson[K, K](tableWithZeros, parentSpan)
     } yield {
       Seq(jsonStream)
     }
@@ -125,7 +115,7 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
     * streams in all the groups and stacks to a single stream.)
     */
   private def rowsToJson[K: JsonFormat, V: JsonFormat] // format: OFF
-    (itemSet:BufferedMultiValueSet[K,V])
+    (itemSet:BufferedMultiValueSet[K,V], parentSpan:Span)
     (implicit execution:ExecutionContext)
     : JsonDataStream = { // format: ON
 
@@ -144,7 +134,7 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
     val merged: Observable[Seq[MultiValue[K, V]]] = Observable.from(mergedFuture)
 
     JsonDataStream(
-      dataStream = JsonEventWriter.fromObservableSeq(merged),
+      dataStream = JsonEventWriter.fromObservableSeq(merged, Some(parentSpan)),
       streamType = KeyValueType
     )
   }
@@ -168,28 +158,29 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
   }
 
   def onOffToIntervals[K: TypeTag: Numeric] // format: OFF
-      (onOffSet: RawRangedSet[K, Boolean], span:UnstartedSpan) 
+      (onOffSet: RawRangedSet[K, Boolean], parentSpan:Span) 
       (implicit execution: ExecutionContext)
       : RangedIntervalSet[K] = { // format: ON
-    val track = TrackObservable()
-    val started = span.start()
     val groups = onOffSet.groups.map { group =>
       val groups = group.stacks.map { stack =>
         val streams = stack.streams.map { stream =>
-          val initial = oneStreamToIntervals(stream.initial)
-          val ongoing = oneStreamToIntervals(stream.ongoing)
-          new RangedIntervalStream(track.finish(initial), ongoing, stream.fromRange)
+          val initial = oneStreamToIntervals(stream.initial, parentSpan)
+          // ongoing is disabled for now, so we can expose performance metrics on the entire stream
+          //          val ongoing = oneStreamToIntervals(stream.ongoing, parentSpan)
+          val ongoing = Observable.empty
+          new RangedIntervalStream(initial, ongoing, stream.fromRange)
         }
         new RangedIntervalStack(streams)
       }
       new RangedIntervalGroup(groups, group.name)
     }
-    track.allFinished.foreach { _ => started.complete() }
     new RangedIntervalSet(groups)
   }
 
   /** convert on/off events to intervals */
-  private def oneStreamToIntervals[T: Numeric](onOffs: Observable[Event[T, Boolean]]): Observable[IntervalItem[T]] = {
+  private def oneStreamToIntervals[T: Numeric] // format: OFF
+      (onOffs: Observable[Event[T, Boolean]], parentSpan:Span)
+      : Observable[IntervalItem[T]] = { // format: ON
     val numeric = implicitly[Numeric[T]]
 
     // As we walk through the on/off data, produce this state record. 
@@ -201,24 +192,31 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
       require(current.isEmpty || emit.isEmpty)
     }
 
+
     val intervalStates =
-      onOffs.scan(IntervalState(None, None)) { (state, event) =>
-        (state.current, event.value) match {
-          case (None, true) => // start a new zero length interval
-            val current = IntervalItem(event.argument, numeric.zero)
-            IntervalState(Some(current), None)
-          case (None, false) => // continue with no interval
-            state
-          case (Some(item), true) => // accumulate into current interval, making it a bit longer
-            val start = item.start
-            val size = event.argument - start
-            val current = IntervalItem(start, size)
-            IntervalState(Some(current), None)
-          case (Some(item), false) => // end started interval 
-            val start = item.start
-            val size = event.argument - start
-            val emit = IntervalItem(start, size)
-            IntervalState(None, Some(emit))
+      onOffs.toVector.flatMap { seqOnOffs =>  // TODO re-enable incemental processing, rather than forcing everthing to a Seq
+        Span.prepare("onOffToIntervals", parentSpan).time {
+          val intervalStates =
+            seqOnOffs.scanLeft(IntervalState(None, None)) { (state, event) =>
+              (state.current, event.value) match {
+                case (None, true) => // start a new zero length interval
+                  val current = IntervalItem(event.argument, numeric.zero)
+                  IntervalState(Some(current), None)
+                case (None, false) => // continue with no interval
+                  state
+                case (Some(item), true) => // accumulate into current interval, making it a bit longer
+                  val start = item.start
+                  val size = event.argument - start
+                  val current = IntervalItem(start, size)
+                  IntervalState(Some(current), None)
+                case (Some(item), false) => // end started interval 
+                  val start = item.start
+                  val size = event.argument - start
+                  val emit = IntervalItem(start, size)
+                  IntervalState(None, Some(emit))
+              }
+            }
+          Observable.from(intervalStates)
         }
       }
 
@@ -245,11 +243,9 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
 
   /** merge intervals into one stream per group */
   def mergeIntervals[K: TypeTag: Numeric: Ordering] // format: OFF
-      (set: BufferedIntervalSet[K], span:UnstartedSpan)
+      (set: BufferedIntervalSet[K], parentSpan:Span)
       (implicit execution: ExecutionContext) 
       : BufferedIntervalSet[K] = { // format: ON
-
-    val startedSpan = span.start()
 
     val groups = set.groups.map { group =>
       val eachStackCombined: Seq[Future[Seq[IntervalItem[K]]]] =
@@ -263,13 +259,11 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
         }
       val allCombined = Future.sequence(eachStackCombined).map(_.flatten)
       val allMerged = allCombined.map { items =>
-        Span.prepare("directMerge", startedSpan).time {
+        Span.prepare("mergeIntervals", parentSpan).time {
           val sorted = items.sortBy(_.argument)
           IntervalItem.combine(sorted)
         }
       }
-
-      allMerged.foreach { _ => startedSpan.complete() }
 
       // LATER merge ongoing intervals as well (probably requires buffering to find overlaps..)
       val ongoing = Observable.empty
@@ -294,20 +288,24 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
   /** Interprets the source events as intervals, and returns for each partition a single interval
     * representing the total overlap of the source intervals with the period partition.
     */
-  private def intersectPerPeriod[K: TypeTag: Numeric](
-    intervalSet: BufferedIntervalSet[K],
-    optPeriod: Option[PeriodWithZone])(implicit execution: ExecutionContext): PeriodIntervalSet[K] = {
+  private def intersectPerPeriod[K: TypeTag: Numeric] // format: OFF
+      (intervalSet: BufferedIntervalSet[K],
+       optPeriod: Option[PeriodWithZone],
+       parentSpan: Span)
+      (implicit execution: ExecutionContext): PeriodIntervalSet[K] = { // format: ON
     optPeriod match {
       case Some(periodWithZone) =>
         val groups = intervalSet.groups.map { group =>
           val stacks = group.stacks.map { stack =>
             val streams = stack.streams.map { stream =>
               val futurePartsAndIntersected = stream.initialEntire.map { items =>
-                val timeParts = timePartitionsFromRequest(items, stream.fromRange, periodWithZone)
-                val intersected: Seq[IntervalItem[K]] = timeParts.partIterator().toSeq.flatMap { jodaInterval =>
-                  IntervalItem.jodaMillisIntersections(items, jodaInterval)
+                Span.prepare("intersectPerPeriod", parentSpan).time {
+                  val timeParts = timePartitionsFromRequest(items, stream.fromRange, periodWithZone)
+                  val intersected: Seq[IntervalItem[K]] = timeParts.partIterator().toSeq.flatMap { jodaInterval =>
+                    IntervalItem.jodaMillisIntersections(items, jodaInterval)
+                  }
+                  (timeParts, intersected)
                 }
-                (timeParts, intersected)
               }
               val futureIntersected = futurePartsAndIntersected.map { case (_, intersected) => intersected }
               val futureTimeParts = futurePartsAndIntersected.map { case (timeParts, _) => timeParts }
@@ -334,15 +332,15 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
 
   /** add up the length of each interval in each requested period, or in the entire data set if no period is specified */
   private def sumIntervals[K: TypeTag: Numeric] // format: OFF
-      (intervalSet: PeriodIntervalSet[K])
+      (intervalSet: PeriodIntervalSet[K], parentSpan:Span)
       (implicit execution:ExecutionContext)
       : BufferedRawItemSet[K,K] = { // format: ON
     val groups = intervalSet.groups.map { group =>
       val stacks = group.stacks.map { stack =>
         val streams = stack.streams.map { stream =>
           stream.timeParts match {
-            case Some(times) => sumPerPeriod(stream, times)
-            case None        => sumEntire(stream)
+            case Some(times) => sumPerPeriod(stream, times, parentSpan)
+            case None        => sumEntire(stream, parentSpan)
           }
         }
         new BufferedRawItemStack(streams)
@@ -354,7 +352,7 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
 
   /** add up the length of each interval in each requested period */
   private def sumPerPeriod[K: TypeTag: Numeric, V: TypeTag: Numeric, I <: Event[K, V]] // format: OFF
-      (stream:BufferedItemStream[K,V,I], futureParts:Future[TimePartitions])
+      (stream:BufferedItemStream[K,V,I], futureParts:Future[TimePartitions], parentSpan:Span)
       (implicit execution:ExecutionContext)
       : BufferedItemStream[K,V,Event[K,V]] = { // format: ON
 
@@ -363,39 +361,43 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
         parts <- futureParts
         items <- stream.initialEntire
       } yield {
-        // TODO remove stuff from active
-        // TODO don't check stuff in active that starts after the end of this period
-        val active = items
+        Span.prepare("sumPerPeriod", parentSpan).time {
+          // TODO remove stuff from active
+          // TODO don't check stuff in active that starts after the end of this period
+          val active = items
 
-        val zeroValue = implicitly[Numeric[V]].zero
-        val summaryItems =
-          parts.partIterator().take(maxParts).map { jodaInterval =>
-            val start: K = Numeric[Long].toType[K](jodaInterval.start.millis)
-            val end: K = Numeric[Long].toType[K](jodaInterval.end.millis)
-            val inPeriod = active.filter { item => item.argument >= start && item.argument < end }
+          val zeroValue = implicitly[Numeric[V]].zero
+          val summaryItems =
+            parts.partIterator().take(maxParts).map { jodaInterval =>
+              val start: K = Numeric[Long].toType[K](jodaInterval.start.millis)
+              val end: K = Numeric[Long].toType[K](jodaInterval.end.millis)
+              val inPeriod = active.filter { item => item.argument >= start && item.argument < end }
 
-            val sum = inPeriod.map(_.value).reduceOption(_ + _).getOrElse(zeroValue)
-            Event(start, sum)
-          }
-        summaryItems.toVector
+              val sum = inPeriod.map(_.value).reduceOption(_ + _).getOrElse(zeroValue)
+              Event(start, sum)
+            }
+          summaryItems.toVector
+        }
       }
     new BufferedItemStream[K, V, Event[K, V]](futureItems, stream.ongoing, stream.fromRange)
   }
 
   /** add up the length of each interval in the data set (no partitioning by time period) */
   private def sumEntire[K: TypeTag, V: TypeTag: Numeric, I <: Event[K, V]] // format: OFF
-      (stream:BufferedItemStream[K,V,I])
+      (stream:BufferedItemStream[K,V,I], parentSpan:Span)
       (implicit execution:ExecutionContext)
       :BufferedItemStream[K,V,Event[K,V]] = { // format: ON
     val initial =
       stream.initialEntire.map { items =>
-        items.headOption.map(_.argument) match {
-          case Some(start) =>
-            val total = items.map(_.value).reduce(_ + _)
-            val item = Event(start, total)
-            Seq(item)
-          case None =>
-            Seq()
+        Span.prepare("sumEntire", parentSpan).time {
+          items.headOption.map(_.argument) match {
+            case Some(start) =>
+              val total = items.map(_.value).reduce(_ + _)
+              val item = Event(start, total)
+              Seq(item)
+            case None =>
+              Seq()
+          }
         }
       }
     new BufferedItemStream[K, V, Event[K, V]](initial, stream.ongoing, stream.fromRange)
@@ -403,7 +405,7 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
 
   /** combine multiple groups with multiple streams containing individual values into a single stream containg tabular values */
   private def tabularGroups[K: TypeTag, V: TypeTag] // format: OFF
-      (itemSet: BufferedRawItemSet[K, V])
+      (itemSet: BufferedRawItemSet[K, V], parentSpan:Span)
       (implicit execution: ExecutionContext)
       : BufferedOptionRowSet[K, V] = { // format: ON
 
@@ -421,11 +423,13 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
 
     // composite each group into rows with multiple values
     val grouped: Future[OptionRows[K, V]] = Future.sequence(futureSeqPerGroup).map { seqPerGroup =>
-      val rows = transposeSlices(seqPerGroup)
-      rows.map { row =>
-        val key = row.head.get.asInstanceOf[K]
-        val values = row.tail.asInstanceOf[Seq[Option[V]]]
-        Event(key, values)
+      Span.prepare("tabularGroups", parentSpan).time {
+        val rows = transposeSlices(seqPerGroup)
+        rows.map { row =>
+          val key = row.head.get.asInstanceOf[K]
+          val values = row.tail.asInstanceOf[Seq[Option[V]]]
+          Event(key, values)
+        }
       }
     }
 
@@ -438,7 +442,7 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
 
   /** convert table rows containing Option values into zeros */
   private def tabularBlanksToZeros[K: TypeTag, V: TypeTag: Numeric] // format: OFF
-      (itemSet:BufferedOptionRowSet[K,V])
+      (itemSet:BufferedOptionRowSet[K,V], parentSpan:Span)
       (implicit execution: ExecutionContext)
       : BufferedMultiValueSet[K, V] = { // format: ON
     val zero = implicitly[Numeric[V]].zero
@@ -447,9 +451,11 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
       val stacks = group.stacks.map { stack =>
         val streams = stack.streams.map { stream =>
           val initial: Future[Seq[MultiValue[K, V]]] = stream.initialEntire.map { rows =>
-            rows.map { row =>
-              val zeroedValues = row.value.map(_.getOrElse(zero))
-              new MultiValue(row.argument, zeroedValues)
+            Span.prepare("tabularBlanksToZeros", parentSpan).time {
+              rows.map { row =>
+                val zeroedValues = row.value.map(_.getOrElse(zero))
+                new MultiValue(row.argument, zeroedValues)
+              }
             }
           }
           new BufferedMultiValueStream[K, V](initial, Observable.empty, None)

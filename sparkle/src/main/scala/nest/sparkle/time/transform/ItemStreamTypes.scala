@@ -11,6 +11,7 @@ import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.measure.UnstartedSpan
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext
+import nest.sparkle.measure.Span
 
 /** Shortcut type signatures for ItemGroupSet, ItemStream, etc.
   */
@@ -111,34 +112,32 @@ class BufferedItemGroup[K, V, I, S <: BufferedItemStream[K, V, I]]( // format: O
 object BufferedIntervalSet {
   /** factory to create a BufferedIntervalSet from a RangedIntervalSet */
   def fromRangedSet[K] // format: OFF
-      (ranged: RangedIntervalSet[K], span:UnstartedSpan)
+      (ranged: RangedIntervalSet[K], parentSpan:Span)
       (implicit execution:ExecutionContext)
       : BufferedIntervalSet[K] = { // format: ON
-    val startedSpan = span.start()
-    val tracks = ArrayBuffer[Future[Unit]]()
-    val groups =
-      ranged.groups.map { group =>
-        val stacks =
-          group.stacks.map { stack =>
-            val streams =
-              stack.streams.map { stream =>
-                val initial = stream.initial.toFutureSeq
-                tracks += initial.map(_ =>())
-                implicit val tag = stream.keyType
-                new BufferedIntervalStream(initial, stream.ongoing, stream.fromRange)
-              }
-            new BufferedIntervalStack(streams)
-          }
-        new BufferedIntervalGroup(stacks, group.name)
-      }
-    Future.sequence(tracks).foreach{ _ => startedSpan.complete()}
-    new BufferedIntervalSet(groups)
+    Span.prepare("BufferedIntervalSet", parentSpan).time {
+      val groups =
+        ranged.groups.map { group =>
+          val stacks =
+            group.stacks.map { stack =>
+              val streams =
+                stack.streams.map { stream =>
+                  val initial = stream.initial.toFutureSeq
+                  implicit val tag = stream.keyType
+                  new BufferedIntervalStream(initial, stream.ongoing, stream.fromRange)
+                }
+              new BufferedIntervalStack(streams)
+            }
+          new BufferedIntervalGroup(stacks, group.name)
+        }
+      new BufferedIntervalSet(groups)
+    }
   }
 }
 
 /** a BufferedItemStream that also includes a TimePartitions object for dividing the input into
- *  partitions based on a requested time partition (e.g. "1 month")
- */
+  * partitions based on a requested time partition (e.g. "1 month")
+  */
 class PeriodIntervalStream[K: TypeTag]( // format: OFF
     _initialEntire: Future[Seq[IntervalItem[K]]],
     _ongoing: Observable[IntervalItem[K]],
@@ -150,7 +149,8 @@ class PeriodIntervalStream[K: TypeTag]( // format: OFF
 class MultiValue[K, V](key: K, values: Seq[V]) extends Event[K, Seq[V]](key, values)
 
 /** an RangedAsyncSet where the Items are basic key value pairs. This type of set packages initial
- *  data from the store, before subsequent transformations. */
+  * data from the store, before subsequent transformations.
+  */
 class FetchedGroupSet[K]( // format: OFF
     groups:Seq[RawItemGroup[K]]
   ) extends ItemGroupSet[K, Any, RawItem[K],RawItemStream[K],RawItemStack[K], RawItemGroup[K]](groups) { // format: ON

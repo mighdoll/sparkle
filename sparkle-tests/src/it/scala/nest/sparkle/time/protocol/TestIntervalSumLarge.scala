@@ -165,9 +165,14 @@ class TestIntervalSumLarge extends FunSuite with Matchers with CassandraTestConf
       summary = "1 day", repeats = 2, parallel = 10, warmups = 2)
   }
   
-  ignore("timed intervalSum on 10K records") {
-    intervalSumLargeTest(nodes = 10, records = 10000, delta = 1.hour, flipChance = .01,
-      summary = "1 month", repeats = 10, parallel = 10, warmups = 2)
+  ignore("timed intervalSum on 10K records") {  // 10K is a bit more than 1 year of daily records
+    intervalSumLargeTest(nodes = 1, records = 10000, delta = 1.hour, flipChance = .01,
+      summary = "1 month", repeats = 200, parallel = 1, warmups = 0)
+  }
+  
+  ignore("timed intervalSum on 100K records") {  // 10K is a bit more than 1 year of daily records
+    intervalSumLargeTest(nodes = 1, records = 100000, delta = 1.hour, flipChance = .01,
+      summary = "1 month", repeats = 10, parallel = 1, warmups = 0)
   }
   
   ignore("timed intervalSum on 10K records, 1000 times") {

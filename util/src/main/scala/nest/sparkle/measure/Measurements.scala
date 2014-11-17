@@ -53,13 +53,24 @@ class MeasurementToTsvFile(fileName: String) extends Measurements {
   val writer = Files.newBufferedWriter(Paths.get(fileName), charSet, TRUNCATE_EXISTING, CREATE)
   writer.write("name\ttraceId\ttime\tduration\n")
   writer.flush()
+  
+//  @volatile var stopped = false
+//  import scala.concurrent.future
+//  future {
+//    while (!stopped) {
+//      Thread.sleep(1000)
+//      writer.flush()
+//    }
+//  }
+//  
+//  def shutdown():Unit = { }
 
   def publish(span: CompletedSpan): Unit = {
     val name = span.name
-    val startMillis = span.start.value / 1000L // for now in milliseconds
+    val startMicros = span.start.value 
     val duration = span.duration.value
     val traceId = span.traceId.value
-    val csv = s"$name\t$traceId\t$startMillis\t$duration\n"
+    val csv = s"$name\t$traceId\t$startMicros\t$duration\n"
     writer.write(csv)
     writer.flush() // LATER only flush every few seconds
   }
