@@ -46,19 +46,43 @@ trait KafkaLoaderAdminService extends AdminService
   lazy val allTopics: Route = {
     get {
       path("topics") {
-        onComplete(KafkaStatus.getTopics) {
+        onComplete(KafkaStatus.allTopics) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
       }
     }
   }
-  
+   
+  /** Returns an array of JSON objects for each topic being loaded */
+  lazy val allTopics2: Route = {
+    get {
+      path("topics2") {
+        onComplete(KafkaStatus.allTopics2) {
+          case Success(s)   => complete(s)
+          case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
+        }
+      }
+    }
+  }
+    
+  /** Info on a single topic */
+  lazy val oneTopic: Route = {
+    get {
+      path("topics" / Segment) { topicName =>
+        onComplete(KafkaStatus.topicFromName(topicName)) {
+          case Success(s)   => complete(s)
+          case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
+        }
+      }
+    }
+  }
+ 
   /** Returns an array of JSON objects for each Kafka broker */
   lazy val brokers: Route = {
     get {
       path("brokers") {
-        onComplete(KafkaStatus.getBrokers) {
+        onComplete(KafkaStatus.allBrokers) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
@@ -99,7 +123,7 @@ trait KafkaLoaderAdminService extends AdminService
     * @return Future
     */
   private def getConsumerGroups: Future[Seq[String]] = {
-    KafkaStatus.getConsumerGroups.map { groups => 
+    KafkaStatus.allConsumerGroups.map { groups => 
       groups.filter(_.startsWith(groupPrefix))
     }
   }
@@ -107,7 +131,7 @@ trait KafkaLoaderAdminService extends AdminService
   private def getOffsets: Future[Seq[KafkaGroupOffsets]] = {
     def processGroups(groups: Seq[String]): Future[Seq[KafkaGroupOffsets]] = {
       val futures = groups map { group => 
-        KafkaStatus.getGroupOffsets(group)
+        KafkaStatus.consumerGroupOffsets(group)
       }
       Future.sequence(futures)
     }
@@ -121,7 +145,8 @@ trait KafkaLoaderAdminService extends AdminService
   }
 
   override lazy val routes: Route = {
-    allTopics ~
+    allTopics ~ allTopics2 ~
+    oneTopic ~
     brokers ~
     consumerGroups ~
     offsets

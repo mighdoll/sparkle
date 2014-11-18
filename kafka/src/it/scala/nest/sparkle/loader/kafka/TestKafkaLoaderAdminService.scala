@@ -50,21 +50,17 @@ class TestKafkaLoaderAdminService
   
   test("The list of topics includes the test topic") {
     Get("/topics") ~> allRoutes ~> check {
-      val topics = convertJsonResponse[Seq[KafkaTopic]]
-      topics.exists(_.name.contentEquals(TopicName)) shouldBe true
-      val optTopic = topics.find(_.name.contentEquals(TopicName))
-      optTopic match {
-        case Some(topic) =>
-          topic.partitions.length shouldBe NumPartitions
-          topic.partitions.zipWithIndex foreach { case (partition, i) =>
-            partition.id shouldBe i
-            partition.leader shouldBe 0
-            partition.brokerIds.length shouldBe 1
-            partition.brokerIds(0) shouldBe 0
-            partition.earliest shouldBe 0
-            partition.latest shouldBe 5
-          }
-        case _       => fail("topic not found in topics")
+      val topics = convertJsonResponse[Map[String,KafkaTopic]]
+      topics should contain key TopicName
+      val topic = topics(TopicName)
+      topic.partitions.length shouldBe NumPartitions
+      topic.partitions.zipWithIndex foreach { case (partition, i) =>
+        partition.id shouldBe i
+        partition.leader shouldBe 0
+        partition.brokerIds.length shouldBe 1
+        partition.brokerIds(0) shouldBe 0
+        partition.earliest should contain (0)
+        partition.latest should contain (5)
       }
     }
   }

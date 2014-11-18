@@ -13,8 +13,22 @@ class TestKafkaStatus
   private val _timeout = FiniteDuration(10, duration.MINUTES)  // WTF? 10.minutes doesn't compile
   implicit val zkProps = ZkConnectProps("localhost:2181", _timeout, _timeout)
   
+  private def checkTestTopic(topic: KafkaTopic) {
+    topic.name shouldBe TopicName
+    topic.partitions.length shouldBe NumPartitions
+    val partitions = topic.partitions
+    partitions.zipWithIndex foreach { case (partition,i) =>
+      partition.id shouldBe i
+      partition.leader shouldBe 0
+      partition.brokerIds.length shouldBe 1
+      partition.brokerIds(0) shouldBe 0
+      partition.earliest should contain (0)
+      partition.latest should contain (5)
+    }
+  }
+  
   test("get broker 0") {
-    val future = KafkaStatus.getBroker(0)
+    val future = KafkaStatus.brokerFromId(0)
     val broker = Await.result(future, timeout)
     
     broker.host shouldBe "localhost"
@@ -23,7 +37,7 @@ class TestKafkaStatus
   }
   
   test("should be one broker") {
-    val future = KafkaStatus.getBrokers
+    val future = KafkaStatus.allBrokers
     val brokers = Await.result(future, timeout)
     
     brokers.length shouldBe 1
@@ -33,49 +47,38 @@ class TestKafkaStatus
     broker.id   shouldBe 0
   }
   
-  test("topics should contain the test one") {
-    val future = KafkaStatus.getTopicNames
+  test("topic names should contain the test one") {
+    val future = KafkaStatus.allTopicNames
     val topicNames = Await.result(future, timeout)
     
-    topicNames.contains(TopicName) shouldBe true
+    topicNames should contain (TopicName)
+  }
+  
+  test("topics should contain the test one") {
+    val future = KafkaStatus.allTopics
+    val topicMap = Await.result(future, timeout)
+    
+    topicMap should contain key TopicName
+    val topic = topicMap(TopicName)
+    checkTestTopic(topic)
   }
    
   test("get the test topic") {
-    val future = KafkaStatus.getTopicInfo(TopicName)
+    val future = KafkaStatus.topicFromName(TopicName)
     val topic = Await.result(future, timeout)
     
-    topic.name shouldBe TopicName
-    topic.partitions.length shouldBe NumPartitions
-    val partitions = topic.partitions
-    partitions.zipWithIndex foreach { case (partition,i) =>
-      partition.id shouldBe i
-      partition.leader shouldBe 0
-      partition.brokerIds.length shouldBe 1
-      partition.brokerIds(0) shouldBe 0
-      partition.earliest shouldBe 0
-      partition.latest shouldBe 5
-    }
-  }
-   
-  test("get the test topic partition ids") {
-    val future = KafkaStatus.getTopicPartitionIds(TopicName)
-    val partIds = Await.result(future, timeout)
-    
-    partIds.length shouldBe NumPartitions
-    partIds.zipWithIndex foreach { case (partId,i) =>
-      partId shouldBe i
-    }
+    checkTestTopic(topic)
   }
   
   test("consumer groups should contain the test one") {
-    val future = KafkaStatus.getConsumerGroups
+    val future = KafkaStatus.allConsumerGroups
     val groups = Await.result(future, timeout)
     
     groups.contains(ConsumerGroup) shouldBe true
   }
  
   test("should be one consumer in the consumer group") {
-    val future = KafkaStatus.getConsumersInGroup(ConsumerGroup)
+    val future = KafkaStatus.consumersInGroup(ConsumerGroup)
     val consumers = Await.result(future, timeout)
     
     consumers.length shouldBe 1
@@ -84,14 +87,14 @@ class TestKafkaStatus
   }
   
   test("consumer group should contain topic") {
-    val future = KafkaStatus.getConsumerGroupTopics(ConsumerGroup)
+    val future = KafkaStatus.consumerGroupTopics(ConsumerGroup)
     val topics = Await.result(future, timeout)
     
     topics.contains(TopicName) shouldBe true
   }
    
   test("get consumer group topic partition 0 offset") {
-    val future = KafkaStatus.getPartitionOffset(ConsumerGroup, TopicName, 0)
+    val future = KafkaStatus.kafkaPartitionOffset(ConsumerGroup, TopicName, 0)
     val partitionOffset = Await.result(future, timeout)
     
     partitionOffset.partition shouldBe 0
@@ -99,7 +102,7 @@ class TestKafkaStatus
   }
    
   test("get consumer group topic offsets") {
-    val future = KafkaStatus.getGroupOffsets(ConsumerGroup)
+    val future = KafkaStatus.consumerGroupOffsets(ConsumerGroup)
     val groupOffsets = Await.result(future, timeout)
     
     groupOffsets.group shouldBe ConsumerGroup

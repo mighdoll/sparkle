@@ -8,8 +8,8 @@ case class KafkaTopicPartition(
   id: Int, 
   brokerIds: Seq[Int], 
   leader: Int,
-  earliest: Long,
-  latest: Long
+  earliest: Option[Long],
+  latest: Option[Long]
 ) {
   override def toString: String = s"$id:$leader($brokerIds)"
 }
