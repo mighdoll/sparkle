@@ -31,6 +31,7 @@ import org.scalatest.Matchers
 import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.util.{ InitializeReflection, ConfigUtil }
+import nest.sparkle.util.ConfigUtil.configForSparkle
 import spray.routing.RoutingSettings
 import spray.http.DateTime
 import spray.http.HttpResponse
@@ -42,6 +43,7 @@ import akka.actor.ActorSystem
 import org.scalatest.FunSuite
 import nest.sparkle.measure.Measurements
 import nest.sparkle.measure.ConfiguredMeasurements
+import java.util.concurrent.TimeUnit.MILLISECONDS
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
   self: Suite =>
@@ -56,7 +58,13 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 
   // TODO legacy, delete soon
   def registry: DataRegistry = ???
-
+  
+  lazy val defaultTimeout = {
+    val protocolConfig = configForSparkle(rootConfig).getConfig("protocol-tests")
+    val millis = protocolConfig.getDuration("default-timeout", MILLISECONDS)
+    FiniteDuration(millis, MILLISECONDS)
+  }
+  
   /** make a stream request, expecting a single stream of long/double results */
   def v1TypicalRequest(message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => Unit) {
     v1TypedRequest[Double](message) { seqEvents =>
@@ -65,12 +73,10 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   }
 
   /** make a stream request, and report all stream data returned as events */
-  def v1TypedRequest[U: JsonFormat](message: StreamRequestMessage)(fn: Seq[Seq[Event[Long, U]]] => Unit) {
-    //     uncomment when debugging
-    //    implicit val timeout: RouteTestTimeout = {
-    //      println("setting timeout to 1 hour for debugging")
-    //      RouteTestTimeout(1.hour)
-    //    }
+  def v1TypedRequest[U: JsonFormat] // format: OFF
+      (message: StreamRequestMessage, timeout: FiniteDuration = defaultTimeout)
+      (fn: Seq[Seq[Event[Long, U]]] => Unit) {
+    implicit val routeTimeout: RouteTestTimeout = RouteTestTimeout(timeout)
     Post("/v1/data", message) ~> v1protocol ~> check {
       val events = TestDataService.dataFromStreamsResponse[U](response)
       fn(events)
@@ -78,7 +84,7 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   }
 
   /** send a json string to the data port and report back the http response */
-  def sendDataMessage(message: String, timeout: FiniteDuration = 1.second): Future[HttpResponse] = {
+  def sendDataMessage(message: String, timeout: FiniteDuration = defaultTimeout): Future[HttpResponse] = {
     implicit val routeTimeout: RouteTestTimeout = RouteTestTimeout(timeout)
     val promised = Promise[HttpResponse]
     Post("/v1/data", message) ~> v1protocol ~> check {
