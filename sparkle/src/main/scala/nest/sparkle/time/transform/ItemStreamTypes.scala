@@ -112,10 +112,10 @@ class BufferedItemGroup[K, V, I, S <: BufferedItemStream[K, V, I]]( // format: O
 object BufferedIntervalSet {
   /** factory to create a BufferedIntervalSet from a RangedIntervalSet */
   def fromRangedSet[K] // format: OFF
-      (ranged: RangedIntervalSet[K], parentSpan:Span)
-      (implicit execution:ExecutionContext)
+      (ranged: RangedIntervalSet[K])
+      (implicit execution:ExecutionContext, parentSpan:Span)
       : BufferedIntervalSet[K] = { // format: ON
-    Span("BufferedIntervalSet", parentSpan) {
+    Span("BufferedIntervalSet").time {
       val groups =
         ranged.groups.map { group =>
           val stacks =
