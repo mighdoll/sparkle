@@ -259,8 +259,10 @@ class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) 
         }
       val allCombined = Future.sequence(eachStackCombined).map(_.flatten)
       val allMerged = allCombined.map { items =>
-        Span.prepare("mergeIntervals", parentSpan).time {
-          val sorted = items.sortBy(_.argument)
+        val sorted = Span.prepare("mergeIntervals.sort", parentSpan).time {
+          items.sortBy(_.argument)
+        }
+        Span.prepare("mergeIntervals.combine", parentSpan).time {
           IntervalItem.combine(sorted)
         }
       }
