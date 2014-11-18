@@ -1,4 +1,4 @@
-/* Copyright 2014  Nest Labs
+/* Copyright 2013  Nest Labs
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -11,16 +11,13 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.  */
+package nest.sparkle.loader
 
-package nest.sparkle.loader.kafka
-
-/** Subclasses implement the FindDecoder trait to identify the KafkaColumnDecoder for each
- *  kafka topic.  The implementing subclass must have a single argument constructor containing
- *  a Config parameter. The fully qualified class name of the subclass goes should be added to the .conf file
- *  at the key `kafka-loader.find-decoder`. */
-trait FindDecoder {
-  def decoderFor(topic: String): KafkaColumnDecoder[_]
+/**
+ * Trait that provides serialization/deserialization implementations for type T
+ * @tparam T
+ */
+trait SparkleSerializer[T] {
+  def toBytes(data: T): Array[Byte];
+  def fromBytes(bytes:Array[Byte]): T;
 }
-
-
-

@@ -21,15 +21,15 @@ import org.scalatest.{ FunSuite, Matchers }
 import org.scalatest.prop.{ PropertyChecks, TableDrivenPropertyChecks }
 
 import nest.sparkle.loader.ColumnUpdate
-import nest.sparkle.loader.kafka.AvroRecordGenerators.{ GeneratedRecord, genArrayRecords, makeLatencyRecord }
 import nest.sparkle.store.cassandra.{ CassandraReaderWriter, CassandraTestConfig }
 import nest.sparkle.util.Log
 import nest.sparkle.util.ConfigUtil.{modifiedConfig, sparkleConfigName, configForSparkle}
-import nest.sparkle.util.ObservableFuture.WrappedObservable
-import nest.sparkle.util.Watch
+
+import nest.sparkle.loader.kafka.MillisDoubleTSVGenerators._
+
 import spray.util.pimpFuture
 
-class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks with TableDrivenPropertyChecks
+class TestStreamLoadEncodedKafka extends FunSuite with Matchers with PropertyChecks with TableDrivenPropertyChecks
     with KafkaTestConfig with CassandraTestConfig with Log {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -37,7 +37,7 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
   def expectedPath(id1: String, id2: String) = {
     id2 match {
       // NULL is the default value specified in MillisDoubleArrayFinder
-      case null => s"sample-data/path/$id1/${MillisDoubleArrayFinder.id2Default}/Latency/value"
+      case null => s"sample-data/path/$id1/${MillisDoubleTSVFinder.id2Default}/Latency/value"
       case _    => s"sample-data/path/$id1/$id2/Latency/value"
     }
   }
@@ -49,21 +49,21 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
     sparkleConfig.getConfig("kafka-loader")
   }
 
-  def writeAndVerify(records: Seq[GeneratedRecord[Long, Double]], columnPath: String) {
+  def writeAndVerify(records: Seq[MillisDoubleTSV], columnPath: String) {
     withTestDb { testStore =>
-      KafkaTestUtil.withTestAvroTopic(rootConfig, MillisDoubleArrayAvro.schema) { kafka =>
+      KafkaTestUtil.withTestEncodedTopic(rootConfig, MillisDoubleTSVSerde) { kafka =>
 
         // prefill kafka queue
-        kafka.writer.write(records.map { _.record })
+        kafka.writer.write(records)
         // run loader
         val overrides =
           s"$sparkleConfigName.kafka-loader.topics" -> List(kafka.topic) ::
-          s"$sparkleConfigName.kafka-loader.find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleArrayFinder" ::
+          s"$sparkleConfigName.kafka-loader.find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleTSVFinder" ::
           Nil
 
         val storeWrite = testStore.writeListener.listen[Long](columnPath)
         val modifiedRoot = modifiedConfig(rootConfig, overrides: _*)
-        val loader = new AvroKafkaLoader[Long](modifiedRoot, testStore)
+        val loader = new KafkaLoader[Long](modifiedRoot, testStore)
         loader.start()
 
         try {
@@ -78,30 +78,27 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
   }
 
   val sampleRecords = Table(
-    ("id1", "id2", "events"),
-    ("foo", "bar", List(1L -> 1.0)),
-    ("abc", null, List(1L -> 13.1))
+    ("id1", "id2", "key", "value"),
+    ("foo", "bar", 1L, 1.0)
   )
 
   test("load some sample MillisDouble records") {
-    forAll(sampleRecords) { (id1, id2, events) =>
-      val record = makeLatencyRecord(id1, id2, events)
-      val sortedEvents = SortedSet[(Long, Double)]() ++ events
-      val fullRecord = GeneratedRecord(id1, id2, sortedEvents, record)
+    forAll(sampleRecords) { (id1, id2, key, value) =>
+      val record = MillisDoubleTSV(id1, id2, key, value)
       val columnPath = expectedPath(id1, id2)
-      writeAndVerify(Seq(fullRecord), columnPath)
+      writeAndVerify(Seq(record), columnPath)
     }
   }
 
   test("load a stream containing generated milliDouble arrays") {
-    forAll(genArrayRecords(1), MinSuccessful(1)) { generatedRecords =>
+    forAll(genRecords(1), MinSuccessful(1)) { generatedRecords =>
       val columnPath = expectedPath(generatedRecords.head.id1, generatedRecords.head.id2)
       writeAndVerify(generatedRecords, columnPath)
     }
   }
 
   /** verify that the watch() notifications are correct */
-  def checkWatch(updates: Seq[ColumnUpdate[Long]], generatedRecords: Seq[GeneratedRecord[Long, Double]]) {
+  def checkWatch(updates: Seq[ColumnUpdate[Long]], generatedRecords: Seq[MillisDoubleTSV]) {
     // verify update reports
     val generatedPaths = generatedRecords.map { record => expectedPath(record.id1, record.id2) }
     updates.foreach { update =>
@@ -110,17 +107,14 @@ class TestStreamLoadAvroKafka extends FunSuite with Matchers with PropertyChecks
   }
 
   /** verify that the correct data is in cassandra */
-  def checkCassandra(testStore: CassandraReaderWriter, generatedRecords: Seq[GeneratedRecord[Long, Double]]) {
+  def checkCassandra(testStore: CassandraReaderWriter, generatedRecords: Seq[MillisDoubleTSV]) {
     // verify matching data in cassandra
     generatedRecords.foreach { generated =>
       val column = testStore.column[Long, Double](expectedPath(generated.id1, generated.id2)).await
       val results = column.readRange(None, None).initial.toBlocking.toList
-      generated.events.size shouldBe results.length
-      generated.events zip results map {
-        case ((time, dataValue), event) =>
-          time shouldBe event.argument
-          dataValue shouldBe event.value
-      }
+      results.length shouldBe 1 //is it possible that the same id1/id2 combos was randomly generated more than once?
+      generated.key shouldBe results(0).argument
+      generated.value shouldBe results(0).value
     }
   }
 

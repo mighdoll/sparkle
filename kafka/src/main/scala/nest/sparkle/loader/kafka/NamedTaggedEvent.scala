@@ -1,9 +1,11 @@
 package nest.sparkle.loader.kafka
 
+import nest.sparkle.loader.TaggedColumn
+
 import scala.language.existentials
 import scala.reflect.runtime.universe._
 
-import org.apache.avro.util.Utf8
+//import org.apache.avro.util.Utf8
 
 import nest.sparkle.store.Event
 import nest.sparkle.util.Exceptions.NYI
@@ -39,7 +41,7 @@ object TypeTagUtil {
   def typeTaggedToString(value: Any, typed: TypeTag[_]): String = {
     value match {
       case s: String if typed.tpe <:< typeOf[String]   => s
-      case s: Utf8 if typed.tpe <:< typeOf[String]     => s.toString
+      //case s: Utf8 if typed.tpe <:< typeOf[String]     => s.toString
       case l: Long if typed.tpe <:< typeOf[Long]       => l.toString
       case i: Int if typed.tpe <:< typeOf[Int]         => i.toString
       case d: Double if typed.tpe <:< typeOf[Double]   => d.toString

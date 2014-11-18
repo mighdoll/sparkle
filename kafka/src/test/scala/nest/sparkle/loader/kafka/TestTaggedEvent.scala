@@ -1,5 +1,7 @@
 package nest.sparkle.loader.kafka
 
+import nest.sparkle.loader.TaggedColumn
+
 import scala.reflect.runtime.universe._
 
 import org.scalatest.{ FunSuite, Matchers }

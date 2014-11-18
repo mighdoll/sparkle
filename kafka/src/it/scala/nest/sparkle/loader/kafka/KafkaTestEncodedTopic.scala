@@ -15,23 +15,39 @@
 package nest.sparkle.loader.kafka
 
 import com.typesafe.config.Config
+import nest.sparkle.loader.SparkleSerializer
 import nest.sparkle.util.RandomUtil.randomAlphaNum
-import org.apache.avro.Schema
-import kafka.serializer.Decoder
-import org.apache.avro.generic.GenericRecord
+import kafka.serializer.{Encoder, Decoder}
 
-class KafkaTestAvroTopic(val rootConfig: Config, val schema: Schema, val testId: String) {
+/** test utility class for reading/writing type Ts from/to a kafka topic **/
+class KafkaTestEncodedTopic[T](val rootConfig: Config, val serde: SparkleSerializer[T], val testId: String) {
   val topic = s"testTopic-$testId"  // TODO DRY with testTopicName
 
-  val encoder = AvroSupport.genericEncoder(schema)
+  val encoder =  new Encoder[T] {
+    def toBytes(data: T) : Array[Byte] = {
+      serde.toBytes(data)
+    }
+  }
+
   val writer = KafkaWriter(topic, rootConfig)(encoder)
 }
 
 object KafkaTestUtil {
-  def withTestAvroTopic[T](rootConfig: Config,  
-                           schema: Schema,
-                           id: String = randomAlphaNum(3))(fn: KafkaTestAvroTopic => T): T = {
-    val kafka = new KafkaTestAvroTopic(rootConfig, schema, id)
+
+  val stringSerde = new SparkleSerializer[String] {
+    def toBytes(data: String): Array[Byte] = {
+      data.getBytes("UTF-8")
+    }
+
+    def fromBytes(bytes: Array[Byte]): String = {
+      new String(bytes, "UTF-8")
+    }
+  }
+
+  def withTestEncodedTopic[T, R](rootConfig: Config,
+                              serde: SparkleSerializer[T],
+                              id: String = randomAlphaNum(3))(fn: KafkaTestEncodedTopic[T] => R): R = {
+    val kafka = new KafkaTestEncodedTopic(rootConfig, serde, id)
     try {
       fn(kafka)
     } finally {
@@ -39,9 +55,13 @@ object KafkaTestUtil {
     }
   }
 
-  def withTestReader[T](testTopic: KafkaTestAvroTopic)(fn: KafkaReader[GenericRecord] => T): T = {
+  def withTestReader[T, R](testTopic: KafkaTestEncodedTopic[T], serde: SparkleSerializer[T])(fn: KafkaReader[T] => R): R = {
     val clientGroup = s"testClient-${testTopic.testId}"
-    val decoder = AvroSupport.genericDecoder(testTopic.schema)
+    val decoder = new Decoder[T] {
+      def fromBytes(bytes: Array[Byte]) : T = {
+        serde.fromBytes(bytes)
+      }
+    }
     val reader = KafkaReader(testTopic.topic, testTopic.rootConfig, clientGroup = Some(clientGroup))(decoder)
     try {
       fn(reader)

@@ -33,7 +33,7 @@ import nest.sparkle.util.{Instance, Log, ConfigUtil}
   * type parameter K is the type of the key in the store, (which is not necessarily the same as the type
   * of keys in the kafka stream.)
   */
-class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) // format: OFF
+class KafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) // format: OFF
     (implicit execution: ExecutionContext) 
   extends Log 
 { // format: ON
@@ -53,7 +53,7 @@ class AvroKafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) /
   }
 
   private lazy val loaders = topics.map { topic =>
-    new KafkaAvroArrayTopicLoader[K](rootConfig, storage, topic, columnDecoder(topic))
+    new KafkaTopicLoader[K](rootConfig, storage, topic, columnDecoder(topic))
   }.toList
 
   /** Start the loader for topic.

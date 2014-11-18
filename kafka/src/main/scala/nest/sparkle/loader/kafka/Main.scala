@@ -30,7 +30,7 @@ object Main
     val notification = new WriteNotification()
     val writeableStore = Store.instantiateWritableStore(sparkleConfig, notification)
     val storeKeyType = typeTag[Long]
-    new AvroKafkaLoader(rootConfig, writeableStore)(storeKeyType, global)
+    new KafkaLoader(rootConfig, writeableStore)(storeKeyType, global)
   }
   
   loader.start()

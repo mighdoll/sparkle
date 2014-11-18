@@ -71,9 +71,30 @@ object SparkleBuild extends Build {
           """
       )
 
+
+  lazy val sparkleLoader =
+    Project(id = "sparkle-loader", base = file("loader"))
+      .dependsOn(sparkleCore) //remove this after sparkle-store refactor
+      .configs(IntegrationTest)
+      .settings(
+        libraryDependencies ++= testAndLogging
+      )
+
+  lazy val sparkleAvro =
+    Project(id = "sparkle-avro-loader", base = file("avro-loader"))
+      .dependsOn(sparkleCore) // refactor to depend on just sparkle-store
+      .dependsOn(sparkleLoader)
+      .dependsOn(testKit)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= kitTestsAndLogging ++ avro
+      )
+
   lazy val kafkaLoader =    // loading from kafka into the store
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
       .dependsOn(sparkleCore)
+      .dependsOn(sparkleLoader)
       .dependsOn(protocolTestKit)
       .dependsOn(storeTestKit)
       .dependsOn(utilKafka % "compile->compile;it->it")
@@ -83,7 +104,6 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= avro,
         dependenciesToStart := Seq(kafkaServer, cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value
       )
@@ -91,6 +111,7 @@ object SparkleBuild extends Build {
   lazy val sparkShell =   // admin shell
     Project(id = "spark-repl", base = file("spark"))
       .dependsOn(sparkleCore)
+      .dependsOn(sparkleLoader)
       .dependsOn(protocolTestKit)
       .dependsOn(storeTestKit)
       .dependsOn(logbackConfig)
@@ -103,6 +124,19 @@ object SparkleBuild extends Build {
         ),
         dependenciesToStart := Seq(cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value
+      )
+
+  lazy val sparkAvro =   // avro libraries for spark loading
+    Project(id = "spark-avro", base = file("spark-avro"))
+      .dependsOn(sparkShell)
+      .dependsOn(sparkleAvro)
+      .dependsOn(logbackConfig)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= testAndLogging ++ spark ++ avro ++ Seq(
+          apacheAvroMapred
+        )
       )
 
   lazy val testKit =        // utilities for testing sparkle stuff

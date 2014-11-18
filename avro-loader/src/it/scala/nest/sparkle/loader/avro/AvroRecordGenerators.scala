@@ -1,4 +1,4 @@
-/* Copyright 2014  Nest Labs
+/* Copyright 2013  Nest Labs
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -11,20 +11,18 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.  */
+package nest.sparkle.loader.avro
 
-package nest.sparkle.loader.kafka
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Arbitrary
 import org.apache.avro.generic.GenericData
 import java.util.ArrayList
 import scala.collection.SortedSet
 import org.scalacheck.Gen
-import nest.sparkle.store.Event
 import scala.math.Ordering
 import org.scalacheck.Gen.Parameters
 import nest.sparkle.util.ScalaCheckUtils.withSize
 import scala.collection.mutable
-
 
 /** test generator support for making milli-double GenericRecord avro data */
 object AvroRecordGenerators {
@@ -108,24 +106,24 @@ object AvroRecordGenerators {
     GeneratedRecord[Long, Double](id1, id2, events, record)
   }
 
-  
+
   /** order by the first element in a case class */
   private case class OrderByFirst[T: Ordering, V]() extends Ordering[Tuple2[T, V]] {
     def compare(a: Tuple2[T, V], b: Tuple2[T, V]): Int =
       Ordering[T].compare(a._1, b._1)
   }
 
-  /** return an arbitrary double, according to scalacheck's distribution 
+  /** return an arbitrary double, according to scalacheck's distribution
    *  which includes random values, but is biased to include 0, -1, max, min preferentially
    */
   private def pickDouble(): Double = {
     val params = Parameters.default
     arbitrary[Double].apply(params).get
   }
-  
+
   /** Return a sequence of latency records. Each item(sample) has a unique timestamp, values
    *  are random.
-   *  
+   *
    *  @param id1 first per record variable id in the columnPath  (e.g. userID)
    *  @param id2 second per record variable id in the columnPath (e.g. deviceID)
    *  @param size number of items (samples) per avro record

@@ -12,28 +12,21 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-package nest.sparkle.loader.kafka
+package nest.sparkle.loader.avro
 
-import scala.language.existentials
-import scala.reflect.runtime.universe._
-import scala.collection.JavaConverters._
-import scala.collection.JavaConversions._
-
-import org.apache.avro.Schema
-import org.apache.avro.generic.GenericRecord
-import org.apache.avro.generic.GenericData
-import org.apache.avro.util.Utf8
-
-import nest.sparkle.loader.kafka.SchemaDecodeException.schemaDecodeException
+import nest.sparkle.loader.{ArrayRecordDecoder, NameTypeDefault, ArrayRecordColumns, ArrayRecordMeta}
 import nest.sparkle.store.Event
 import nest.sparkle.util.Log
+import org.apache.avro.Schema
+import org.apache.avro.generic.{GenericData, GenericRecord}
+import org.apache.avro.util.Utf8
+
+import scala.language.existentials
 
 /** Utility for making the Decoder part of an AvroColumnDecoder from an avro schema when
   * the avro schema contains an array of key,values fields.
   */
-object AvroArrayDecoder extends Log {
-  /** Type of a filter that can process input data as it arrives */
-  type ArrayRecordFilter = (ArrayRecordMeta, Seq[Seq[Event[_, _]]]) => Seq[Seq[Event[_, _]]]
+object AvroArrayDecoder extends AvroDecoder with Log {
 
   /** Return a decoder for an avro schema containing one or more ids and an array of key,[value,..] records.
     * There can be more than one value in each row of the array.  The value fields are copied
@@ -49,13 +42,12 @@ object AvroArrayDecoder extends Log {
     *               form the column name
     * @param skipValueFields a blacklist of values fields in each array row to ignore
     */
-  def decoder(schema: Schema,  // format: OFF 
+  def decoder(schema: Schema,  // format: OFF
               arrayField: String = "elements",
               idFields: Seq[(String,Option[String])] = Seq(("id", None)),
               keyField: String = "time",
-              skipValueFields: Set[String] = Set(), 
-              filterOpt:Option[ArrayRecordFilter] = None
-              ): ArrayRecordDecoder = // format: ON
+              skipValueFields: Set[String] = Set(),
+              filterOpt:Option[ArrayRecordFilter] = None ): ArrayRecordDecoder[GenericRecord] = // format: ON
     {
       val name = schema.getName
 
@@ -69,7 +61,7 @@ object AvroArrayDecoder extends Log {
         }
 
       val elementSchema = elementSchemaOpt.getOrElse {
-        schemaDecodeException(s"$arrayField is not extractable from schema $name")
+        SchemaDecodeException.schemaDecodeException(s"$arrayField is not extractable from schema $name")
       }
 
       val metaData = {
@@ -99,65 +91,8 @@ object AvroArrayDecoder extends Log {
 
       val decoder = recordWithArrayDecoder(arrayField, metaData, filterOpt)
 
-      ArrayRecordDecoder(decoder, metaData)
+      ArrayRecordDecoder[GenericRecord](decoder, metaData)
     }
-
-  private def typeTagField(schema: Schema, fieldName: String): TypeTag[_] = {
-    fieldTypeTag(schema.getField(fieldName))
-  }
-
-  private def fieldTypeTag(avroField: Schema.Field): TypeTag[_] = {
-    avroField.schema.getType match {
-      case Schema.Type.LONG    => typeTag[Long]
-      case Schema.Type.INT     => typeTag[Int]
-      case Schema.Type.DOUBLE  => typeTag[Double]
-      case Schema.Type.BOOLEAN => typeTag[Boolean]
-      case Schema.Type.STRING  => typeTag[String]
-      case Schema.Type.FLOAT   => typeTag[Float]
-      case Schema.Type.UNION   => unionTypeTag(avroField.schema)
-      case _                   => ???
-    }
-  }
-
-  /** avroField is a union. Only unions with null and a primitive are supported.
-    * Find the primitive and return it.
-    * Supports either order, e.g. [null,string] or [string,null]
-    * @param schema union schema
-    * @return typeTag of primitive in the union.
-    */
-  private def unionTypeTag(schema: Schema): TypeTag[_] = {
-    val schemas = schema.getTypes.toSeq
-    if (schemas.size != 2) {
-      schemaDecodeException("avro field is a union of more than 2 types")
-    }
-    val types = schemas.map(_.getType)
-    if (!types.contains(Schema.Type.NULL)) {
-      schemaDecodeException("avro field is a union with out a null")
-    }
-
-    // Find the first supported type, really should only be skipping NULL.
-    types.collectFirst({
-      case Schema.Type.LONG    => typeTag[Long]
-      case Schema.Type.INT     => typeTag[Int]
-      case Schema.Type.DOUBLE  => typeTag[Double]
-      case Schema.Type.BOOLEAN => typeTag[Boolean]
-      case Schema.Type.STRING  => typeTag[String]
-      case Schema.Type.FLOAT   => typeTag[Float]
-    }).getOrElse(schemaDecodeException("avro field is a union with out a supported type"))
-  }
-
-  private def fieldsExcept(schema: Schema, exceptFields: Set[String]): Seq[String] = {
-    schema.getFields.asScala.map(_.name).collect {
-      case name if !exceptFields.contains(name) => name
-    }
-  }
-
-  private def typeTagFields(schema: Schema, fields: Seq[String]): Iterable[TypeTag[_]] = {
-    fields.map { fieldName =>
-      val schemaField = schema.getField(fieldName)
-      fieldTypeTag(schemaField)
-    }
-  }
 
   /** return a function that reads a Generic record into the ArrayRecordColumns format */
   private def recordWithArrayDecoder(arrayField: String,
@@ -215,10 +150,4 @@ object AvroArrayDecoder extends Log {
 
       ArrayRecordColumns(ids, columns)
   }
-}
-
-/** failure in configuring the avro schema */
-case class SchemaDecodeException(msg: String) extends RuntimeException(msg)
-object SchemaDecodeException {
-  def schemaDecodeException(msg: String): Nothing = throw SchemaDecodeException(msg)
 }

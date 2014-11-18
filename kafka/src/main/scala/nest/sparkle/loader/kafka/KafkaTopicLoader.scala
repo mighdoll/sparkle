@@ -13,27 +13,27 @@ import scala.util.control.NonFatal
 
 import com.typesafe.config.Config
 
-import kafka.consumer.ConsumerTimeoutException
+import _root_.kafka.consumer.ConsumerTimeoutException
 
-import nest.sparkle.loader.ColumnUpdate
+import nest.sparkle.loader._
 import nest.sparkle.loader.Loader.{Events, LoadingTransformer, TaggedBlock}
-import nest.sparkle.loader.kafka.TypeTagUtil.typeTaggedToString
 import nest.sparkle.store.{Event, WriteableStore}
 import nest.sparkle.store.cassandra.{CanSerialize, RecoverCanSerialize}
 import nest.sparkle.util.{Instrumented, Log, Instance, ConfigUtil, Watched}
 import nest.sparkle.util.KindCast.castKind
 import nest.sparkle.util.TryToFuture.FutureTry
 
-import KafkaAvroArrayTopicLoader._
+import KafkaTopicLoader._
 
 /**
  * A runnable that reads a topic from a KafkaReader that returns messages containing Avro encoded
  * records that contains an array of values and writes the values to the Sparkle store.
  */
-class KafkaAvroArrayTopicLoader[K: TypeTag]( 
-    val rootConfig: Config, val store: WriteableStore, 
-  val topic: String, val decoder: KafkaKeyValues
-) (implicit execution: ExecutionContext) 
+class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
+                                    val store: WriteableStore,
+                                    val topic: String,
+                                    val decoder: KafkaKeyValues
+) (implicit execution: ExecutionContext)
   extends Watched[ColumnUpdate[K]]
   with Runnable
   with Instrumented
@@ -161,7 +161,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
       
       val decodeIterator = kafkaIterator map { tryMessageAndMetadata =>
         tryMessageAndMetadata flatMap { messageAndMetadata =>
-          convertMessage(messageAndMetadata.message())
+          KeyValueColumnConverter.convertMessage(decoder, messageAndMetadata.message())
         }
       }
       
@@ -196,55 +196,6 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
           discardIterator()
       }
     } 
-  }
-
-  /** Convert an Avro encoded record to a TaggedBlock
-    * 
-    * @param record Message read from Kafka. Expected to be decoded by decoder.
-    *               
-    * @return TaggedBlock created from message.
-    */
-  private def convertMessage(record: ArrayRecordColumns): Try[TaggedBlock] = {
-    // Wrap a try/catch around the whole method so no error crashes the loader.
-    try {
-      convertMetric.time {
-        val columnPathIds = {
-          val ids = decoder.metaData.ids zip record.ids flatMap { case (NameTypeDefault(name, typed, default), valueOpt) =>
-            // What happens if the original value was explicitly null?
-            val valueOrDefault = valueOpt orElse default orElse {
-              log.debug("{} record contains field {} with no value and no default", topic, name)
-              None
-            }
-            valueOrDefault.map(typeTaggedToString(_, typed))
-          }
-          ids.foldLeft("")(_ + "/" + _).stripPrefix("/")
-        }
-
-        val block =
-          record.typedColumns(decoder.metaData).map { taggedColumn =>
-            val columnPath = decoder.columnPath(columnPathIds, taggedColumn.name)
-
-            /** do the following with type parameters matching each other
-              * (even though our caller will ultimately ignore them) */
-            def withFixedTypes[T, U](): TaggedSlice[T,U] = {
-              val typedEvents = taggedColumn.events.asInstanceOf[Events[T, U]]
-              val keyType: TypeTag[T] = castKind(taggedColumn.keyType)
-              val valueType: TypeTag[U] = castKind(taggedColumn.valueType)
-              TaggedSlice[T, U](columnPath, typedEvents)(keyType, valueType)
-            }
-            withFixedTypes[Any, Any]()
-          }
-
-        log.trace(
-            s"convertMessage: got block.length ${block.length}  head:${
-              block.headOption.map {_.shortPrint(NumberOfEventsToTrace)}
-            }"
-          )
-        Success(block)
-      }
-    } catch {
-      case NonFatal(err) => Failure(err)
-    }
   }
   
   /** Transform the block. Only called if transformer is not None */
@@ -366,7 +317,7 @@ class KafkaAvroArrayTopicLoader[K: TypeTag](
 
 }
 
-object KafkaAvroArrayTopicLoader
+object KafkaTopicLoader
 {
   /** Maximum time to wait before retrying after Store write failure */
   val maxStoreRetryWait = 60000L

@@ -1,9 +1,21 @@
-package nest.sparkle.loader.kafka
+/* Copyright 2013  Nest Labs
 
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.  */
+package nest.sparkle.loader
+
+import nest.sparkle.store.Event
 import scala.language.existentials
 import scala.reflect.runtime.universe._
-import org.apache.avro.generic.GenericRecord
-import nest.sparkle.store.Event
 
 /** metadata about a column e.g. from Avro array field
   * @param nullValue A value to use if the column is null or missing.
@@ -43,8 +55,6 @@ case class TaggedSlice[T: TypeTag, U: TypeTag](columnPath: String, events: Seq[E
   }
 }
 
-/** a decoder that transforms avro generic records to ArrayRecordColumns, bundled with the meta data
-  * necessary to interpret the untyped ArrayRecordColumns
-  */
-case class ArrayRecordDecoder(decodeRecord: GenericRecord => ArrayRecordColumns,
-                              metaData: ArrayRecordMeta)
+/** decoder that maps records of type R to ArrayRecordColumns... e.g. avro GenericRecord -> ArrayRecordColumns **/
+case class ArrayRecordDecoder[R](decodeRecord: R => ArrayRecordColumns,
+                                 metaData: ArrayRecordMeta)

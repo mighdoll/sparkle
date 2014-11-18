@@ -1,39 +1,23 @@
+/* Copyright 2013  Nest Labs
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.  */
 package nest.sparkle.loader.kafka
 
-import kafka.serializer.Decoder
-import org.apache.avro.Schema
+import _root_.kafka.serializer.Decoder
+import nest.sparkle.loader._
 
-/** contains the event decoder and meta data decoders to convert a stream of
-  * of binary kafka records into a stream of sparkle data events.
-  *
-  * The columnPath produced by users of the decoder is expected to be:
-  * prefix/id/suffix/columnName
-  */
-sealed trait KafkaColumnDecoder[T] extends Decoder[T] {
-  /** columnPath after the id (including the columnName itself) */
-  lazy val columnPathSuffix: String = appendSlash(suffix)
-
-  /** columnPath before the id */
-  lazy val columnPathPrefix: String = appendSlash(prefix)
-
-  /** subclass should override to add a suffix to the columnPath */
-  protected def suffix: String = ""
-
-  /** columnPath prefix, without trailing slash */
-  protected def prefix: String = ""
-
-  /** append a slash if the string is non-empty */
-  private def appendSlash(string: String): String = {
-    if (string == "") {
-      string
-    } else {
-      string + "/"
-    }
-  }
-
-  /** return the full columnPath for this decoder given an id and columnName */
-  def columnPath(id:String, columnName:String):String =
-      s"$columnPathPrefix$id/$columnPathSuffix$columnName"
+/** extends ColumnDecoder with the ability to read streams of binary kafka data **/
+sealed trait KafkaColumnDecoder[T] extends ColumnDecoder with Decoder[T] {
 }
 
 /** A KafkaColumnDecoder for records that contain a single id and multiple rows,
@@ -45,28 +29,24 @@ sealed trait KafkaColumnDecoder[T] extends Decoder[T] {
   *        [key,[value,..]
   *      ]
   */
-trait KafkaKeyValues extends KafkaColumnDecoder[ArrayRecordColumns] {
+trait KafkaKeyValues extends KeyValueColumn with KafkaColumnDecoder[ArrayRecordColumns] {
   /** report the types of the id, the key, and the values */
-  def metaData: ArrayRecordMeta
+  override def metaData: ArrayRecordMeta
 }
 
 /** a KafkaColumnDecoder for id,[value] only records */
 // trait KafkaValues // LATER
 
 /** KafkaColumnDecoder for avro encoded key,value records */
-case class AvroColumnDecoder(// format: OFF
-    schema: Schema,
-    decoder: ArrayRecordDecoder,
-    override val prefix: String
-   ) extends KafkaKeyValues { // format: ON
+case class KafkaKeyValueColumnDecoder[R]( serde: SparkleSerializer[R],
+                                          decoder: ArrayRecordDecoder[R],
+                                          override val suffix: String,
+                                          override val prefix: String) extends KafkaKeyValues {
 
   override def fromBytes(bytes: Array[Byte]): ArrayRecordColumns = {
-    val genericDecoder = AvroSupport.genericDecoder(schema)
-    val record = genericDecoder.fromBytes(bytes)
+    val record = serde.fromBytes(bytes)
     decoder.decodeRecord(record)
   }
 
   override def metaData: ArrayRecordMeta = decoder.metaData
-
-  override def suffix: String = schema.getName()
 }

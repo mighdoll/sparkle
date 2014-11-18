@@ -82,6 +82,16 @@ object Dependencies {
   val nativeNetlibOsX       = "com.github.fommil.netlib" % "netlib-native_system-osx-x86_64" % "1.1" classifier "natives"
                               
   val apacheAvro            = "org.apache.avro"           % "avro"                    % "1.7.6"
+  // avroMapred comes in a hadoop1 vs. hadoop2 favor
+  // All spark 1.1.0 artifacts are compiled against hadoop1 libraries, so we want to the "hadoop1" classifier here
+  val apacheAvroMapred      = ("org.apache.avro"          %  "avro-mapred"            % "1.7.6" classifier "hadoop1"
+                                exclude("org.slf4j", "slf4j-api")
+                                exclude("org.apache.avro", "avro")
+                                exclude("org.apache.avro", "avro-ipc")
+                                exclude("org.codehaus.jackson", "jackson-core-asl")
+                                exclude("org.codehaus.jackson", "jackson-mapper-asl")
+                              )
+
   val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.1.1"
                                   exclude("javax.jms", "jms")
                                   exclude("com.sun.jdmk", "jmxtools")

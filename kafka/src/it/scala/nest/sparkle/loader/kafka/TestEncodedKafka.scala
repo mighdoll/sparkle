@@ -14,29 +14,28 @@
 
 package nest.sparkle.loader.kafka
 
-import org.apache.avro.generic.GenericData
-
+import kafka.message.MessageAndMetadata
 import org.scalatest.{ FunSuite, Matchers }
 import org.scalatest.prop.PropertyChecks
 
-import nest.sparkle.loader.kafka.KafkaTestUtil.{ withTestAvroTopic, withTestReader }
+import nest.sparkle.loader.kafka.KafkaTestUtil.{ withTestEncodedTopic, withTestReader }
 
-class TestAvroKafka extends FunSuite with Matchers with PropertyChecks with KafkaTestConfig {
-  import AvroRecordGenerators.Implicits.arbitraryMillisDoubleRecord
+class TestEncodedKafka extends FunSuite with Matchers with PropertyChecks with KafkaTestConfig {
+  val stringSerde = KafkaTestUtil.stringSerde
 
-  test("read/write a few avro encoded elements from the kafka queue") {
-    forAll(MinSuccessful(5), MinSize(1)) { records: List[GenericData.Record] =>
-      withTestAvroTopic(rootConfig, MillisDoubleAvro.schema) { testTopic =>
+  test("read/w rite a few encoded elements from the kafka queue"){
+    forAll(MinSuccessful(5), MinSize(1)) { records: List[String] =>
+      withTestEncodedTopic[String, Unit](rootConfig, stringSerde) { testTopic =>
         testTopic.writer.write(records)
-        withTestReader(testTopic) { reader =>
+        withTestReader(testTopic, stringSerde) { reader =>
           val iter = reader.messageAndMetaDataIterator()
-          val results = iter.take(records.length).toList
-          results.length shouldBe records.length
+          val results: List[MessageAndMetadata[String, String]] = iter.take(records.length).toList
+          
           records zip results foreach {
             case (record, result) =>
+              record shouldBe result.message()
               val msg = result.message()
-              record.get("time") shouldBe msg.get("time")
-              record.get("value") shouldBe msg.get("value")
+              record shouldBe msg
           }
         }
       }

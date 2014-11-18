@@ -11,10 +11,9 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.  */
+package nest.sparkle.loader.avro
 
-package nest.sparkle.loader.kafka
-import nest.sparkle.loader.kafka.AvroSupport.schemaFromString
-import com.typesafe.config.Config
+import nest.sparkle.loader.avro.AvroUtil.schemaFromString
 
 object MillisDoubleAvro {
   val avroJson ="""
@@ -64,17 +63,4 @@ object MillisDoubleArrayAvro {
 object MillisDoubleArrayFinder {
   val id2Default = "id-missing"
 }
-import MillisDoubleArrayFinder.id2Default
-
-class MillisDoubleArrayFinder(rootConfig:Config) extends FindDecoder {
-  def decoderFor(topic:String):KafkaColumnDecoder[ArrayRecordColumns] = {
-    val schema = MillisDoubleArrayAvro.schema
-    val decoder = AvroArrayDecoder.decoder(
-      schema, 
-      idFields = Seq(("id1", None), ("id2", Some(id2Default)))
-    )
-    AvroColumnDecoder(schema, decoder, prefix = "sample-data/path")
-  }
-}
-
 
