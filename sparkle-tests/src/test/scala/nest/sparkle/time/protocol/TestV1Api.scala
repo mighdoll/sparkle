@@ -22,7 +22,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
 
-class TestV1Api extends TestStore with StreamRequestor with TestDataService {
+class TestV1Api extends PreloadedRamStore with StreamRequestor with TestDataService {
 //  implicit val routeTestTimeout = RouteTestTimeout(1.hour)
   nest.sparkle.util.InitializeReflection.init
 

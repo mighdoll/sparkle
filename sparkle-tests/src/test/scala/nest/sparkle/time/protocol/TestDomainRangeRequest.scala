@@ -16,7 +16,7 @@ import nest.sparkle.util.RandomUtil.randomAlphaNum
 import scala.reflect.runtime.universe._
 import nest.sparkle.util.InitializeReflection
 
-class TestDomainRangeRequest extends TestStore with StreamRequestor with TestDataService {
+class TestDomainRangeRequest extends PreloadedRamStore with StreamRequestor with TestDataService {
   nest.sparkle.util.InitializeReflection.init
 
   /** create a new column in the test RAM store and return its columnPath */

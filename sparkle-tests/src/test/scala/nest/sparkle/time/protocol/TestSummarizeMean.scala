@@ -6,7 +6,7 @@ import nest.sparkle.time.transform.SummaryTransform.Events
 import spire.math._
 import spire.implicits._
 
-class TestSummarizeMean extends TestStore with StreamRequestor with TestDataService {
+class TestSummarizeMean extends PreloadedRamStore with StreamRequestor with TestDataService {
   nest.sparkle.util.InitializeReflection.init
 
   def mean[T: Numeric, U: Numeric](events: Events[T, U]): Event[T, U] = {

@@ -26,7 +26,7 @@ import nest.sparkle.store.Event
 import nest.sparkle.store.ram.WriteableRamStore
 
 /** (for unit tests) a ram based Store with a sample column */
-trait TestStore extends FunSuite with Matchers with ScalatestRouteTest
+trait PreloadedRamStore extends FunSuite with Matchers with ScalatestRouteTest
     with PropertyChecks with BeforeAndAfterAll with StreamRequestor {
   lazy val testId = "server1"
 

@@ -42,7 +42,7 @@ class TestingSelector(rootConfig: Config, store: Store) extends CustomSourceSele
   override def name = getClass.getName
 }
 
-class TestCustomSelector extends TestStore with StreamRequestor with TestDataService {
+class TestCustomSelector extends PreloadedRamStore with StreamRequestor with TestDataService {
   import TestingSelectorParamsFormat._
   import scala.collection.JavaConverters._
   nest.sparkle.util.InitializeReflection.init

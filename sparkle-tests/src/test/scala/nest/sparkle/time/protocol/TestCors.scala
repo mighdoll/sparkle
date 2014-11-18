@@ -35,7 +35,7 @@ trait LocalHostOrigin {
 /* corsHosts is static per route, so we create separate test suites for various settings
  * of corsHosts. */
 
-class TestCors extends TestStore with StreamRequestor with TestDataService with ExpectHeaders
+class TestCors extends PreloadedRamStore with StreamRequestor with TestDataService with ExpectHeaders
     with LocalHostOrigin {
   lazy val anyHost = "*"
   override lazy val corsHosts = List(anyHost)
@@ -72,7 +72,7 @@ class TestCors extends TestStore with StreamRequestor with TestDataService with 
   }
 }
 
-class TestCorsOff extends TestStore with StreamRequestor with TestDataService
+class TestCorsOff extends PreloadedRamStore with StreamRequestor with TestDataService
     with ExpectHeaders with LocalHostOrigin {
 
   def expectNoCorsHeaders() {
@@ -92,7 +92,7 @@ class TestCorsOff extends TestStore with StreamRequestor with TestDataService
   }
 }
 
-class TestCorsHosts extends TestStore with StreamRequestor with TestDataService
+class TestCorsHosts extends PreloadedRamStore with StreamRequestor with TestDataService
     with ExpectHeaders with LocalHostOrigin {
   lazy val hosts = s"$localhost,http://otherhost.com"
   override lazy val corsHosts = hosts.split(",").map(_.trim).toList
