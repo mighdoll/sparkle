@@ -46,7 +46,7 @@ class TestMeasurements extends FunSuite with Matchers {
       name shouldBe spanName
       val time = JLong.parseLong(timeString)
       val duration = JLong.parseLong(durationString)
-      val timeToNow = Math.abs(time - System.currentTimeMillis())
+      val timeToNow = Math.abs(time/1000L - System.currentTimeMillis())
       timeToNow should be < 5.seconds.toMillis
       duration / (1000 * 1000) should be < 5.seconds.toMillis 
     }
