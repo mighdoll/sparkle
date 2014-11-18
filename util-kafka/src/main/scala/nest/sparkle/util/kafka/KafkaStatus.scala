@@ -114,25 +114,31 @@ class KafkaStatus(
     
     val futureTopicNames = allTopicNames
     val futureConsumers = simpleConsumers
-    for {
-      topicNames <- futureTopicNames
-      consumers  <- futureConsumers
-      topics     <- topicsFromNames(consumers,topicNames)
-    } yield {
-      consumers.values.foreach(_.consumer.close())
-      (topics map { topic => topic.name -> topic }).toMap
+    try {
+      for {
+        topicNames <- futureTopicNames
+        consumers  <- futureConsumers
+        topics     <- topicsFromNames(consumers, topicNames)
+      } yield {
+        (topics map { topic => topic.name -> topic}).toMap
+      }
+    } finally {
+      futureConsumers.foreach(_.values.foreach(_.consumer.close()))
     }
   }
   
   /** Get all topic specific info */
   def topicFromName(topicName: String): Future[KafkaTopic] = {
-    for {
-      brokers    <- allBrokers
-      consumers  =  brokers.map(BrokerConsumer).map {bc => bc.broker.id -> bc}.toMap
-      topic      =  kafkaTopic(consumers, topicName)
-    } yield {
-      consumers.values.foreach(_.consumer.close())
-      topic
+    val futureConsumers = simpleConsumers
+    try {
+      for {
+        consumers <- futureConsumers
+        topic     =  kafkaTopic(consumers, topicName)
+      } yield {
+        topic
+      }
+    } finally {
+      futureConsumers.foreach(_.values.foreach(_.consumer.close()))
     }
   }
   
@@ -266,6 +272,7 @@ object KafkaStatus {
     future
   }
   
+  /** Faster way of getting all topics. Maximizes parallel processing */
   def allTopics(implicit props: ZkConnectProps): Future[Map[String,KafkaTopic]] = {
     def topicsFromNames(topicNames: Seq[String]) = {
       val futures = topicNames map { topicName =>
@@ -282,7 +289,7 @@ object KafkaStatus {
     }
   }
   
-  /* This is slower than allTopics */
+  /** This is slower than allTopics but uses fewer connections and threads */
   def allTopics2(implicit props: ZkConnectProps): Future[Map[String,KafkaTopic]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.allTopics
