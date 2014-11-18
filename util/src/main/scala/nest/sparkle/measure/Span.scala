@@ -26,7 +26,7 @@ object Span {
   }
   
   /** return an UnstartedSpan with a parent Span */
-  def prepare(name: String, parent: Span, opsReport:Boolean = false): UnstartedSpan = {
+  def apply(name: String, parent: Span, opsReport:Boolean = false): UnstartedSpan = {
     val myName = s"${parent.name}.$name"    
     UnstartedSpan(name = myName, traceId = parent.traceId, spanId = SpanId.create(),
       parentId = Some(parent.spanId), annotations = Seq(), opsReport = opsReport,
@@ -77,13 +77,16 @@ case class UnstartedSpan(
     opsReport: Boolean,
     measurements: Measurements) extends Span with Log {
 
+  /** start the timing clock. 
+   *  Note the caller is repsonsible for calling complete() on the returned StartedSpan, to end the timing and report. */
   def start(): StartedSpan = {
     val start = NanoSeconds.current()
     StartedSpan(name = name, traceId = traceId, spanId = spanId, parentId = parentId, start = start,
       annotations = annotations, opsReport = opsReport, measurements = measurements)
   }
   
-  def time[T](fn: => T):T = {
+  /** Time a function and report the results. */
+  def apply[T](fn: => T):T = {
     val started = start()
     val result = fn
     started.complete()
@@ -101,6 +104,7 @@ case class StartedSpan(
     opsReport: Boolean,
     measurements: Measurements) extends Span {
 
+  /** complete a timing */
   def complete() = {
     val end = NanoSeconds.current()
     val duration = NanoSeconds(end.value - start.value)

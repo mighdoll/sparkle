@@ -55,7 +55,7 @@ object JsonEventWriter {
       : Observable[Seq[JsArray]] = { // format: ON
     val parent = parentSpan.getOrElse(DummySpan)
     observed.map { eventSeq =>
-      Span.prepare("JsonEventWriter", parent).time {
+      Span("JsonEventWriter", parent) {
         eventSeq map { event =>
           eventToJsArray(event)
         }

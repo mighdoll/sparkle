@@ -115,7 +115,7 @@ object BufferedIntervalSet {
       (ranged: RangedIntervalSet[K], parentSpan:Span)
       (implicit execution:ExecutionContext)
       : BufferedIntervalSet[K] = { // format: ON
-    Span.prepare("BufferedIntervalSet", parentSpan).time {
+    Span("BufferedIntervalSet", parentSpan) {
       val groups =
         ranged.groups.map { group =>
           val stacks =
