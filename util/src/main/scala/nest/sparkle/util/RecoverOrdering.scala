@@ -1,6 +1,8 @@
 package nest.sparkle.util
-import scala.reflect.runtime.universe._
+
 import nest.sparkle.util.OptionConversion._
+
+import scala.reflect.runtime.universe._
 import scala.util.Try
 
 case class OrderingNotFound(msg: String) extends RuntimeException(msg)

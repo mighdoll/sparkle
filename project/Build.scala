@@ -45,6 +45,7 @@ object SparkleBuild extends Build {
   lazy val sparkleCore =      // core libraries shared by protocol server and stream loader
     Project(id = "sparkle-core", base = file("sparkle"))
       .dependsOn(httpCommon)
+      .dependsOn(sparkleStore)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
@@ -72,9 +73,25 @@ object SparkleBuild extends Build {
       )
 
 
+  lazy val sparkleStore =
+    Project(id = "sparkle-store", base = file("store"))
+      .dependsOn(util)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= cassandraClient ++ testAndLogging ++ Seq (
+          rxJavaScala,
+          nettyAll,
+          sprayJson,
+          sprayUtil,
+          spire
+        )
+      )
+
+
   lazy val sparkleLoader =
     Project(id = "sparkle-loader", base = file("loader"))
-      .dependsOn(sparkleCore) //remove this after sparkle-store refactor
+      .dependsOn(sparkleStore)
       .configs(IntegrationTest)
       .settings(
         libraryDependencies ++= testAndLogging
@@ -82,7 +99,7 @@ object SparkleBuild extends Build {
 
   lazy val sparkleAvro =
     Project(id = "sparkle-avro-loader", base = file("avro-loader"))
-      .dependsOn(sparkleCore) // refactor to depend on just sparkle-store
+      .dependsOn(sparkleStore)
       .dependsOn(sparkleLoader)
       .dependsOn(testKit)
       .configs(IntegrationTest)
@@ -93,7 +110,7 @@ object SparkleBuild extends Build {
 
   lazy val kafkaLoader =    // loading from kafka into the store
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
-      .dependsOn(sparkleCore)
+      .dependsOn(sparkleStore)
       .dependsOn(sparkleLoader)
       .dependsOn(protocolTestKit)
       .dependsOn(storeTestKit)
@@ -110,7 +127,7 @@ object SparkleBuild extends Build {
 
   lazy val sparkShell =   // admin shell
     Project(id = "spark-repl", base = file("spark"))
-      .dependsOn(sparkleCore)
+      .dependsOn(sparkleStore)
       .dependsOn(sparkleLoader)
       .dependsOn(protocolTestKit)
       .dependsOn(storeTestKit)
@@ -186,10 +203,15 @@ object SparkleBuild extends Build {
       .settings(
         libraryDependencies ++= Seq(
           argot,
+          guava,
+          spire,
           scalaLogging,
           metricsScala,
           scalaConfig,
+          rxJavaCore,
+          rxJavaScala,
           Optional.metricsGraphite,
+          sprayJson,
           sprayCan % "optional",
           sprayRouting % "optional"
         ) ++ allTest

@@ -14,12 +14,8 @@
 
 package nest.sparkle.util
 
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.control.ControlThrowable
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
+import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success, Try}
 
 /** import this to enrich Option with a .toFuture method */
 object OptionConversion {

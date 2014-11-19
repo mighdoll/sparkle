@@ -34,6 +34,7 @@ object Dependencies {
   val sprayRouting          = "io.spray"                  %  "spray-routing"          % V.spray
   val sprayClient           = "io.spray"                  %  "spray-client"           % V.spray
   val sprayCaching          = "io.spray"                  %  "spray-caching"          % V.spray
+  val sprayUtil             = "io.spray"                  %  "spray-util"             % V.spray
   val sprayJson             = "io.spray"                  %% "spray-json"             % "1.2.5"
   val akkaActor             = "com.typesafe.akka"         %% "akka-actor"             % V.akka
   val akkaSlf4j             = "com.typesafe.akka"         %% "akka-slf4j"             % V.akka
@@ -72,8 +73,8 @@ object Dependencies {
                                 exclude("org.apache.spark", "spark-mllib_2.10") 
                                 exclude("org.scala-lang", "scala-compiler")          
                               */
-  val breeze                = "org.scalanlp"               %% "breeze"                 % "0.9"
 
+  val breeze                = "org.scalanlp"               %% "breeze"                 % "0.9"
   // we can add this back to speed up breeze
   val breezeNatives         = ("org.scalanlp"              %% "breeze-natives"         % "0.9"
                                 exclude("com.github.fommil.netlib", "all")
@@ -110,6 +111,8 @@ object Dependencies {
   
   val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.1_a2.2"
   val metricsGraphite       = "com.codahale.metrics"      %  "metrics-graphite"       % "3.0.2"
+
+  val guava                 = "com.google.guava"          % "guava"                   % "16.0"
 
   object Runtime {
     val logback             = "ch.qos.logback"            % "logback-classic"         % "1.1.2"

@@ -15,7 +15,6 @@
 package nest.sparkle.store
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
 import rx.lang.scala.Observable
 import scala.reflect.runtime.universe._
 import nest.sparkle.measure.Span

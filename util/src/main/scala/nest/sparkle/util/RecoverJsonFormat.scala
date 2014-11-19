@@ -1,11 +1,11 @@
 package nest.sparkle.util
 
-import scala.reflect.runtime.universe._
-import spray.json.JsonFormat
-import spray.json.DefaultJsonProtocol._
-import spray.json.JsValue
-import scala.util.Try
 import nest.sparkle.util.OptionConversion._
+import spray.json.{JsValue, JsonFormat}
+import spray.json.DefaultJsonProtocol._
+
+import scala.reflect.runtime.universe._
+import scala.util.Try
 
 case class JsonFormatNotFound(msg: String) extends RuntimeException(msg)
 

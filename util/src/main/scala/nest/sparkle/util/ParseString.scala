@@ -1,9 +1,9 @@
 package nest.sparkle.util
 
-import scala.reflect.runtime.universe._
 import nest.sparkle.util.KindCast.castKind
 import spray.json.JsValue
-import spray.json.JsonParser
+
+import scala.reflect.runtime.universe._
 
 /** typeclass to parse strings to a value. */
 abstract class ParseStringTo[T: TypeTag] {
@@ -68,7 +68,7 @@ object ParseStringTo {
 
   /** optionally return a string parser for a given type. If no std parser is available, returns None. */
   def findParser[T: TypeTag]: Option[ParseStringTo[T]] = {
-    import Implicits._
+    import nest.sparkle.util.ParseStringTo.Implicits._
     val existential: Option[ParseStringTo[_]] =
       typeTag[T].tpe match {
         case t if t <:< typeOf[Boolean] => Some(StringToBoolean)

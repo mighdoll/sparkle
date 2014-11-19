@@ -1,7 +1,6 @@
 package nest.sparkle.util
 
 import scala.reflect.runtime.universe._
-import spire.math.Fractional
 
 case class FractionalNotFound(msg: String) extends RuntimeException(msg)
 

@@ -14,12 +14,14 @@
 
 package nest.sparkle.util
 
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
+
+import rx.lang.scala.{Observable, Subscriber}
+
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
-import scala.collection.JavaConverters._
-import rx.lang.scala.{ Observable, Subject, Subscriber }
-import java.util.concurrent.ConcurrentHashMap
-import java.util.Collections
 
 object ObservableIterator extends Log {
   implicit class WrappedIterator[T](val iterator: Iterator[T]) extends AnyVal {

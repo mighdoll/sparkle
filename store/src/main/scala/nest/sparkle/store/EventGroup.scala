@@ -1,18 +1,13 @@
 package nest.sparkle.store
 
-import nest.sparkle.store.Event.Events
 import nest.sparkle.util.StableGroupBy._
 import scala.language.existentials
 import rx.lang.scala.Observable
 import nest.sparkle.util.ObservableUtil
-import nest.sparkle.time.transform.ItemGroup
-import spire.math.Numeric
-import spray.json.JsonFormat
-import nest.sparkle.time.protocol.JsonDataStream
-import nest.sparkle.time.protocol.JsonEventWriter
-import nest.sparkle.time.protocol.KeyValueType
-import spray.json.DefaultJsonProtocol._
-import nest.sparkle.time.transform.ItemStream
+
+//import spray.json.JsonFormat
+//import nest.sparkle.time.protocol.KeyValueType
+
 
 /** Utility for working with groups of Events */
 object EventGroup {
@@ -105,12 +100,12 @@ object EventGroup {
       }
     }
   }
-
+/*
   def rowsToJson[T: JsonFormat, U: JsonFormat](rowBlocks: Observable[KeyedRow[T, U]]): JsonDataStream = {
     JsonDataStream(
       dataStream = JsonEventWriter.fromObservableSeq(rowBlocks),
       streamType = KeyValueType
     )
   }
-
+*/
 }

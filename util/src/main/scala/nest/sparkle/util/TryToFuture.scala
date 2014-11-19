@@ -14,14 +14,11 @@
 
 package nest.sparkle.util
 
-import scala.util.Try
-import scala.concurrent.Future
-import scala.util.Success
-import scala.util.Failure
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.util.Failure
 import java.util.concurrent.TimeoutException
+
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.util.{Failure, Success, Try}
 
 /** add a .toFuture method on Try */
 object TryToFuture {

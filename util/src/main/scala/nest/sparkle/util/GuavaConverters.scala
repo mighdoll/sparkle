@@ -14,11 +14,8 @@
 
 package nest.sparkle.util
 
-import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.{ Futures => GuavaFutures }
-import scala.concurrent.Future
-import com.google.common.util.concurrent.FutureCallback
-import scala.concurrent.Promise
+import com.google.common.util.concurrent.{Futures => GuavaFutures, ListenableFuture, FutureCallback}
+import scala.concurrent.{Future, Promise}
 
 object GuavaConverters {
   implicit class GuavaFutureConverter[T](val guavaFuture: ListenableFuture[T]) extends AnyVal {

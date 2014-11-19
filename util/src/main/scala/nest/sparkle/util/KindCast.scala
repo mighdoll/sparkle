@@ -1,4 +1,5 @@
 package nest.sparkle.util
+
 import scala.language.higherKinds
 
 object KindCast {

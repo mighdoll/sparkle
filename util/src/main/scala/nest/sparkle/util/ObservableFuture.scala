@@ -14,13 +14,12 @@
 
 package nest.sparkle.util
 
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext
-import rx.lang.scala.Observable
-import scala.concurrent.Promise
-import scala.util.Success
-import scala.util.Failure
 import java.util.NoSuchElementException
+
+import rx.lang.scala.Observable
+
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 
 /** convert a scala Future to an Observable and back */
 object ObservableFuture {

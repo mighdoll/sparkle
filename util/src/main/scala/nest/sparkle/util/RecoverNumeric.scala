@@ -1,8 +1,9 @@
 package nest.sparkle.util
-import scala.reflect.runtime.universe._
-import spire.math.Numeric
-import scala.util.Try
+
 import nest.sparkle.util.OptionConversion._
+import spire.math.Numeric
+import scala.reflect.runtime.universe._
+import scala.util.Try
 
 case class NumericNotFound(msg: String) extends RuntimeException(msg)
 

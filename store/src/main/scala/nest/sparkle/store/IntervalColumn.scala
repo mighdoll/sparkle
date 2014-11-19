@@ -38,7 +38,7 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]], earlyRead: 
   implicit val keyOrdering = RecoverOrdering.ordering[T](keyType)
 
   override def readRange // format: OFF
-      (start: Option[T] = None, end: Option[T] = None, limit: Option[Long] = None, parentSpan:Option[Span]) 
+      (start: Option[T] = None, end: Option[T] = None, limit: Option[Long] = None, parentSpan:Option[Span])
       (implicit execution: ExecutionContext): OngoingEvents[T,T] = { // format: ON
 
     // TODO large data gaps (e.g. >24 hr) should be assumed to be off, probably.. (configurable)
