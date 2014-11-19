@@ -22,7 +22,8 @@ import nest.sparkle.util.ConfigUtil.configForSparkle
 /** a web api for serving an administrative page */
 trait AdminService 
   extends StaticContent 
-          with HttpLogging 
+    with DisplayConfig
+    with HttpLogging 
 {
   implicit def executionContext: ExecutionContext
   def rootConfig: Config
@@ -37,12 +38,13 @@ trait AdminService
     get {
       path("health") {
         complete("ok")
-       }
+      }
     }
 
   lazy val allRoutes: Route = {// format: OFF
     withRequestResponseLog {
       routes ~
+      configRoutes ~
       health ~
       staticContent
     }

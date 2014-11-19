@@ -1,6 +1,6 @@
 package nest.sparkle.http
 
-import spray.routing.{ HttpService, Route }
+import spray.routing.{HttpService, Route}
 
 import nest.sparkle.util.Log
 
@@ -15,7 +15,8 @@ case class ResourceLocation(location: String) extends FileOrResourceLocation
   */
 trait StaticContent
     extends HttpService
-    with Log {
+    with Log 
+{
   /** Subclasses set this to the default web page to display (e.g. the dashboard) */
   def webRoot: Option[FileOrResourceLocation] = None
 
