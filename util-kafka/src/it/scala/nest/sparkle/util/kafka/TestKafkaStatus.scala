@@ -47,14 +47,14 @@ class TestKafkaStatus
     broker.id   shouldBe 0
   }
   
-  test("topic names should contain the test one") {
+  test("all topic names should contain the test one") {
     val future = KafkaStatus.allTopicNames
     val topicNames = Await.result(future, timeout)
     
     topicNames should contain (TopicName)
   }
   
-  test("topics should contain the test one") {
+  test("all topics should contain the test one") {
     val future = KafkaStatus.allTopics
     val topicMap = Await.result(future, timeout)
     

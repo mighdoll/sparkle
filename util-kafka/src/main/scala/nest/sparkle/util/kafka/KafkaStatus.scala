@@ -114,32 +114,46 @@ class KafkaStatus(
     
     val futureTopicNames = allTopicNames
     val futureConsumers = simpleConsumers
-    try {
+    val futureResult =
       for {
-        topicNames <- futureTopicNames
         consumers  <- futureConsumers
+        topicNames <- futureTopicNames
         topics     <- topicsFromNames(consumers, topicNames)
       } yield {
         (topics map { topic => topic.name -> topic}).toMap
       }
-    } finally {
-      futureConsumers.foreach(_.values.foreach(_.consumer.close()))
+    
+    // Ensure SimpleConsumers are closed.
+    for {
+      result    <- futureResult
+      consumers <- futureConsumers
+    } yield {
+      consumers.values.foreach(_.consumer.close())
     }
+    
+    futureResult
   }
   
   /** Get all topic specific info */
   def topicFromName(topicName: String): Future[KafkaTopic] = {
     val futureConsumers = simpleConsumers
-    try {
+    val futureResult =
       for {
         consumers <- futureConsumers
         topic     =  kafkaTopic(consumers, topicName)
       } yield {
         topic
       }
-    } finally {
-      futureConsumers.foreach(_.values.foreach(_.consumer.close()))
+    
+    // Ensure SimpleConsumers are closed.
+    for {
+      result    <- futureResult
+      consumers <- futureConsumers
+    } yield {
+      consumers.values.foreach(_.consumer.close())
     }
+  
+    futureResult
   }
   
   def partitionIdsForConsumerGroupTopic(group: String, topic: String): Future[Seq[Int]] = {
@@ -212,7 +226,6 @@ class KafkaStatus(
       consumers
     }
   }
-  
 }
 
 /**
