@@ -3,13 +3,13 @@ package nest.sparkle.measure
 import scala.collection.JavaConverters._
 
 import java.nio.charset.Charset
-import java.nio.file.{Files, Paths}
-import java.nio.file.StandardOpenOption.{CREATE, TRUNCATE_EXISTING}
+import java.nio.file.{ Files, Paths }
+import java.nio.file.StandardOpenOption.{ CREATE, TRUNCATE_EXISTING }
 import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.Config
 
-import nest.sparkle.util.{ConfigUtil, Instrumented, Log, MetricsInstrumentation}
+import nest.sparkle.util.{ ConfigUtil, Instrumented, Log, MetricsInstrumentation }
 import nest.sparkle.util.BooleanOption.BooleanToOption
 
 import nl.grons.metrics.scala.Timer
@@ -53,21 +53,21 @@ class MeasurementToTsvFile(fileName: String) extends Measurements {
   val writer = Files.newBufferedWriter(Paths.get(fileName), charSet, TRUNCATE_EXISTING, CREATE)
   writer.write("name\ttraceId\ttime\tduration\n")
   writer.flush()
-  
-//  @volatile var stopped = false
-//  import scala.concurrent.future
-//  future {
-//    while (!stopped) {
-//      Thread.sleep(1000)
-//      writer.flush()
-//    }
-//  }
-//  
-//  def shutdown():Unit = { }
+
+  //  @volatile var stopped = false
+  //  import scala.concurrent.future
+  //  future {
+  //    while (!stopped) {
+  //      Thread.sleep(1000)
+  //      writer.flush()
+  //    }
+  //  }
+  //  
+  //  def shutdown():Unit = { }
 
   def publish(span: CompletedSpan): Unit = {
     val name = span.name
-    val startMicros = span.start.value 
+    val startMicros = span.start.value
     val duration = span.duration.value
     val traceId = span.traceId.value
     val csv = s"$name\t$traceId\t$startMicros\t$duration\n"
@@ -77,13 +77,13 @@ class MeasurementToTsvFile(fileName: String) extends Measurements {
 }
 
 /** a gateway that sends measurements to Coda's Metrics library */
-class MeasurementToMetrics() extends Measurements with Instrumented {
+class MeasurementToMetrics(reportLevel: ReportLevel) extends Measurements with Instrumented {
 
   def publish(span: CompletedSpan): Unit = {
     def makeTimer(name: String): Timer = {
       metrics.timer(name)
     }
-    if (span.opsReport) {
+    if (span.level.level <= reportLevel.level) {
       val timers = MetricsInstrumentation.registry.getTimers.asScala
       val optTimer = timers.get(span.name).map(new Timer(_))
       val timer = optTimer.getOrElse(makeTimer(span.name))
@@ -108,9 +108,20 @@ object MeasurementToTsvFile extends MeasurementGateway with Log {
 /** optionally return a gateway that sends measurements to coda's Metrics library */
 object MeasurementToMetrics extends MeasurementGateway with Log {
   override def configured(measureConfig: Config): Option[Measurements] = {
-    measureConfig.getBoolean("metrics-gateway.enable").toOption.map { _ =>
+    val metricsConfig = measureConfig.getConfig("metrics-gateway")
+    metricsConfig.getBoolean("enable").toOption.map { _ =>
       log.info("Measurements to Metrics gateway enabled")
-      new MeasurementToMetrics()
+      val reportLevel =
+        metricsConfig.getString("level").toLowerCase match {
+          case "detail" => Detail
+          case "info"   => Info
+          case "trace"  => Detail
+          case unknown =>
+            log.error(s"MeasurementToMetrics confg error. Unknown level: '$unknown'")
+            Info
+
+        }
+      new MeasurementToMetrics(reportLevel)
     }
   }
 }

@@ -5,55 +5,55 @@ import nest.sparkle.util.Log
 import scala.concurrent.forkjoin.ThreadLocalRandom
 import nest.sparkle.util.RandomUtil
 
-/** a measurement of a span of time. Subclasses encode various states of a Span: Unstarted, Started, Completed, etc.) 
- *  All Spans are immutable */
+/** a measurement of a span of time. Subclasses encode various states of a Span: Unstarted, Started, Completed, etc.)
+  * All Spans are immutable
+  */
 protected trait Span {
   def name: String
   def traceId: TraceId
   def spanId: SpanId
   def parentId: Option[SpanId]
   def measurements: Measurements
-  def opsReport: Boolean
+  def level: ReportLevel
 }
 
 /** convenient ways to create a Span for timing */
 object Span {
   /** return an UnstartedSpan without a parent Span (e.g. parent is a trace) */
-  def prepareRoot(name: String, traceId: TraceId, opsReport:Boolean = false) // format: OFF
-      (implicit measurements: Measurements): UnstartedSpan = {  // format: ON
-     UnstartedSpan(name = name, traceId = traceId, spanId = SpanId.create(), parentId = None, 
-         annotations = Seq(), opsReport = opsReport, measurements = measurements) 
+  def prepareRoot(name: String, traceId: TraceId, level: ReportLevel = Info) // format: OFF
+      (implicit measurements: Measurements): UnstartedSpan = { // format: ON
+    UnstartedSpan(name = name, traceId = traceId, spanId = SpanId.create(), parentId = None,
+      annotations = Seq(), level = level, measurements = measurements)
   }
-  
+
   /** return an UnstartedSpan with a parent Span */
-  def apply(name: String, opsReport:Boolean = false)(implicit parent: Span): UnstartedSpan = {
-    val myName = s"${parent.name}.$name"    
+  def apply(name: String, level: ReportLevel = Info)(implicit parent: Span): UnstartedSpan = {
+    val myName = s"${parent.name}.$name"
     UnstartedSpan(name = myName, traceId = parent.traceId, spanId = SpanId.create(),
-      parentId = Some(parent.spanId), annotations = Seq(), opsReport = opsReport,
+      parentId = Some(parent.spanId), annotations = Seq(), level = level,
       measurements = parent.measurements)
   }
 
   /** return a StartedSpan that starts now */
   def start // format: OFF
-      (name: String, parentSpan: Span, opsReport:Boolean = false)
+      (name: String, parentSpan: Span, level:ReportLevel = Info)
       : StartedSpan = { // format: ON 
-    val myName = s"${parentSpan.name}.$name"    
+    val myName = s"${parentSpan.name}.$name"
     StartedSpan(name = myName, spanId = SpanId.create(), traceId = parentSpan.traceId, parentId = Some(parentSpan.spanId),
-      start = NanoSeconds.current(), annotations = Seq(), 
-      opsReport = opsReport, measurements = parentSpan.measurements)
+      start = NanoSeconds.current(), annotations = Seq(),
+      level = level, measurements = parentSpan.measurements)
   }
-  
+
   /** return a StartedSpan that starts now */
   def startNoParent // format: OFF
-      (name: String, traceId: TraceId, opsReport:Boolean = false)
+      (name: String, traceId: TraceId, level:ReportLevel = Info)
       (implicit measurements: Measurements)
       : StartedSpan = { // format: ON 
     StartedSpan(name = name, spanId = SpanId.create(), traceId = traceId, parentId = None,
-      start = NanoSeconds.current(), annotations = Seq(), 
-      opsReport = opsReport, measurements = measurements)
+      start = NanoSeconds.current(), annotations = Seq(),
+      level = level, measurements = measurements)
   }
 }
-
 
 /** a span that's completed and ready to record */
 case class CompletedSpan(
@@ -64,7 +64,7 @@ case class CompletedSpan(
     start: EpochMicroseconds,
     duration: NanoSeconds,
     annotations: Seq[Annotation],
-    opsReport: Boolean,
+    level: ReportLevel,
     measurements: Measurements) extends Span with Log {
 }
 
@@ -74,19 +74,20 @@ case class UnstartedSpan(
     spanId: SpanId = SpanId.create(),
     parentId: Option[SpanId] = None,
     annotations: Seq[Annotation] = Seq(),
-    opsReport: Boolean,
+    level: ReportLevel,
     measurements: Measurements) extends Span with Log {
 
-  /** Start the timing clock. 
-   *  Note: the caller is responsible for calling complete() on the returned StartedSpan (to end the timing and report). */
+  /** Start the timing clock.
+    * Note: the caller is responsible for calling complete() on the returned StartedSpan (to end the timing and report).
+    */
   def start(): StartedSpan = {
     val start = NanoSeconds.current()
     StartedSpan(name = name, traceId = traceId, spanId = spanId, parentId = parentId, start = start,
-      annotations = annotations, opsReport = opsReport, measurements = measurements)
+      annotations = annotations, level = level, measurements = measurements)
   }
-  
+
   /** Time a function and report the results. */
-  def time[T](fn: => T):T = {
+  def time[T](fn: => T): T = {
     val started = start()
     val result = fn
     started.complete()
@@ -101,7 +102,7 @@ case class StartedSpan(
     parentId: Option[SpanId],
     start: NanoSeconds,
     annotations: Seq[Annotation],
-    opsReport: Boolean,
+    level: ReportLevel,
     measurements: Measurements) extends Span {
 
   /** complete a timing, reporting the total time through the measurements gateway (to e.g. graphite and .csv) */
@@ -110,8 +111,8 @@ case class StartedSpan(
     val duration = NanoSeconds(end.value - start.value)
     val startMicros = EpochMicroseconds.fromNanos(start)
     val completed = CompletedSpan(name = name, traceId = traceId, spanId = spanId, parentId = parentId,
-      start = startMicros, duration = duration, annotations = annotations, 
-      opsReport = opsReport, measurements = measurements)
+      start = startMicros, duration = duration, annotations = annotations,
+      level = level, measurements = measurements)
     measurements.publish(completed)
   }
 }
@@ -121,7 +122,7 @@ object DummySpan extends Span {
   override val traceId = TraceId("dummyId")
   override val spanId = SpanId(-1)
   override val parentId = None
-  override val opsReport = false
+  override val level = Info
   override val measurements = DummyMeasurements
 }
 
@@ -142,16 +143,16 @@ object EpochMicroseconds {
     val micros = CalibratedNanos.approxEpochNanos() / 1000L
     new EpochMicroseconds(micros)
   }
-  def fromNanos(nanos:NanoSeconds):EpochMicroseconds = {
-    CalibratedNanos.toEpochMicros(nanos)    
+  def fromNanos(nanos: NanoSeconds): EpochMicroseconds = {
+    CalibratedNanos.toEpochMicros(nanos)
   }
 }
 
 /** milliseconds since midnight January 1, 1970 UTC */
-case class EpochMilliseconds(val value:Long) extends AnyVal
+case class EpochMilliseconds(val value: Long) extends AnyVal
 
 /** The id for a single top level request (typically a request initiated by an external client into our distributed system) */
-case class TraceId(val value: String) extends AnyVal 
+case class TraceId(val value: String) extends AnyVal
 
 object TraceId {
   def create(): TraceId = new TraceId(RandomUtil.randomAlphaNum(8))

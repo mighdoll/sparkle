@@ -20,7 +20,7 @@ class TestMeasurements extends FunSuite with Matchers {
   def publishSpan()(implicit measurements: Measurements): String = {
     val name = "short-test"
     val traceId = TraceId("foo") // TODO replace with RandomUtil.RandomAlphaNum
-    val span = Span.startNoParent(name, traceId, opsReport=true)
+    val span = Span.startNoParent(name, traceId)
     span.complete()
     name
   }

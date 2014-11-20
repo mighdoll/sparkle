@@ -23,6 +23,7 @@ import scala.concurrent.duration._
 import nest.sparkle.measure.Span
 import nest.sparkle.measure.TraceId
 import nest.sparkle.measure.DummySpan
+import nest.sparkle.measure.Detail
 
 /** returns an observable that produces one sequence of json arrays when the provided event stream completes */
 object JsonEventWriter {
@@ -55,7 +56,7 @@ object JsonEventWriter {
       : Observable[Seq[JsArray]] = { // format: ON
     implicit val parent = parentSpan.getOrElse(DummySpan)
     observed.map { eventSeq =>
-      Span("JsonEventWriter").time {
+      Span("JsonEventWriter", Detail).time {
         eventSeq map { event =>
           eventToJsArray(event)
         }
