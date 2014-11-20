@@ -14,6 +14,8 @@ import org.apache.hadoop.io.NullWritable
 import nest.sparkle.loader.spark.EventReader
 import nest.sparkle.loader.{ArrayRecordColumns, KeyValueColumnConverter}
 
+import scala.util.{Success, Failure}
+
 /**
  * Reads Avro data files and maps them into TaggedBlocks using a SparkAvroColumnDecoder
  * @param decoder
@@ -28,8 +30,13 @@ class SparkAvroEventReader(decoder: SparkAvroColumnDecoder) extends EventReader[
       val record: ArrayRecordColumns = decoder.fromAvro(key.datum)
 
       val blockTry = KeyValueColumnConverter.convertMessage(decoder, record)
-      blockTry.getOrElse {
-        case err => throw new Exception(s"error reading event from $input")
+
+      blockTry match {
+        case Success(block) => block
+        case Failure(err) => {
+          log.error(s"error reading from $input: ${err.printStackTrace()}")
+          throw new Exception(s"error reading from $input")
+        }
       }
     }
   }
