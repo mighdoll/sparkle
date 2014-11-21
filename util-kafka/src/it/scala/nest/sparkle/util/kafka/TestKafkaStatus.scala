@@ -2,7 +2,6 @@ package nest.sparkle.util.kafka
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.duration
 
 /**
  * Test Utils.
@@ -10,7 +9,7 @@ import scala.concurrent.duration
 class TestKafkaStatus
   extends KafkaTestSuite
 {
-  private val _timeout = FiniteDuration(10, duration.MINUTES)  // WTF? 10.minutes doesn't compile
+  private val _timeout = FiniteDuration(10, MINUTES)  // WTF? 10.minutes doesn't compile
   implicit val zkProps = ZkConnectProps("localhost:2181", _timeout, _timeout)
   
   private def checkTestTopic(topic: KafkaTopic) {

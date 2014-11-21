@@ -1,7 +1,9 @@
 package nest.sparkle.loader.kafka
 
+import java.util.concurrent.Executors
+
 import scala.collection.JavaConverters.asScalaBufferConverter
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
@@ -15,6 +17,7 @@ import spray.routing._
 import spray.util._
 
 import nest.sparkle.http.{ResourceLocation, AdminServiceActor, AdminService}
+import nest.sparkle.measure.Measurements
 import nest.sparkle.util.kafka.KafkaStatus
 import nest.sparkle.util.kafka._
 import nest.sparkle.util.kafka.KafkaJsonProtocol._
@@ -38,6 +41,11 @@ trait KafkaLoaderAdminService extends AdminService
       sessionTimeout millis
     )
   }
+
+  /** A different ExecutionContext is used than normal for the KafkaStatus calls since they run
+    * synchronous zookeeper and kafka commands which will tie up a thread for a long time. 
+    */
+  implicit val kafkaStatusContext: ExecutionContext
   
   lazy val groupPrefix = sparkleConfig.getString("kafka-loader.reader.consumer-group-prefix")
   lazy val topicNames = sparkleConfig.getStringList("kafka-loader.topics").asScala.toSeq
@@ -153,15 +161,17 @@ trait KafkaLoaderAdminService extends AdminService
   }
 }
 
-class KafkaLoaderAdminServiceActor(system: ActorSystem, rootConfig: Config) 
-  extends AdminServiceActor(system, rootConfig)
+class KafkaLoaderAdminServiceActor(system: ActorSystem, measurements: Measurements, rootConfig: Config)
+  extends AdminServiceActor(system, measurements, rootConfig)
   with KafkaLoaderAdminService
 {
+  private lazy val statusThreadPool = Executors.newCachedThreadPool()
+  lazy val kafkaStatusContext = ExecutionContext.fromExecutor(statusThreadPool)
 }
 
 object KafkaLoaderAdminService {
-  def start(rootConfig: Config)(implicit system: ActorSystem): Future[Unit] = {
-    val serviceActor = system.actorOf(Props(new KafkaLoaderAdminServiceActor(system, rootConfig)),"admin-server")
-    AdminService.start(rootConfig, serviceActor)
+  def start(system: ActorSystem, measurements: Measurements, rootConfig: Config): Future[Unit] = {
+    val serviceActor = system.actorOf(Props(new KafkaLoaderAdminServiceActor(system, measurements, rootConfig)),"admin-server")
+    AdminService.start(rootConfig, serviceActor)(system)
   }
 }

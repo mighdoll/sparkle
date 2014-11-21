@@ -22,6 +22,7 @@ import akka.actor.ActorSystem
 import org.clapper.argot.{ArgotParser, ArgotUsageException}
 import org.clapper.argot.ArgotConverters._
 
+import nest.sparkle.measure.ConfiguredMeasurements
 import nest.sparkle.metrics.MetricsSupport
 
 /** a utility trait for making a main class that uses Argot command line parsing,
@@ -49,6 +50,8 @@ trait SparkleApp
     
   // TODO: Use DI or something for this
   implicit lazy val system = ActorSystem("sparkle", sparkleConfig)
+  
+  implicit lazy val measurements = new ConfiguredMeasurements(rootConfig)
   
   /** Override this fcn to return a list of key, values to override in the 
     * configuration. Will be called in initialize() 

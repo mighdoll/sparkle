@@ -8,6 +8,8 @@ import spray.testkit.ScalatestRouteTest
 
 import akka.actor.ActorRefFactory
 
+import nest.sparkle.measure.DummyMeasurements
+
 class TestAdminService
   extends FunSuite
     with Matchers
@@ -17,6 +19,7 @@ class TestAdminService
   /** Set actor reference */
   override def actorRefFactory: ActorRefFactory = system
   def executionContext = system.dispatcher
+  val measurements = DummyMeasurements
   
   /** We'd like to use SparkleTestConfig but it's in the test-kit project
     * which includes the test dependencies in the main config which we don't want to depend on.

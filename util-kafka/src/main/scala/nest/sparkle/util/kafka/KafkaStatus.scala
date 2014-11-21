@@ -1,7 +1,5 @@
 package nest.sparkle.util.kafka
 
-import java.util.concurrent.{Executors, SynchronousQueue, TimeUnit, ThreadPoolExecutor}
-
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future, future}
 import scala.concurrent.duration._
@@ -19,6 +17,7 @@ import kafka.api.{OffsetRequest, Request}
 import kafka.utils.{ZkUtils, ZKStringSerializer}
 
 import nest.sparkle.util.Log
+import nest.sparkle.measure.{Measurements, Span, TraceId}
 
 import KafkaJsonProtocol._
 
@@ -34,7 +33,7 @@ class KafkaStatus(
   val connectString: String, 
   val connectionTimeout: FiniteDuration = 30.seconds,
   val sessionTimeout: FiniteDuration = 30.seconds
-  )(implicit executionContext: ExecutionContext)
+  )(implicit executionContext: ExecutionContext, measurements: Measurements)
   extends Log
 {
   val client = new ZkClient(
@@ -44,7 +43,7 @@ class KafkaStatus(
     ZKStringSerializer
   )
   
-  def this(props: ZkConnectProps)(implicit executionContext: ExecutionContext) {
+  def this(props: ZkConnectProps)(implicit executionContext: ExecutionContext, measurements: Measurements) {
     this(props.connectString, props.connectionTimeout, props.sessionTimeout)
   }
   
@@ -54,16 +53,23 @@ class KafkaStatus(
   
   def allBrokers: Future[Seq[KafkaBroker]] = {
     future {
-      val brokerIds = client.getChildren(ZkUtils.BrokerIdsPath).map(_.toInt).sorted
-      val brokers = brokerIds map { brokerId =>
-        val path = s"${ZkUtils.BrokerIdsPath}/$brokerId"
-        val stat = new Stat
-        val json = client.readData[String](path, stat)
-        val ast = json.asJson
-        val info = ast.convertTo[BrokerInfo]
-        KafkaBroker(brokerId, info.host, info.port)
+      implicit val rootSpan = Span.prepareRoot("allBrokers", TraceId.create())
+      rootSpan.time {
+        val brokerIds = Span("BrokerIds").time {
+          client.getChildren(ZkUtils.BrokerIdsPath).map(_.toInt).sorted
+        }
+        val brokers = brokerIds map { brokerId =>
+          Span("Brokers").time {
+            val path = s"${ZkUtils.BrokerIdsPath}/$brokerId"
+            val stat = new Stat
+            val json = client.readData[String](path, stat)
+            val ast = json.asJson
+            val info = ast.convertTo[BrokerInfo]
+            KafkaBroker(brokerId, info.host, info.port)
+          }
+        }
+        brokers
       }
-      brokers
     }
   }
    
@@ -229,24 +235,19 @@ class KafkaStatus(
 }
 
 /**
- * This object can be used to make Kafka info requests w/o having to define a thread pool
- * or do connection management.
+ * This object can be used to make Kafka status requests w/o having to do connection management.
  */
 object KafkaStatus {
-  // Like Executors.newCachedThreadPool() except limited to 10 threads and 20s instead of 60s lifetime.
-  //private lazy val threadPool = new ThreadPoolExecutor(0, 10, 20L, TimeUnit.SECONDS, new SynchronousQueue[Runnable])
-  private lazy val threadPool = Executors.newCachedThreadPool()
-  implicit lazy val executionContext = ExecutionContext.fromExecutor(threadPool)
-  
   def apply(
     connectString: String, 
     sessionTimeout: FiniteDuration = 30.seconds,
     connectionTimeout: FiniteDuration = 30.seconds
-  ): KafkaStatus = {
+  )(implicit executionContext: ExecutionContext, measurements: Measurements): KafkaStatus = {
     new KafkaStatus(connectString, sessionTimeout, connectionTimeout)
   }
   
-  def apply(props: ZkConnectProps): KafkaStatus = {
+  def apply(props: ZkConnectProps)
+      (implicit executionContext: ExecutionContext, measurements: Measurements): KafkaStatus = {
     new KafkaStatus(props)
   }
 
@@ -254,7 +255,7 @@ object KafkaStatus {
     * 
     * @return Future
     */
-  def allBrokers(implicit props: ZkConnectProps): Future[Seq[KafkaBroker]] = {
+  def allBrokers(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[KafkaBroker]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.allBrokers
     future onComplete { _ =>
@@ -267,7 +268,7 @@ object KafkaStatus {
     * 
     * @return Future
     */
-  def brokerFromId(brokerId: Int)(implicit props: ZkConnectProps): Future[KafkaBroker] = {
+  def brokerFromId(brokerId: Int)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[KafkaBroker] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.brokerFromId(brokerId)
     future onComplete { _ =>
@@ -276,7 +277,7 @@ object KafkaStatus {
     future
   }
 
-  def allTopicNames(implicit props: ZkConnectProps): Future[Seq[String]] = {
+  def allTopicNames(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[String]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.allTopicNames
     future onComplete { _ =>
@@ -286,7 +287,7 @@ object KafkaStatus {
   }
   
   /** Faster way of getting all topics. Maximizes parallel processing */
-  def allTopics(implicit props: ZkConnectProps): Future[Map[String,KafkaTopic]] = {
+  def allTopics(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Map[String,KafkaTopic]] = {
     def topicsFromNames(topicNames: Seq[String]) = {
       val futures = topicNames map { topicName =>
         topicFromName(topicName)
@@ -303,7 +304,7 @@ object KafkaStatus {
   }
   
   /** This is slower than allTopics but uses fewer connections and threads */
-  def allTopics2(implicit props: ZkConnectProps): Future[Map[String,KafkaTopic]] = {
+  def allTopics2(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Map[String,KafkaTopic]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.allTopics
     future onComplete { _ =>
@@ -312,7 +313,7 @@ object KafkaStatus {
     future
   }
 
-  def allConsumerGroups(implicit props: ZkConnectProps): Future[Seq[String]] = {
+  def allConsumerGroups(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[String]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.allConsumerGroups
     future onComplete { _ =>
@@ -321,7 +322,7 @@ object KafkaStatus {
     future
   }
 
-  def consumersInGroup(group: String)(implicit props: ZkConnectProps): Future[Seq[String]] = {
+  def consumersInGroup(group: String)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[String]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.consumersInGroup(group)
     future onComplete { _ =>
@@ -330,7 +331,7 @@ object KafkaStatus {
     future
   }
   
-  def consumerGroupTopics(group: String)(implicit props: ZkConnectProps): Future[Seq[String]] = {
+  def consumerGroupTopics(group: String)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[String]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.consumerGroupTopics(group)
     future onComplete { _ =>
@@ -340,7 +341,7 @@ object KafkaStatus {
   }
   
   def partitionIdsForConsumerGroupTopic(group: String, topic: String)
-    (implicit props: ZkConnectProps): Future[Seq[Int]] = {
+    (implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[Int]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.partitionIdsForConsumerGroupTopic(group, topic)
     future onComplete { _ =>
@@ -350,7 +351,7 @@ object KafkaStatus {
   }
   
   def kafkaPartitionOffset(group: String, topic: String, partition: Int)
-    (implicit props: ZkConnectProps): Future[KafkaPartitionOffset] = {
+    (implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[KafkaPartitionOffset] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.kafkaPartitionOffset(group, topic, partition)
     future onComplete { _ =>
@@ -359,7 +360,7 @@ object KafkaStatus {
     future
   }
   
-  def topicFromName(topicName: String)(implicit props: ZkConnectProps): Future[KafkaTopic] = {
+  def topicFromName(topicName: String)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[KafkaTopic] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.topicFromName(topicName)
     future onComplete { _ =>
@@ -368,7 +369,7 @@ object KafkaStatus {
     future
   }
     
-  def consumerGroupOffsets(group: String)(implicit props: ZkConnectProps): Future[KafkaGroupOffsets] = {
+  def consumerGroupOffsets(group: String)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[KafkaGroupOffsets] = {
     def offsetsForTopic(topicName: String, partIds: Seq[Int]) = {
       val futures = partIds map { partId =>
         kafkaPartitionOffset(group, topicName, partId)

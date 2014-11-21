@@ -17,6 +17,7 @@ import spray.httpx.marshalling.Marshaller
 import spray.routing.Directive.pimpApply
 import spray.routing.Route
 
+import nest.sparkle.measure.Measurements
 import nest.sparkle.util.ConfigUtil.configForSparkle
 
 /** a web api for serving an administrative page */
@@ -25,7 +26,8 @@ trait AdminService
     with DisplayConfig
     with HttpLogging 
 {
-  implicit def executionContext: ExecutionContext
+  implicit def measurements: Measurements
+  
   def rootConfig: Config
   lazy val sparkleConfig = configForSparkle(rootConfig)
   
@@ -50,7 +52,8 @@ trait AdminService
     }
   } // format: ON
   
-  def futureComplete[T](future: Future[T])(implicit marshaller: Marshaller[T]): Route = {
+  def futureComplete[T](future: Future[T])
+      (implicit marshaller: Marshaller[T], executionContext: ExecutionContext): Route = {
     onComplete(future) {
       case Success(s)   => complete(s)
       case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
@@ -60,7 +63,7 @@ trait AdminService
 }
 
 /** an AdminService inside an actor (the trait can be used for testing. */
-class AdminServiceActor(val system: ActorSystem, val rootConfig: Config) 
+class AdminServiceActor(val system: ActorSystem, val measurements: Measurements, val rootConfig: Config) 
   extends Actor 
           with AdminService 
 {

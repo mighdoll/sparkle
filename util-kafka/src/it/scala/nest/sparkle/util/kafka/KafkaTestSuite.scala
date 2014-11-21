@@ -1,8 +1,10 @@
 package nest.sparkle.util.kafka
 
 import java.util.Properties
+import java.util.concurrent.Executors
 
 import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
@@ -19,6 +21,7 @@ import kafka.serializer.StringDecoder
 
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.Log
+import nest.sparkle.measure.{DummyMeasurements, Measurements}
 
 /**
  * Use to add known state of kafka topic and consumer groups.
@@ -43,6 +46,9 @@ trait KafkaTestSuite
   var consumerIterators = Seq[ConsumerIterator[String,String]]()
 
   implicit val zkProps: ZkConnectProps
+  private lazy val statusThreadPool = Executors.newCachedThreadPool()
+  implicit lazy val kafkaStatusContext = ExecutionContext.fromExecutor(statusThreadPool)
+  implicit val measurements = DummyMeasurements
   
   //implicit val timeout = 3.seconds 
   implicit val timeout = 1.hours  // use when running with a debugger
@@ -59,6 +65,8 @@ trait KafkaTestSuite
     consumerIterators = Seq[ConsumerIterator[String,String]]()
     consumer.map(_.shutdown())
     consumer = None
+    
+    statusThreadPool.shutdown()
   }
 
 
