@@ -10,6 +10,7 @@ import akka.actor.ActorRefFactory
 
 import spray.json._
 
+import nest.sparkle.measure.MeasurementToTsvFile
 import nest.sparkle.util.kafka.{KafkaTestSuite, KafkaBroker, KafkaTopic, KafkaGroupOffsets}
 import nest.sparkle.util.kafka.KafkaJsonProtocol._
 
@@ -21,6 +22,7 @@ class TestKafkaLoaderAdminService
 {
   override def actorRefFactory: ActorRefFactory = system
   def executionContext = system.dispatcher
+  implicit override val measurements = new MeasurementToTsvFile("/tmp/kafka-loader-tests.tsv")
   
   // Some of the requests currently take a very long time
   implicit val routeTestTimeout = RouteTestTimeout(1.minute)

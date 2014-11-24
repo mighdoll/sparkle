@@ -9,15 +9,13 @@ import spray.json._
 import org.I0Itec.zkclient.ZkClient
 import org.apache.zookeeper.data.Stat
 
-import kafka.common.TopicAndPartition
-import kafka.common.UnknownTopicOrPartitionException
-import kafka.common.NotLeaderForPartitionException
+import kafka.common.{TopicAndPartition, UnknownTopicOrPartitionException, NotLeaderForPartitionException}
 import kafka.consumer.SimpleConsumer
 import kafka.api.{OffsetRequest, Request}
 import kafka.utils.{ZkUtils, ZKStringSerializer}
 
 import nest.sparkle.util.Log
-import nest.sparkle.measure.{Measurements, Span, TraceId}
+import nest.sparkle.measure.Span
 
 import KafkaJsonProtocol._
 
@@ -33,7 +31,7 @@ class KafkaStatus(
   val connectString: String, 
   val connectionTimeout: FiniteDuration = 30.seconds,
   val sessionTimeout: FiniteDuration = 30.seconds
-  )(implicit executionContext: ExecutionContext, measurements: Measurements)
+  )(implicit executionContext: ExecutionContext)
   extends Log
 {
   val client = new ZkClient(
@@ -43,7 +41,7 @@ class KafkaStatus(
     ZKStringSerializer
   )
   
-  def this(props: ZkConnectProps)(implicit executionContext: ExecutionContext, measurements: Measurements) {
+  def this(props: ZkConnectProps)(implicit executionContext: ExecutionContext) {
     this(props.connectString, props.connectionTimeout, props.sessionTimeout)
   }
   
@@ -51,15 +49,15 @@ class KafkaStatus(
     client.close()
   }
   
-  def allBrokers: Future[Seq[KafkaBroker]] = {
+  def allBrokers(implicit parentSpan: Span): Future[Seq[KafkaBroker]] = {
     future {
-      implicit val rootSpan = Span.prepareRoot("allBrokers", TraceId.create())
-      rootSpan.time {
-        val brokerIds = Span("BrokerIds").time {
+      val span = Span("allBrokers")
+      span.time {
+        val brokerIds = Span("BrokerIds")(span).time {
           client.getChildren(ZkUtils.BrokerIdsPath).map(_.toInt).sorted
         }
         val brokers = brokerIds map { brokerId =>
-          Span("Brokers").time {
+          Span("BrokerInfo")(span).time {
             val path = s"${ZkUtils.BrokerIdsPath}/$brokerId"
             val stat = new Stat
             val json = client.readData[String](path, stat)
@@ -73,42 +71,52 @@ class KafkaStatus(
     }
   }
    
-  def brokerFromId(brokerId: Int): Future[KafkaBroker] = {
+  def brokerFromId(brokerId: Int)(implicit parentSpan: Span): Future[KafkaBroker] = {
     future {
-      val path = s"${ZkUtils.BrokerIdsPath}/$brokerId"
-      val json = client.readData[String](path)
-      val ast = json.asJson
-      val info = ast.convertTo[BrokerInfo]
-      KafkaBroker(brokerId, info.host, info.port)
+      Span("brokerFromId").time {
+        val path = s"${ZkUtils.BrokerIdsPath}/$brokerId"
+        val json = client.readData[String](path)
+        val ast = json.asJson
+        val info = ast.convertTo[BrokerInfo]
+        KafkaBroker(brokerId, info.host, info.port)
+      }
     }
   }
  
-  def allTopicNames: Future[Seq[String]] = {
+  def allTopicNames(implicit parentSpan: Span): Future[Seq[String]] = {
     future {
-      ZkUtils.getAllTopics(client).sorted
+      Span("allTopicNames").time {
+        ZkUtils.getAllTopics(client).sorted
+      }
     }
   }
   
-  def allConsumerGroups: Future[Seq[String]] = {
+  def allConsumerGroups(implicit parentSpan: Span): Future[Seq[String]] = {
     future {
-      ZkUtils.getChildren(client, ZkUtils.ConsumersPath).sorted
+      Span("allConsumerGroups").time {
+        ZkUtils.getChildren(client, ZkUtils.ConsumersPath).sorted
+      }
     }
   }
   
-  def consumersInGroup(group: String): Future[Seq[String]] = {
+  def consumersInGroup(group: String)(implicit parentSpan: Span): Future[Seq[String]] = {
     future {
-      ZkUtils.getConsumersInGroup(client, group).sorted
+      Span("consumersInGroup").time {
+        ZkUtils.getConsumersInGroup(client, group).sorted
+      }
     }
   }
   
-  def consumerGroupTopics(group: String): Future[Seq[String]] = {
+  def consumerGroupTopics(group: String)(implicit parentSpan: Span): Future[Seq[String]] = {
     future {
-      val path = s"${ZkUtils.ConsumersPath}/$group/offsets"
-      client.getChildren(path).sorted
+      Span("consumerGroupTopics").time {
+        val path = s"${ZkUtils.ConsumersPath}/$group/offsets"
+        client.getChildren(path).sorted
+      }
     }
   }
  
-  def allTopics: Future[Map[String,KafkaTopic]] = {
+  def allTopics(implicit parentSpan: Span): Future[Map[String,KafkaTopic]] = {
     def topicsFromNames(consumers: Map[Int,BrokerConsumer], topicNames: Seq[String]) = {
        val futures = topicNames map { topicName =>
          future {
@@ -141,7 +149,7 @@ class KafkaStatus(
   }
   
   /** Get all topic specific info */
-  def topicFromName(topicName: String): Future[KafkaTopic] = {
+  def topicFromName(topicName: String)(implicit parentSpan: Span): Future[KafkaTopic] = {
     val futureConsumers = simpleConsumers
     val futureResult =
       for {
@@ -162,75 +170,99 @@ class KafkaStatus(
     futureResult
   }
   
-  def partitionIdsForConsumerGroupTopic(group: String, topic: String): Future[Seq[Int]] = {
+  def partitionIdsForConsumerGroupTopic(group: String, topic: String)(implicit parentSpan: Span): Future[Seq[Int]] = {
     future {
-     val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic"
-     client.getChildren(path).map(_.toInt).sorted
+     Span("partitionIdsForConsumerGroupTopic").time {
+       val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic"
+       client.getChildren(path).map(_.toInt).sorted
+     }
     }
   }
   
-  def kafkaPartitionOffset(group: String, topic: String, partition: Int): Future[KafkaPartitionOffset] = {
+  def kafkaPartitionOffset(group: String, topic: String, partition: Int)(implicit parentSpan: Span): Future[KafkaPartitionOffset] = {
     future {
-      val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic/$partition"
-      val offset = client.readData[String](path).toLong
-      KafkaPartitionOffset(partition, offset)
+      Span("kafkaPartitionOffset").time {
+        val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic/$partition"
+        val offset = client.readData[String](path).toLong
+        KafkaPartitionOffset(partition, offset)
+      }
     }
   }
    
-  private def partitionIdsForTopicName(topicName: String): Seq[Int] = {
-   val path = s"${ZkUtils.BrokerTopicsPath}/$topicName/partitions"
-   client.getChildren(path).map(_.toInt).sorted
+  private def partitionIdsForTopicName(topicName: String)(implicit parentSpan: Span): Seq[Int] = {
+    Span("partitionIdsForTopicName").time {
+      val path = s"${ZkUtils.BrokerTopicsPath}/$topicName/partitions"
+      client.getChildren(path).map(_.toInt).sorted
+    }
   }
   
   /** Get all topic specific info */
-  private def kafkaTopic(consumers: Map[Int,BrokerConsumer], topicName: String): KafkaTopic = {
-    val partsIds = partitionIdsForTopicName(topicName)
-    val partitions =  topicPartitions(consumers, topicName, partsIds)
-    KafkaTopic(topicName, partitions.toVector)
+  private def kafkaTopic(consumers: Map[Int,BrokerConsumer], topicName: String)(implicit parentSpan: Span): KafkaTopic = {
+    val span = Span("kafkaTopic")
+    span.time {
+      val partsIds = partitionIdsForTopicName(topicName)(span)
+      val partitions = topicPartitions(consumers, topicName, partsIds)(span)
+      KafkaTopic(topicName, partitions.toVector)
+    }
   }
     
-  private def topicPartitions(consumers: Map[Int,BrokerConsumer], topicName: String, partsIds: Seq[Int]) = {
-    partsIds map { partId =>
-      val pathPart = s"${ZkUtils.BrokerTopicsPath}/$topicName/partitions/$partId/state"
-      val source = client.readData[String](pathPart, true)
-      val ast = source.asJson
-      val state = ast.convertTo[BrokerTopicPartitionState]
-      
-      val broker = consumers(state.leader)
-      val range  = earliestAndLatestOffset(broker.consumer, topicName, partId)
-      
-      KafkaTopicPartition(partId, state.isr, state.leader, range.earliest, range.latest)
+  private def topicPartitions(consumers: Map[Int,BrokerConsumer], topicName: String, partsIds: Seq[Int])
+      (implicit parentSpan: Span) = {
+    val span = Span("topicPartitions")
+    span.time {
+      partsIds map { partId =>
+        val pathPart = s"${ZkUtils.BrokerTopicsPath}/$topicName/partitions/$partId/state"
+        val source = client.readData[String](pathPart, true)
+        val ast = source.asJson
+        val state = ast.convertTo[BrokerTopicPartitionState]
+
+        val broker = consumers(state.leader)
+        val range = earliestAndLatestOffset(broker.consumer, topicName, partId)(span)
+
+        KafkaTopicPartition(partId, state.isr, state.leader, range.earliest, range.latest)
+      }
     }
   }
 
   private def earliestAndLatestOffset(
     consumer: SimpleConsumer, topicName: String, partId: Int
-  ): PartitionOffsetRange =
+  )(implicit parentSpan: Span): PartitionOffsetRange =
   {
-    val tap = TopicAndPartition(topicName, partId)
-    try {
-      val earliest = consumer
-        .earliestOrLatestOffset(tap, OffsetRequest.EarliestTime, Request.OrdinaryConsumerId)
-      val latest = consumer
-        .earliestOrLatestOffset(tap, OffsetRequest.LatestTime, Request.OrdinaryConsumerId)
-      PartitionOffsetRange(Some(earliest), Some(latest))
-    } catch {
-      case e: UnknownTopicOrPartitionException =>
-        log.error(s"Unknown topic/partId $topicName::$partId")
-        PartitionOffsetRange(None, None)
-      case e: NotLeaderForPartitionException   =>
-        log.error(s"${consumer.host} not leader for $topicName::$partId")
-        PartitionOffsetRange(None, None)
+    Span("earliestAndLatestOffset").time {
+      val tap = TopicAndPartition(topicName, partId)
+      try {
+        val earliest = consumer
+          .earliestOrLatestOffset(tap, OffsetRequest.EarliestTime, Request.OrdinaryConsumerId)
+        val latest = consumer
+          .earliestOrLatestOffset(tap, OffsetRequest.LatestTime, Request.OrdinaryConsumerId)
+        PartitionOffsetRange(Some(earliest), Some(latest))
+      } catch {
+        case e: UnknownTopicOrPartitionException =>
+          log.error(s"Unknown topic/partId $topicName::$partId")
+          PartitionOffsetRange(None, None)
+        case e: NotLeaderForPartitionException   =>
+          log.error(s"${consumer.host} not leader for $topicName::$partId")
+          PartitionOffsetRange(None, None)
+      }
     }
   }
   
-  private def simpleConsumers = {
-    for {
-      brokers   <- allBrokers
-      consumers =  brokers.map(BrokerConsumer).map { bc => bc.broker.id -> bc}.toMap
+  private def simpleConsumers(implicit parentSpan: Span) = {
+    val span = Span("simpleConsumers").start()
+    val futureResult = for {
+      brokers <- allBrokers(span)
+      consumers = brokers.map(BrokerConsumer).map { bc => bc.broker.id -> bc}.toMap
     } yield {
       consumers
     }
+    
+    /** Ensure the span is completed before caller gets result */
+    val futureReturn = futureResult map { result => 
+      span.complete() 
+      result
+    }
+    
+    futureReturn
   }
 }
 
@@ -242,12 +274,11 @@ object KafkaStatus {
     connectString: String, 
     sessionTimeout: FiniteDuration = 30.seconds,
     connectionTimeout: FiniteDuration = 30.seconds
-  )(implicit executionContext: ExecutionContext, measurements: Measurements): KafkaStatus = {
+  )(implicit executionContext: ExecutionContext): KafkaStatus = {
     new KafkaStatus(connectString, sessionTimeout, connectionTimeout)
   }
   
-  def apply(props: ZkConnectProps)
-      (implicit executionContext: ExecutionContext, measurements: Measurements): KafkaStatus = {
+  def apply(props: ZkConnectProps)(implicit executionContext: ExecutionContext): KafkaStatus = {
     new KafkaStatus(props)
   }
 
@@ -255,7 +286,7 @@ object KafkaStatus {
     * 
     * @return Future
     */
-  def allBrokers(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[KafkaBroker]] = {
+  def allBrokers(implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[Seq[KafkaBroker]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.allBrokers
     future onComplete { _ =>
@@ -268,7 +299,8 @@ object KafkaStatus {
     * 
     * @return Future
     */
-  def brokerFromId(brokerId: Int)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[KafkaBroker] = {
+  def brokerFromId(brokerId: Int)
+      (implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[KafkaBroker] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.brokerFromId(brokerId)
     future onComplete { _ =>
@@ -277,7 +309,7 @@ object KafkaStatus {
     future
   }
 
-  def allTopicNames(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[String]] = {
+  def allTopicNames(implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[Seq[String]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.allTopicNames
     future onComplete { _ =>
@@ -287,7 +319,7 @@ object KafkaStatus {
   }
   
   /** Faster way of getting all topics. Maximizes parallel processing */
-  def allTopics(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Map[String,KafkaTopic]] = {
+  def allTopics(implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[Map[String,KafkaTopic]] = {
     def topicsFromNames(topicNames: Seq[String]) = {
       val futures = topicNames map { topicName =>
         topicFromName(topicName)
@@ -304,7 +336,7 @@ object KafkaStatus {
   }
   
   /** This is slower than allTopics but uses fewer connections and threads */
-  def allTopics2(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Map[String,KafkaTopic]] = {
+  def allTopics2(implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[Map[String,KafkaTopic]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.allTopics
     future onComplete { _ =>
@@ -313,7 +345,7 @@ object KafkaStatus {
     future
   }
 
-  def allConsumerGroups(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[String]] = {
+  def allConsumerGroups(implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[Seq[String]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.allConsumerGroups
     future onComplete { _ =>
@@ -322,7 +354,8 @@ object KafkaStatus {
     future
   }
 
-  def consumersInGroup(group: String)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[String]] = {
+  def consumersInGroup(group: String)
+      (implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[Seq[String]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.consumersInGroup(group)
     future onComplete { _ =>
@@ -331,7 +364,8 @@ object KafkaStatus {
     future
   }
   
-  def consumerGroupTopics(group: String)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[String]] = {
+  def consumerGroupTopics(group: String)
+      (implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[Seq[String]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.consumerGroupTopics(group)
     future onComplete { _ =>
@@ -341,7 +375,7 @@ object KafkaStatus {
   }
   
   def partitionIdsForConsumerGroupTopic(group: String, topic: String)
-    (implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[Seq[Int]] = {
+    (implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[Seq[Int]] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.partitionIdsForConsumerGroupTopic(group, topic)
     future onComplete { _ =>
@@ -351,7 +385,7 @@ object KafkaStatus {
   }
   
   def kafkaPartitionOffset(group: String, topic: String, partition: Int)
-    (implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[KafkaPartitionOffset] = {
+    (implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[KafkaPartitionOffset] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.kafkaPartitionOffset(group, topic, partition)
     future onComplete { _ =>
@@ -360,7 +394,8 @@ object KafkaStatus {
     future
   }
   
-  def topicFromName(topicName: String)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[KafkaTopic] = {
+  def topicFromName(topicName: String)
+      (implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[KafkaTopic] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.topicFromName(topicName)
     future onComplete { _ =>
@@ -369,7 +404,8 @@ object KafkaStatus {
     future
   }
     
-  def consumerGroupOffsets(group: String)(implicit props: ZkConnectProps, executionContext: ExecutionContext, measurements: Measurements): Future[KafkaGroupOffsets] = {
+  def consumerGroupOffsets(group: String)
+      (implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[KafkaGroupOffsets] = {
     def offsetsForTopic(topicName: String, partIds: Seq[Int]) = {
       val futures = partIds map { partId =>
         kafkaPartitionOffset(group, topicName, partId)
@@ -405,10 +441,13 @@ case class ZkConnectProps(
     connectionTimeout: FiniteDuration = 30.seconds
   )
 
+/** To return partition offsets */
 private case class PartitionOffsetRange(earliest: Option[Long], latest: Option[Long])
 
+/** To return the topic names in a consumer group */
 private case class GroupTopicNames(group: String, topics: Seq[String])
 
+/** To store a SimpleConsumer for a broker */
 private case class BrokerConsumer(broker: KafkaBroker) {
   private val timeout = 60.seconds.toMillis.toInt
   private val bufferSize = 100000

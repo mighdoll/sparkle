@@ -1,6 +1,5 @@
 package nest.sparkle.measure
 
-import com.typesafe.config.Config
 import nest.sparkle.util.Log
 import scala.concurrent.forkjoin.ThreadLocalRandom
 import nest.sparkle.util.RandomUtil
@@ -8,7 +7,7 @@ import nest.sparkle.util.RandomUtil
 /** a measurement of a span of time. Subclasses encode various states of a Span: Unstarted, Started, Completed, etc.)
   * All Spans are immutable
   */
-protected trait Span {
+sealed trait Span {
   def name: String
   def traceId: TraceId
   def spanId: SpanId
@@ -20,23 +19,31 @@ protected trait Span {
 /** convenient ways to create a Span for timing */
 object Span {
   /** return an UnstartedSpan without a parent Span (e.g. parent is a trace) */
-  def prepareRoot(name: String, traceId: TraceId, level: ReportLevel = Info) // format: OFF
+  def prepareRoot(name: String, traceId: TraceId = TraceId.create(), level: ReportLevel = Info) // format: OFF
       (implicit measurements: Measurements): UnstartedSpan = { // format: ON
+    level match {
+      case Inherit  => throw new RootSpanLevelException  // This is a programming error
+      case _        =>
+    }
     UnstartedSpan(name = name, traceId = traceId, spanId = SpanId.create(), parentId = None,
       annotations = Seq(), level = level, measurements = measurements)
   }
 
   /** return an UnstartedSpan with a parent Span */
-  def apply(name: String, level: ReportLevel = Info)(implicit parent: Span): UnstartedSpan = {
+  def apply(name: String, level: ReportLevel = Inherit)(implicit parent: Span): UnstartedSpan = {
     val myName = s"${parent.name}.$name"
+    val myLevel = level match {
+      case Inherit  => parent.level
+      case _        => level
+    }
     UnstartedSpan(name = myName, traceId = parent.traceId, spanId = SpanId.create(),
-      parentId = Some(parent.spanId), annotations = Seq(), level = level,
+      parentId = Some(parent.spanId), annotations = Seq(), level = myLevel,
       measurements = parent.measurements)
   }
 
   /** return a StartedSpan that starts now */
   def start // format: OFF
-      (name: String, parentSpan: Span, level:ReportLevel = Info)
+      (name: String, parentSpan: Span, level: ReportLevel = Info)
       : StartedSpan = { // format: ON 
     val myName = s"${parentSpan.name}.$name"
     StartedSpan(name = myName, spanId = SpanId.create(), traceId = parentSpan.traceId, parentId = Some(parentSpan.spanId),
@@ -46,7 +53,7 @@ object Span {
 
   /** return a StartedSpan that starts now */
   def startNoParent // format: OFF
-      (name: String, traceId: TraceId, level:ReportLevel = Info)
+      (name: String, traceId: TraceId = TraceId.create(), level: ReportLevel = Info)
       (implicit measurements: Measurements)
       : StartedSpan = { // format: ON 
     StartedSpan(name = name, spanId = SpanId.create(), traceId = traceId, parentId = None,
@@ -56,7 +63,7 @@ object Span {
 }
 
 /** a span that's completed and ready to record */
-case class CompletedSpan(
+case class CompletedSpan protected[measure](
     name: String,
     traceId: TraceId,
     spanId: SpanId,
@@ -68,7 +75,7 @@ case class CompletedSpan(
     measurements: Measurements) extends Span with Log {
 }
 
-case class UnstartedSpan(
+case class UnstartedSpan protected[measure](
     name: String,
     traceId: TraceId,
     spanId: SpanId = SpanId.create(),
@@ -95,7 +102,7 @@ case class UnstartedSpan(
   }
 }
 
-case class StartedSpan(
+case class StartedSpan protected[measure](
     name: String,
     traceId: TraceId,
     spanId: SpanId,
@@ -127,7 +134,7 @@ object DummySpan extends Span {
 }
 
 /** a nanosecond value. Note the underlying storage is a signed long, so durations over 250 years will get weird */
-case class NanoSeconds(val value: Long) extends AnyVal
+case class NanoSeconds(value: Long) extends AnyVal
 
 /** return the current nanoseconds relative the jvm start */
 object NanoSeconds {
@@ -135,7 +142,7 @@ object NanoSeconds {
 }
 
 /** microseconds since midnight January 1, 1970 UTC */
-case class EpochMicroseconds(val value: Long) extends AnyVal
+case class EpochMicroseconds(value: Long) extends AnyVal
 
 /** microseconds since midnight January 1, 1970 UTC */
 object EpochMicroseconds {
@@ -149,17 +156,17 @@ object EpochMicroseconds {
 }
 
 /** milliseconds since midnight January 1, 1970 UTC */
-case class EpochMilliseconds(val value: Long) extends AnyVal
+case class EpochMilliseconds(value: Long) extends AnyVal
 
 /** The id for a single top level request (typically a request initiated by an external client into our distributed system) */
-case class TraceId(val value: String) extends AnyVal
+case class TraceId(value: String) extends AnyVal
 
 object TraceId {
   def create(): TraceId = new TraceId(RandomUtil.randomAlphaNum(8))
 }
 
 /** The id for a single duration record */
-case class SpanId(val value: Long) extends AnyVal
+case class SpanId(value: Long) extends AnyVal
 
 /** The id for a single duration record */
 object SpanId {
@@ -172,3 +179,5 @@ sealed abstract class Annotation(time: NanoSeconds)
 /** (currently unused) a timestamped label occuring within a Span */
 case class StringAnnotation(_time: NanoSeconds, name: String) extends Annotation(_time)
 
+/** Thrown when using Inherit for a root span */
+class RootSpanLevelException extends Exception("Root Spans can not have level Inherit")

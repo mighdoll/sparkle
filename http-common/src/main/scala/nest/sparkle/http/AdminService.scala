@@ -15,14 +15,16 @@ import spray.can.Http
 import spray.http.StatusCodes
 import spray.httpx.marshalling.Marshaller
 import spray.routing.Directive.pimpApply
-import spray.routing.Route
+import spray.routing.{HttpService, Route}
 
 import nest.sparkle.measure.Measurements
 import nest.sparkle.util.ConfigUtil.configForSparkle
 
 /** a web api for serving an administrative page */
 trait AdminService 
-  extends StaticContent 
+  extends HttpService
+    with TimingDirectives
+    with StaticContent 
     with DisplayConfig
     with HttpLogging 
 {

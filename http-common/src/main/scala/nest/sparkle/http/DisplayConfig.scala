@@ -14,9 +14,10 @@ import nest.sparkle.util.Log
 
 /** Spray Routes to return the configuration. */
 trait DisplayConfig
-    extends HttpService
-    with Log 
+    extends Log 
 {
+  self: HttpService =>
+  
   implicit def executionContext: ExecutionContext
 
   def rootConfig: Config

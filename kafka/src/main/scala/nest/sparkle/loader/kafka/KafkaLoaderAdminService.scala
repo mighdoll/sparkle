@@ -14,10 +14,9 @@ import akka.actor.{ActorSystem, Props}
 import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
 import spray.routing._
-import spray.util._
 
 import nest.sparkle.http.{ResourceLocation, AdminServiceActor, AdminService}
-import nest.sparkle.measure.Measurements
+import nest.sparkle.measure._
 import nest.sparkle.util.kafka.KafkaStatus
 import nest.sparkle.util.kafka._
 import nest.sparkle.util.kafka.KafkaJsonProtocol._
@@ -54,9 +53,10 @@ trait KafkaLoaderAdminService extends AdminService
   lazy val allTopics: Route = {
     get {
       path("topics") {
-        onComplete(KafkaStatus.allTopics) {
-          case Success(s)   => complete(s)
-          case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
+        implicit val span = Span.startNoParent("admin.allTopics", level = Trace)
+        timedOnComplete(KafkaStatus.allTopics) {
+          case Success(s) => complete(s)
+          case Failure(x) => complete(StatusCodes.InternalServerError -> x.toString)
         }
       }
     }
@@ -66,7 +66,8 @@ trait KafkaLoaderAdminService extends AdminService
   lazy val allTopics2: Route = {
     get {
       path("topics2") {
-        onComplete(KafkaStatus.allTopics2) {
+        implicit val span = Span.startNoParent("admin.allTopics2", level = Trace)
+        timedOnComplete(KafkaStatus.allTopics2) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
@@ -78,7 +79,8 @@ trait KafkaLoaderAdminService extends AdminService
   lazy val oneTopic: Route = {
     get {
       path("topics" / Segment) { topicName =>
-        onComplete(KafkaStatus.topicFromName(topicName)) {
+        implicit val span = Span.startNoParent("admin.oneTopic", level = Trace)
+        timedOnComplete(KafkaStatus.topicFromName(topicName)) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
@@ -90,7 +92,8 @@ trait KafkaLoaderAdminService extends AdminService
   lazy val brokers: Route = {
     get {
       path("brokers") {
-        onComplete(KafkaStatus.allBrokers) {
+        implicit val span = Span.startNoParent("admin.brokers", level = Trace)
+        timedOnComplete(KafkaStatus.allBrokers) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
@@ -102,7 +105,8 @@ trait KafkaLoaderAdminService extends AdminService
   lazy val consumerGroups: Route = {
     get {
       path("groups") {
-        onComplete(getConsumerGroups) {
+        implicit val span = Span.startNoParent("admin.consumerGroups", level = Trace)
+        timedOnComplete(getConsumerGroups) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
@@ -114,12 +118,11 @@ trait KafkaLoaderAdminService extends AdminService
   lazy val offsets: Route = {
     get {
       path("offsets") {
-        //dynamic {
-          onComplete(getOffsets) {
-            case Success(s)   => complete(s)
-            case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
-          }
-        //}
+        implicit val span = Span.startNoParent("admin.offsets", level = Trace)
+        timedOnComplete(getOffsets) {
+          case Success(s)   => complete(s)
+          case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
+        }
       }
     }
   }
@@ -130,13 +133,13 @@ trait KafkaLoaderAdminService extends AdminService
     * 
     * @return Future
     */
-  private def getConsumerGroups: Future[Seq[String]] = {
+  private def getConsumerGroups(implicit parentSpan: Span): Future[Seq[String]] = {
     KafkaStatus.allConsumerGroups.map { groups => 
       groups.filter(_.startsWith(groupPrefix))
     }
   }
   
-  private def getOffsets: Future[Seq[KafkaGroupOffsets]] = {
+  private def getOffsets(implicit parentSpan: Span): Future[Seq[KafkaGroupOffsets]] = {
     def processGroups(groups: Seq[String]): Future[Seq[KafkaGroupOffsets]] = {
       val futures = groups map { group => 
         KafkaStatus.consumerGroupOffsets(group)
@@ -145,7 +148,7 @@ trait KafkaLoaderAdminService extends AdminService
     }
     
     for {
-      groups <- getConsumerGroups
+      groups       <- getConsumerGroups
       groupOffsets <- processGroups(groups)
     } yield {
       groupOffsets

@@ -21,7 +21,7 @@ import kafka.serializer.StringDecoder
 
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.Log
-import nest.sparkle.measure.{DummyMeasurements, Measurements}
+import nest.sparkle.measure.MeasurementToTsvFile
 
 /**
  * Use to add known state of kafka topic and consumer groups.
@@ -48,7 +48,7 @@ trait KafkaTestSuite
   implicit val zkProps: ZkConnectProps
   private lazy val statusThreadPool = Executors.newCachedThreadPool()
   implicit lazy val kafkaStatusContext = ExecutionContext.fromExecutor(statusThreadPool)
-  implicit val measurements = DummyMeasurements
+  implicit val measurements = new MeasurementToTsvFile("/tmp/kafka-tests.tsv")
   
   //implicit val timeout = 3.seconds 
   implicit val timeout = 1.hours  // use when running with a debugger

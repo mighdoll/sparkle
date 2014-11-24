@@ -10,11 +10,13 @@ import spray.http.StatusCodes._
 import spray.http.ContentTypes._
 import spray.testkit.ScalatestRouteTest
 import spray.json._
+import spray.routing.HttpService
 
 class TestDisplayConfig
   extends FunSuite
     with Matchers
     with ScalatestRouteTest
+    with HttpService
     with DisplayConfig
 {
   /** Set actor reference */
