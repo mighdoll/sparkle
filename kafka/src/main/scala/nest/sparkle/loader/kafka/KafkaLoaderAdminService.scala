@@ -102,11 +102,11 @@ trait KafkaLoaderAdminService extends AdminService
   }
    
   /** Returns the list of consumer groups matching the prefix */
-  lazy val consumerGroups: Route = {
+  lazy val groups: Route = {
     get {
       path("groups") {
         implicit val span = Span.startNoParent("admin.consumerGroups", level = Trace)
-        timedOnComplete(getConsumerGroups) {
+        timedOnComplete(consumerGroups()) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
@@ -119,7 +119,7 @@ trait KafkaLoaderAdminService extends AdminService
     get {
       path("offsets") {
         implicit val span = Span.startNoParent("admin.offsets", level = Trace)
-        timedOnComplete(getOffsets) {
+        timedOnComplete(groupOffsets()) {
           case Success(s)   => complete(s)
           case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
         }
@@ -133,13 +133,13 @@ trait KafkaLoaderAdminService extends AdminService
     * 
     * @return Future
     */
-  private def getConsumerGroups(implicit parentSpan: Span): Future[Seq[String]] = {
+  private def consumerGroups()(implicit parentSpan: Span): Future[Seq[String]] = {
     KafkaStatus.allConsumerGroups.map { groups => 
       groups.filter(_.startsWith(groupPrefix))
     }
   }
   
-  private def getOffsets(implicit parentSpan: Span): Future[Seq[KafkaGroupOffsets]] = {
+  private def groupOffsets()(implicit parentSpan: Span): Future[Seq[KafkaGroupOffsets]] = {
     def processGroups(groups: Seq[String]): Future[Seq[KafkaGroupOffsets]] = {
       val futures = groups map { group => 
         KafkaStatus.consumerGroupOffsets(group)
@@ -148,7 +148,7 @@ trait KafkaLoaderAdminService extends AdminService
     }
     
     for {
-      groups       <- getConsumerGroups
+      groups       <- consumerGroups()
       groupOffsets <- processGroups(groups)
     } yield {
       groupOffsets
@@ -159,7 +159,7 @@ trait KafkaLoaderAdminService extends AdminService
     allTopics ~ allTopics2 ~
     oneTopic ~
     brokers ~
-    consumerGroups ~
+    groups ~
     offsets
   }
 }

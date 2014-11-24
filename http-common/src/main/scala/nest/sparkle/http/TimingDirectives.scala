@@ -14,8 +14,11 @@ trait TimingDirectives
   implicit def executionContext: ExecutionContext
   
   /** Time a future that returns a response for a route */
-  def timedOnComplete[T](future: Future[T])(fn: Try[T] => Route)
-      (implicit span: StartedSpan): Route = {
+  def timedOnComplete[T]
+    (future: Future[T])
+    (fn: Try[T] => Route)
+    (implicit span: StartedSpan): Route = 
+  {
     onComplete(future) { result =>
       span.complete()
       fn(result)
