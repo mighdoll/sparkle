@@ -3,6 +3,7 @@ package nest.sparkle.util.kafka
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future, future}
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 import spray.json._
 
@@ -134,15 +135,14 @@ class KafkaStatus(
         topicNames <- futureTopicNames
         topics     <- topicsFromNames(consumers, topicNames)
       } yield {
-        (topics map { topic => topic.name -> topic}).toMap
+        topics.map(topic => topic.name -> topic).toMap
       }
     
     // Ensure SimpleConsumers are closed.
-    for {
-      result    <- futureResult
-      consumers <- futureConsumers
-    } yield {
-      consumers.values.foreach(_.consumer.close())
+    futureResult onComplete { _ =>
+      futureConsumers.map { consumers =>
+        consumers.values.foreach(_.consumer.close())
+      }
     }
     
     futureResult
@@ -160,11 +160,10 @@ class KafkaStatus(
       }
     
     // Ensure SimpleConsumers are closed.
-    for {
-      result    <- futureResult
-      consumers <- futureConsumers
-    } yield {
-      consumers.values.foreach(_.consumer.close())
+    futureResult onComplete { _ =>
+      futureConsumers map { consumers =>
+        consumers.values.foreach(_.consumer.close())
+      }
     }
   
     futureResult
@@ -247,7 +246,7 @@ class KafkaStatus(
     }
   }
   
-  private def simpleConsumers(implicit parentSpan: Span) = {
+  private def simpleConsumers(implicit parentSpan: Span): Future[Map[Int,BrokerConsumer]] = {
     val span = Span("simpleConsumers").start()
     val futureResult = for {
       brokers <- allBrokers(span)
@@ -257,12 +256,14 @@ class KafkaStatus(
     }
     
     /** Ensure the span is completed before caller gets result */
-    val futureReturn = futureResult map { result => 
-      span.complete() 
+    futureResult.map { result =>
+      span.complete()
       result
+    }.recoverWith {
+      case NonFatal(err)  => 
+        span.complete()
+        Future.failed(err)
     }
-    
-    futureReturn
   }
 }
 
