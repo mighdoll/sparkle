@@ -46,7 +46,6 @@ object Store {
     store
   }
 
-  case class MalformedColumnPath(msg: String) extends RuntimeException(msg)
   /** split a columnPath into a dataSet and column components */
   def setAndColumn(columnPath: String): (String, String) = {
     val separator = columnPath.lastIndexOf("/")
@@ -67,3 +66,5 @@ object Store {
 case class DataSetNotFound(name: String) extends RuntimeException(name)
 
 case class ColumnNotFound(column: String) extends RuntimeException(column)
+
+case class MalformedColumnPath(msg: String) extends RuntimeException(msg)
