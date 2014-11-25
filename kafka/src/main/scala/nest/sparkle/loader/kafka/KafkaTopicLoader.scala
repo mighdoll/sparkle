@@ -33,7 +33,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
                                     val store: WriteableStore,
                                     val topic: String,
                                     val decoder: KafkaKeyValues
-) (implicit execution: ExecutionContext)
+) //(implicit execution: ExecutionContext)
   extends Watched[ColumnUpdate[K]]
   with Runnable
   with Instrumented
@@ -292,7 +292,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
             Some(ColumnUpdate[K](columnPath, lastKey))
           }
         case None          =>
-          log.error(s"what does this mean for this $columnPath?")
+          log.warn(s"no last key  for $columnPath. events empty: ${events.isEmpty}")
           Future.successful(None)
       }
     }
