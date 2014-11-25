@@ -78,6 +78,26 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
     }
   }
 
+  test("erase works") {
+    withTestDb { store =>
+      withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
+        store.format()
+        // columnPath no longer in the store
+        val result = store.columnCatalog.tableForColumn(testColumnPath).failed.await
+        result shouldBe ColumnNotFound(testColumnPath)
+      }
+    }
+  }
+
+  test("missing column returns error") {
+    val notColumn = "notAColumn"
+    withTestDb { store =>
+      val table = store.columnCatalog.tableForColumn(notColumn)
+      val result = table.failed.await
+      result shouldBe ColumnNotFound(notColumn)
+    }
+  }
+
   test("missing column returns ColumnNotFound") {
     val badPath = "foo/notAColumn"
     withTestDb { store =>

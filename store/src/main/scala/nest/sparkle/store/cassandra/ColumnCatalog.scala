@@ -18,9 +18,8 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import com.datastax.driver.core.Session
 import com.datastax.driver.core.PreparedStatement
-import nest.sparkle.store.{ColumnNotFound, MalformedColumnPath}
+import nest.sparkle.store.ColumnNotFound
 import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.util.Instance
 import nest.sparkle.util.OptionConversion._
 import nest.sparkle.util.Log
 import nest.sparkle.store.cassandra.ObservableResultSet._
@@ -29,7 +28,6 @@ import scala.language.existentials
 import scala.reflect.runtime.universe._
 import nest.sparkle.util.TaggedKeyValue
 import rx.lang.scala.Observable
-import com.typesafe.config.Config
 
 /** metadata about a column of data
   *
@@ -47,84 +45,86 @@ case class CassandraCatalogEntry(
   rangeType: String)
 
 case class CatalogStatements(addCatalogEntry: PreparedStatement,
+                             tableForColumn: PreparedStatement,
                              catalogInfo: PreparedStatement)
 
 /** Manages a table of CatalogEntry rows in cassandra.  Each CatalogEntry references
   * the cassandra table holding the column data, as well as other
   * metadata about the column like the type of data that is stored in the column.
   */
-case class ColumnCatalog(storeConfig : Config, session: Session) extends PreparedStatements[CatalogStatements]
+case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogStatements]
     with Log {
   val catalogTable = ColumnCatalog.catalogTable
 
   /** insert or overwrite a catalog entry */
   val addCatalogEntryStatement = s"""
       INSERT INTO $catalogTable
-      (customColumnPath, tableName, description, domainType, rangeType)
+      (columnPath, tableName, description, domainType, rangeType)
       VALUES (?, ?, ?, ?, ?);
       """
 
-  val catalogInfoStatement = s"""
-      SELECT tableName, domainType, rangeType FROM $catalogTable
-      WHERE customColumnPath = ?;
+  val tableForColumnStatement = s"""
+      SELECT tableName FROM $catalogTable
+      WHERE columnPath = ?;
     """
 
-  lazy val catalogTableCustomizer: CatalogTableCustomizer = {
-    val className = storeConfig.getString("catalog-table-customizer")
-    log.info(s"using CatalogTableCustomizer: $className")
-    Instance.byName[CatalogTableCustomizer](className)()
-  }
+  val catalogInfoStatement = s"""
+      SELECT tableName, domainType, rangeType FROM $catalogTable
+      WHERE columnPath = ?;
+    """
 
   /** store metadata about a column in Cassandra */ // format: OFF
   def writeCatalogEntry(entry: CassandraCatalogEntry)
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
     log.debug(s"writing catalog entry: $entry")
-
-    val result = catalogTableCustomizer.customizeColumnPath(entry.columnPath) match {
-      case Some(customColumnPath) =>
-        val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef]}.toArray
-        entryFields(0) = customColumnPath
-        val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
-        session.executeAsync(statement).toFuture.map { _ =>}
-      case None =>
-        Future.failed(MalformedColumnPath(entry.columnPath))
-    }
-
-    result.onFailure { case error => log.error("writing catalog entry failed", error)}
+    val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef] }.toSeq
+    val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
+    val result = session.executeAsync(statement).toFuture.map{ _ => }
+    result.onFailure { case error => log.error("writing catalog entry failed", error) }
     result
   }
 
   /** return metadata about a given columnPath (based on data previously stored with writeCatalogEntry */
   def catalogInfo(columnPath: String) // format:OFF
       (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
-    catalogTableCustomizer.customizeColumnPath(columnPath) match {
-      case Some(customColumnPath) =>
-        val statement = catalogStatements.catalogInfo.bind(customColumnPath)
+    val statement = catalogStatements.catalogInfo.bind(columnPath)
 
-        // result should be a single row containing a three strings:
-        for {
-          resultSet <- session.executeAsync(statement).toFuture
-          row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(customColumnPath))
-        } yield {
-          val tableName = row.getString(0)
-          val domainType = CanSerialize.stringToTypeTag(row.getString(1))
-          val rangeType = CanSerialize.stringToTypeTag(row.getString(2))
-          CatalogInfo(tableName, domainType, rangeType)
-        }
-      case None =>
-        Future.failed(MalformedColumnPath(columnPath))
+    // result should be a single row containing a three strings:
+    for {
+      resultSet <- session.executeAsync(statement).toFuture
+      row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath))
+    } yield {
+      val tableName = row.getString(0)
+      val domainType = CanSerialize.stringToTypeTag(row.getString(1))
+      val rangeType = CanSerialize.stringToTypeTag(row.getString(2))
+      CatalogInfo(tableName, domainType, rangeType)
+    }
+  }
+
+  // TODO I think we can get rid of this now
+  /** return the cassandra table name for a given column */
+  def tableForColumn(columnPath: String) // format: OFF
+      (implicit executionContext: ExecutionContext): Future[String] = { // format: ON
+    val statement = catalogStatements.tableForColumn.bind(columnPath)
+
+    // result should be a single row containing a single string: the table name for the column
+    for {
+      resultSet <- session.executeAsync(statement).toFuture
+      row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath))
+    } yield {
+      row.getString(0)
     }
   }
 
   def allColumns() // format:OFF
   (implicit executionContext: ExecutionContext): Observable[String] = { // format: ON
     val allColumnsStatement = s"""
-      SELECT customColumnPath FROM $catalogTable
+      SELECT columnPath FROM $catalogTable
       LIMIT 50000000;
     """
 
     val rows = session.executeAsync(allColumnsStatement).observerableRows()
-    // result should be rows containing a single string: the customColumnPath
+    // result should be rows containing a single string: the columnPath
     rows.map { row =>
       row.getString(0)
     }
@@ -138,6 +138,7 @@ case class ColumnCatalog(storeConfig : Config, session: Session) extends Prepare
   def makeStatements(): CatalogStatements = {
     CatalogStatements(
       addCatalogEntry = session.prepare(addCatalogEntryStatement),
+      tableForColumn = session.prepare(tableForColumnStatement),
       catalogInfo = session.prepare(catalogInfoStatement)
     )
   }
@@ -156,12 +157,12 @@ object ColumnCatalog {
   def create(session: Session): Unit = {
     session.execute(s"""
       CREATE TABLE IF NOT EXISTS $catalogTable (
-        customColumnPath text,
+        columnPath text,
         tableName text,
         description text,
         domainType text,
         rangeType text,
-        PRIMARY KEY(customColumnPath)
+        PRIMARY KEY(columnPath)
       );"""
     )
   }

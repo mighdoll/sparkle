@@ -129,7 +129,7 @@ trait ConfiguredCassandra extends Log {
   private lazy val replicationFactor = storeConfig.getInt("replication-factor")
   implicit def execution: ExecutionContext = ExecutionContext.global // TODO use a provided execution context
 
-  lazy val columnCatalog = ColumnCatalog(storeConfig, session)
+  lazy val columnCatalog = ColumnCatalog(session)
   lazy val dataSetCatalog = DataSetCatalog(session)
 
   /** current cassandra session.  (Currently we use one session for this CassandraStore) */
