@@ -31,6 +31,19 @@ object SparseColumnWriter
   protected val batchMetric = metrics.timer("store-batch-writes")
 
   /** constructor to create a SparseColumnWriter */
+  def apply[T: CanSerialize, U: CanSerialize]( // format: OFF
+        dataSetName: String, 
+        columnName: String, 
+        catalog: ColumnCatalog, 
+        dataSetCatalog: DataSetCatalog, 
+        writeNotifier:WriteNotifier,
+        preparedSession: PreparedSession
+      ): SparseColumnWriter[T,U] = { // format: ON
+
+    new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier, preparedSession)
+  }
+
+  /** constructor to create a SparseColumnWriter and update the store */
   def instance[T: CanSerialize, U: CanSerialize]( // format: OFF
         dataSetName: String, 
         columnName: String, 
@@ -41,7 +54,7 @@ object SparseColumnWriter
       )(implicit execution:ExecutionContext):Future[SparseColumnWriter[T,U]] = { // format: ON
 
     val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier, preparedSession)
-    writer.updateCatalog().map { _ => writer }
+    writer.updateCatalog().map { _ => writer}
   }
 
   /** create columns for default data types */

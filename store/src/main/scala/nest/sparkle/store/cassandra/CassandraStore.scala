@@ -14,41 +14,46 @@
 
 package nest.sparkle.store.cassandra
 
-import scala.language._
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.concurrent.duration._
+import java.util.concurrent.ConcurrentLinkedDeque
+
 import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.language._
 import scala.util.control.Exception._
-import com.datastax.driver.core.{ Cluster, Session }
-import com.datastax.driver.core.PreparedStatement
-import rx.lang.scala.Observable
+
 import com.typesafe.config.Config
+
 import spray.util._
-import nest.sparkle.util.Log
-import nest.sparkle.util.RandomUtil
-import nest.sparkle.util.ObservableFuture._
-import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.store.{ Store, DataSet, Column, WriteableStore, DataSetNotFound }
+
+import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
 import nest.sparkle.store.cassandra.ObservableResultSet._
+import nest.sparkle.store._
+import nest.sparkle.util.GuavaConverters._
+import nest.sparkle.util.Log
+import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.TryToFuture._
-import com.datastax.driver.core.Row
 
-case class AsciiString(val string: String) extends AnyVal
-case class NanoTime(val nanos: Long) extends AnyVal
-case class MilliTime(val millis: Long) extends AnyVal
+import com.datastax.driver.core.{Cluster, Row, Session}
 
-object CassandraStore extends Log {
+case class AsciiString(string: String) extends AnyVal
+
+case class NanoTime(nanos: Long) extends AnyVal
+
+case class MilliTime(millis: Long) extends AnyVal
+
+object CassandraStore extends Log
+{
+  
   /** (for tests) return a Storage DAO for reading and writing to cassandra.  */
   def readerWriter(config: Config, writeNotification: WriteListenNotify) // format: OFF
-       : CassandraReaderWriter // format: ON
-       = new ConfiguredCassandraReaderWriter(config, writeNotification)
+  : CassandraReaderWriter // format: ON
+  = new ConfiguredCassandraReaderWriter(config, writeNotification)
 
   /** Drop the keyspace.
     * This is mostly useful for testing.
     *
     * @param contactHosts Cassandra host to create session for.
-    * @param keySpace keyspace to drop.
-    */
+    * @param keySpace keyspace to drop.*/
   def dropKeySpace(contactHosts: Seq[String], keySpace: String): Unit = {
     val clusterSession = getClusterSession(contactHosts)
     try {
@@ -63,8 +68,7 @@ object CassandraStore extends Log {
     * This is mostly useful for testing.
     *
     * @param contactHost Cassandra host to create session for.
-    * @param keySpace keyspace to drop.
-    */
+    * @param keySpace keyspace to drop.*/
   def dropKeySpace(contactHost: String, keySpace: String): Unit = {
     dropKeySpace(Seq(contactHost), keySpace)
   }
@@ -72,15 +76,14 @@ object CassandraStore extends Log {
   /** Create a connection to the cassandra cluster
     *
     * @param contactHosts Hosts to connect to
-    * @return Cassandra session
-    */
+    * @return Cassandra session*/
   protected[cassandra] def getClusterSession(contactHosts: Seq[String]): ClusterSession = {
     val builder = Cluster.builder()
-    contactHosts.foreach { host =>
-      val added = nonFatalCatch.withTry { builder.addContactPoint(host) }
-      added.failed.map { err => log.error(s"unable to add cassandra contact point: $host", err) }
+    contactHosts.foreach { host => {
+      val added = nonFatalCatch.withTry {builder.addContactPoint(host)}
+      added.failed.map { err => log.error(s"unable to add cassandra contact point: $host", err)}
+    }
     } // TODO add test for me
-
     val cluster = builder.build()
     val session = cluster.connect()
     ClusterSession(cluster, session)
@@ -89,18 +92,18 @@ object CassandraStore extends Log {
   /** Create a connection to the cassandra cluster using the single host.
     *
     * @param contactHost Host to connect to
-    * @return Cassandra session
-    */
+    * @return Cassandra session*/
   protected def getClusterSession(contactHost: String): ClusterSession = {
     getClusterSession(Seq(contactHost))
   }
 
   /** (for debug logging) Return a string containing the cassandra table name 
-   *  and the cassandra column names and storage types. */
+    * and the cassandra column names and storage types. */
   def rowColumnTypes(row: Row): String = {
     val definitions = row.getColumnDefinitions.asList.asScala
-    val columnStrings = definitions.map { definition =>
+    val columnStrings = definitions.map { definition => {
       s"${definition.getName}:${definition.getType}"
+    }
     }
     val table = definitions.head.getTable
     val allColumnStrings = columnStrings.mkString(", ")
@@ -109,26 +112,40 @@ object CassandraStore extends Log {
 }
 
 /** a cassandra store data access layer configured by a config file */
-class ConfiguredCassandraReader(override val config: Config, override val writeListener: WriteListener) extends ConfiguredCassandra with CassandraStoreReader
+class ConfiguredCassandraReader(
+  override val config: Config, override val writeListener: WriteListener
+) extends ConfiguredCassandra with CassandraStoreReader
 
 /** a cassandra store data access layer configured by a config file */
-class ConfiguredCassandraWriter(override val config: Config, override val writeNotifier: WriteNotifier) extends ConfiguredCassandra with CassandraStoreWriter
+class ConfiguredCassandraWriter(
+  override val config: Config, override val writeNotifier: WriteNotifier
+) extends ConfiguredCassandra with CassandraStoreWriter
 
-class ConfiguredCassandraReaderWriter(override val config: Config, writeNotification: WriteListener with WriteNotifier) // format: OFF
-  extends ConfiguredCassandra with CassandraReaderWriter {  // TODO DRY these
+class ConfiguredCassandraReaderWriter(
+  override val config: Config, writeNotification: WriteListener with WriteNotifier
+) // format: OFF
+  extends ConfiguredCassandra with CassandraReaderWriter
+{
+  // TODO DRY these
   override def writeNotifier = writeNotification
+
   override def writeListener = writeNotification
 }
 
-trait ConfiguredCassandra extends Log {
-  def config:Config
-  
+trait ConfiguredCassandra extends Log
+{
+  def config: Config
+
   private lazy val storeConfig = config.getConfig("sparkle-store-cassandra")
-  private lazy val contactHosts: Seq[String] = storeConfig.getStringList("contact-hosts").asScala.toSeq
+  private lazy val contactHosts: Seq[String] = storeConfig
+    .getStringList("contact-hosts")
+    .asScala
+    .toSeq
   private lazy val storeKeySpace = storeConfig.getString("key-space").toLowerCase
   private lazy val replicationFactor = storeConfig.getInt("replication-factor")
-  implicit def execution: ExecutionContext = ExecutionContext.global // TODO use a provided execution context
 
+  // TODO use a provided execution context
+  implicit def execution: ExecutionContext = ExecutionContext.global
   lazy val columnCatalog = ColumnCatalog(session)
   lazy val dataSetCatalog = DataSetCatalog(session)
 
@@ -141,7 +158,7 @@ trait ConfiguredCassandra extends Log {
   /** create a connection to the cassandra cluster */
   lazy val clusterSession: ClusterSession = {
     try {
-      log.info(s"""starting session using contact hosts on ${contactHosts.mkString(",")}""")
+      log.info( s"""starting session using contact hosts on ${contactHosts.mkString(",")}""")
       CassandraStore.getClusterSession(contactHosts)
     } catch {
       case e: Exception => log.error("session creation failed", e); throw e
@@ -150,8 +167,7 @@ trait ConfiguredCassandra extends Log {
 
   /** Close the connection to Cassandra.
     *
-    * Blocks the calling thread until the session is closed
-    */
+    * Blocks the calling thread until the session is closed */
   def close(): Unit = { clusterSession.close() }
 
 
@@ -159,11 +175,11 @@ trait ConfiguredCassandra extends Log {
     * session to use the default keyspace.
     *
     * @param session The session to use. This shadows the instance variable
-    *            because the instance variable may not be initialized yet.
-    */
+    *                because the instance variable may not be initialized yet.*/
   private def useKeySpace(session: Session): Unit = {
-    val keySpacesRows = session.executeAsync(s"""
-        SELECT keyspace_name FROM system.schema_keyspaces""").observerableRows()
+    val keySpacesRows = session.executeAsync( s"""
+        SELECT keyspace_name FROM system.schema_keyspaces"""
+    ).observerableRows()
 
     val keySpaces = keySpacesRows.toFutureSeq.await
     log.debug(s"useKeySpace checking keySpaces: $keySpaces")
@@ -180,19 +196,18 @@ trait ConfiguredCassandra extends Log {
 
   /** create a keyspace (db) in cassandra */
   private def createKeySpace(session: Session, keySpace: String): Unit = {
-    session.execute(s"""
+    session.execute( s"""
         CREATE KEYSPACE $keySpace
         with replication = {'class': 'SimpleStrategy', 'replication_factor': $replicationFactor}"""
     )
     session.execute(s"USE $keySpace")
     format(session)
   }
-  
+
 
   /** Create the tables using the session passed.
     * The session's keyspace itself must already exist.
-    * Any existing tables are deleted.
-    */
+    * Any existing tables are deleted. */
   protected def format(session: Session): Unit = {
     dropTables(session)
 
@@ -201,8 +216,7 @@ trait ConfiguredCassandra extends Log {
     DataSetCatalog.create(session)
   }
 
-  /** Drop all tables in the keyspace.
-    */
+  /** Drop all tables in the keyspace. */
   private def dropTables(session: Session) = {
     val query = s"""SELECT columnfamily_name FROM system.schema_columnfamilies
       WHERE keyspace_name = '$storeKeySpace'"""
@@ -211,79 +225,127 @@ trait ConfiguredCassandra extends Log {
       val tableName = row.getString(0)
       dropTable(session, tableName)
     }
-    drops.toBlocking.foreach { drop => drop.await }
+    drops.toBlocking.foreach { drop => drop.await}
   }
 
-  /** Delete a table (and all of the data in the table) from the session's current keyspace
-    */
+  /** Delete a table (and all of the data in the table) from the session's current keyspace */
   private def dropTable(session: Session, tableName: String) // format: OFF
-      (implicit execution: ExecutionContext): Future[Unit] = { // format: ON
+      (implicit execution: ExecutionContext): Future[Unit] =
+  {
+    // format: ON
     val dropTable = s"DROP TABLE IF EXISTS $tableName"
-    session.executeAsync(dropTable).toFuture.map { _ => () }
+    session.executeAsync(dropTable).toFuture.map { _ => ()}
   }
 
 }
 
 trait CassandraReaderWriter extends CassandraStoreReader with CassandraStoreWriter
 
-/** a data access object for Cassandra writing.
-  */
-trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with Log {
+/** a data access object for Cassandra writing. */
+trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with Log
+{
   def writeNotifier: WriteNotifier
 
-  this.session // trigger creating connection, and create schemas if necessary
-
+  this.session
+  // trigger creating connection, and create schemas if necessary
   private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements)
 
-  /** return a column from a fooSet/barSet/columName path */
-  def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]] = {
+  /** Map of inserts per columnPath table.
+    * Key is the table name
+    * Value is a buffer of columnpath, event arrays to insert
+    */
+  private[cassandra] val tableBuffers: Map[String,ConcurrentLinkedDeque[StoreTableBufferEntry]] = {
+    val tableNames = ColumnTypes.supportedColumnTypes.map(_.tableName)
+    val map = tableNames.map { tableName =>
+      tableName -> new ConcurrentLinkedDeque[StoreTableBufferEntry]
+    }.toMap
+    map
+  }
+
+  /** return a column from a fooSet/barSet/columnName path */
+  def writeableColumn[T: CanSerialize, U: CanSerialize](
+    columnPath: String
+  ): Future[WriteableColumn[T, U]] =
+  {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
-    SparseColumnWriter.instance[T, U](dataSetName, columnName, columnCatalog,
-      dataSetCatalog, writeNotifier, preparedSession)
+    SparseColumnWriter.instance[T, U](
+      dataSetName, columnName, columnCatalog, dataSetCatalog, writeNotifier, preparedSession
+    )
   }
 
   /** Create the tables using the session passed.
     * The session's keyspace itself must already exist.
     * Any existing tables are deleted.
     *
-    * This call is synchronous.
-    */
+    * This call is synchronous. */
   def format(): Unit = {
     format(session)
   }
+  
+  /** Add events to the store's table buffers */
+  def add[T: CanSerialize, U: CanSerialize](columnPath: String, items:Iterable[Event[T,U]])
+      (implicit executionContext: ExecutionContext): Future[Unit] = {
+    val events = items.toArray.asInstanceOf[Array[Event[_,_]]]
+    val entry = StoreTableBufferEntry(columnPath,events)
+    
+    val serialInfo = serializationInfo[T,U]()
+    val tableName = serialInfo.tableName
+    val tableBuffer = tableBuffers(tableName)
+    
+    tableBuffer.add(entry)
+    
+    Future.successful(())
+  }
+  
+  /** Flush buffered events to storage */
+  def flush(): Future[Unit] = {
+    // TODO: Do something to stop adds
+    
+    // TODO: Write data to tables
+    
+    
+    tableBuffers.values.foreach(_.clear())
+
+    Future.successful(())
+  }
 
 }
+  
+case class StoreTableBufferEntry(columnPath: String, events: Array[Event[_,_]])
 
 /** a data access object for reading cassandra column data and the catalog of columns. */
-trait CassandraStoreReader extends ConfiguredCassandra with Store with Log {
+trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
+{
   def writeListener: WriteListener
 
-  this.session // trigger creating connection, and create schemas if necessary 
+  this.session
+  // trigger creating connection, and create schemas if necessary 
   private lazy val preparedSession = PreparedSession(session, SparseColumnReaderStatements)
 
   /** Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
     *
     * A check is made that the dataSet exists. If not the Future is failed with
-    * a DataSetNotFound returned.
-    */
+    * a DataSetNotFound returned. */
   def dataSet(dataSetPath: String): Future[DataSet] = {
     // Check there are any entries with this path as the parent.
     val future = dataSetCatalog.childrenOfParentPath(dataSetPath).toFutureSeq
-    future.flatMap { children =>
+    future.flatMap { children => {
       children.size match {
         case n if n > 0 => Future.successful(CassandraDataSet(this, dataSetPath))
         case _          => Future.failed(DataSetNotFound(s"$dataSetPath does not exist"))
       }
     }
+    }
   }
 
   /** return a column from a fooSet/barSet/columnName path */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
-    for {
-      (dataSetName, columnName) <- nonFatalCatch.withTry { Store.setAndColumn(columnPath) }.toFuture
-      futureColumn <- SparseColumnReader.instance[T, U](dataSetName, columnName,
-        columnCatalog, writeListener, preparedSession)
-    } yield futureColumn
+    for {(dataSetName, columnName) <- nonFatalCatch
+      .withTry {Store.setAndColumn(columnPath)}
+      .toFuture
+         futureColumn <- SparseColumnReader.instance[T, U](
+           dataSetName, columnName, columnCatalog, writeListener, preparedSession
+         )} yield futureColumn
   }
 
 }

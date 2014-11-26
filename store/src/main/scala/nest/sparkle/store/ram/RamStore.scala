@@ -15,10 +15,11 @@
 package nest.sparkle.store.ram
 
 import scala.collection.mutable
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-import nest.sparkle.store.{Column, ColumnNotFound, DataSet, DataSetNotFound, Store}
-import nest.sparkle.store.cassandra.WriteableColumn
+import nest.sparkle.store._
+import nest.sparkle.store.cassandra.ColumnTypes._
+import nest.sparkle.store.cassandra.{CanSerialize, WriteableColumn}
 import nest.sparkle.util.OptionConversion.OptionFuture
 import scala.reflect.runtime.universe._
 
@@ -65,6 +66,17 @@ class WriteableRamStore extends Store {
   /** free memory we might have been hanging on to */
   def close(): Unit = {
     columns.clear()
+  }
+  
+  /** Add events to the store's table buffers */
+  def add[T: CanSerialize, U: CanSerialize](columnPath: String, items:Iterable[Event[T,U]])
+      (implicit executionContext: ExecutionContext): Future[Unit] = {
+    ???
+  }
+  
+  /** Flush buffered events to storage */
+  def flush(): Future[Unit] = {
+    Future.successful(())
   }
 
 }

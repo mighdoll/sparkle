@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 import com.typesafe.config.Config
 
-import _root_.kafka.consumer.ConsumerTimeoutException
+import kafka.consumer.ConsumerTimeoutException
 
 import nest.sparkle.loader._
 import nest.sparkle.loader.Loader.{Events, LoadingTransformer, TaggedBlock}
@@ -33,7 +33,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
                                     val store: WriteableStore,
                                     val topic: String,
                                     val decoder: KafkaKeyValues
-) //(implicit execution: ExecutionContext)
+) (implicit execution: ExecutionContext)
   extends Watched[ColumnUpdate[K]]
   with Runnable
   with Instrumented

@@ -14,7 +14,7 @@
 
 package nest.sparkle.store
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 import nest.sparkle.store.cassandra.CanSerialize
 import nest.sparkle.store.cassandra.WriteableColumn
@@ -32,4 +32,11 @@ trait WriteableStore {
    * as if it was just created.
    */
   def format(): Unit
+  
+  /** Add events to the store's table buffers */
+  def add[T: CanSerialize, U: CanSerialize](columnPath: String, items:Iterable[Event[T,U]])
+      (implicit executionContext: ExecutionContext): Future[Unit]  // Should this be Unit?
+  
+  /** Flush buffered events to storage */
+  def flush(): Future[Unit]
 }
