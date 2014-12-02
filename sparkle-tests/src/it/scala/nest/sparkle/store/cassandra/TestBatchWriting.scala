@@ -17,32 +17,63 @@ class TestBatchWriting extends FunSuite with Matchers with PropertyChecks with C
   override def testKeySpace = "testbatchwriting"
 
 
-  private def replicationFactor = 1 // ensure replication factor so we can validate
+  private def replicationFactor = 1 // only 1 server in test
 
   override def configOverrides: List[(String, Any)] =
     super.configOverrides :+
       (s"$sparkleConfigName.sparkle-store-cassandra.replication-factor" -> replicationFactor)
-
-  test("can add columnPath data") {
+  
+  val columnPath = "batch/test"
+  val events = Seq( 
+    Event[Long,Double](1,1.1),
+    Event[Long,Double](2,2.2),
+    Event[Long,Double](3,3.3)
+  )
+  
+  def checkStoreQueue(store: CassandraReaderWriter): Unit = {
+    val map = store.tableBuffers
+    // map.size shouldBe 5  // currently we support 5 tables
+    map should contain key "bigint0double"
+    val tableQueue = map("bigint0double")
+    tableQueue should have length 1
+    
+    val data = tableQueue.dequeue()
+    data.columnPath shouldBe columnPath
+    data.events should have length events.length
+    data.events.head shouldBe events.head
+  }
+  
+  test("can enqueue columnPath data") {
     withTestDb { store =>
-      val columnPath = "batch/test"
-      val events = Seq( 
-        Event[Long,Double](1,1.1),
-        Event[Long,Double](2,2.2),
-        Event[Long,Double](3,3.3)
-      )
-      store.add(columnPath, events).await
+      store.enqueue(columnPath, events)
       
-      val map = store.tableBuffers
-      // map.size shouldBe 5  // currently we support 5 tables
-      map should contain key "bigint0double"
-      val tableData = map("bigint0double")
-      tableData.size shouldBe 1
+      checkStoreQueue(store)
+    }
+  }
+
+  test("can enqueue columnPath data acquiring lock") {
+    withTestDb { store =>
       
-      val data = tableData.getFirst
-      data.columnPath shouldBe columnPath
-      data.events should have length events.length
-      data.events.head shouldBe events.head
+      store.acquireEnqueueLock()
+      store.enqueue(columnPath, events)
+      
+      checkStoreQueue(store)
+      
+      store.releaseEnqueueLock()
+    }
+  }
+
+  test("queue is cleared after flush") {
+    withTestDb { store =>
+      
+      store.acquireEnqueueLock()
+      store.enqueue(columnPath, events)
+      store.releaseEnqueueLock()
+      
+      store.flush()
+      
+      val tableQueue = store.tableBuffers("bigint0double")
+      tableQueue should have length 0
     }
   }
 }

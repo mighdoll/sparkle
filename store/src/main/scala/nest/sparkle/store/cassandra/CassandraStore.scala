@@ -14,9 +14,10 @@
 
 package nest.sparkle.store.cassandra
 
-import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language._
 import scala.util.control.Exception._
@@ -249,15 +250,25 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   this.session
   // trigger creating connection, and create schemas if necessary
   private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements)
+  
+  /** 
+   * Lock to allow enqueuing to the table queues.
+   * The "read" lock is used to allow multiple enqueue-ers (the table queues are 
+   * synchronized themselves).
+   * When it is time to write a thread gets the "write" lock which can only be obtaining
+   * when there are no "read" lock holders. Once the write lock is obtaining the entries in
+   * queues can be written.
+   */
+  private[cassandra] val enqueueLock = new ReentrantReadWriteLock(true)
 
   /** Map of inserts per columnPath table.
     * Key is the table name
     * Value is a buffer of columnpath, event arrays to insert
     */
-  private[cassandra] val tableBuffers: Map[String,ConcurrentLinkedDeque[StoreTableBufferEntry]] = {
+  private[cassandra] val tableBuffers: Map[String,mutable.SynchronizedQueue[StoreTableBufferEntry]] = {
     val tableNames = ColumnTypes.supportedColumnTypes.map(_.tableName)
     val map = tableNames.map { tableName =>
-      tableName -> new ConcurrentLinkedDeque[StoreTableBufferEntry]
+      tableName -> new mutable.SynchronizedQueue[StoreTableBufferEntry]
     }.toMap
     map
   }
@@ -282,36 +293,47 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
     format(session)
   }
   
-  /** Add events to the store's table buffers */
-  def add[T: CanSerialize, U: CanSerialize](columnPath: String, items:Iterable[Event[T,U]])
-      (implicit executionContext: ExecutionContext): Future[Unit] = {
-    val events = items.toArray.asInstanceOf[Array[Event[_,_]]]
+  def acquireEnqueueLock(): Unit = {
+    enqueueLock.readLock().lock()
+  }
+  
+  def releaseEnqueueLock(): Unit = {
+    enqueueLock.readLock().unlock()
+  }
+  
+  /** 
+   * Add entries to the store's table queues.
+   * The enqueueLock's readLock should be acquired before making this call to ensure entries
+   * are not lost.
+   */
+  def enqueue[T: CanSerialize, U: CanSerialize](columnPath: String, items:Iterable[Event[T,U]])
+      (implicit executionContext: ExecutionContext): Unit = {
+    val events = items.toArray.asInstanceOf[Array[Event[Any,Any]]]
     val entry = StoreTableBufferEntry(columnPath,events)
     
     val serialInfo = serializationInfo[T,U]()
     val tableName = serialInfo.tableName
-    val tableBuffer = tableBuffers(tableName)
+    val tableQueue = tableBuffers(tableName)
     
-    tableBuffer.add(entry)
-    
-    Future.successful(())
+    tableQueue.enqueue(entry)
   }
   
-  /** Flush buffered events to storage */
-  def flush(): Future[Unit] = {
-    // TODO: Do something to stop adds
-    
-    // TODO: Write data to tables
-    
-    
-    tableBuffers.values.foreach(_.clear())
-
-    Future.successful(())
+  /** 
+   * Flush buffered events to storage 
+   */
+  def flush(): Unit = {
+    enqueueLock.writeLock().lock()
+    try {
+      Thread.sleep(200)// TODO: Write data to tables
+      tableBuffers.values.foreach(_.clear())
+    } finally {
+      enqueueLock.writeLock().unlock()
+    }
   }
 
 }
   
-case class StoreTableBufferEntry(columnPath: String, events: Array[Event[_,_]])
+case class StoreTableBufferEntry(columnPath: String, events: Array[Event[Any,Any]])
 
 /** a data access object for reading cassandra column data and the catalog of columns. */
 trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
