@@ -247,8 +247,10 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
 {
   def writeNotifier: WriteNotifier
 
-  this.session
   // trigger creating connection, and create schemas if necessary
+  this.session
+  
+  // This is not used by the TableWriters
   private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements)
   
   /** 
@@ -263,14 +265,18 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
 
   /** Map of inserts per columnPath table.
     * Key is the table name
-    * Value is a buffer of columnpath, event arrays to insert
+    * Value is a queue of columnpath, event arrays to insert
     */
-  private[cassandra] val tableBuffers: Map[String,mutable.SynchronizedQueue[StoreTableBufferEntry]] = {
+  private[cassandra] val tableQueues: Map[String,mutable.SynchronizedQueue[ColumnRowData]] = {
     val tableNames = ColumnTypes.supportedColumnTypes.map(_.tableName)
     val map = tableNames.map { tableName =>
-      tableName -> new mutable.SynchronizedQueue[StoreTableBufferEntry]
+      tableName -> new mutable.SynchronizedQueue[ColumnRowData]
     }.toMap
     map
+  }
+  
+  private lazy val tableWriters = tableQueues.keys.map { tableName => 
+    TableWriter(session, tableName, writeNotifier)
   }
 
   /** return a column from a fooSet/barSet/columnName path */
@@ -307,15 +313,20 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
    * are not lost.
    */
   def enqueue[T: CanSerialize, U: CanSerialize](columnPath: String, items:Iterable[Event[T,U]])
-      (implicit executionContext: ExecutionContext): Unit = {
-    val events = items.toArray.asInstanceOf[Array[Event[Any,Any]]]
-    val entry = StoreTableBufferEntry(columnPath,events)
-    
+      (implicit executionContext: ExecutionContext): Unit = 
+  {
     val serialInfo = serializationInfo[T,U]()
     val tableName = serialInfo.tableName
-    val tableQueue = tableBuffers(tableName)
+    val tableQueue = tableQueues(tableName)
     
-    tableQueue.enqueue(entry)
+    // Serialize the keys and values and convert to a ColumnRowData.
+    val rows = items.map { item =>
+      val key = serialInfo.domain.serialize(item.argument)
+      val value = serialInfo.range.serialize(item.value)
+      ColumnRowData(columnPath, key, value)
+    }.toSeq
+    
+    tableQueue.enqueue(rows: _*)
   }
   
   /** 
@@ -324,16 +335,43 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   def flush(): Unit = {
     enqueueLock.writeLock().lock()
     try {
-      Thread.sleep(200)// TODO: Write data to tables
-      tableBuffers.values.foreach(_.clear())
+      val futures = tableQueues.map {
+        case (tableName, queue) => writeQueue(tableName, queue)
+      }
+      Future.sequence(futures).await
     } finally {
       enqueueLock.writeLock().unlock()
     }
   }
+  
+  private def writeQueue(tableName: String, queue: mutable.SynchronizedQueue[ColumnRowData]): Future[Unit] = {
+    val writer = new TableWriter(session, tableName, writeNotifier)  // TODO: create once for each table.
+    val items = queue.toList.sorted
+    queue.clear()
+    writer.write(items)
+  }
 
 }
+
+/**
+ * Data to be inserted into a Column table.
+ * 
+ * @param columnPath The full columnPath
+ * @param key The key which has been serialized for C*
+ * @param value value which has been serialized for C*
+ */
+case class ColumnRowData(columnPath: String, key: AnyRef, value: AnyRef)
+  extends Ordered[ColumnRowData] 
+{
+  override def toString: String = s"($columnPath,$key,$value)"
   
-case class StoreTableBufferEntry(columnPath: String, events: Array[Event[Any,Any]])
+  def compare(that: ColumnRowData): Int = {
+    this.columnPath.compare(that.columnPath) match {
+      case 0 => 0  // this.key.compare(that.key)
+      case n => n
+    }
+  }
+}
 
 /** a data access object for reading cassandra column data and the catalog of columns. */
 trait CassandraStoreReader extends ConfiguredCassandra with Store with Log

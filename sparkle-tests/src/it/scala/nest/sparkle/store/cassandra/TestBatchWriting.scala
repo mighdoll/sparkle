@@ -24,23 +24,23 @@ class TestBatchWriting extends FunSuite with Matchers with PropertyChecks with C
       (s"$sparkleConfigName.sparkle-store-cassandra.replication-factor" -> replicationFactor)
   
   val columnPath = "batch/test"
-  val events = Seq( 
+  val events = Vector( 
     Event[Long,Double](1,1.1),
     Event[Long,Double](2,2.2),
     Event[Long,Double](3,3.3)
   )
   
   def checkStoreQueue(store: CassandraReaderWriter): Unit = {
-    val map = store.tableBuffers
+    val map = store.tableQueues
     // map.size shouldBe 5  // currently we support 5 tables
     map should contain key "bigint0double"
     val tableQueue = map("bigint0double")
-    tableQueue should have length 1
+    tableQueue should have length 3
     
     val data = tableQueue.dequeue()
     data.columnPath shouldBe columnPath
-    data.events should have length events.length
-    data.events.head shouldBe events.head
+    data.key shouldBe events(0).argument
+    data.value shouldBe events(0).value
   }
   
   test("can enqueue columnPath data") {
@@ -72,7 +72,7 @@ class TestBatchWriting extends FunSuite with Matchers with PropertyChecks with C
       
       store.flush()
       
-      val tableQueue = store.tableBuffers("bigint0double")
+      val tableQueue = store.tableQueues("bigint0double")
       tableQueue should have length 0
     }
   }
