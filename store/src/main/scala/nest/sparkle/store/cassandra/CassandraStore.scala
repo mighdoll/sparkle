@@ -276,8 +276,8 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   }
   
   private lazy val tableWriters = tableQueues.keys.map { tableName => 
-    TableWriter(session, tableName, writeNotifier)
-  }
+    tableName -> TableWriter(this, tableName)
+  }.toMap
 
   /** return a column from a fooSet/barSet/columnName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](
@@ -319,6 +319,10 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
     val tableName = serialInfo.tableName
     val tableQueue = tableQueues(tableName)
     
+    // Update the catalog. For now this causes a write which is awful for performance but we will
+    // soon be caching these so the impact will be negligible.
+    val column = writeableColumn[T,U](columnPath).await
+    
     // Serialize the keys and values and convert to a ColumnRowData.
     val rows = items.map { item =>
       val key = serialInfo.domain.serialize(item.argument)
@@ -345,7 +349,7 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   }
   
   private def writeQueue(tableName: String, queue: mutable.SynchronizedQueue[ColumnRowData]): Future[Unit] = {
-    val writer = new TableWriter(session, tableName, writeNotifier)  // TODO: create once for each table.
+    val writer = tableWriters(tableName)
     val items = queue.toList.sorted
     queue.clear()
     writer.write(items)

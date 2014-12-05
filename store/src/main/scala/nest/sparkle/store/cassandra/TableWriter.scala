@@ -4,7 +4,7 @@ import scala.collection.JavaConverters._
 
 import scala.concurrent.{Future, ExecutionContext}
 
-import com.datastax.driver.core.{BatchStatement, Session}
+import com.datastax.driver.core.BatchStatement
 
 import nest.sparkle.store.Store
 import nest.sparkle.util.{Instrumented, Log}
@@ -14,12 +14,13 @@ import nest.sparkle.util.GuavaConverters._
  * Object to write rows to a column table.
  */ 
 case class TableWriter(
-  session: Session,
-  tableName: String,
-  writeNotifier: WriteNotifier
+  store: CassandraStoreWriter,
+  tableName: String
 ) extends Instrumented
   with Log
 {
+  val session = store.session
+  val writeNotifier = store.writeNotifier
   
   protected val batchMetric = metrics.timer(s"store-$tableName-writes")
   protected val batchSizeMetric = metrics.meter(s"store-$tableName-batch-size")
@@ -36,11 +37,11 @@ case class TableWriter(
   def write(rows: Iterable[ColumnRowData])
       (implicit executionContext:ExecutionContext): Future[Unit] = 
   { // format: ON
-     val written = writeInBatches(rows)
+    
+    val written = writeInBatches(rows)
     
     // Send write notifications on success
     written.map { _ =>
-      // Group rows by columnPath to find start & end
       val columnPaths = rows.groupBy(_.columnPath)
       columnPaths.foreach {
         case (columnPath, list) =>
@@ -68,7 +69,7 @@ case class TableWriter(
 
       val batch = new BatchStatement()
       val statements = insertGroup.toSeq.asJava
-      batchSizeMetric.mark(statements.size)
+      batchSizeMetric.mark(statements.size)  // measure the size of batches to this table
       batch.addAll(statements)
       batch
     }
