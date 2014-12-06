@@ -1,15 +1,14 @@
 package nest.sparkle.loader.kafka
 
-import java.util.concurrent.{TimeUnit, TimeoutException}
+import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters.asScalaBufferConverter
-import scala.concurrent.{Await, Future, ExecutionContext, promise}
-import scala.concurrent.duration._
-import scala.compat.Platform.currentTime
+import scala.concurrent.{Future, ExecutionContext, promise}
 import scala.reflect.runtime.universe._
 import scala.language.existentials
 import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
+import scala.util.control.Exception.nonFatalCatch
 
 import com.typesafe.config.Config
 
@@ -17,13 +16,10 @@ import kafka.consumer.ConsumerTimeoutException
 
 import nest.sparkle.loader._
 import nest.sparkle.loader.Loader.{Events, LoadingTransformer, TaggedBlock}
-import nest.sparkle.store.{Event, WriteableStore}
-import nest.sparkle.store.cassandra.{CanSerialize, RecoverCanSerialize}
+import nest.sparkle.store.WriteableStore
+import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.util.{Instrumented, Log, Instance, ConfigUtil, Watched}
 import nest.sparkle.util.KindCast.castKind
-import nest.sparkle.util.TryToFuture.FutureTry
-
-import KafkaTopicLoader._
 
 /**
  * A runnable that reads a topic from a KafkaReader that returns messages containing Avro encoded
@@ -54,14 +50,11 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   /** Commit interval millis for compare */
   val commitTime = loaderConfig.getDuration("commit-interval", TimeUnit.MILLISECONDS)
   
-  /** ms to wait between the first write failure and the first retry. */
-  val InitialWriteSleepTime = 10L
+  /** Number of Kafka messages to process before flushing the store and committing offsets */
+  val messageBatchSize = loaderConfig.getInt("message-batch-size")
   
   /** Number of events to write to the log when tracing writes */
   val NumberOfEventsToTrace = 3
-  
-  /** timestamp when the last Kafka offsets commit was done */
-  private var lastCommit = currentTime
 
   /** Set to false to shutdown in an orderly manner */
   @volatile
@@ -76,22 +69,24 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   // Metrics
   private val metricPrefix = topic.replace(".", "_").replace("*", "") 
   
-  /** Record convert timer */
-  private val convertMetric = metrics.timer("kafka-message-convert", metricPrefix)
-  
   /** Read rate */
   private val readMetric = metrics.meter("kafka-messages-read", metricPrefix)
-  
-  /** Meter for writing to C* for this topic */
-  private val writeMetric = metrics.timer("store-writes", metricPrefix) // TODO: make histogram
-  
-  /** Errors writing to C* for this topic */
-  private val writeErrorsMetric = metrics.meter("store-write-errors", metricPrefix)
 
   /**
    * Main method of the loader.
    * 
-   * Reads from a Kafka iterator and writer to the store.
+   * Reads from a Kafka iterator and writes to the store.
+   * 
+   * Writes are queued to the store and flushed after N messages are read or the Kafka iterator
+   * times out. Since each loader instance locks the store for queueing followed by a flush each
+   * loader can commit the Kafka offsets guaranteeing no data loss.
+   * 
+   * Note the *all* of the loaders will eventually synchronize on the flush call as it performs
+   * an exclusive lock to prevent any of the loaders from queueing data will a flush is in progress.
+   * Only one of the loaders will actually perform the store writing. When the others get the 
+   * exclusive lock there will be no data for them to write. Only when the last loader exits the
+   * flush call will the other loaders be able to acquire the queue lock (a shared lock) and begin
+   * queueing more events.
    */
   override def run(): Unit = {
     
@@ -99,23 +94,35 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
       log.info("Loader for {} started", topic)
 
       while (keepRunning) {
-        conditionalCommit()
-
-        iterator.next() match {
-          case Success(block)                         =>
-            readMetric.mark()
-            blockingWrite(block)
-          case Failure(err: ConsumerTimeoutException) =>
-            log.trace("consumer timeout reading {}", topic)
-          case Failure(err)                           =>
-            // Some other Kafka reading error. Discard iterator and try again.
-            discardIterator()
+        store.acquireEnqueueLock()
+        try {
+          (1 to messageBatchSize).foreach { _ =>
+            iterator.next() match {
+              case Success(block)                         =>
+                readMetric.mark()
+                enqueueBlock(block)
+              case Failure(err: ConsumerTimeoutException) =>
+                log.trace("consumer timeout reading {}", topic)
+                throw err
+              case Failure(err)                           =>
+                // Some other Kafka reading error. Discard iterator and try again.
+                discardIterator()
+            }
+          }
+        } catch {
+          case err: ConsumerTimeoutException => // no data available, flush whatever was queued
+        } finally {
+          store.releaseEnqueueLock()
         }
+        
+        store.flush()
+        
+        commitKafkaOffsets()  // All of our messages data has safely been written to the store
       }
 
       log.info(s"$topic loader is terminating")
 
-      reader.commit() // commit any outstanding offsets
+      commitKafkaOffsets() // commit any outstanding offsets
       reader.close()
 
       log.info(s"$topic loader has terminated")
@@ -182,20 +189,22 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     reader.close()  // Ensure Kafka connection is closed.
   }
   
-  /** Commit the topic offsets if enough time has passed */
-  private def conditionalCommit(): Unit = {
-    val now = currentTime
-    if (now - lastCommit >= commitTime) {
-      try {
-        reader.commit()
-        lastCommit = now
-      } catch {
-        case NonFatal(err) =>
-          log.error(s"Unhandled exception committing kafka offsets for $topic", err)
-          // State of kafka connection is unknown. Discard iterator, new one will be created
-          discardIterator()
-      }
-    } 
+  /** 
+   * Commit the topic offsets
+   * 
+   * If the commit fails the iterator is closed and re-opened. Any messages already queued and/or
+   * written to the store will be re-read and re-written. Since the writes are idempotent this 
+   * causes no problem other than duplicate work.
+   */
+  private def commitKafkaOffsets(): Unit = {
+    nonFatalCatch withTry {
+      reader.commit()
+    } recover {
+      case err => 
+        log.error(s"Unhandled exception committing kafka offsets for $topic", err)
+        // State of kafka connection is unknown. Discard iterator, new one will be created
+        discardIterator()
+    }
   }
   
   /** Transform the block. Only called if transformer is not None */
@@ -206,119 +215,20 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
       case NonFatal(err) => Failure(err)
     }
   }
-
-  /** Write the block to the Store. This method blocks the current thread. 
-    * 
-    * @param block TaggedBlock from a Kafka message.
-    */
-  private def blockingWrite(block: TaggedBlock): Unit = {
-    writeMetric.time {
-      var writeComplete = false
-      var sleepTime = InitialWriteSleepTime
-      while (!writeComplete) {
-        val writeFuture = writeBlock(block)
-        try {
-          // Block on writing.
-          Await.ready(writeFuture, 60 seconds)
-          writeFuture.value.map { 
-            case Success(updates) =>
-              recordComplete(updates)
-              writeComplete = true
-            case Failure(err)     =>
-              log.error(s"Writes for $topic failed, retrying", err)
-              // Should check the err and see if it's dependent on the data or not.
-              // Sleep with limited back-off
-              Thread.sleep(sleepTime)
-              sleepTime = {
-                sleepTime match {
-                  case t if t >= maxStoreRetryWait => maxStoreRetryWait
-                  case _                           => sleepTime * 2L
-                }
-              }
-          }
-        } catch {
-          case e: TimeoutException =>
-            log.warn(s"Write for $topic timed out. Will retry...")
-        }
-      }
-    }
-  }
-
-  /** Write chunks of column data to the store. Return a future that completes when the data has been written. */
-  private def writeBlock(taggedBlock: TaggedBlock)(implicit keyType: TypeTag[K]): Future[Seq[ColumnUpdate[K]]] = {
-    val writeFutures =
-      taggedBlock.map { slice => 
-        def withFixedType[U](): Future[Option[ColumnUpdate[K]]] = {
-          implicit val valueType = slice.valueType
-          log.debug(
-            "loading {} events to column: {}  keyType: {}  valueType: {}",
-            slice.events.length.toString, slice.columnPath, keyType, valueType
-          )
-
-          val result =
-            for {
-              valueSerialize <- RecoverCanSerialize.tryCanSerialize[U](valueType).toFuture
-              castEvents: Events[K, U] = castKind(slice.events)
-              update <- writeEvents(castEvents, slice.columnPath)(valueSerialize)
-            } yield {
-              update
-            }
-
-          result.failed.foreach { err =>
-            log.error("writeBlocks failed", err)
-            writeErrorsMetric.mark()
-          }
-          result
-        }
-        withFixedType()
-      }
-
-    val allDone: Future[Seq[ColumnUpdate[K]]] =
-      Future.sequence(writeFutures).map { updates => 
-        val flattened = updates.flatten // remove Nones
-        flattened
-      }
   
-    allDone
-  }
-
-  /** write some typed Events to storage. return a future when that completes when the writing is done */
-  private def writeEvents[U: CanSerialize](events: Iterable[Event[K, U]],
-                                           columnPath: String): Future[Option[ColumnUpdate[K]]] = {
-    store.writeableColumn[K, U](columnPath) flatMap { column =>
-      events.lastOption.map {_.argument} match {
-        case Some(lastKey) =>
-          column.write(events).map { _ => 
-            Some(ColumnUpdate[K](columnPath, lastKey))
-          }
-        case None          =>
-          log.warn(s"no last key  for $columnPath. events empty: ${events.isEmpty}")
-          Future.successful(None)
+  private def enqueueBlock(block: TaggedBlock)(implicit keyType: TypeTag[K]): Unit = {
+    block.map { slice => 
+      def withFixedType[U](): Unit = {
+        implicit val valueType = slice.valueType
+        log.trace(
+          s"loading ${slice.events.length} events to column: ${slice.columnPath} keyType: $keyType valueType: $valueType"
+        )
+        
+        val valueSerialize = RecoverCanSerialize.optCanSerialize[U](valueType).get
+        val castEvents: Events[K,U] = castKind(slice.events)
+        store.enqueue(slice.columnPath, castEvents)(keySerialize, valueSerialize, execution)
       }
+      withFixedType()
     }
   }
-
-  /** We have written one record's worth of data to storage. Per the batch policy
-    * notify any watchers.
-    */
-  private def recordComplete(updates: Seq[ColumnUpdate[K]]): Unit = {
-    // notify anyone subscribed to the Watched stream that we've written some data
-    try {
-      updates.foreach { update =>
-        log.trace(s"recordComplete: $update")
-        watchedData.onNext(update)
-      }
-    } catch {
-      case NonFatal(err)  =>
-        // Just log error and ignore
-        log.warn(s"Exception notifying for $topic", err)
-    }
-  }
-
-}
-
-object KafkaTopicLoader
-{
-  /** Maximum time to wait before retrying after Store write failure */
-  val maxStoreRetryWait = 60000L
 }

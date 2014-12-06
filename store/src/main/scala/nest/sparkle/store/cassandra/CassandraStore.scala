@@ -328,7 +328,7 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
       val key = serialInfo.domain.serialize(item.argument)
       val value = serialInfo.range.serialize(item.value)
       ColumnRowData(columnPath, key, value)
-    }.toSeq
+    }.toVector
     
     tableQueue.enqueue(rows: _*)
   }

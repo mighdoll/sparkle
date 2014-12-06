@@ -1,10 +1,12 @@
 package nest.sparkle.store.cassandra
 
 import scala.collection.JavaConverters._
-
-import scala.concurrent.{Future, ExecutionContext}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Success, Failure}
 
 import com.datastax.driver.core.BatchStatement
+
+import com.codahale.metrics.Timer
 
 import nest.sparkle.store.Store
 import nest.sparkle.util.{Instrumented, Log}
@@ -24,6 +26,7 @@ case class TableWriter(
   
   protected val batchMetric = metrics.timer(s"store-$tableName-writes")
   protected val batchSizeMetric = metrics.meter(s"store-$tableName-batch-size")
+  protected val errorMetric = metrics.meter(s"store-$tableName-write-errors")
   
   protected lazy val insertPrepared = session.prepare(insertStatement())
   
@@ -37,6 +40,7 @@ case class TableWriter(
   def write(rows: Iterable[ColumnRowData])
       (implicit executionContext:ExecutionContext): Future[Unit] = 
   { // format: ON
+    log.debug(s"writing ${rows.size} to $tableName")
     
     val written = writeInBatches(rows)
     
@@ -74,16 +78,40 @@ case class TableWriter(
       batch
     }
 
-    val resultsIterator =
-      batches.map { batch =>
-        val timer = batchMetric.timerContext()
-        val result = session.executeAsync(batch).toFuture
-        result.onComplete(_ => timer.stop())
-        val resultUnit = result.map { _ => }  // release ResultSet
-        resultUnit
-      }
+    val resultsIterator = batches map writeWithRetry
     
     Future.sequence(resultsIterator).map { _ => }
+  }
+
+  /**
+   * Keep retrying the write until it succeeds.
+   * 
+   * @param batch statement to execute
+   * @return Future to complete when write succeeds
+   */
+  private def writeWithRetry(batch: BatchStatement)
+      (implicit executionContext:ExecutionContext): Future[Unit] = {
+    val p = Promise[Unit]()
+    writeWithRetry(batch, p)
+    p.future
+  }
+  
+  private def writeWithRetry(batch: BatchStatement, p: Promise[Unit])
+      (implicit executionContext:ExecutionContext): Unit = {
+    val timer = batchMetric.timerContext()
+    session.executeAsync(batch).toFuture onComplete { result =>
+      timer.stop()
+      result match {
+        case Success(rs)  => 
+          log.debug(s"batch written to $tableName")
+          p.success()
+        case Failure(err) =>
+          errorMetric.mark()
+          log.warn("batch write failed, retrying", err)
+          // TODO: use ScheduledExecutor to not swamp C*
+          writeWithRetry(batch, p)
+      }
+    }
   }
 }
 

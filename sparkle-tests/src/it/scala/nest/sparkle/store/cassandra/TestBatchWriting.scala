@@ -93,7 +93,7 @@ class TestBatchWriting extends FunSuite with Matchers with PropertyChecks with C
   }
   
   /*
-   * This test start W worker threads which write events to bigint0double.
+   * This test starts W worker threads which each write E events to bigint0double.
    * There are waits at the start and between enqueuing events to simulate writers running at
    * different rates. The later threads wait longer meaning they are "slower" to process.
    */
