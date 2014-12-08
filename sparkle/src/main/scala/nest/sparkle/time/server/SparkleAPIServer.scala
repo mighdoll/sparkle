@@ -52,7 +52,7 @@ protected class SparkleAPIServer(val rootConfig: Config)(implicit val system: Ac
     "sparkle-server"
   )
   
-  AdminService.start(rootConfig, store).await(10.seconds)
+  AdminService.start(rootConfig, store, measurements).await(10.seconds)
 
   /* Note that nothing may be specified to be auto-start but we started an
    * actor system so the main process will not end. This will disappear when

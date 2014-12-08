@@ -15,17 +15,17 @@ import spray.http.HttpHeaders.`Content-Disposition`
 import spray.routing.Directive.pimpApply
 import spray.routing.{Directives, Route}
 
-import nest.sparkle.http.{HttpLogging, ResourceLocation, StaticContent}
+import nest.sparkle.http.{ResourceLocation, AdminServiceActor, AdminService => HttpAdminService}
 import nest.sparkle.store.Store
 import nest.sparkle.tools.DownloadExporter
 import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.Log
+import nest.sparkle.measure.Measurements
 
 // TODO DRY with DataService
 /** a web api for serving an administrative page about data stored in sparkle: downlaod .tsv files, etc. */
-trait AdminService extends StaticContent with Directives with RichComplete with HttpLogging with Log {
+trait AdminService extends HttpAdminService with RichComplete {
   implicit def system: ActorSystem
-  def rootConfig: Config
   def store: Store
   implicit def executionContext: ExecutionContext
 
@@ -47,29 +47,26 @@ trait AdminService extends StaticContent with Directives with RichComplete with 
       }
     }
 
-  val route: Route = {// format: OFF
-    withRequestResponseLog {
-      staticContent ~
+  override lazy val routes: Route = {// format: OFF
       fetch
-    }    
   } // format: ON
 
 }
 
 /** an AdminService inside an actor (the trait can be used for testing */
-class ConcreteAdminService(val system: ActorSystem, val store: Store, val rootConfig: Config) extends Actor with AdminService {
-  override def actorRefFactory: ActorRefFactory = context
-  //  override def actorSystem = context.system
-  def receive: Receive = runRoute(route)
-  def executionContext = context.dispatcher
-
+class ConcreteAdminService(system: ActorSystem, val store: Store, rootConfig: Config, measurements: Measurements) 
+  extends AdminServiceActor(system, measurements, rootConfig) 
+  with AdminService 
+{
 }
 
 /** start an admin service */
 object AdminService {
-  def start(rootConfig: Config, store: Store)(implicit system: ActorSystem): Future[Unit] = {
+  def start(rootConfig: Config, store: Store, measurements: Measurements)
+    (implicit system: ActorSystem): Future[Unit] = 
+  {
     val serviceActor = system.actorOf(
-      Props(new ConcreteAdminService(system, store, rootConfig)),
+      Props(new ConcreteAdminService(system, store, rootConfig, measurements)),
       "admin-server"
     )
     val port = configForSparkle(rootConfig).getInt("admin.port")
