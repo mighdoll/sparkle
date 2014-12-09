@@ -147,7 +147,7 @@ trait ConfiguredCassandra extends Log
 
   // TODO use a provided execution context
   implicit def execution: ExecutionContext = ExecutionContext.global
-  lazy val columnCatalog = ColumnCatalog(session)
+  lazy val columnCatalog = ColumnCatalog(config, session)
   lazy val dataSetCatalog = DataSetCatalog(session)
 
   /** current cassandra session.  (Currently we use one session for this CassandraStore) */

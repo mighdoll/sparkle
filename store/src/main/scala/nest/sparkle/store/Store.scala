@@ -64,6 +64,11 @@ object Store {
   }
 }
 
+/** Used when a data set cannot be found in the store */
 case class DataSetNotFound(name: String) extends RuntimeException(name)
 
-case class ColumnNotFound(column: String) extends RuntimeException(column)
+/** Used when a column path cannot be found in the store */
+case class ColumnNotFound(columnPath: String) extends RuntimeException(columnPath)
+
+/** Used when a column path can't be split into data set and column components */
+case class MalformedColumnPath(msg: String) extends RuntimeException(msg)

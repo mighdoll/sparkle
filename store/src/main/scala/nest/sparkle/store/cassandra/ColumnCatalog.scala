@@ -18,20 +18,24 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import com.datastax.driver.core.Session
 import com.datastax.driver.core.PreparedStatement
-import nest.sparkle.store.ColumnNotFound
+import nest.sparkle.store.{ColumnPathFormat, ColumnNotFound}
 import nest.sparkle.util.GuavaConverters._
+import nest.sparkle.util.Instance
 import nest.sparkle.util.OptionConversion._
 import nest.sparkle.util.Log
+import nest.sparkle.store.ColumnCategoryNotFound
 import nest.sparkle.store.cassandra.ObservableResultSet._
 
 import scala.language.existentials
 import scala.reflect.runtime.universe._
+import scala.util.{Failure, Success}
 import nest.sparkle.util.TaggedKeyValue
 import rx.lang.scala.Observable
+import com.typesafe.config.Config
 
 /** metadata about a column of data
   *
-  * @param columnPath name of the det and column, e.g. "server1.responseLatency/p99"
+  * @param columnPath name of the data set and column, e.g. "server1/responseLatency/p99"
   * @param tableName cassandra table for the column e.g. "timestamp0double"
   * @param description description of the column (for developer UI documentation)
   * @param domainType type of domain elements, e.g. "NanoTime" for nanosecond timestamps
@@ -45,86 +49,83 @@ case class CassandraCatalogEntry(
   rangeType: String)
 
 case class CatalogStatements(addCatalogEntry: PreparedStatement,
-                             tableForColumn: PreparedStatement,
                              catalogInfo: PreparedStatement)
 
 /** Manages a table of CatalogEntry rows in cassandra.  Each CatalogEntry references
   * the cassandra table holding the column data, as well as other
   * metadata about the column like the type of data that is stored in the column.
   */
-case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogStatements]
+case class ColumnCatalog(sparkleConfig : Config, session: Session) extends PreparedStatements[CatalogStatements]
     with Log {
-  val catalogTable = ColumnCatalog.catalogTable
+  val tableName = ColumnCatalog.tableName
 
   /** insert or overwrite a catalog entry */
   val addCatalogEntryStatement = s"""
-      INSERT INTO $catalogTable
-      (columnPath, tableName, description, domainType, rangeType)
+      INSERT INTO $tableName
+      (columnCategory, tableName, description, domainType, rangeType)
       VALUES (?, ?, ?, ?, ?);
       """
 
-  val tableForColumnStatement = s"""
-      SELECT tableName FROM $catalogTable
-      WHERE columnPath = ?;
+  val catalogInfoStatement = s"""
+      SELECT tableName, domainType, rangeType FROM $tableName
+      WHERE columnCategory = ?;
     """
 
-  val catalogInfoStatement = s"""
-      SELECT tableName, domainType, rangeType FROM $catalogTable
-      WHERE columnPath = ?;
-    """
+  lazy val columnPathFormat: ColumnPathFormat = {
+    val className = sparkleConfig.getString("column-path-format")
+    log.info(s"using ColumnPathFormat: $className")
+    Instance.byName[ColumnPathFormat](className)()
+  }
 
   /** store metadata about a column in Cassandra */ // format: OFF
   def writeCatalogEntry(entry: CassandraCatalogEntry)
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
-    log.trace(s"writing catalog entry: $entry")
-    val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef] }.toSeq
-    val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
-    val result = session.executeAsync(statement).toFuture.map{ _ => }
-    result.onFailure { case error => log.error("writing catalog entry failed", error) }
+    log.debug(s"writing catalog entry: $entry")
+
+    val result = columnPathFormat.getColumnCategory(entry.columnPath) match {
+      case Success(columnCategory) =>
+        val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef]}.toArray
+        entryFields(0) = columnCategory
+        val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
+        session.executeAsync(statement).toFuture.map { _ =>}
+      case Failure(exception) => Future.failed(exception)
+    }
+
+    result.onFailure { case error => log.error("writing catalog entry failed", error)}
     result
   }
 
-  /** return metadata about a given columnPath (based on data previously stored with writeCatalogEntry */
+  /** return metadata about a given columnPath (based on data previously stored with writeCatalogEntry) */
   def catalogInfo(columnPath: String) // format:OFF
       (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
-    val statement = catalogStatements.catalogInfo.bind(columnPath)
+    columnPathFormat.getColumnCategory(columnPath) match {
+      case Success(columnCategory) =>
+        val statement = catalogStatements.catalogInfo.bind(columnCategory)
 
-    // result should be a single row containing a three strings:
-    for {
-      resultSet <- session.executeAsync(statement).toFuture
-      row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath))
-    } yield {
-      val tableName = row.getString(0)
-      val domainType = CanSerialize.stringToTypeTag(row.getString(1))
-      val rangeType = CanSerialize.stringToTypeTag(row.getString(2))
-      CatalogInfo(tableName, domainType, rangeType)
-    }
-  }
-
-  // TODO I think we can get rid of this now
-  /** return the cassandra table name for a given column */
-  def tableForColumn(columnPath: String) // format: OFF
-      (implicit executionContext: ExecutionContext): Future[String] = { // format: ON
-    val statement = catalogStatements.tableForColumn.bind(columnPath)
-
-    // result should be a single row containing a single string: the table name for the column
-    for {
-      resultSet <- session.executeAsync(statement).toFuture
-      row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath))
-    } yield {
-      row.getString(0)
+        // result should be a single row containing a three strings:
+        for {
+          resultSet <- session.executeAsync(statement).toFuture
+          row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath).initCause(ColumnCategoryNotFound(columnCategory)))
+        } yield {
+          val tableName = row.getString(0)
+          val domainType = CanSerialize.stringToTypeTag(row.getString(1))
+          val rangeType = CanSerialize.stringToTypeTag(row.getString(2))
+          CatalogInfo(tableName, domainType, rangeType)
+        }
+      case Failure(exception) =>
+        Future.failed(ColumnNotFound(columnPath).initCause(exception))
     }
   }
 
   def allColumns() // format:OFF
   (implicit executionContext: ExecutionContext): Observable[String] = { // format: ON
     val allColumnsStatement = s"""
-      SELECT columnPath FROM $catalogTable
+      SELECT columnCategory FROM $tableName
       LIMIT 50000000;
     """
 
     val rows = session.executeAsync(allColumnsStatement).observerableRows()
-    // result should be rows containing a single string: the columnPath
+    // result should be rows containing a single string: the columnCategory
     rows.map { row =>
       row.getString(0)
     }
@@ -138,7 +139,6 @@ case class ColumnCatalog(session: Session) extends PreparedStatements[CatalogSta
   def makeStatements(): CatalogStatements = {
     CatalogStatements(
       addCatalogEntry = session.prepare(addCatalogEntryStatement),
-      tableForColumn = session.prepare(tableForColumnStatement),
       catalogInfo = session.prepare(catalogInfoStatement)
     )
   }
@@ -148,7 +148,7 @@ case class CatalogInfo(tableName: String, keyType: TypeTag[_], valueType: TypeTa
 
 object ColumnCatalog {
 
-  val catalogTable = "catalog"
+  val tableName = "column_categories"
 
   /** Create the table using the session passed.
     *
@@ -156,13 +156,13 @@ object ColumnCatalog {
     */
   def create(session: Session): Unit = {
     session.execute(s"""
-      CREATE TABLE IF NOT EXISTS $catalogTable (
-        columnPath text,
+      CREATE TABLE IF NOT EXISTS $tableName (
+        columnCategory text,
         tableName text,
         description text,
         domainType text,
         rangeType text,
-        PRIMARY KEY(columnPath)
+        PRIMARY KEY(columnCategory)
       );"""
     )
   }

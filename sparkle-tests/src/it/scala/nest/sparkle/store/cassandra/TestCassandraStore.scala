@@ -69,32 +69,12 @@ class TestCassandraStore extends FunSuite with Matchers with PropertyChecks with
           """)
       val rows = resultRows.all.asScala
       val tables = rows.map(_.getString(0)).toSet
-      tables shouldBe Set("bigint0bigint", "bigint0boolean", "bigint0double", "bigint0int", "bigint0text", "catalog", "dataset_catalog")
+      tables shouldBe Set("bigint0bigint", "bigint0boolean", "bigint0double", "bigint0int", "bigint0text", "column_categories", "dataset_catalog")
     }
 
     withTestDb { store =>
       validateKeySpace(store)
       validateTables(store)
-    }
-  }
-
-  test("erase works") {
-    withTestDb { store =>
-      withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
-        store.format()
-        // columnPath no longer in the store
-        val result = store.columnCatalog.tableForColumn(testColumnPath).failed.await
-        result shouldBe ColumnNotFound(testColumnPath)
-      }
-    }
-  }
-
-  test("missing column returns error") {
-    val notColumn = "notAColumn"
-    withTestDb { store =>
-      val table = store.columnCatalog.tableForColumn(notColumn)
-      val result = table.failed.await
-      result shouldBe ColumnNotFound(notColumn)
     }
   }
 
