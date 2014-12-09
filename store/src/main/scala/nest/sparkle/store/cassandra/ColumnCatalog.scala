@@ -80,7 +80,7 @@ case class ColumnCatalog(sparkleConfig : Config, session: Session) extends Prepa
   /** store metadata about a column in Cassandra */ // format: OFF
   def writeCatalogEntry(entry: CassandraCatalogEntry)
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
-    log.debug(s"writing catalog entry: $entry")
+    log.trace(s"writing catalog entry: $entry")
 
     val result = columnPathFormat.getColumnCategory(entry.columnPath) match {
       case Success(columnCategory) =>
