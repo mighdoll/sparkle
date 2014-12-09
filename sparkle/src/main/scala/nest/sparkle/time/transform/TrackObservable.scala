@@ -17,7 +17,7 @@ case class TrackObservable() {
     futureFinished += promise.future
     // (Note: we'll risk a runtime error if we trigger an additional subscription to the stream, so we tap into the existing one.)
     observable.doOnCompleted {
-      promise.complete(Success())
+      promise.complete(Success(()))
     }
   }
   
@@ -28,7 +28,7 @@ case class TrackObservable() {
     // (Note: we'll risk a runtime error if we trigger an additional subscription to the stream, so we tap into the existing one.)
     observable.doOnEach{ _ => 
       if (!promise.isCompleted) {
-        promise.complete(Success())
+        promise.complete(Success(()))
       }
     }
   }

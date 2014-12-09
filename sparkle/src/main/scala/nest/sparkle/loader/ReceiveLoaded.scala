@@ -16,10 +16,10 @@ class ReceiveLoaded(targetPath: String, complete: Promise[Unit]) extends Actor w
   def receive = {
     case LoadComplete(path) if path == targetPath =>
       log.debug(s"ReceiveLoaded. found columnPath: $path")
-      complete.complete(Success())
+      complete.complete(Success(()))
     case FileLoadComplete(path) if path == targetPath =>
       log.debug(s"ReceiveLoaded. found file relative path: $path")
-      complete.complete(Success())
+      complete.complete(Success(()))
     case x => log.trace(s"ReceiveLoaded filter skipping path: $x")
   }
 }

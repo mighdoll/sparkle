@@ -6,7 +6,7 @@ object BooleanOption {
   implicit class BooleanToOption(val value: Boolean) extends AnyVal {
     final def toOption: Option[Unit] =
       if (value) {
-        Some()
+        Some(())
       } else {
         None
       }

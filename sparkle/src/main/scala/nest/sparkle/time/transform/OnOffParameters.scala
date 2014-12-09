@@ -100,7 +100,7 @@ case class OnOffParameters(rootConfig: Config) {
       } yield itemColumn.valueType
 
     if (valueTypes.forall(_ == typeTag[Boolean])) {
-      Success()
+      Success(())
     } else {
       Failure(NonBooleanValues())
     }

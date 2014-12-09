@@ -6,8 +6,6 @@ import scala.util.{Success, Failure}
 
 import com.datastax.driver.core.BatchStatement
 
-import com.codahale.metrics.Timer
-
 import nest.sparkle.store.Store
 import nest.sparkle.util.{Instrumented, Log}
 import nest.sparkle.util.GuavaConverters._
@@ -104,7 +102,7 @@ case class TableWriter(
       result match {
         case Success(rs)  => 
           log.debug(s"batch written to $tableName")
-          p.success()
+          p.success(())
         case Failure(err) =>
           errorMetric.mark()
           log.warn("batch write failed, retrying", err)

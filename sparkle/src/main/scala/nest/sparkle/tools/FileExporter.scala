@@ -43,7 +43,7 @@ case class FileExporter(rootConfig: Config, store: Store) // format: OFF
         writer.close()
       }.doOnCompleted {
         writer.close()
-        done.complete(Success())
+        done.complete(Success(()))
       }.subscribe { line =>
         writer.write(line)
       }

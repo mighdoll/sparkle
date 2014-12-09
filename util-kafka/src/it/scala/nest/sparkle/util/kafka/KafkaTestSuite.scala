@@ -50,8 +50,8 @@ trait KafkaTestSuite
   implicit lazy val kafkaStatusContext = ExecutionContext.fromExecutor(statusThreadPool)
   implicit val measurements = new MeasurementToTsvFile("/tmp/kafka-tests.tsv")
   
-  //implicit val timeout = 3.seconds 
-  implicit val timeout = 1.hours  // use when running with a debugger
+  implicit val timeout = 30.seconds 
+  //implicit val timeout = 1.hours  // use when running with a debugger
   
   /** Create an immutable Kafka topic & consumer group status to run tests against. */
   override protected def beforeAll(): Unit = {

@@ -23,7 +23,7 @@ object PeriodPartitioner {
       var partEnd = fullInterval.start
 
       new Iterator[JodaInterval] {
-        override def hasNext(): Boolean = partEnd < fullInterval.end
+        override def hasNext: Boolean = partEnd < fullInterval.end
         override def next(): JodaInterval = {
           partEnd = partStart + partPeriod
           val interval = new JodaInterval(partStart, partEnd)

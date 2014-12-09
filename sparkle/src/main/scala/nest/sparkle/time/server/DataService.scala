@@ -45,7 +45,7 @@ trait DataService extends StaticContent with DataServiceV1 with HttpLogging with
   }
 
   lazy val notFound = {
-    unmatchedPath { path => complete(NotFound, "not found") }
+    unmatchedPath { path => complete((NotFound, "not found")) }
   }
 
   /** all api endpoints */

@@ -226,7 +226,7 @@ trait SummaryTransform extends ColumnTransform {
 
     // return an iterator that walks through the event sequence, one partition at a time
     new Iterator[Seq[Event[T, U]]] {
-      override def hasNext(): Boolean = !remaining.isEmpty && (partStart < end || (partStart == end && includeEnd))
+      override def hasNext: Boolean = !remaining.isEmpty && (partStart < end || (partStart == end && includeEnd))
       override def next(): Seq[Event[T, U]] = {
         val partEnd = partStart + step
         val (inPartition, remainder) = {

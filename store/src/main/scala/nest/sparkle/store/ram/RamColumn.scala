@@ -89,18 +89,18 @@ class WriteableRamColumn[T: TypeTag, U: TypeTag](name: String)
       keys.append(key)
       values.append(value)
     }
-    Future.successful()
+    Future.successful(())
   }
 
   /** does nothing, for compatibility with the WriteableColumn interface */
   def create(description: String)(implicit executionContext: ExecutionContext): Future[Unit] = {
-    Future.successful()
+    Future.successful(())
   }
 
   def erase()(implicit executionContext:ExecutionContext): Future[Unit] = {
     keys.clear()
     values.clear()
-    Future.successful()
+    Future.successful(())
   }
 // SCALA TypedActor for this?
 }

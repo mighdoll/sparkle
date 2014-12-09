@@ -182,14 +182,14 @@ trait RamDataSet extends DataSetOld {
   def infoOption(): Option[DataSetInfo] = {
     val metrics = dataColumns map { _.name }
 
-    val domain = tupleOptInvert(time.headOption, time.lastOption)
+    val domain = tupleOptInvert((time.headOption, time.lastOption))
     Some(DataSetInfo(metrics, domain))
   }
 
   /** convert a pair of options to an option of a pair */
   def tupleOptInvert[A, B](tuple: Tuple2[Option[A], Option[B]]): Option[Tuple2[A, B]] = {
     tuple match {
-      case (Some(a), Some(b)) => Some(a, b)
+      case (Some(a), Some(b)) => Some((a, b))
       case _                  => None
     }
   }

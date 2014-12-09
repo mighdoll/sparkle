@@ -29,7 +29,7 @@ class TestKafkaRoundTrip extends FunSuite with Matchers with KafkaTestConfig {
     (0 until count).map { _ => randomAlphaNum(length) }.toSeq
   }
 
-  def roundTripTest(writerFn: (KafkaTestTopic, Seq[String]) => Unit) {
+  protected def roundTripTest(writerFn: (KafkaTestTopic, Seq[String]) => Unit) {
     val entries = 3
     withKafkaTestTopic(rootConfig) { kafka =>
       val testData = randomStrings(entries)

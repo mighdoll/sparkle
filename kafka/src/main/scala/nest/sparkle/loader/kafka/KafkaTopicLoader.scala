@@ -127,7 +127,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
 
       log.info(s"$topic loader has terminated")
     } finally {
-      shutdownPromise.success()
+      shutdownPromise.success(())
     }
   }
   
