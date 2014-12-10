@@ -48,10 +48,11 @@ case class TableWriter(
       columnPaths.foreach {
         case (columnPath, list) =>
           val keys = list.map(_.key)
-          val min = keys.head  // assume rows are still sorted after groupBy
+          val min = keys.head  // assumes rows are still sorted after groupBy
           val max = keys.last
           writeNotifier.notify(columnPath, ColumnUpdate(min, max))
-      }
+       }
+
     }
   }
 
@@ -78,7 +79,13 @@ case class TableWriter(
 
     val resultsIterator = batches map writeWithRetry
     
-    Future.sequence(resultsIterator).map { _ => }
+    // This causes the batches to be executed sequentially, i.e NOT in parallel
+    val allDone: Future[Unit] =
+      resultsIterator.foldLeft(Future.successful(())) { (a, b) =>
+        a.flatMap(_ => b)
+      }
+
+    allDone
   }
 
   /**

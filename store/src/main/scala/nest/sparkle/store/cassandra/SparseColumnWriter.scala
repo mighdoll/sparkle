@@ -177,7 +177,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       }
 
     val allDone: Future[Unit] =
-      resultsIterator.fold(Future.successful(())) { (a, b) =>
+      resultsIterator.foldLeft(Future.successful(())) { (a, b) =>
         a.flatMap(_ => b)
       }
 

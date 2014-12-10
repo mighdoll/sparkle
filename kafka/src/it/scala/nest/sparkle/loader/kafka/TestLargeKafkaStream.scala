@@ -15,7 +15,8 @@ package nest.sparkle.loader.kafka
 
 import java.util.concurrent.Executors
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Await, promise}
+import scala.concurrent.duration._
 
 import org.scalatest.{ FunSuite, Matchers }
 import org.scalatest.prop.PropertyChecks
@@ -37,7 +38,7 @@ class TestLargeKafkaStream extends FunSuite with Matchers with PropertyChecks wi
 
   /** run a test function with a fixed threadpool available */
   def withFixedThreadPool[T](threads: Int = 10)(fn: ExecutionContext => T): T = {
-    val execution = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(10))
+    val execution = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(threads))
     try {
       fn(execution)
     } finally {
@@ -48,6 +49,8 @@ class TestLargeKafkaStream extends FunSuite with Matchers with PropertyChecks wi
   test("load 120K records reporting the time it takes to load them into cassandra") {
     val generated = manyRecords(id1, id2, elementsPerRecord, records)
     val serde = MillisDoubleTSVSerde
+    
+    val lastKey = generated.last.key  // This will need to be fixed when manyRecords is fixed.
 
     withTestEncodedTopic(rootConfig, serde) { testTopic =>
       testTopic.writer.write(generated)
@@ -63,12 +66,21 @@ class TestLargeKafkaStream extends FunSuite with Matchers with PropertyChecks wi
 
         withFixedThreadPool() { implicit execution =>
           val loader = new KafkaLoader[Long](modifiedRoot, testStore)
+          
+          // Set up a future that will complete when a notification for the last write is received
+          val p = promise[Unit]()
+          storeWrite.subscribe { update =>
+            if (update.end == lastKey) {
+              p.success(())
+            }
+          }
+          val writesDone = p.future
 
           val rows = records * elementsPerRecord
           printTime(s"loading $rows rows ($elementsPerRecord elements per record) takes:") {
             loader.start()
             try {
-              storeWrite.take(generated.size).toBlocking.toList // await completion
+              Await.ready[Unit](writesDone, 20.seconds)
             } finally {
               loader.shutdown()
             }

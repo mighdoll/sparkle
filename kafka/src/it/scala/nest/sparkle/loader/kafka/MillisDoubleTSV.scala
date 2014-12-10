@@ -58,12 +58,13 @@ object MillisDoubleTSVGenerators {
     *  @param records number of records to generate
     */
   def manyRecords(id1: String, id2: String, size: Int, records: Int): Seq[MillisDoubleTSV] = {
+    // TODO: Fix loss of using size!
     val eventTuples = latencyEvents.apply(withSize(records)).get
 
     eventTuples.map{event : (Long,Double) =>
       val (key, value) = event
       MillisDoubleTSV(id1, id2, key, value)
-    }.toSeq
+    }.toSeq.sortWith(_.key < _.key)
   }
 
   /** generate a sorted sequence of key,value pairs with
