@@ -49,8 +49,7 @@ case class OnOffTransform(rootConfig: Config)(implicit measurements: Measurement
   * Returns a json stream of the results. The results are in tabular form, with one summed amount for
   * each group of columns specified in the request.
   */
-class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) extends MultiTransform with Log with Instrumented {
-  val maxParts = configForSparkle(rootConfig).getInt("transforms.max-parts")
+case class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measurements) extends MultiTransform with Log with Instrumented {
   val onOffParameters = OnOffParameters(rootConfig)
 
   override def transform  // format: OFF

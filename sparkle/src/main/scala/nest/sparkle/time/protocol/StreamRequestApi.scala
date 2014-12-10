@@ -37,8 +37,8 @@ import nest.sparkle.measure.Measurements
 case class StreamRequestApi(val store: Store, val rootConfig: Config) // format: OFF
     (implicit actorFactory:ActorRefFactory, override val measurements:Measurements)
     extends SelectingSources with SelectingTransforms { // format: ON
-  val authProvider = AuthProvider.instantiate(rootConfig) 
-  
+  val authProvider = AuthProvider.instantiate(rootConfig)
+
   /** handle a StreamRequestMessage over a websocket */
   def socketStreamRequest(request: StreamRequestMessage, socket: WebSocket) // format: OFF 
     (implicit context: ExecutionContext):Unit = { // format: ON
@@ -62,7 +62,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
                           futureOutputStreams: Future[Seq[JsonDataStream]],
                           socket: WebSocket)(implicit context: ExecutionContext): Observable[Seq[JsonDataStream]] = {
 
-    // first data chunk from each column transform's json stream, and the
+    // get the first chunk from each json stream
     val headsAndRemaining =
       for {
         seqJson <- futureOutputStreams.toObservable
@@ -74,7 +74,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
         StreamDataRemaining(jsonStream, first, remaining)
       }
 
-    val streamHeads = headsAndRemaining.map {
+    val streamHeads:Observable[(Stream, JsonDataStream)] = headsAndRemaining.map {
       case StreamDataRemaining(jsonStream, first, remaining) =>
         val stream = makeStream(StreamAndData(jsonStream, first), end = false)
         (stream, remaining)
@@ -82,12 +82,12 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
 
     val streamsSent =
       streamHeads.toSeq.map { seq =>
-        val streamSeq = seq.map{ case (stream, _) => stream }
-        val remaining = seq.map{ case (_, remaining) => remaining }
+        val streamSeq = seq.map { case (stream, _) => stream }
+        val remaining = seq.map { case (_, remaining) => remaining }
         val streams = Streams(streamSeq)
         val streamsMessage = StreamsMessage(
           requestId = request.requestId,
-          realm = request.realm.map{ orig => RealmToClient(orig.name)},
+          realm = request.realm.map { orig => RealmToClient(orig.name) },
           traceId = request.traceId,
           messageType = MessageType.Streams,
           message = streams
@@ -96,7 +96,10 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
         socket.send(streamsMessage.toJson.prettyPrint)
         remaining
       }
-    streamsSent
+    (streamsSent
+      .doOnSubscribe { println(s"StreamRequestApi: got subscribe")}
+      .doOnEach { elem => println(s"StreamRequestApi $elem")}
+    )
   }
 
   /** send Update messages over a websocket */
@@ -113,7 +116,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
         StreamAndData(jsonStream, nextChunk)
       }
 
-    val updates =
+    val updates:Observable[Update] =
       tails.map { streamAndData =>
         makeUpdate(streamAndData)
       }
@@ -124,7 +127,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
           val requestId = request.traceId.map(_ + "-").getOrElse("")
           requestId + RandomUtil.randomAlphaNum(3)
         }
-        val realmToClient = request.realm.map{orig => RealmToClient(orig.name)}
+        val realmToClient = request.realm.map { orig => RealmToClient(orig.name) }
         val updateMessage = UpdateMessage(
           requestId = None, // TODO should we align with original requestID?
           realm = realmToClient,
@@ -179,7 +182,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
   private def makeStream[T](streamAndData: StreamAndData, end: Boolean): Stream = {
     Stream(
       streamId = 1L, // TODO make a real stream id
-      metadata = streamAndData.outputStream.metadata.map{ _.asJson },
+      metadata = streamAndData.outputStream.metadata.map { _.asJson },
       data = Some(streamAndData.data),
       streamType = streamAndData.outputStream.streamType,
       end = Some(end)

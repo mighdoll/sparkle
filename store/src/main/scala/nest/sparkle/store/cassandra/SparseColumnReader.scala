@@ -186,6 +186,8 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
 
   /** listen for writes, and trigger a read each time new data is available.
     * Return an observable that never completes (except if there's an error).
+    * 
+    * TODO the read should only triggered if the caller subcribes to the returned observable.
     */
   private def ongoingRead(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[Event[T, U]] = {
     writeListener.listen(columnPath).flatMap { columnUpdate: ColumnUpdate[T] =>
@@ -195,15 +197,13 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
 
   /** listen for writes, and trigger a read each time new data is available.
     * Return an observable that never completes (except if there's an error).
+    * 
+    * TODO the read should only triggered if the caller subcribes to the returned observable.
     */
   private def ongoingReadA(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[ArrayPair[T, U]] = {
     writeListener.listen(columnPath).flatMap { columnUpdate: ColumnUpdate[T] =>
       handleColumnUpdateA(columnUpdate, parentSpan)
     }
-  }
-
-  private def justListen() = {
-    writeListener.listen(columnPath)
   }
 
   private def readBoundedRange(start: T, end: T, parentSpan:Option[Span]) // format: OFF

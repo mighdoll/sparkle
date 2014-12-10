@@ -20,10 +20,18 @@ import spray.json._
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.store.Event
 import scala.concurrent.duration._
+import scala.language.higherKinds
 import nest.sparkle.measure.Span
 import nest.sparkle.measure.TraceId
 import nest.sparkle.measure.DummySpan
 import nest.sparkle.measure.Detail
+import nest.sparkle.time.transform.StreamGroupSet
+import nest.sparkle.time.transform.DataStream
+import nest.sparkle.core.ArrayPair
+import scala.util.Try
+import scala.util.Success
+import scala.util.Failure
+import nest.sparkle.util.RecoverJsonFormat
 
 /** returns an observable that produces one sequence of json arrays when the provided event stream completes */
 object JsonEventWriter {
@@ -64,6 +72,49 @@ object JsonEventWriter {
     }
   }
 
+  /** return an Observable that contains blocks of json data, ready to encode into protocol
+    * responses. The first block contains all of the initial data available at the time of
+    * the initial data request. Subsequent blocks contain ongoing data arriving subsequent
+    * to the initial request.
+    */
+  def fromDataStream[K, V, S[_, _]] // format: OFF
+      ( dataStream: DataStream[K, V, S], parentSpan: Span)
+      : Observable[Array[JsArray]] = { // format: ON
+
+    def combineToJson(implicit keyWriter: JsonWriter[K], valueWriter: JsonWriter[V]) // format: OFF
+       : Observable[Array[JsArray]] = { // format: ON
+      val initialCombined = {
+        val initialJsons = dataStream.mapInitial { toJsArray(_) }
+        initialJsons.reduce { (a, b) => a ++ b }
+      }
+      val ongoingJsons = dataStream.mapOngoing { toJsArray(_) }
+      initialCombined ++ ongoingJsons
+    }
+
+    jsonWriters(dataStream) match {
+      case Success((keyWriter, valueWriter)) => combineToJson(keyWriter, valueWriter)
+      case Failure(err)                      => Observable.error(err)
+    }
+
+  }
+
+  private def jsonWriters[K, V, S[_, _]](dataStream: DataStream[K, V, S]): Try[(JsonWriter[K], JsonWriter[V])] = {
+    for {
+      keyWriter <- RecoverJsonFormat.tryJsonFormat[K](dataStream.keyType)
+      valueWriter <- RecoverJsonFormat.tryJsonFormat[V](dataStream.valueType)
+    } yield {
+      (keyWriter, valueWriter)
+    }
+  }
+
+  private def toJsArray[K: JsonWriter, V: JsonWriter] // format: OFF
+      ( arrayPair:ArrayPair[K,V] ) 
+      : Array[JsArray] = { // format: ON
+    arrayPair.mapToArray { (key, value) =>
+      JsArray(key.toJson, value.toJson)
+    }
+  }
+  
   /** return the JsArray for one event */
   private def eventToJsArray[T: JsonWriter, U: JsonWriter](event: Event[T, U]): JsArray = {
     JsArray(event.argument.toJson, event.value.toJson)

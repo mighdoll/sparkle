@@ -6,11 +6,15 @@ import spray.json.DefaultJsonProtocol._
 import nest.sparkle.store.{ Column, LongDoubleColumn, LongLongColumn }
 import nest.sparkle.time.protocol.JsonDataStream
 import nest.sparkle.measure.TraceId
+import com.typesafe.config.Config
+import nest.sparkle.util.ConfigUtil.configForSparkle
 
 /** a group of columns with an optional name */
 case class ColumnGroup(columns: Seq[Column[_, _]], name: Option[String] = None)
 
-/** A function that constructs a JsonDataStream.  The JsonDataStream will transform a single
+/** Legacy API: will be removed.  
+  *  
+  *  A function that constructs a JsonDataStream.  The JsonDataStream will transform a single
   * source column into a json output column when its dataStream is subscribed.
   */
 trait ColumnTransform {
@@ -19,7 +23,7 @@ trait ColumnTransform {
       (implicit execution: ExecutionContext): JsonDataStream // format: ON
 }
 
-/** A function that constructs a JsonDataStream.  The JsonDataStream will transform multiple
+/** Legacy API: will be removed.  A function that constructs a JsonDataStream.  The JsonDataStream will transform multiple
   * source columns into a json output column when its dataStream is subscribed.
   */
 trait MultiColumnTransform {
@@ -36,6 +40,11 @@ trait MultiTransform {
       (columns:Future[Seq[ColumnGroup]], transformParameters: JsObject)
       (implicit execution: ExecutionContext, traceId:TraceId)
       : Future[Seq[JsonDataStream]] // format: ON
+  
+  def rootConfig:Config
+  
+  /** when dividing an input range into parts, use no more than this number of partitions */
+  lazy val maxParts = configForSparkle(rootConfig).getInt("transforms.max-parts")
 }
 
 
@@ -65,12 +74,12 @@ object StandardColumnTransform {
   /** return a future that contains the json formattable results of executing 
    *  a transform on the provided FutureColumnGroups */
   def runColumnGroupsTransform( // format: OFF
-      futureColumns: Future[Seq[ColumnGroup]],
-      mutliTransform:MultiTransform, 
-      transformParameters:JsObject
-    ) (implicit execution: ExecutionContext, traceID:TraceId)
-    : Future[Seq[JsonDataStream]] = { // format: ON
-    mutliTransform.transform(futureColumns, transformParameters)
+        futureColumns: Future[Seq[ColumnGroup]],
+        multiTransform:MultiTransform, 
+        transformParameters:JsObject
+      ) (implicit execution: ExecutionContext, traceID:TraceId)
+      : Future[Seq[JsonDataStream]] = { // format: ON
+    multiTransform.transform(futureColumns, transformParameters)
   }
 }
 

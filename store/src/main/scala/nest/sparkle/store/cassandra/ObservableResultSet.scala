@@ -40,7 +40,6 @@ object ObservableResultSet {
     def observerableRows(span: Option[StartedSpan] = None)(implicit executionContext: ExecutionContext): Observable[Row] = {
 
       val asScalaFuture = resultSetFuture.toFuture
-
       val subscribed = new AtomicBoolean
 
       /** A constructor function for making an Observable.  The function takes an Observer to which it

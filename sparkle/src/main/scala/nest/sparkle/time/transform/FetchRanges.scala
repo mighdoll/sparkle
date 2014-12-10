@@ -30,6 +30,7 @@ object FetchRanges {
 
     val keyType: TypeTag[K] = castKind(column.keyType)
     val valueType: TypeTag[V] = castKind(column.valueType)
+
     val ongoingData = OngoingDataShim.fromOngoingEvents(ongoingEvents)(keyType, valueType)
     AsyncWithRequestRange(ongoingData, optRange)
   }

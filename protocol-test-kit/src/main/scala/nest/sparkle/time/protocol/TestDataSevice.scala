@@ -44,6 +44,9 @@ import org.scalatest.FunSuite
 import nest.sparkle.measure.Measurements
 import nest.sparkle.measure.ConfiguredMeasurements
 import java.util.concurrent.TimeUnit.MILLISECONDS
+import nest.sparkle.core.ArrayPair
+import spray.httpx.unmarshalling._
+import scala.reflect.ClassTag
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
   self: Suite =>
@@ -58,13 +61,13 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 
   // TODO legacy, delete soon
   def registry: DataRegistry = ???
-  
+
   lazy val defaultTimeout = {
     val protocolConfig = configForSparkle(rootConfig).getConfig("protocol-tests")
     val millis = protocolConfig.getDuration("default-timeout", MILLISECONDS)
     FiniteDuration(millis, MILLISECONDS)
   }
-  
+
   /** make a stream request, expecting a single stream of long/double results */
   def v1TypicalRequest(message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => Unit) {
     v1TypedRequest[Double](message) { seqEvents =>
@@ -114,12 +117,27 @@ object TestDataService {
       data.map(_.convertTo[Event[Long, U]])
     }
   }
+  
+  def longDoubleData(response:HttpResponse):Seq[(Long,Option[Double])] = {
+    singleArrayFromStreamsResponse[Long,Option[Double]](response)
+  }
+  
+  def singleArrayFromStreamsResponse[K:JsonFormat, V:JsonFormat] // format: OFF
+      (response: HttpResponse)
+      : Seq[(K,V)] = {
+    val jsData = streamDataJson(response)
+    for {
+      seqArray <- jsData.headOption.toVector
+      jsArray <- seqArray
+    } yield {
+      jsArray.convertTo[(K,V)]
+    }
+  }
 
   case class StreamsResponseError(msg: String) extends RuntimeException(msg)
 
   /** return all the data from the streams in a Streams message */
   def streamDataJson(response: HttpResponse): Seq[Seq[JsArray]] = {
-    import spray.httpx.unmarshalling._
     val streamsEither = response.as[StreamsMessage]
     streamsEither.left.map { err =>
       throw StreamsResponseError(err.toString)

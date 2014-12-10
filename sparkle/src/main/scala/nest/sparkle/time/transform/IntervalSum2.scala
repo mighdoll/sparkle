@@ -20,15 +20,14 @@ import spire.implicits._
 import nest.sparkle.time.transform.FetchStreams.fetchData
 import scala.concurrent.duration._
 import scala.language.higherKinds
-import nest.sparkle.time.transform.DataStreamType._
 import nest.sparkle.core.ArrayPair
+import nest.sparkle.time.transform.TransformValidation.{ columnsKeyType, summaryPeriod, rangeExtender }
 
 /** convert boolean on off events to intervals from multiple columns, then sum for each requested period.
   * Returns a json stream of the results. The results are in tabular form, with one summed amount for
   * each group of columns specified in the request.
   */
-class IntervalSum2(rootConfig: Config)(implicit measurements: Measurements) extends MultiTransform with Log with Instrumented {
-  val maxParts = configForSparkle(rootConfig).getInt("transforms.max-parts")
+case class IntervalSum2(rootConfig: Config)(implicit measurements: Measurements) extends MultiTransform with Log with Instrumented {
   val onOffParameters = OnOffParameters(rootConfig)
 
   override def transform  // format: OFF
@@ -80,7 +79,7 @@ class IntervalSum2(rootConfig: Config)(implicit measurements: Measurements) exte
   }
 
   /** start at implementing onOffToIntervals. Demonstrates that the typing information can flow through */
-  def onOffToIntervals[K: Numeric: TypeTag, S[_, _]: DataStream] // format: OFF
+  def onOffToIntervals[K: Numeric: TypeTag, S[_, _]] // format: OFF
       (streams:StreamGroupSet[K,Boolean,S])
       (implicit execution: ExecutionContext)
       : StreamGroupSet[K, K, S] = { // format: ON
@@ -115,11 +114,6 @@ class IntervalSum2(rootConfig: Config)(implicit measurements: Measurements) exte
       }
     }
 
-  }
-
-  private def rangeExtender[T: Numeric]: ExtendRange[T] = {
-    val numericKey = implicitly[Numeric[T]]
-    ExtendRange[T](before = Some(numericKey.fromLong(-1.day.toMillis))) // TODO make adjustable in the .conf file
   }
 
 }

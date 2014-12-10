@@ -18,6 +18,7 @@ import nest.sparkle.time.transform.OnOffTransform
 import nest.sparkle.time.transform.ColumnGroup
 import nest.sparkle.measure.TraceId
 import nest.sparkle.measure.Measurements
+import nest.sparkle.time.transform.ReductionTransform
 
 case class TransformNotFound(msg: String) extends RuntimeException(msg)
 
@@ -31,6 +32,7 @@ trait SelectingTransforms extends Log {
 
   private lazy val standardInterval = StandardIntervalTransform(rootConfig)
   private lazy val onOffInterval = OnOffTransform(rootConfig)
+  lazy val reductionTransform =  ReductionTransform(rootConfig) // SCALA why does this need to be public (fails with abstractmethod error otherwise)
 
   /** return the results of the transform selected by the `transform` field in a StreamsRequest message
     * or TransformNotFound
@@ -46,13 +48,14 @@ trait SelectingTransforms extends Log {
     val allFutureColumns: Future[Seq[Column[_, _]]] = {
       futureColumnGroups.map { groups => groups.flatMap(_.columns)}
     }
-    
     val futureStreams = transform match {
       case StandardSummaryTransform(columnTransform) =>
         runTransform(allFutureColumns, columnTransform, transformParameters)
       case standardInterval(columnTransform) =>
         runMultiColumnTransform(allFutureColumns, columnTransform, transformParameters)
       case onOffInterval(columnTransform) =>
+        runColumnGroupsTransform(futureColumnGroups, columnTransform, transformParameters)
+      case reductionTransform(columnTransform) =>
         runColumnGroupsTransform(futureColumnGroups, columnTransform, transformParameters)
       case StandardObjectTransform(columnTransform) =>
         runTransform(allFutureColumns, columnTransform, transformParameters)

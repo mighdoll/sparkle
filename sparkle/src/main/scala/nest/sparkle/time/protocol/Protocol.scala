@@ -137,12 +137,15 @@ case class RangeInterval[T](
 case class SummaryParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,
   partBySize: Option[String] = None,
-  partByCount: Option[Int] = None)
+  partByCount: Option[Int] = None,
+  timeZoneId: Option[String] = None
+  )
 
 case class IntervalParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,
-  partBySize: Option[String],
-  timeZoneId:Option[String])
+  partBySize: Option[String] = None,
+  timeZoneId:Option[String] = None
+  )
 
 /** transformParameters for the RawTransform */
 case class RawParameters[T](ranges: Option[Seq[RangeInterval[T]]] = None)

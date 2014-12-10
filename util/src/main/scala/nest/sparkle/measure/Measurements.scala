@@ -99,7 +99,7 @@ object MeasurementToTsvFile extends MeasurementGateway with Log {
     val tsvConfig = measureConfig.getConfig("tsv-gateway")
     tsvConfig.getBoolean("enable").toOption.map { _ =>
       val file = tsvConfig.getString("file")
-      log.info("Measurements to .tsv enabled, to file $file")
+      log.info(s"Measurements to .tsv enabled, to file $file")
       new MeasurementToTsvFile(file)
     }
   }

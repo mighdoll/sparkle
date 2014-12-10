@@ -5,14 +5,13 @@ import nest.sparkle.time.protocol.RangeInterval
 import nest.sparkle.measure.Span
 import scala.concurrent.ExecutionContext
 import nest.sparkle.store.Column
-import nest.sparkle.time.transform.DataStreamType.AsyncWithRequestRangeProxy
 import scala.reflect.runtime.universe._
 
 object FetchStreams {
 
   /** Read column data from a set of columns, returning data asynchronously in a StreamGroupSet.
     */
-  def fetchData[K, V: TypeTag]( // format: OFF
+  def fetchData[K, V]( // format: OFF
         futureGroups: Future[Seq[ColumnGroup]],
         optRequestRanges: Option[Seq[RangeInterval[K]]],
         rangeExtend: Option[ExtendRange[K]],
@@ -43,8 +42,10 @@ object FetchStreams {
               case RangeAndExtended(requestRange, extendedRange) =>
                 val dataStream = FetchRanges.fetchRange(typedColumn, Some(extendedRange), parentSpan)
                 // record the requested range with the data, not the extended range
-                implicit val _ = dataStream.keyType
-                dataStream.copy(fromRange = Some(requestRange))
+                implicit val keyType = dataStream.keyType
+                implicit val valueType = dataStream.valueType
+                println(s"keyType: $keyType,  valueType: $valueType")
+                dataStream.copy(requestRange = Some(requestRange))
             }
           streams.toVector
         case None =>
