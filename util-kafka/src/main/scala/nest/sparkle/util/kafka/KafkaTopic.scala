@@ -30,7 +30,7 @@ case class KafkaGroupTopicOffsets(
 
 case class KafkaPartitionOffset(
   partition: Int,
-  offset: Long
+  offset: Option[Long]
   ) extends Ordered[KafkaPartitionOffset] {
   override def toString: String = s"$partition:$offset"
   

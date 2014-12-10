@@ -54,10 +54,7 @@ trait KafkaLoaderAdminService extends AdminService
     get {
       path("topics") {
         implicit val span = Span.startNoParent("admin.allTopics", level = Trace)
-        timedOnComplete(KafkaStatus.allTopics) {
-          case Success(s) => complete(s)
-          case Failure(x) => complete(StatusCodes.InternalServerError -> x.toString)
-        }
+        timedOnComplete(KafkaStatus.allTopics, "/topics")
       }
     }
   }
@@ -67,10 +64,7 @@ trait KafkaLoaderAdminService extends AdminService
     get {
       path("topics2") {
         implicit val span = Span.startNoParent("admin.allTopics2", level = Trace)
-        timedOnComplete(KafkaStatus.allTopics2) {
-          case Success(s)   => complete(s)
-          case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
-        }
+        timedOnComplete(KafkaStatus.allTopics2, "/topics2")
       }
     }
   }
@@ -80,10 +74,7 @@ trait KafkaLoaderAdminService extends AdminService
     get {
       path("topics" / Segment) { topicName =>
         implicit val span = Span.startNoParent("admin.oneTopic", level = Trace)
-        timedOnComplete(KafkaStatus.topicFromName(topicName)) {
-          case Success(s)   => complete(s)
-          case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
-        }
+        timedOnComplete(KafkaStatus.topicFromName(topicName), s"/topics/$topicName")
       }
     }
   }
@@ -93,10 +84,7 @@ trait KafkaLoaderAdminService extends AdminService
     get {
       path("brokers") {
         implicit val span = Span.startNoParent("admin.brokers", level = Trace)
-        timedOnComplete(KafkaStatus.allBrokers) {
-          case Success(s)   => complete(s)
-          case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
-        }
+        timedOnComplete(KafkaStatus.allBrokers, "/brokers")
       }
     }
   }
@@ -106,10 +94,7 @@ trait KafkaLoaderAdminService extends AdminService
     get {
       path("groups") {
         implicit val span = Span.startNoParent("admin.consumerGroups", level = Trace)
-        timedOnComplete(consumerGroups()) {
-          case Success(s)   => complete(s)
-          case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
-        }
+        timedOnComplete(consumerGroups(), "/groups")
       }
     }
   }
@@ -119,10 +104,7 @@ trait KafkaLoaderAdminService extends AdminService
     get {
       path("offsets") {
         implicit val span = Span.startNoParent("admin.offsets", level = Trace)
-        timedOnComplete(groupOffsets()) {
-          case Success(s)   => complete(s)
-          case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
-        }
+        timedOnComplete(groupOffsets(), "/offsets")
       }
     }
   }

@@ -126,7 +126,7 @@ class TestKafkaStatus
       val partitionOffset = Await.result(future, timeout)
 
       partitionOffset.partition shouldBe 0
-      partitionOffset.offset shouldBe 2
+      partitionOffset.offset shouldBe Some(2)
     }
   }
    
@@ -142,7 +142,7 @@ class TestKafkaStatus
       topicOffsets.topic shouldBe TopicName
       topicOffsets.partitions.zipWithIndex foreach { case (partitionOffset, i) =>
         partitionOffset.partition shouldBe i
-        partitionOffset.offset shouldBe 2
+        partitionOffset.offset shouldBe Some(2)
       }
     }
   }

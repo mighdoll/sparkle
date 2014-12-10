@@ -53,14 +53,6 @@ trait AdminService
       staticContent
     }
   } // format: ON
-  
-  def futureComplete[T](future: Future[T])
-      (implicit marshaller: Marshaller[T], executionContext: ExecutionContext): Route = {
-    onComplete(future) {
-      case Success(s)   => complete(s)
-      case Failure(x)   => complete(StatusCodes.InternalServerError -> x.toString)
-    }
-  }
 
 }
 

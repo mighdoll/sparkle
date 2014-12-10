@@ -70,7 +70,7 @@ class TestKafkaLoaderAdminService
   test("The list of consumer groups includes the test group") {
     Get("/groups") ~> allRoutes ~> check {
       val groups = convertJsonResponse[Seq[String]]
-      groups.contains(ConsumerGroup) shouldBe true
+      assert(groups.contains(ConsumerGroup),s"$ConsumerGroup not found in $groups")
     }
   }
   
@@ -87,7 +87,7 @@ class TestKafkaLoaderAdminService
           assert(topic.partitions.length == NumPartitions, s"${topic.topic} does not have $NumPartitions partitions")
           topic.partitions.zipWithIndex foreach { case (offset,i) =>
             assert(offset.partition == i, s"${topic.topic}:$i partition id doesn't equal index")
-            assert(offset.offset == 2, s"${topic.topic}:$i partition offset doesn't equal 2")
+            assert(offset.offset == Some(2), s"${topic.topic}:$i partition offset doesn't equal 2")
           }
         case _            => fail(s"consumer group $ConsumerGroup not found")
       }

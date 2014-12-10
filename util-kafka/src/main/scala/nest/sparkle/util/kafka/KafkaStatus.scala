@@ -1,9 +1,13 @@
 package nest.sparkle.util.kafka
 
+import spire.syntax.group
+
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future, future}
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
+import scala.util.control.Exception.nonFatalCatch
+import scala.util.{Failure, Success}
 
 import spray.json._
 
@@ -149,7 +153,8 @@ class KafkaStatus(
   }
   
   /** Get all topic specific info */
-  def topicFromName(topicName: String)(implicit parentSpan: Span): Future[KafkaTopic] = {
+  def topicFromName(topicName: String)
+    (implicit parentSpan: Span): Future[KafkaTopic] = {
     val futureConsumers = simpleConsumers
     val futureResult =
       for {
@@ -169,7 +174,8 @@ class KafkaStatus(
     futureResult
   }
   
-  def partitionIdsForConsumerGroupTopic(group: String, topic: String)(implicit parentSpan: Span): Future[Seq[Int]] = {
+  def partitionIdsForConsumerGroupTopic(group: String, topic: String)
+    (implicit parentSpan: Span): Future[Seq[Int]] = {
     future {
      Span("partitionIdsForConsumerGroupTopic").time {
        val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic"
@@ -178,17 +184,19 @@ class KafkaStatus(
     }
   }
   
-  def kafkaPartitionOffset(group: String, topic: String, partition: Int)(implicit parentSpan: Span): Future[KafkaPartitionOffset] = {
+  def kafkaPartitionOffset(group: String, topic: String, partition: Int)
+    (implicit parentSpan: Span): Future[KafkaPartitionOffset] = {
     future {
       Span("kafkaPartitionOffset").time {
         val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic/$partition"
-        val offset = client.readData[String](path).toLong
+        val offset = nonFatalCatch opt { client.readData[String](path).toLong }
         KafkaPartitionOffset(partition, offset)
       }
     }
   }
    
-  private def partitionIdsForTopicName(topicName: String)(implicit parentSpan: Span): Seq[Int] = {
+  private def partitionIdsForTopicName(topicName: String)
+    (implicit parentSpan: Span): Seq[Int] = {
     Span("partitionIdsForTopicName").time {
       val path = s"${ZkUtils.BrokerTopicsPath}/$topicName/partitions"
       client.getChildren(path).map(_.toInt).sorted
@@ -196,7 +204,8 @@ class KafkaStatus(
   }
   
   /** Get all topic specific info */
-  private def kafkaTopic(consumers: Map[Int,BrokerConsumer], topicName: String)(implicit parentSpan: Span): KafkaTopic = {
+  private def kafkaTopic(consumers: Map[Int,BrokerConsumer], topicName: String)
+    (implicit parentSpan: Span): KafkaTopic = {
     val span = Span("kafkaTopic")
     span.time {
       val partsIds = partitionIdsForTopicName(topicName)(span)
@@ -386,7 +395,8 @@ object KafkaStatus {
   }
   
   def kafkaPartitionOffset(group: String, topic: String, partition: Int)
-    (implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): Future[KafkaPartitionOffset] = {
+    (implicit props: ZkConnectProps, executionContext: ExecutionContext, parentSpan: Span): 
+  Future[KafkaPartitionOffset] = {
     val zkutils = KafkaStatus(props)
     val future = zkutils.kafkaPartitionOffset(group, topic, partition)
     future onComplete { _ =>
