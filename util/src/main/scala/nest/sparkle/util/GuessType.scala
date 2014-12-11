@@ -1,10 +1,10 @@
 package nest.sparkle.util
 
-import scala.reflect.runtime.universe._
+import nest.sparkle.util.ParseStringTo.BooleanParseException
+import nest.sparkle.util.ParseStringTo.Implicits._
+
 import scala.reflect._
 import scala.util.control.Exception._
-import nest.sparkle.util.ParseStringTo.Implicits._
-import nest.sparkle.util.ParseStringTo.BooleanParseException
 
 /** utilities for guessing the type of a string (Int, Long, Double, or Boolean) */
 object GuessType {

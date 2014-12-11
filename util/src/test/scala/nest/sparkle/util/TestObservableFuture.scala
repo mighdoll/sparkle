@@ -14,13 +14,11 @@
 
 package nest.sparkle.util
 
-import org.scalatest.FunSuite
 import nest.sparkle.util.ObservableFuture._
-import org.scalatest.Matchers
+import org.scalatest.{FunSuite, Matchers}
+
 import scala.concurrent.Future
-import scala.util.Try
-import scala.util.Success
-import scala.util.Failure
+import scala.util.{Failure, Try}
 
 class TestObservableFuture extends FunSuite with Matchers {
 

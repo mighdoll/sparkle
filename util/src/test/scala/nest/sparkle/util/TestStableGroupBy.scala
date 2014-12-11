@@ -1,8 +1,7 @@
 package nest.sparkle.util
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
 import nest.sparkle.util.StableGroupBy._
+import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.prop.PropertyChecks
 
 class TestStableGroupBy extends FunSuite with Matchers with PropertyChecks {

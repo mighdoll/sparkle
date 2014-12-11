@@ -1,7 +1,6 @@
 package nest.sparkle.util.kafka
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
 
 import nest.sparkle.measure.{MeasurementToTsvFile, StartedSpan, Trace, Span}
 
@@ -11,8 +10,7 @@ import nest.sparkle.measure.{MeasurementToTsvFile, StartedSpan, Trace, Span}
 class TestKafkaStatus
   extends KafkaTestSuite
 {
-  private val _timeout = FiniteDuration(10, MINUTES)  // WTF? 10.minutes doesn't compile
-  implicit val zkProps = ZkConnectProps("localhost:2181", _timeout, _timeout)
+  implicit val zkProps = ZkConnectProps("localhost:2181", timeout, timeout)
   implicit override val measurements = new MeasurementToTsvFile("/tmp/kafka-util-tests.tsv")
   
   private def checkTestTopic(topic: KafkaTopic) {

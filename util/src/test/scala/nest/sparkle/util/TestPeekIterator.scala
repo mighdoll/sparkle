@@ -14,8 +14,7 @@
 
 package nest.sparkle.util
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
+import org.scalatest.{FunSuite, Matchers}
 import org.scalatest.prop.PropertyChecks
 
 class TestPeekIterator extends FunSuite with Matchers with PropertyChecks {
