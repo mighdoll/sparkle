@@ -1,12 +1,15 @@
 package nest.sparkle.loader.kafka
 
+import scala.annotation.tailrec
 import scala.reflect.runtime.universe._
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success}
+import scala.util.control.Exception.nonFatalCatch
 
 import org.clapper.argot.ArgotConverters._
 
-import nest.sparkle.store.Store
+import nest.sparkle.store.{WriteableStore, Store}
 import nest.sparkle.store.cassandra.WriteNotification  // TODO: shouldn't require cassandra
 import nest.sparkle.util.{Log, InitializeReflection, SparkleApp}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
@@ -26,9 +29,13 @@ object Main
   initialize()
   InitializeReflection.init
   
+  lazy val notification = new WriteNotification()
+  
+  /** Time to wait between attempts to create store */
+  private val storeRetryWait = 1.minute.toMillis
+  
   val loader = {
-    val notification = new WriteNotification()
-    val writeableStore = Store.instantiateWritableStore(sparkleConfig, notification)
+    val writeableStore = createStoreWithRetry
     val storeKeyType = typeTag[Long]
     new KafkaLoader(rootConfig, writeableStore)(storeKeyType, global)
   }
@@ -60,5 +67,22 @@ object Main
   
   override def overrides = {
     erase.value.map { (s"$sparkleConfigName.erase-store", _) }.toSeq
+  }
+
+  /**
+   * Create a writeable store. On failure keeps retrying until success.
+   * @return writeable store
+   */
+  @tailrec
+  private def createStoreWithRetry: WriteableStore = {
+    val tryStore = nonFatalCatch withTry Store.instantiateWritableStore(sparkleConfig, notification)
+    tryStore match {
+      case Success(store) => store
+      case Failure(err)   =>
+        log.error("store create failed", err)
+        Thread.sleep(storeRetryWait)
+        createStoreWithRetry
+    }
+    
   }
 }
