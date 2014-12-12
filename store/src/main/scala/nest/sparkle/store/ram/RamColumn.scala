@@ -14,6 +14,7 @@
 
 package nest.sparkle.store.ram
 
+import nest.sparkle.core.OngoingData
 import nest.sparkle.store.Column
 import scala.collection.immutable.VectorBuilder
 import scala.reflect.runtime.universe._
@@ -46,6 +47,16 @@ abstract class RamColumn[T: TypeTag, U: TypeTag](val name: String) extends Colum
     val result = Observable.from(events)
 
     OngoingEvents(result, Observable.empty)
+  }
+
+  override def readRangeA(
+    start: Option[T] = None,
+    end: Option[T] = None,
+    limit: Option[Long],
+    parentSpan: Option[Span]
+  )(implicit execution: ExecutionContext): OngoingData[T, U] =
+  {
+    ???
   }
 
   /** Return the indices in the time array for the specified time bounds.

@@ -3,8 +3,10 @@ package nest.sparkle.store
 import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.universe._
 import rx.lang.scala.Observable
-import nest.sparkle.util.RecoverNumeric
 import spire._
+
+import nest.sparkle.core.OngoingData
+import nest.sparkle.util.RecoverNumeric
 import nest.sparkle.util.RecoverOrdering
 import nest.sparkle.measure.Span
 
@@ -53,6 +55,16 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]], earlyRead: 
     val initial = compositeIntervals(allIntervals) // TODO this should be a separate transform
     val ongoing: Observable[Event[T, T]] = Observable.empty // LATER handle ongoing events too, for now we only handle the initial set
     OngoingEvents(initial, ongoing)
+  }
+
+  override def readRangeA(
+    start: Option[T] = None,
+    end: Option[T] = None,
+    limit: Option[Long] = None,
+    parentSpan: Option[Span]
+  )(implicit execution: ExecutionContext): OngoingData[T, T] =
+  {
+    ???
   }
 
   /** convert on/off events to intervals */

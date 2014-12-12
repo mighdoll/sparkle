@@ -14,7 +14,10 @@
 
 package nest.sparkle.store.cassandra
 
+import spire.std.map
+
 import com.datastax.driver.core.Session
+import nest.sparkle.core.{ArrayPair, OngoingData}
 import nest.sparkle.store.Column
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -104,6 +107,24 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     }
   }
 
+  /** read a slice of events from the column */
+  // format: OFF
+  override def readRangeA(
+    start: Option[T] = None,
+    end: Option[T] = None,
+    limit: Option[Long] = None,
+    parentSpan: Option[Span]
+  )(implicit execution: ExecutionContext): OngoingData[T, U] =
+  {
+    // format: ON
+    (start, end) match {
+      case (None, None) => readAll(parentSpan)
+      case (Some(startT), Some(endT)) => readBoundedRange(startT, endT, parentSpan)
+      case (Some(startT), None) => readFromStart(startT, parentSpan)
+      case _ => ???
+    }
+  }
+
   /** read all the column values from the column */
   private def readAll(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): OngoingEvents[T, U] = { // format: ON
     log.trace(s"readAll from $tableName $columnPath")
@@ -111,6 +132,15 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
       Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
 
     OngoingEvents(initial = readEventRows(readStatement, parentSpan), ongoing = ongoingRead(parentSpan))
+  }
+
+  /** read all the column values from the column */
+  private def readAllA(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): OngoingData[T, U] = { // format: ON
+    log.trace(s"readAll from $tableName $columnPath")
+    val readStatement = prepared.statement(ReadAll(tableName)).bind(
+      Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
+
+    OngoingData(initial = readEventRows(readStatement, parentSpan), ongoing = ongoingRead(parentSpan))
   }
 
   private def readFromStart(start: T, parentSpan:Option[Span]) // format: OFF
@@ -171,6 +201,13 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
       (implicit execution:ExecutionContext): Observable[Event[T, U]] = { // format: ON
     val span = parentSpan.map { parent => Span.start("readEventRows", parent) }
     val rows = prepared.session.executeAsync(statement).observerableRows(span)      
+    rows map rowDecoder
+  }
+
+  private def readEventRowsA(statement: BoundStatement, parentSpan:Option[Span]) // format: OFF
+      (implicit execution:ExecutionContext): Observable[ArrayPair[T, U]] = { // format: ON
+    val span = parentSpan.map { parent => Span.start("readEventRows", parent) }
+    val rows = prepared.session.executeAsync(statement).observerableRows(span)
     rows map rowDecoder
   }
 

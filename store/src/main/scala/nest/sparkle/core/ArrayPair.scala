@@ -1,8 +1,7 @@
 package nest.sparkle.core
 
-import scala.reflect.ClassTag
-import scala.{ specialized => spec }
-import scala.reflect.classTag
+import scala.reflect.{ClassTag, classTag}
+import scala.{specialized => spec}
 
 /** A pair of arrays, suitable for efficiently storing a key,value collection
   * Both arrays must be contain the same number of elements.
