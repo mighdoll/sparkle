@@ -1,7 +1,5 @@
 package nest.sparkle.util.kafka
 
-import spire.syntax.group
-
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future, future}
 import scala.concurrent.duration._
@@ -116,7 +114,13 @@ class KafkaStatus(
     future {
       Span("consumerGroupTopics").time {
         val path = s"${ZkUtils.ConsumersPath}/$group/offsets"
-        client.getChildren(path).sorted
+        val tryResult = nonFatalCatch withTry client.getChildren(path).sorted
+        tryResult match {
+          case Success(result) => result
+          case Failure(err)    => 
+            log.info(s"$group has no topics")
+            Seq[String]()
+        }
       }
     }
   }
