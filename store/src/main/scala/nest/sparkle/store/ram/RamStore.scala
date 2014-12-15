@@ -67,17 +67,6 @@ class WriteableRamStore extends Store {
   def close(): Unit = {
     columns.clear()
   }
-  
-  /** Add events to the store's table buffers */
-  def add[T: CanSerialize, U: CanSerialize](columnPath: String, items:Iterable[Event[T,U]])
-      (implicit executionContext: ExecutionContext): Future[Unit] = {
-    ???
-  }
-  
-  /** Flush buffered events to storage */
-  def flush(): Future[Unit] = {
-    Future.successful(())
-  }
 
 }
 

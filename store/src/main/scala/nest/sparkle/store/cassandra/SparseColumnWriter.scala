@@ -29,6 +29,7 @@ object SparseColumnWriter
     extends Instrumented with Log {
   /** All SparseColumnWriters use this metric */
   protected val batchMetric = metrics.timer("store-batch-writes")
+  protected val batchSizeMetric = metrics.meter(s"store-batch-size")
 
   /** constructor to create a SparseColumnWriter */
   def apply[T: CanSerialize, U: CanSerialize]( // format: OFF
@@ -103,16 +104,25 @@ import nest.sparkle.store.cassandra.SparseColumnWriter._
 protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
     val dataSetName: String, val columnName: String,
     catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog, 
-    writeNotifier:WriteNotifier, preparedSession: PreparedSession)
+    writeNotifier:WriteNotifier, preparedSession: PreparedSession,
+    unloggedBatches: Boolean = true
+)
   extends WriteableColumn[T, U] 
   with ColumnSupport 
   with Log { // format: ON
 
   val serialInfo = serializationInfo[T, U]()
   val tableName = serialInfo.tableName
+  
+  /** UNLOGGED may perform better */
+  val batchType = unloggedBatches match {
+    case true  => BatchStatement.Type.UNLOGGED
+    case false => BatchStatement.Type.LOGGED
+  }
 
   /** create a catalog entries for this given sparse column */
   protected def updateCatalog(description: String = "no description")(implicit executionContext: ExecutionContext): Future[Unit] = {
+    
     // LATER check to see if table already exists first
 
     val entry = CassandraCatalogEntry(columnPath = columnPath, tableName = tableName, description = description,
@@ -153,6 +163,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
   /** write a bunch of column values in a batch */ // format: OFF
   private def writeMany(events:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
+
     val batches = events.grouped(batchSize).map { eventGroup =>
       val insertGroup = eventGroup.map { event =>
         val (argument, value) = serializeEvent(event)
@@ -161,9 +172,10 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
         )
       }
 
-      val batch = new BatchStatement()
-      batch.addAll(insertGroup.toSeq.asJava)
-
+      val batch = new BatchStatement(batchType)
+      val statements = insertGroup.toSeq.asJava
+      batchSizeMetric.mark(statements.size)  // measure the size of batches to this table
+      batch.addAll(statements)
       batch
     }
 

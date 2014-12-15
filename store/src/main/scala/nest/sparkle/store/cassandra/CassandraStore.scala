@@ -14,10 +14,7 @@
 
 package nest.sparkle.store.cassandra
 
-import java.util.concurrent.locks.ReentrantReadWriteLock
-
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language._
 import scala.util.control.Exception._
@@ -26,7 +23,6 @@ import com.typesafe.config.Config
 
 import spray.util._
 
-import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.store._
 import nest.sparkle.util.GuavaConverters._
@@ -252,32 +248,6 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   
   // This is not used by the TableWriters
   private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements)
-  
-  /** 
-   * Lock to allow enqueuing to the table queues.
-   * The "read" lock is used to allow multiple enqueue-ers (the table queues are 
-   * synchronized themselves).
-   * When it is time to write a thread gets the "write" lock which can only be obtaining
-   * when there are no "read" lock holders. Once the write lock is obtaining the entries in
-   * queues can be written.
-   */
-  private[cassandra] val enqueueLock = new ReentrantReadWriteLock(true)
-
-  /** Map of inserts per columnPath table.
-    * Key is the table name
-    * Value is a queue of columnpath, event arrays to insert
-    */
-  private[cassandra] val tableQueues: Map[String,mutable.SynchronizedQueue[ColumnRowData]] = {
-    val tableNames = ColumnTypes.supportedColumnTypes.map(_.tableName)
-    val map = tableNames.map { tableName =>
-      tableName -> new mutable.SynchronizedQueue[ColumnRowData]
-    }.toMap
-    map
-  }
-  
-  private lazy val tableWriters = tableQueues.keys.map { tableName => 
-    tableName -> TableWriter(this, tableName)
-  }.toMap
 
   /** return a column from a fooSet/barSet/columnName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](
@@ -297,62 +267,6 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
     * This call is synchronous. */
   def format(): Unit = {
     format(session)
-  }
-  
-  def acquireEnqueueLock(): Unit = {
-    enqueueLock.readLock().lock()
-  }
-  
-  def releaseEnqueueLock(): Unit = {
-    enqueueLock.readLock().unlock()
-  }
-  
-  /** 
-   * Add entries to the store's table queues.
-   * The enqueueLock's readLock should be acquired before making this call to ensure entries
-   * are not lost.
-   */
-  def enqueue[T: CanSerialize, U: CanSerialize](columnPath: String, items:Iterable[Event[T,U]])
-      (implicit executionContext: ExecutionContext): Unit = 
-  {
-    val serialInfo = serializationInfo[T,U]()
-    val tableName = serialInfo.tableName
-    val tableQueue = tableQueues(tableName)
-    
-    // Update the catalog. For now this causes a write which is awful for performance but we will
-    // soon be caching these so the impact will be negligible.
-    val column = writeableColumn[T,U](columnPath).await
-    
-    // Serialize the keys and values and convert to a ColumnRowData.
-    val rows = items.map { item =>
-      val key = serialInfo.domain.serialize(item.argument)
-      val value = serialInfo.range.serialize(item.value)
-      ColumnRowData(columnPath, key, value)
-    }.toVector
-    
-    tableQueue.enqueue(rows: _*)
-  }
-  
-  /** 
-   * Flush buffered events to storage 
-   */
-  def flush(): Unit = {
-    enqueueLock.writeLock().lock()
-    try {
-      val futures = tableQueues.map {
-        case (tableName, queue) => writeQueue(tableName, queue)
-      }
-      Future.sequence(futures).await
-    } finally {
-      enqueueLock.writeLock().unlock()
-    }
-  }
-  
-  private def writeQueue(tableName: String, queue: mutable.SynchronizedQueue[ColumnRowData]): Future[Unit] = {
-    val writer = tableWriters(tableName)
-    val items = queue.toList.sorted
-    queue.clear()
-    writer.write(items)
   }
 
 }

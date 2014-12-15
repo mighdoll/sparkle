@@ -1,6 +1,6 @@
 package nest.sparkle.loader.kafka
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.Semaphore
 
 import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.concurrent.{Future, ExecutionContext, promise}
@@ -16,10 +16,11 @@ import kafka.consumer.ConsumerTimeoutException
 
 import nest.sparkle.loader._
 import nest.sparkle.loader.Loader.{Events, LoadingTransformer, TaggedBlock}
-import nest.sparkle.store.WriteableStore
-import nest.sparkle.store.cassandra.RecoverCanSerialize
+import nest.sparkle.store.{Event, WriteableStore}
+import nest.sparkle.store.cassandra.{CanSerialize, RecoverCanSerialize}
 import nest.sparkle.util.{Instrumented, Log, Instance, ConfigUtil, Watched}
 import nest.sparkle.util.KindCast.castKind
+import nest.sparkle.util.TryToFuture.FutureTry
 
 /**
  * A runnable that reads a topic from a KafkaReader that returns messages containing Avro encoded
@@ -47,11 +48,11 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   /** Current Kafka iterator */
   private var currentIterator: Option[Iterator[Try[TaggedBlock]]] = None
   
-  /** Commit interval millis for compare */
-  val commitTime = loaderConfig.getDuration("commit-interval", TimeUnit.MILLISECONDS)
+  /** The number of Kafka messages to process before committing */
+  val messageCommitLimit = loaderConfig.getInt("message-commit-limit")
   
-  /** Number of Kafka messages to process before flushing the store and committing offsets */
-  val messageBatchSize = loaderConfig.getInt("message-batch-size")
+  /** The maximum number of concurrent Kafka messages being written simultaneously */
+  val maxConcurrentWrites = loaderConfig.getInt("max-concurrent-writes")
   
   /** Number of events to write to the log when tracing writes */
   val NumberOfEventsToTrace = 3
@@ -65,59 +66,66 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   
   /** Allows any other code to take action when this loader terminates */
   val shutdownFuture = shutdownPromise.future
+
+  /**
+   * This limits the number of concurrent C* writes.
+   * Fairness is not needed since only the loader thread ever does an acquire.
+   */
+  private val writesInProcess = new Semaphore(maxConcurrentWrites)
   
   // Metrics
   private val metricPrefix = topic.replace(".", "_").replace("*", "") 
   
   /** Read rate */
   private val readMetric = metrics.meter("kafka-messages-read", metricPrefix)
+  
+  private val batchSizeMetric = metrics.meter(s"store-batch-size", metricPrefix)
+  
+  /** Meter for writing to C* for this topic */
+  private val writeMetric = metrics.timer("store-writes", metricPrefix) // TODO: make histogram
+  
+  /** Errors writing to C* for this topic */
+  private val writeErrorsMetric = metrics.meter("store-write-errors", metricPrefix)
 
   /**
    * Main method of the loader.
    * 
    * Reads from a Kafka iterator and writes to the store.
    * 
-   * Writes are queued to the store and flushed after N messages are read or the Kafka iterator
-   * times out. Since each loader instance locks the store for queueing followed by a flush each
-   * loader can commit the Kafka offsets guaranteeing no data loss.
+   * Writes are executed asynchronously until a limit of messages have not been processed.
+   * When the limit is hit the thread waits until one of the previous messages is finished.
    * 
-   * Note the *all* of the loaders will eventually synchronize on the flush call as it performs
-   * an exclusive lock to prevent any of the loaders from queueing data will a flush is in progress.
-   * Only one of the loaders will actually perform the store writing. When the others get the 
-   * exclusive lock there will be no data for them to write. Only when the last loader exits the
-   * flush call will the other loaders be able to acquire the queue lock (a shared lock) and begin
-   * queueing more events.
+   * After C number of messages are processed the thread waits until all the messages data has
+   * been written to the store. A commit is then done and reading resumes.
+   * 
    */
   override def run(): Unit = {
     
     try {
       log.info("Loader for {} started", topic)
+      
+      // The number of kafka messages read since the last commit.
+      var messageCount = 0  
 
       while (keepRunning) {
-        store.acquireEnqueueLock()
-        try {
-          (1 to messageBatchSize).foreach { _ =>
-            iterator.next() match {
-              case Success(block)                         =>
-                readMetric.mark()
-                enqueueBlock(block)
-              case Failure(err: ConsumerTimeoutException) =>
-                log.trace("consumer timeout reading {}", topic)
-                throw err
-              case Failure(err)                           =>
-                // Some other Kafka reading error. Discard iterator and try again.
-                discardIterator()
+        iterator.next() match {
+          case Success(block) =>
+            messageCount += 1
+            readMetric.mark()
+            writeMessage(block)
+            if (messageCount > messageCommitLimit) {
+              commitWhenClear()
+              messageCount = 0
             }
-          }
-        } catch {
-          case err: ConsumerTimeoutException => // no data available, flush whatever was queued
-        } finally {
-          store.releaseEnqueueLock()
+          case Failure(err: ConsumerTimeoutException) =>
+            log.trace("consumer timeout reading {}", topic)
+            commitWhenClear()
+            messageCount = 0
+          case Failure(err) =>
+            // Some other Kafka reading error. Discard iterator and try again.
+            discardIterator()
+            messageCount = 0
         }
-        
-        store.flush()
-        
-        commitKafkaOffsets()  // All of our messages data has safely been written to the store
       }
 
       log.info(s"$topic loader is terminating")
@@ -216,19 +224,123 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     }
   }
   
-  private def enqueueBlock(block: TaggedBlock)(implicit keyType: TypeTag[K]): Unit = {
-    block.map { slice => 
-      def withFixedType[U](): Unit = {
-        implicit val valueType = slice.valueType
-        log.trace(
-          s"loading ${slice.events.length} events to column: ${slice.columnPath} keyType: $keyType valueType: $valueType"
-        )
-        
-        val valueSerialize = RecoverCanSerialize.optCanSerialize[U](valueType).get
-        val castEvents: Events[K,U] = castKind(slice.events)
-        store.enqueue(slice.columnPath, castEvents)(keySerialize, valueSerialize, execution)
+  /** 
+   * When all of the in progress writes are done commit to Kafka
+   */
+  private def commitWhenClear(): Unit = {
+    log.trace(s"committing ${Thread.currentThread.getId} ${writesInProcess.availablePermits}")
+    writesInProcess.acquire(maxConcurrentWrites)
+    commitKafkaOffsets()
+    writesInProcess.release(maxConcurrentWrites)
+  }
+
+  /** Write the block to the Store. Update watchers when complete
+    *  
+    * @param block TaggedBlock from a Kafka message.
+    */
+  private def writeMessage(block: TaggedBlock): Unit = {
+    val sliceFutures = block map writeSlice
+
+    val allDone = Future.sequence(sliceFutures).map { updates => 
+        val flattened = updates.flatten // remove Nones
+        flattened
       }
-      withFixedType()
+    
+    allDone.value.map { 
+      case Success(updates) =>
+        recordComplete(updates)
+      case Failure(err)     =>
+        log.error(s"Writes for $topic failed, retrying", err)
     }
   }
+
+  /** 
+   * Write a slice of column data to the store. 
+   * 
+   * @return a future that completes when the data has been written. 
+   */
+  private def writeSlice(slice: TaggedSlice[_,_])
+      (implicit keyType: TypeTag[K]): Future[Option[ColumnUpdate[K]]] = 
+  {
+    val resultPromise = promise[Option[ColumnUpdate[K]]]()
+    
+    def withFixedType[U](): Unit = {
+      implicit val valueType = slice.valueType
+      log.trace(
+        "loading {} events to column: {}  keyType: {}  valueType: {}",
+        slice.events.length.toString, slice.columnPath, keyType, valueType
+      )
+
+      writesInProcess.acquire()  // running in loader thread here
+      log.trace(s"got permit ${Thread.currentThread.getId} ${writesInProcess.availablePermits}")
+      
+      val timer = writeMetric.timerContext()
+      val result =
+        for {
+          valueSerialize <- RecoverCanSerialize.tryCanSerialize[U](valueType).toFuture
+          castEvents: Events[K, U] = castKind(slice.events)
+          update <- writeEvents(castEvents, slice.columnPath)(valueSerialize)
+        } yield {
+          update
+        }
+      
+      result onComplete { tryResult => 
+        timer.stop()
+        log.trace(s"releasing permit ${Thread.currentThread.getId} ${writesInProcess.availablePermits} ${writesInProcess.hasQueuedThreads}")
+        writesInProcess.release() 
+        
+        tryResult match {
+          case Success(optUpdate) => resultPromise.success(optUpdate)
+          case Failure(err)       => 
+            log.error("writeBlocks failed", err)
+            writeErrorsMetric.mark()
+            resultPromise.failure(err)
+       }
+      }
+    }
+    
+    withFixedType()
+    
+    resultPromise.future
+  }
+
+  /** 
+   * write some typed Events to storage. Notifies any watchers when complete
+   * @return a future when that completes when the writing is done
+   */
+  private def writeEvents[U: CanSerialize](events: Iterable[Event[K, U]],
+                                           columnPath: String): Future[Option[ColumnUpdate[K]]] = 
+  {
+    batchSizeMetric.mark(events.size)
+    
+    store.writeableColumn[K, U](columnPath) flatMap { column =>
+      events.lastOption.map {_.argument} match {
+        case Some(lastKey) =>
+          column.write(events).map { _ =>
+            Some(ColumnUpdate[K](columnPath, lastKey))
+          }
+        case None =>
+          log.warn(s"no last key for $columnPath. events empty: ${events.isEmpty}")
+          Future.successful(None)
+      }
+    }
+  }
+
+  /** We have written one record's worth of data to storage. Per the batch policy
+    * notify any watchers.
+    */
+  private def recordComplete(updates: Seq[ColumnUpdate[K]]): Unit = {
+    // notify anyone subscribed to the Watched stream that we've written some data
+    try {
+      updates.foreach { update =>
+        log.trace(s"recordComplete: $update")
+        watchedData.onNext(update)
+      }
+    } catch {
+      case NonFatal(err)  =>
+        // Just log error and ignore
+        log.warn(s"Exception notifying for $topic", err)
+    }
+  }
+
 }
