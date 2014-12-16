@@ -28,7 +28,7 @@ import spray.util.pimpFuture
 
 trait EncodedRecordLoaderFixture extends CassandraTestConfig {
 
-  override def testConfigFile = Some("kafka-tests")
+  override def testConfigFile = Some("sparkle-kafka-tests")
 
   /** Call a test function after stream loading some data from avro
     *
