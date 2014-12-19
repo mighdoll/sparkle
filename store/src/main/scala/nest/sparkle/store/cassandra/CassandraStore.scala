@@ -266,6 +266,7 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
     *
     * This call is synchronous. */
   def format(): Unit = {
+    columnCatalog.format()
     format(session)
   }
 

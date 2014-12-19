@@ -83,6 +83,7 @@ object SparkleBuild extends Build {
         libraryDependencies ++= cassandraClient ++ testAndLogging ++ Seq (
           rxJavaScala,
           nettyAll,
+          sprayCaching,
           sprayJson,
           sprayUtil,
           spire

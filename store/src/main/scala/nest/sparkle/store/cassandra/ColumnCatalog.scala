@@ -32,6 +32,7 @@ import scala.util.{Failure, Success}
 import nest.sparkle.util.TaggedKeyValue
 import rx.lang.scala.Observable
 import com.typesafe.config.Config
+import spray.caching.LruCache
 
 /** metadata about a column of data
   *
@@ -71,26 +72,50 @@ case class ColumnCatalog(sparkleConfig : Config, session: Session) extends Prepa
       WHERE columnCategory = ?;
     """
 
-  lazy val columnPathFormat: ColumnPathFormat = {
+  val columnPathFormat: ColumnPathFormat = {
     val className = sparkleConfig.getString("column-path-format")
     log.info(s"using ColumnPathFormat: $className")
     Instance.byName[ColumnPathFormat](className)()
   }
 
+  /** LRU cache used to track column categories that this instance has read/written
+    * from/to cassandra, so we can avoid duplicate reads/writes */
+  val columnCategoriesCache = LruCache[CatalogInfo](sparkleConfig.getConfig("sparkle-store-cassandra")
+    .getInt("column-categories-max-cache-size"))
+
+  /** clears the column categories cache */
+  def format() = {
+    columnCategoriesCache.clear()
+  }
+
   /** store metadata about a column in Cassandra */ // format: OFF
   def writeCatalogEntry(entry: CassandraCatalogEntry)
-      (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
-    log.trace(s"writing catalog entry: $entry")
-
-    val result = columnPathFormat.getColumnCategory(entry.columnPath) match {
+      (implicit executionContext:ExecutionContext): Future[CatalogInfo] = { // format: ON
+    columnPathFormat.getColumnCategory(entry.columnPath) match {
       case Success(columnCategory) =>
-        val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef]}.toArray
-        entryFields(0) = columnCategory
-        val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
-        session.executeAsync(statement).toFuture.map { _ =>}
+        cachedWriteCatalogEntry(columnCategory, entry)
       case Failure(exception) => Future.failed(exception)
     }
+  }
 
+  /** caches column categories that this instance has written to cassandra,
+    * so we can avoid duplicate writes */
+  private def cachedWriteCatalogEntry(columnCategory : String, entry: CassandraCatalogEntry)
+      (implicit executionContext:ExecutionContext): Future[CatalogInfo] = columnCategoriesCache(columnCategory) { // format: ON
+    writeCatalogEntryToCassandra(columnCategory, entry)
+  }
+
+  /** writes a column category to cassandra */
+  private def writeCatalogEntryToCassandra(columnCategory : String, entry: CassandraCatalogEntry)
+      (implicit executionContext:ExecutionContext): Future[CatalogInfo] = { // format: ON
+    log.info(s"writing column category: $columnCategory")
+    val entryFields = entry.productIterator.map { elem => elem.asInstanceOf[AnyRef]}.toArray
+    entryFields(0) = columnCategory
+    val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
+    val result = session.executeAsync(statement).toFuture.map { _ =>
+      CatalogInfo(entry.tableName, CanSerialize.stringToTypeTag(entry.domainType),
+        CanSerialize.stringToTypeTag(entry.rangeType))
+    }
     result.onFailure { case error => log.error("writing catalog entry failed", error)}
     result
   }
@@ -100,20 +125,33 @@ case class ColumnCatalog(sparkleConfig : Config, session: Session) extends Prepa
       (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
     columnPathFormat.getColumnCategory(columnPath) match {
       case Success(columnCategory) =>
-        val statement = catalogStatements.catalogInfo.bind(columnCategory)
-
-        // result should be a single row containing a three strings:
-        for {
-          resultSet <- session.executeAsync(statement).toFuture
-          row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath).initCause(ColumnCategoryNotFound(columnCategory)))
-        } yield {
-          val tableName = row.getString(0)
-          val domainType = CanSerialize.stringToTypeTag(row.getString(1))
-          val rangeType = CanSerialize.stringToTypeTag(row.getString(2))
-          CatalogInfo(tableName, domainType, rangeType)
-        }
+        cachedCatalogInfo(columnCategory, columnPath)
       case Failure(exception) =>
         Future.failed(ColumnNotFound(columnPath).initCause(exception))
+    }
+  }
+
+  /** caches column categories that this instance has read from cassandra,
+    * so we can avoid duplicate reads */
+  def cachedCatalogInfo(columnCategory : String, columnPath: String) // format:OFF
+      (implicit executionContext: ExecutionContext): Future[CatalogInfo] = columnCategoriesCache(columnCategory) { // format: ON
+    readCatalogInfoFromCassandra(columnCategory, columnPath)
+  }
+
+  /** reads a column category from cassandra */
+  def readCatalogInfoFromCassandra(columnCategory: String, columnPath: String) // format:OFF
+      (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
+    log.info(s"reading column category: $columnCategory")
+    val statement = catalogStatements.catalogInfo.bind(columnCategory)
+    // result should be a single row containing a three strings:
+    for {
+      resultSet <- session.executeAsync(statement).toFuture
+      row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath).initCause(ColumnCategoryNotFound(columnCategory)))
+    } yield {
+      val tableName = row.getString(0)
+      val domainType = CanSerialize.stringToTypeTag(row.getString(1))
+      val rangeType = CanSerialize.stringToTypeTag(row.getString(2))
+      CatalogInfo(tableName, domainType, rangeType)
     }
   }
 
