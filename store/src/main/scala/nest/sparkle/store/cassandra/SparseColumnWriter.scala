@@ -131,7 +131,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     val result =
       for {
         _ <- catalog.writeCatalogEntry(entry)
-        _ <- dataSetCatalog.addColumnPath(entry.columnPath)
+        //_ <- dataSetCatalog.addColumnPath(entry.columnPath)
       } yield { () }
 
     result.onFailure { case error => log.error("create column failed", error) }

@@ -32,24 +32,4 @@ trait WriteableStore {
    * as if it was just created.
    */
   def format(): Unit
-  
-//  /** 
-//   * This must be called before queueing any entries. 
-//   * The current thread may be blocked if the lock can't be acquired.
-//   * While the lock is held writing to the store is blocked.
-//   */
-//  def acquireEnqueueLock(): Unit
-//
-//  /**
-//   * Release the previously acquired enqueue lock.
-//   * After releasing the lock writing to the store may occur.
-//   */
-//  def releaseEnqueueLock(): Unit
-//  
-//  /** Add events to the store's table buffers */
-//  def enqueue[T: CanSerialize, U: CanSerialize](columnPath: String, items:Iterable[Event[T,U]])
-//      (implicit executionContext: ExecutionContext): Unit
-//  
-//  /** Flush buffered events to storage */
-//  def flush(): Unit
 }
