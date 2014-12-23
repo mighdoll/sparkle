@@ -51,7 +51,6 @@ object ConfigureLogback extends ConfigureLog with Log {
     val context = slf4j.LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
     context.reset()  // Remove any configuration from other libraries
 
-//    println(s"logback logging to $file")
     val levels = logConfig.getConfig("levels")
     levels.entrySet().asScala.foreach { entry =>
       val logger = if (entry.getKey == "root") {
@@ -59,7 +58,7 @@ object ConfigureLogback extends ConfigureLog with Log {
       } else {
         slf4j.LoggerFactory.getLogger(entry.getKey).asInstanceOf[Logger]
       }
-      val level = entry.getValue.unwrapped.toString      
+      val level = entry.getValue.unwrapped.toString
       logger.setLevel(Level.toLevel(level))
     }
 
@@ -72,7 +71,7 @@ object ConfigureLogback extends ConfigureLog with Log {
       val file = logConfig.getString("file.path")
       fileAppender.setFile(file)
       
-      val append = logConfig.getBoolean("file.append")
+      val append = true //logConfig.getBoolean("file.append") RollingFileAppender requires append
       fileAppender.setAppend(append)
       
       val encoder = new PatternLayoutEncoder
@@ -82,22 +81,33 @@ object ConfigureLogback extends ConfigureLog with Log {
       encoder.start()
       fileAppender.setEncoder(encoder.asInstanceOf[Encoder[LoggingEvent]])
       
-      val policy = new FixedWindowRollingPolicy
-      //policy.setContext(context)
-      val maxFiles = logConfig.getInt("file.max-files")
-      policy.setMaxIndex(maxFiles)
-      val fnPattern = file + ".%i"  // add ".zip" to compress
-      //val ii = file.lastIndexOf(".")
-      //val fnPattern = file.substring(0,ii) + "%i." + file.substring(ii+1)
-      policy.setFileNamePattern(fnPattern)
-      policy.setParent(fileAppender)
-      fileAppender.setRollingPolicy(policy)
-      
       val trigger = new SizeBasedTriggeringPolicy[LoggingEvent]
       val maxSize = logConfig.getString("file.max-size")
       trigger.setMaxFileSize(maxSize)
-      //trigger.setContext(context)
+      trigger.setContext(context)
+      trigger.start()
       fileAppender.setTriggeringPolicy(trigger)
+      
+      val policy = new FixedWindowRollingPolicy
+      policy.setContext(context)
+      val maxFiles = logConfig.getInt("file.max-files")
+      policy.setMaxIndex(maxFiles)
+      policy.setMinIndex(1)
+      val indexExt = file.lastIndexOf(".")
+      val fnPattern = {
+        indexExt match {
+          case -1 =>
+            // no file extension just add index to filename
+            file + ".%i"
+          case _  =>
+            // put index before file extension so file type is not changed
+            file.substring(0,indexExt+1) + "%i." + file.substring(indexExt+1)
+        }
+      }
+      policy.setFileNamePattern(fnPattern)
+      policy.setParent(fileAppender)
+      policy.start()
+      fileAppender.setRollingPolicy(policy)
       
       val filter = new ThresholdFilter
       val level  = logConfig.getString("file.level")

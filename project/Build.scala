@@ -247,9 +247,7 @@ object SparkleBuild extends Build {
       .dependsOn(util)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= Seq(
-          scalaConfig
-        ) ++ logbackLogging
+        libraryDependencies ++= logbackLogging ++ Seq(Test.scalaTest)
       )
 
   lazy val log4jConfig =   // mix in to projects choosing log4j (kafka requires log4j)
@@ -257,9 +255,7 @@ object SparkleBuild extends Build {
       .dependsOn(util)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= Seq(
-          scalaConfig
-        ) ++ log4jLogging
+        libraryDependencies ++= log4jLogging ++ Seq(Test.scalaTest)
       )
 
   // The following projects are for starting servers for integration tests
