@@ -45,7 +45,7 @@ object Dependencies {
   val spire                 = "org.spire-math"            %% "spire"                  % "0.7.4"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
   val cassandraAll          = "org.apache.cassandra"      % "cassandra-all"           % "2.1.0"
-  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.1.1"  // 2.1 is incompatible with spark-cassandra 1.0.0
+  val cassandraDriver       = "com.datastax.cassandra"    % "cassandra-driver-core"   % "2.1.3"
   val snappy                = "org.xerial.snappy"         % "snappy-java"             % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           % "lz4"                     % "1.2.0"
 
@@ -54,7 +54,9 @@ object Dependencies {
 
   val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
   val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
-  val sparkCassandra        = "com.datastax.spark"        %% "spark-cassandra-connector" % "1.1.0-beta1" withSources() withJavadoc()
+  val sparkCassandra        = ("com.datastax.spark"       %% "spark-cassandra-connector" % "1.1.0" withSources() withJavadoc()
+                                excludeAll(ExclusionRule(organization = "org.apache.spark"))
+                              )
   val sparkCore             = ("org.apache.spark"         %% "spark-core"             % V.spark
                                 exclude("org.slf4j", "slf4j-log4j12")
                               )
@@ -112,7 +114,8 @@ object Dependencies {
   val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.1_a2.2"
   val metricsGraphite       = "com.codahale.metrics"      %  "metrics-graphite"       % "3.0.2"
 
-  val guava                 = "com.google.guava"          % "guava"                   % "16.0"
+  // match version used by spark, cassandra driver, etc
+  val guava                 = "com.google.guava"          % "guava"                   % "14.0.1"
 
   object Runtime {
     val logback             = "ch.qos.logback"            % "logback-classic"         % "1.1.2"

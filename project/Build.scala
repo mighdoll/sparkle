@@ -51,7 +51,7 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
-        libraryDependencies ++= cassandraClient ++ spark ++ Seq(
+        libraryDependencies ++= Seq(
           scalaReflect,
           rxJavaCore,
           rxJavaScala,
@@ -138,7 +138,7 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= testAndLogging ++ Seq(
+        libraryDependencies ++= spark ++ testAndLogging ++ Seq(
           sparkRepl
         ),
         dependenciesToStart := Seq(cassandraServer),
