@@ -31,6 +31,8 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraTestConfig
     }
   }
 
+  // TODO figure out what to do with the dataset catalog
+  /*
   test("eventsByDataSet") {
     withTestConsole { storageConsole =>
       val allEvents = storageConsole.eventsByDataSet("epochs")
@@ -41,6 +43,7 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraTestConfig
       }
     }
   }
+  */
   
   test("eventsByColumnPath") {
     withTestConsole { storageConsole =>

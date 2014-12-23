@@ -131,6 +131,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     val result =
       for {
         _ <- catalog.writeCatalogEntry(entry)
+        // TODO figure out what to do with the dataset catalog
         //_ <- dataSetCatalog.addColumnPath(entry.columnPath)
       } yield { () }
 
