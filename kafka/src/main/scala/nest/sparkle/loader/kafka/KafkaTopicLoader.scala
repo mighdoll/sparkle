@@ -3,13 +3,16 @@ package nest.sparkle.loader.kafka
 import java.util.concurrent.Semaphore
 
 import scala.collection.JavaConverters.asScalaBufferConverter
-import scala.concurrent.{Future, ExecutionContext, promise}
+import scala.concurrent.{Future, ExecutionContext, promise, Promise}
 import scala.reflect.runtime.universe._
 import scala.language.existentials
 import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
 import scala.util.control.Exception.nonFatalCatch
+import scala.annotation.tailrec
 
+import com.datastax.spark.connector
+import com.datastax.spark.connector.writer
 import com.typesafe.config.Config
 
 import kafka.consumer.ConsumerTimeoutException
@@ -17,7 +20,7 @@ import kafka.consumer.ConsumerTimeoutException
 import nest.sparkle.loader._
 import nest.sparkle.loader.Loader.{Events, LoadingTransformer, TaggedBlock}
 import nest.sparkle.store.{Event, WriteableStore}
-import nest.sparkle.store.cassandra.{CanSerialize, RecoverCanSerialize}
+import nest.sparkle.store.cassandra.{WriteableColumn, CanSerialize, RecoverCanSerialize}
 import nest.sparkle.util.{Instrumented, Log, Instance, ConfigUtil, Watched}
 import nest.sparkle.util.KindCast.castKind
 import nest.sparkle.util.TryToFuture.FutureTry
@@ -279,7 +282,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
         for {
           valueSerialize <- RecoverCanSerialize.tryCanSerialize[U](valueType).toFuture
           castEvents: Events[K, U] = castKind(slice.events)
-          update <- writeEvents(castEvents, slice.columnPath)(valueSerialize)
+          update <- writeEventsWithRetry(castEvents, slice.columnPath)(valueSerialize)
         } yield {
           update
         }
@@ -292,7 +295,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
         tryResult match {
           case Success(optUpdate) => resultPromise.success(optUpdate)
           case Failure(err)       => 
-            log.error("writeBlocks failed", err)
+            log.error(s"writeBlocks failed $err")
             writeErrorsMetric.mark()
             resultPromise.failure(err)
        }
@@ -304,26 +307,75 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     resultPromise.future
   }
 
-  /** 
+  /**
+   * write some typed Events to storage retrying on error until it succeeds.
+   * @return a future when that completes when the writing is done
+   */
+  private def writeEventsWithRetry[U: CanSerialize](
+    events: Iterable[Event[K, U]], columnPath: String
+  ): Future[Option[ColumnUpdate[K]]] =
+  {
+    events.lastOption match {
+      case None =>
+        log.warn(s"no last key for $columnPath. events empty: ${events.isEmpty}")
+        Future.successful(None)
+      case Some(event) =>
+        batchSizeMetric.mark(events.size)
+        val p = promise[Option[ColumnUpdate[K]]]()
+        writeEventsWithRetry(events, columnPath, p)
+        p.future
+    }
+  }
+
+  /**
    * write some typed Events to storage. Notifies any watchers when complete
    * @return a future when that completes when the writing is done
    */
-  private def writeEvents[U: CanSerialize](events: Iterable[Event[K, U]],
-                                           columnPath: String): Future[Option[ColumnUpdate[K]]] = 
+  private def writeEventsWithRetry[U: CanSerialize](
+    events: Iterable[Event[K, U]], columnPath: String, p: Promise[Option[ColumnUpdate[K]]]
+  ): Unit =
   {
-    batchSizeMetric.mark(events.size)
-    
-    store.writeableColumn[K, U](columnPath) flatMap { column =>
-      events.lastOption.map {_.argument} match {
-        case Some(lastKey) =>
-          column.write(events).map { _ =>
-            Some(ColumnUpdate[K](columnPath, lastKey))
-          }
-        case None =>
-          log.warn(s"no last key for $columnPath. events empty: ${events.isEmpty}")
-          Future.successful(None)
+    val futureColumn = writeableColumn[U](columnPath)
+    futureColumn map { column =>
+      def writeEvents(): Unit = {
+        column.write(events) onComplete { 
+          case Success(_) =>
+            p.success(Some(ColumnUpdate[K](columnPath, events.last.argument)))
+          case Failure(err) =>
+            log.error(s"Retrying writing events for $columnPath. $err")
+            // TODO: Add some retry delay here (maybe in akka rewrite?)
+            writeEvents()
+        }
+      }
+      writeEvents()
+    }
+  }
+
+  /**
+   * Get the writeable column for this column path.
+   *
+   * This should always work except if C* is down and the column is being created.
+   * Keep trying until it succeeds.
+   */
+  private def writeableColumn[U: CanSerialize](
+    columnPath: String
+  ): Future[WriteableColumn[K, U]] =
+  {
+    val p = promise[WriteableColumn[K, U]]()
+
+    def column(): Unit = {
+      store.writeableColumn[K, U](columnPath) onComplete { case Success(writer) =>
+        p.success(writer)
+      case Failure(err) =>
+        log.error(s"Retrying writeableColumn $columnPath. $err")
+        // TODO: Add some retry delay here (maybe in akka rewrite?)
+        column()
       }
     }
+
+    column()
+
+    p.future
   }
 
   /** We have written one record's worth of data to storage. Per the batch policy
