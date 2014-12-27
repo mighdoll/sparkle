@@ -21,7 +21,7 @@ case class OngoingData[K: TypeTag, V: TypeTag](initial: Observable[ArrayPair[K, 
 /** temporary conversion shim, until we produce ArrayPairs from the storage layer */
 object OngoingDataShim {
 
-  /** (temporary shim) conversts OngoingEvents to OngoingData */
+  /** (temporary shim) converts OngoingEvents to OngoingData */
   def fromOngoingEvents[K: TypeTag, V: TypeTag](ongoingEvents: OngoingEvents[K, V]): OngoingData[K, V] = {
 
     val initial = eventsToArrayPairs(ongoingEvents.initial)

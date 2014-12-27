@@ -1,16 +1,19 @@
 package nest.sparkle.store.cassandra
 
-import org.scalatest.{ FunSuite, Matchers }
-import nest.sparkle.store.cassandra.serializers._
-import rx.lang.scala.Observable
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext
-import nest.sparkle.store.Event
-import nest.sparkle.util.ObservableFuture._
-import spray.util._
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
-class TestCassandraStreaming extends FunSuite with Matchers with CassandraTestConfig {
+import org.scalatest.{FunSuite, Matchers}
+
+import spray.util._
+
+import rx.lang.scala.Observable
+
+import nest.sparkle.store.Event
+import nest.sparkle.store.cassandra.serializers._
+import nest.sparkle.util.ObservableFuture._
+
+class TestCassandraStreaming extends FunSuite with Matchers with CassandraStoreTestConfig {
   override def testKeySpace = "testcassandrastreaming"
 
   test("verify notification of ongoing writes") {
@@ -24,7 +27,7 @@ class TestCassandraStreaming extends FunSuite with Matchers with CassandraTestCo
             writeColumn <- store.writeableColumn[Long, Long](columnPath)
             readColumn <- store.column[Long, Long](columnPath)
             read = readColumn.readRange()
-            initial <- read.initial.toFutureSeq // wait for inital read to complete, all writes should appear in ongoing
+            initial <- read.initial.toFutureSeq // wait for initial read to complete, all writes should appear in ongoing
           } yield {
             initial.isEmpty shouldBe true
 

@@ -14,30 +14,19 @@
 
 package nest.sparkle.store.cassandra
 
-import spire.std.map
-
-import com.datastax.driver.core.Session
-import nest.sparkle.core.{ArrayPair, OngoingData}
-import nest.sparkle.store.Column
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import rx.lang.scala.Observable
-import nest.sparkle.store.Event
-import com.datastax.driver.core.Row
-import com.datastax.driver.core.PreparedStatement
-import nest.sparkle.store.cassandra.ObservableResultSet._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-import nest.sparkle.util._
-import nest.sparkle.util.Log
-import com.datastax.driver.core.BoundStatement
-import nest.sparkle.store.OngoingEvents
-import rx.lang.scala.Subject
-import scala.util.Random
-import scala.concurrent.duration._
+import rx.lang.scala.Observable
+
+import com.datastax.driver.core.{BoundStatement, Row}
+
+import nest.sparkle.core.{ArrayPair, OngoingData}
+import nest.sparkle.store.{Column, Event, OngoingEvents}
+import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.store.cassandra.SparseColumnReaderStatements._
-import SparseColumnReader.{log, instance}
-import nest.sparkle.measure.UnstartedSpan
 import nest.sparkle.measure.Span
+import nest.sparkle.util.Log
 
 object SparseColumnReader extends Log {
   def instance[T, U](dataSetName: String, columnName: String, catalog: ColumnCatalog, // format: OFF
@@ -85,13 +74,17 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     writeListener:WriteListener, 
     prepared: PreparedSession)
       extends Column[T, U] with ColumnSupport { // format: ON
+  
+  import SparseColumnReader.log
 
   def name: String = columnName
 
   private val keySerializer = implicitly[CanSerialize[T]]
   private val valueSerializer = implicitly[CanSerialize[U]]
-  def keyType: TypeTag[T] = keySerializer.typedTag
-  def valueType: TypeTag[U] = valueSerializer.typedTag
+  implicit def keyType: TypeTag[T] = keySerializer.typedTag
+  implicit def valueType: TypeTag[U] = valueSerializer.typedTag
+  implicit val keyClass = ClassTag[T](keyType.mirror.runtimeClass(keyType.tpe))
+  implicit val valueClass = ClassTag[U](valueType.mirror.runtimeClass(valueType.tpe))
 
   val serialInfo = ColumnTypes.serializationInfo()(keySerializer, valueSerializer)
   val tableName = serialInfo.tableName
@@ -118,10 +111,10 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
   {
     // format: ON
     (start, end) match {
-      case (None, None) => readAll(parentSpan)
-      case (Some(startT), Some(endT)) => readBoundedRange(startT, endT, parentSpan)
-      case (Some(startT), None) => readFromStart(startT, parentSpan)
-      case _ => ???
+      case (None, None)               => readAllA(parentSpan)
+      case (Some(startT), Some(endT)) => readBoundedRangeA(startT, endT, parentSpan)
+      case (Some(startT), None)       => readFromStartA(startT, parentSpan)
+      case _                          => ???
     }
   }
 
@@ -140,12 +133,17 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     val readStatement = prepared.statement(ReadAll(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
 
-    OngoingData(initial = readEventRows(readStatement, parentSpan), ongoing = ongoingRead(parentSpan))
+    OngoingData(initial = readEventRowsA(readStatement, parentSpan), ongoing = ongoingReadA(parentSpan))
   }
 
   private def readFromStart(start: T, parentSpan:Option[Span]) // format: OFF
       (implicit execution:ExecutionContext): OngoingEvents[T,U] = { // format: ON
     OngoingEvents(readFromStartCurrent(start, parentSpan), ongoingRead(parentSpan))
+  }
+
+  private def readFromStartA(start: T, parentSpan:Option[Span]) // format: OFF
+      (implicit execution:ExecutionContext): OngoingData[T,U] = { // format: ON
+    OngoingData(readFromStartCurrentA(start, parentSpan), ongoingReadA(parentSpan))
   }
 
   /** read the data at or after a given start key,
@@ -161,10 +159,29 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     readEventRows(readStatement, parentSpan)
   }
 
+  /** read the data at or after a given start key,
+    * returning an Observable that completes with a single read of row data
+    * from C*
+    */
+  private def readFromStartCurrentA(start: T, parentSpan:Option[Span]) // format: OFF
+      (implicit execution:ExecutionContext): Observable[ArrayPair[T,U]] = { // format: ON
+    log.trace(s"readFromStartCurrentA from $tableName $columnPath $start")
+    val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
+      Seq[AnyRef](dataSetName, columnName, rowIndex,
+        start.asInstanceOf[AnyRef]): _*)
+    readEventRowsA(readStatement, parentSpan)
+  }
+
   private def handleColumnUpdate(columnUpdate: ColumnUpdate[T], parentSpan:Option[Span]) // format: OFF
       (implicit execution:ExecutionContext): Observable[Event[T,U]] = { // format: ON
     log.trace(s"handleColumnUpdate received $columnUpdate")
     readFromStartCurrent(columnUpdate.start, parentSpan)
+  }
+
+  private def handleColumnUpdateA(columnUpdate: ColumnUpdate[T], parentSpan:Option[Span]) // format: OFF
+      (implicit execution:ExecutionContext): Observable[ArrayPair[T,U]] = { // format: ON
+    log.trace(s"handleColumnUpdateA received $columnUpdate")
+    readFromStartCurrentA(columnUpdate.start, parentSpan)
   }
 
   /** listen for writes, and trigger a read each time new data is available.
@@ -173,6 +190,15 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
   private def ongoingRead(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[Event[T, U]] = {
     writeListener.listen(columnPath).flatMap { columnUpdate: ColumnUpdate[T] =>
       handleColumnUpdate(columnUpdate, parentSpan)
+    }
+  }
+
+  /** listen for writes, and trigger a read each time new data is available.
+    * Return an observable that never completes (except if there's an error).
+    */
+  private def ongoingReadA(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[ArrayPair[T, U]] = {
+    writeListener.listen(columnPath).flatMap { columnUpdate: ColumnUpdate[T] =>
+      handleColumnUpdateA(columnUpdate, parentSpan)
     }
   }
 
@@ -190,6 +216,16 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     OngoingEvents(readEventRows(readStatement, parentSpan), Observable.empty)
   }
 
+  private def readBoundedRangeA(start: T, end: T, parentSpan:Option[Span]) // format: OFF
+      (implicit execution:ExecutionContext): OngoingData[T, U] = { // format: ON
+    log.trace(s"readBoundedRangeA from $tableName $columnPath $start $end")
+    val readStatement = prepared.statement(ReadRange(tableName)).bind(
+      Seq[AnyRef](dataSetName, columnName, rowIndex,
+        start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
+
+    OngoingData(readEventRowsA(readStatement, parentSpan), Observable.empty)
+  }
+
   private def rowDecoder(row: Row): Event[T, U] = {
     log.trace(s"rowDecoder: $row")
     val argument = keySerializer.fromRow(row, 0)
@@ -197,18 +233,31 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     Event(argument.asInstanceOf[T], value.asInstanceOf[U])
   }
 
+  private def rowsDecoder(rows: List[Row]): ArrayPair[T, U] = {
+    log.trace(s"rowDecoderA: $rows")
+    val size = rows.size
+    val arguments = new Array[T](size)
+    val values    = new Array[U](size)
+    (0 until size) foreach { index =>
+      val row = rows(index)
+      arguments(index) = keySerializer.fromRow(row, 0)
+      values(index) = valueSerializer.fromRow(row, 1)
+    }
+    ArrayPair(arguments, values)
+  }
+
   private def readEventRows(statement: BoundStatement, parentSpan:Option[Span]) // format: OFF
       (implicit execution:ExecutionContext): Observable[Event[T, U]] = { // format: ON
     val span = parentSpan.map { parent => Span.start("readEventRows", parent) }
-    val rows = prepared.session.executeAsync(statement).observerableRows(span)      
+    val rows = prepared.session.executeAsync(statement).observerableRows(span)
     rows map rowDecoder
   }
 
   private def readEventRowsA(statement: BoundStatement, parentSpan:Option[Span]) // format: OFF
       (implicit execution:ExecutionContext): Observable[ArrayPair[T, U]] = { // format: ON
-    val span = parentSpan.map { parent => Span.start("readEventRows", parent) }
-    val rows = prepared.session.executeAsync(statement).observerableRows(span)
-    rows map rowDecoder
+    val span = parentSpan.map { parent => Span.start("readEventRowsA", parent) }
+    val rows = prepared.session.executeAsync(statement).observerableRows(span).toList
+    rows map rowsDecoder
   }
 
 }

@@ -10,7 +10,6 @@ import spray.json.JsString
 import scala.concurrent.Future
 import nest.sparkle.store.Column
 import spray.json._
-import nest.sparkle.store.cassandra.TestServiceWithCassandra
 import spray.util.pimpFuture
 import scala.collection.JavaConverters._
 import nest.sparkle.util.ConfigUtil.sparkleConfigName

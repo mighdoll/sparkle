@@ -4,7 +4,6 @@ import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.CassandraTestConfig
 import spray.json.DefaultJsonProtocol._
 import nest.sparkle.time.protocol.TransformParametersJson.IntervalParametersFormat
-import nest.sparkle.store.cassandra.TestServiceWithCassandra
 
 trait IntervalSumFixture {
   self: CassandraTestConfig with StreamRequestor =>

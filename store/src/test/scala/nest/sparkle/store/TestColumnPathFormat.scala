@@ -14,9 +14,8 @@
 
 package nest.sparkle.store
 
-import org.scalatest.{Matchers, FunSuite}
-
 import scala.util.Success
+import org.scalatest.{FunSuite, Matchers}
 
 class TestColumnPathFormat extends FunSuite with Matchers {
 

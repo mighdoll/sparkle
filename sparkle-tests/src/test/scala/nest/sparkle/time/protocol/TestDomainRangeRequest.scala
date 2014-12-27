@@ -1,20 +1,20 @@
 package nest.sparkle.time.protocol
 
-import scala.reflect.runtime.universe.TypeTag.{ Double, Long }
+import scala.reflect.runtime.universe._
+import scala.reflect.runtime.universe.TypeTag.{Double, Long}
+
 import spray.httpx.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
 import spray.util._
 import spray.json._
+
 import nest.sparkle.store.Event
-import nest.sparkle.time.protocol.ArbitraryColumn.arbitraryEvent
 import nest.sparkle.time.protocol.TestDomainRange.minMaxEvents
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
-import nest.sparkle.time.transform.{ DomainRange, MinMax }
+import nest.sparkle.time.transform.{DomainRange, MinMax}
 import nest.sparkle.time.transform.DomainRangeJson
 import nest.sparkle.time.transform.DomainRangeJson.DomainRangeFormat
 import nest.sparkle.util.RandomUtil.randomAlphaNum
-import scala.reflect.runtime.universe._
-import nest.sparkle.util.InitializeReflection
 
 class TestDomainRangeRequest extends PreloadedRamStore with StreamRequestor with TestDataService {
   nest.sparkle.util.InitializeReflection.init

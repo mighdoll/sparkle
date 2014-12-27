@@ -1,6 +1,6 @@
 package nest.sparkle.store.cassandra
 
-import org.scalatest.{ FunSuite, Matchers }
+import org.scalatest.{FunSuite, Matchers}
 
 class TestColumnTypes extends FunSuite with Matchers {
   test("validate table names") {

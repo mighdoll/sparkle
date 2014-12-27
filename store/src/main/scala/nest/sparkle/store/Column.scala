@@ -38,6 +38,7 @@ trait Column[T, U]
     limit: Option[Long] = None,
     parentSpan: Option[Span] = None
   )(implicit execution: ExecutionContext): OngoingData[T, U] // format: ON
+  
   // LATER add authorization hook, to validate permission to read a range
 }
 

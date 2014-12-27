@@ -8,8 +8,29 @@ import scala.{specialized => spec}
   */
 case class ArrayPair[K, V](keys: Array[K], values: Array[V]) {
   require(keys.length == values.length)
+  
+  // TODO: prevent keys & value elements from being mutable
 
   // TODO add more high level functions
+  
+  def length: Int = keys.length
+  
+  override def equals(other: Any): Boolean = {
+    other match {
+      case that: ArrayPair[K,V] =>
+        // TODO: rewrite to eliminate boxing/unboxing
+        this.length == that.length &&
+        (0 until length).forall { i =>
+          this.keys(i) == that.keys(i) && this.values(i) == that.values(i)
+        }
+      case _                    => false
+    }
+  }
+  
+  // TODO: something smarter
+  override def hashCode: Int = {
+    41 * (41 + keys(0).hashCode()) + values(0).hashCode()
+  }
   
   /**
    * What follows are some experiments with specialization, explaining how we can use

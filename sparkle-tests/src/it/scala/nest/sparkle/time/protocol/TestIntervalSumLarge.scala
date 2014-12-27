@@ -8,16 +8,13 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.DurationInt
 import spray.util.pimpFuture
 import nest.sparkle.store.cassandra.WriteableColumn
-import nest.sparkle.store.cassandra.TestServiceWithCassandra
 import spray.http.StatusCodes
 import spray.json._
 import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
-import nest.sparkle.store.Store
 import nest.sparkle.util.QuickTiming._
 import scala.concurrent.forkjoin.ForkJoinPool
 import scala.collection.parallel._
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.duration.Duration
 import akka.util.Timeout
 
 class TestIntervalSumLarge extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor with IntervalSumFixture {

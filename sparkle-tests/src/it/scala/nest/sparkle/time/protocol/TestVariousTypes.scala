@@ -8,7 +8,6 @@ import nest.sparkle.time.protocol.TransformParametersJson.RawParametersFormat
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 import spray.json.JsValue
-import nest.sparkle.store.cassandra.TestServiceWithCassandra
 
 class TestVariousTypes extends FunSuite with Matchers with CassandraTestConfig
     with StreamRequestor {

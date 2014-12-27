@@ -18,20 +18,6 @@ object SparkleBuild extends Build {
       cassandraServer, zookeeperServer, kafkaServer
     )
 
-  lazy val sparkleDataServer =  // standalone protocol server
-    Project(id = "sparkle-data-server", base = file("data-server"))
-      .dependsOn(protocol)
-      .dependsOn(logbackConfig)
-      .configs(IntegrationTest)
-      .settings(BuildSettings.allSettings: _*)
-      .settings(BuildSettings.sparkleAssemblySettings: _*)
-      .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
-      .settings(BackgroundService.settings: _*)
-      .settings(
-        dependenciesToStart := Seq(cassandraServer)
-      )
-
-
   lazy val protocol =       // protocol server library serving the sparkle data api
     Project(id = "sparkle-protocol", base = file("protocol"))
       .dependsOn(sparkleCore)
@@ -43,7 +29,7 @@ object SparkleBuild extends Build {
         )
       )
 
-  lazy val sparkleCore =      // core libraries shared by protocol server and stream loader
+  lazy val sparkleCore =      // core libraries used the protocol server
     Project(id = "sparkle-core", base = file("sparkle"))
       .dependsOn(httpCommon)
       .dependsOn(sparkleStore)
@@ -77,8 +63,11 @@ object SparkleBuild extends Build {
   lazy val sparkleStore =
     Project(id = "sparkle-store", base = file("store"))
       .dependsOn(util)
+      .dependsOn(testKit % "it->compile")
+      .dependsOn(logbackConfig % "it->compile")
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
+      .settings(BackgroundService.settings: _*)
       .settings(
         libraryDependencies ++= cassandraClient ++ testAndLogging ++ Seq (
           rxJavaScala,
@@ -87,9 +76,10 @@ object SparkleBuild extends Build {
           sprayJson,
           sprayUtil,
           spire
-        )
-      )
-
+        ),
+        dependenciesToStart := Seq(cassandraServer),
+        test in IntegrationTest := BackgroundService.itTestTask.value
+     )
 
   lazy val sparkleLoader =
     Project(id = "sparkle-loader", base = file("loader"))
@@ -115,7 +105,6 @@ object SparkleBuild extends Build {
       .dependsOn(sparkleStore)
       .dependsOn(sparkleLoader)
       .dependsOn(protocolTestKit)
-      .dependsOn(storeTestKit)
       .dependsOn(utilKafka % "compile->compile;it->it")
       .dependsOn(log4jConfig)
       .dependsOn(httpCommon)
@@ -124,24 +113,6 @@ object SparkleBuild extends Build {
       .settings(BackgroundService.settings: _*)
       .settings(
         dependenciesToStart := Seq(kafkaServer, cassandraServer),
-        test in IntegrationTest := BackgroundService.itTestTask.value
-      )
-
-  lazy val sparkShell =   // admin shell
-    Project(id = "spark-repl", base = file("spark"))
-      .dependsOn(sparkleStore)
-      .dependsOn(sparkleLoader)
-      .dependsOn(protocolTestKit)
-      .dependsOn(storeTestKit)
-      .dependsOn(logbackConfig)
-      .configs(IntegrationTest)
-      .settings(BuildSettings.allSettings: _*)
-      .settings(BackgroundService.settings: _*)
-      .settings(
-        libraryDependencies ++= spark ++ testAndLogging ++ Seq(
-          sparkRepl
-        ),
-        dependenciesToStart := Seq(cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value
       )
 
@@ -169,15 +140,8 @@ object SparkleBuild extends Build {
 
   lazy val protocolTestKit =        // utilities for testing sparkle protocol
     Project(id = "sparkle-protocol-test-kit", base = file("protocol-test-kit"))
-      .dependsOn(testKit)
       .dependsOn(sparkleCore)
-      .configs(IntegrationTest)
-      .settings(BuildSettings.allSettings: _*)
-
-  lazy val storeTestKit =        // utilities for testing sparkle store
-    Project(id = "sparkle-store-test-kit", base = file("store-test-kit"))
-      .dependsOn(testKit)
-      .dependsOn(sparkleCore)
+      .dependsOn(sparkleStore % "compile->it")
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
 
@@ -185,7 +149,6 @@ object SparkleBuild extends Build {
     Project(id = "sparkle-tests", base = file("sparkle-tests"))
       .dependsOn(protocol)
       .dependsOn(protocolTestKit)
-      .dependsOn(storeTestKit)
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
@@ -258,7 +221,37 @@ object SparkleBuild extends Build {
         libraryDependencies ++= log4jLogging ++ Seq(Test.scalaTest)
       )
 
+  lazy val sparkShell =   // admin shell
+    Project(id = "spark-repl", base = file("spark"))
+      .dependsOn(sparkleStore)
+      .dependsOn(sparkleLoader)
+      .dependsOn(protocolTestKit)
+      .dependsOn(logbackConfig)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(BackgroundService.settings: _*)
+      .settings(
+        libraryDependencies ++= spark ++ testAndLogging ++ Seq(
+          sparkRepl
+        ),
+        dependenciesToStart := Seq(cassandraServer),
+        test in IntegrationTest := BackgroundService.itTestTask.value
+      )
+
   // The following projects are for starting servers for integration tests
+
+  lazy val sparkleDataServer =  // standalone protocol server
+    Project(id = "sparkle-data-server", base = file("data-server"))
+      .dependsOn(protocol)
+      .dependsOn(logbackConfig)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(BuildSettings.sparkleAssemblySettings: _*)
+      .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
+      .settings(BackgroundService.settings: _*)
+      .settings(
+        dependenciesToStart := Seq(cassandraServer)
+      )
 
   lazy val cassandraServer =
     Project(id = "cassandra-server", base = file("servers/cassandra"))

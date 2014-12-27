@@ -2,7 +2,6 @@ package nest.sparkle.time.protocol
 
 import scala.concurrent.duration.DurationInt
 import org.scalatest.{ FunSuite, Matchers }
-import akka.actor.ActorSystem
 import akka.util.Timeout.durationToTimeout
 import nest.sparkle.store.{ Event, Store }
 import nest.sparkle.store.cassandra.CassandraTestConfig
@@ -11,7 +10,6 @@ import spray.http.StatusCodes.OK
 import spray.json.DefaultJsonProtocol._
 import spray.util.pimpFuture
 import nest.sparkle.time.transform.IntervalSum
-import nest.sparkle.store.cassandra.TestServiceWithCassandra
 
 class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor with IntervalSumFixture {
  

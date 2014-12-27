@@ -14,21 +14,21 @@
 
 package nest.sparkle.store.cassandra
 
-import nest.sparkle.store.{ColumnCategoryNotDeterminable, ColumnPathFormat, ColumnNotFound, ColumnCategoryNotFound}
+import scala.reflect.runtime.universe._
+import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success, Try}
+
+import org.scalatest.prop.PropertyChecks
+import org.scalatest.{FunSuite, Matchers}
+
 import spray.util._
 
 import nest.sparkle.store.cassandra.serializers._
+import nest.sparkle.store.{ColumnCategoryNotDeterminable, ColumnCategoryNotFound, ColumnNotFound, ColumnPathFormat}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.RandomUtil.randomAlphaNum
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{Matchers, FunSuite}
 
-import scala.reflect.runtime.universe._
-
-import scala.util.{Failure, Success, Try}
-
-class TestColumnCatalog extends FunSuite with Matchers with PropertyChecks with CassandraTestConfig {
-  import scala.concurrent.ExecutionContext.Implicits.global
+class TestColumnCatalog extends FunSuite with Matchers with PropertyChecks with CassandraStoreTestConfig {
 
   override def testKeySpace = "testcolumncatalog"
 
@@ -37,6 +37,8 @@ class TestColumnCatalog extends FunSuite with Matchers with PropertyChecks with 
   override def configOverrides: List[(String, Any)] =
     super.configOverrides :+
       (s"$sparkleConfigName.sparkle-store-cassandra.replication-factor" -> replicationFactor)
+  
+  implicit val executionContext = ExecutionContext.global
 
   def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStoreWriter) // format: OFF
       (fn: (WriteableColumn[T,U], String) => Unit): Unit = { // format: ON
@@ -60,7 +62,7 @@ class TestColumnCatalog extends FunSuite with Matchers with PropertyChecks with 
         store.format()
         val result = store.columnCatalog.catalogInfo(testColumnPath).failed.await
         result shouldBe ColumnNotFound(testColumnPath)
-        result.getCause() shouldBe ColumnCategoryNotFound(store.columnCatalog.columnPathFormat.getColumnCategory(testColumnPath).get)
+        result.getCause shouldBe ColumnCategoryNotFound(store.columnCatalog.columnPathFormat.getColumnCategory(testColumnPath).get)
       }
     }
   }
@@ -70,13 +72,12 @@ class TestColumnCatalog extends FunSuite with Matchers with PropertyChecks with 
     withTestDb { store =>
       val result = store.columnCatalog.catalogInfo(notColumnPath).failed.await
       result shouldBe ColumnNotFound(notColumnPath)
-      result.getCause() shouldBe ColumnCategoryNotFound(store.columnCatalog.columnPathFormat.getColumnCategory(notColumnPath).get)
+      result.getCause shouldBe ColumnCategoryNotFound(store.columnCatalog.columnPathFormat.getColumnCategory(notColumnPath).get)
     }
   }
 }
 
 class TestColumnCatalogWithNonDefaultColumnPathFormat extends TestColumnCatalog {
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   override def testKeySpace = "testcolumncatalognondefault"
 
@@ -89,7 +90,7 @@ class TestColumnCatalogWithNonDefaultColumnPathFormat extends TestColumnCatalog 
     withTestDb { store =>
       val result = store.columnCatalog.catalogInfo(notColumnPath).failed.await
       result shouldBe ColumnNotFound(notColumnPath)
-      result.getCause() shouldBe ColumnCategoryNotDeterminable(notColumnPath)
+      result.getCause shouldBe ColumnCategoryNotDeterminable(notColumnPath)
     }
   }
 }
