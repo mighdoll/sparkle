@@ -29,8 +29,15 @@ import nest.sparkle.loader.kafka.MillisDoubleTSVGenerators._
 
 import spray.util.pimpFuture
 
-class TestStreamLoadEncodedKafka extends FunSuite with Matchers with PropertyChecks with TableDrivenPropertyChecks
-    with KafkaTestConfig with CassandraTestConfig with Log {
+class TestStreamLoadEncodedKafka 
+  extends FunSuite 
+          with Matchers 
+          with PropertyChecks 
+          with TableDrivenPropertyChecks
+          with CassandraTestConfig
+          with KafkaTestConfig 
+          with Log
+{
 
   import scala.concurrent.ExecutionContext.Implicits.global
 

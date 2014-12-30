@@ -25,6 +25,9 @@ import nest.sparkle.util.ConfigUtil
 /** a test jig for running tests using cassandra. */
 trait CassandraStoreTestConfig extends SparkleTestConfig
 {
+  /** override .conf file for store tests */
+  override def testConfigFile: Option[String] = Some("sparkle-store-tests")
+
   /** the 'sparkle' level Config */
   lazy val sparkleConfig: Config = {
     ConfigUtil.configForSparkle(rootConfig)
