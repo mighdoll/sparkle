@@ -9,6 +9,7 @@ import spray.util._
 import spray.json._
 
 import nest.sparkle.store.Event
+import nest.sparkle.store.cassandra.ArbitraryColumn.arbitraryEvent
 import nest.sparkle.time.protocol.TestDomainRange.minMaxEvents
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.transform.{DomainRange, MinMax}
