@@ -3,7 +3,6 @@ package nest.sparkle.loader.kafka
 import scala.annotation.tailrec
 import scala.reflect.runtime.universe._
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 import scala.util.control.Exception.nonFatalCatch
 
@@ -37,7 +36,7 @@ object Main
   val loader = {
     val writeableStore = createStoreWithRetry
     val storeKeyType = typeTag[Long]
-    new KafkaLoader(rootConfig, writeableStore)(storeKeyType, global)
+    new KafkaLoader(rootConfig, writeableStore)(storeKeyType, system)
   }
   
   loader.start()

@@ -25,6 +25,8 @@ import scala.util.control.NonFatal
 
 import com.typesafe.config.Config
 
+import akka.actor.ActorSystem
+
 import nest.sparkle.store.WriteableStore
 import nest.sparkle.util.Exceptions.NYI
 import nest.sparkle.util.{Instance, Log, ConfigUtil}
@@ -34,9 +36,11 @@ import nest.sparkle.util.{Instance, Log, ConfigUtil}
   * of keys in the kafka stream.)
   */
 class KafkaLoader[K: TypeTag](rootConfig: Config, storage: WriteableStore) // format: OFF
-    (implicit execution: ExecutionContext) 
+    (implicit system: ActorSystem) 
   extends Log 
 { // format: ON
+  private implicit val execution = system.dispatcher
+  
   private val loaderConfig = ConfigUtil.configForSparkle(rootConfig).getConfig("kafka-loader")
   private lazy val topics = loaderConfig.getStringList("topics").asScala.toSeq
   

@@ -20,13 +20,13 @@ import scala.collection.JavaConverters._
 import kafka.serializer.{ DefaultEncoder, Encoder }
 import nest.sparkle.loader.kafka.KafkaTestUtil.testTopicName
 import nest.sparkle.store.Event
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.ConfigUtil.modifiedConfig
 import nest.sparkle.util.Resources
 import spray.util.pimpFuture
 
-trait EncodedRecordLoaderFixture extends CassandraTestConfig {
+trait EncodedRecordLoaderFixture extends CassandraStoreTestConfig {
 
   override def testConfigFile = Some("sparkle-kafka-tests")
 
@@ -74,17 +74,19 @@ trait EncodedRecordLoaderFixture extends CassandraTestConfig {
 
       val recordsecords = readEncodedRecords()
       kafkaWriter.write(recordsecords)
-      val storeWrite = testStore.writeListener.listen[T](loadColumnPath)
-      val loader = new KafkaLoader[Long](modifiedRootConfig, testStore)
-      try {
-        loader.start()
-        storeWrite.take(records).toBlocking.head // await completion of write to store.  
-        val readColumn = testStore.column[T, U](loadColumnPath).await
-        val read = readColumn.readRange(None, None)
-        val results = read.initial.toBlocking.toList
-        fn(results)
-      } finally {
-        loader.shutdown()
+      withTestActors { implicit system =>
+        val storeWrite = testStore.writeListener.listen[T](loadColumnPath)
+        val loader = new KafkaLoader[Long](modifiedRootConfig, testStore)
+        try {
+          loader.start()
+          storeWrite.take(records).toBlocking.head // await completion of write to store.  
+          val readColumn = testStore.column[T, U](loadColumnPath).await
+          val read = readColumn.readRange(None, None)
+          val results = read.initial.toBlocking.toList
+          fn(results)
+        } finally {
+          loader.shutdown()
+        }
       }
     }
   }

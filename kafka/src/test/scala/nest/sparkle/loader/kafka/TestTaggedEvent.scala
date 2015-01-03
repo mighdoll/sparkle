@@ -4,11 +4,12 @@ import nest.sparkle.loader.TaggedColumn
 
 import scala.reflect.runtime.universe._
 
-import org.scalatest.{ FunSuite, Matchers }
+import org.scalatest.{FunSuite, Matchers}
 
-import nest.sparkle.store.Event
-
-class TestTaggedEvent extends FunSuite with Matchers {
+class TestTaggedEvent 
+  extends FunSuite 
+          with Matchers 
+{
   test("match LongDouble") {
     val tagged = TaggedColumn("longDouble", typeTag[Long], typeTag[Double], Nil)
 

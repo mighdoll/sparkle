@@ -3,17 +3,18 @@ package nest.sparkle.loader.kafka
 import java.util.concurrent.Semaphore
 
 import scala.collection.JavaConverters.asScalaBufferConverter
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.concurrent.{Future, ExecutionContext, promise, Promise}
 import scala.reflect.runtime.universe._
 import scala.language.existentials
 import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
 import scala.util.control.Exception.nonFatalCatch
-import scala.annotation.tailrec
 
-import com.datastax.spark.connector
-import com.datastax.spark.connector.writer
 import com.typesafe.config.Config
+
+import akka.actor.ActorSystem
 
 import kafka.consumer.ConsumerTimeoutException
 
@@ -33,13 +34,15 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
                                     val store: WriteableStore,
                                     val topic: String,
                                     val decoder: KafkaKeyValues
-) (implicit execution: ExecutionContext)
+) (implicit system: ActorSystem)
   extends Watched[ColumnUpdate[K]]
   with Runnable
   with Instrumented
   with Log
 {  
   private val loaderConfig = ConfigUtil.configForSparkle(rootConfig).getConfig("kafka-loader")
+  
+  implicit val execution: ExecutionContext = system.dispatcher 
 
   /** Evidence for key serializing when writing to the store */
   private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
@@ -50,6 +53,12 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   
   /** Current Kafka iterator */
   private var currentIterator: Option[Iterator[Try[TaggedBlock]]] = None
+  
+  /** Maximum time between C* write retries */
+  private val MaxDelay = 1 minute
+  
+  /** Initial delay between C* write retries */
+  private val InitialDelay = 1 second
   
   /** The number of Kafka messages to process before committing */
   val messageCommitLimit = loaderConfig.getInt("message-commit-limit")
@@ -282,7 +291,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
         for {
           valueSerialize <- RecoverCanSerialize.tryCanSerialize[U](valueType).toFuture
           castEvents: Events[K, U] = castKind(slice.events)
-          update <- writeEventsWithRetry(castEvents, slice.columnPath)(valueSerialize)
+          update <- writeEvents(castEvents, slice.columnPath)(valueSerialize)
         } yield {
           update
         }
@@ -309,9 +318,9 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
 
   /**
    * write some typed Events to storage retrying on error until it succeeds.
-   * @return a future when that completes when the writing is done
+   * @return a future with the updates to use for write notifications
    */
-  private def writeEventsWithRetry[U: CanSerialize](
+  private def writeEvents[U: CanSerialize](
     events: Iterable[Event[K, U]], columnPath: String
   ): Future[Option[ColumnUpdate[K]]] =
   {
@@ -322,32 +331,36 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
       case Some(event) =>
         batchSizeMetric.mark(events.size)
         val p = promise[Option[ColumnUpdate[K]]]()
-        writeEventsWithRetry(events, columnPath, p)
+        writeEventsUntilSuccess(events, columnPath, p)
         p.future
     }
   }
 
   /**
-   * write some typed Events to storage. Notifies any watchers when complete
-   * @return a future when that completes when the writing is done
+   * write some typed Events to storage. Completes the passed Promise on success.
    */
-  private def writeEventsWithRetry[U: CanSerialize](
+  private def writeEventsUntilSuccess[U: CanSerialize](
     events: Iterable[Event[K, U]], columnPath: String, p: Promise[Option[ColumnUpdate[K]]]
   ): Unit =
   {
     val futureColumn = writeableColumn[U](columnPath)
     futureColumn map { column =>
-      def writeEvents(): Unit = {
+      def doWrite(retryDelay: FiniteDuration): Unit = {
         column.write(events) onComplete { 
           case Success(_) =>
             p.success(Some(ColumnUpdate[K](columnPath, events.last.argument)))
           case Failure(err) =>
             log.error(s"Retrying writing events for $columnPath. $err")
-            // TODO: Add some retry delay here (maybe in akka rewrite?)
-            writeEvents()
+            system.scheduler.scheduleOnce(retryDelay) { 
+              val nextDelay = retryDelay * 2 match {
+                case n if n >= MaxDelay => MaxDelay
+                case n                  => n
+              }
+              doWrite(nextDelay) 
+            }
         }
       }
-      writeEvents()
+      doWrite(InitialDelay)
     }
   }
 
@@ -363,17 +376,23 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   {
     val p = promise[WriteableColumn[K, U]]()
 
-    def column(): Unit = {
-      store.writeableColumn[K, U](columnPath) onComplete { case Success(writer) =>
-        p.success(writer)
-      case Failure(err) =>
-        log.error(s"Retrying writeableColumn $columnPath. $err")
-        // TODO: Add some retry delay here (maybe in akka rewrite?)
-        column()
+    def column(retryDelay: FiniteDuration): Unit = {
+      store.writeableColumn[K, U](columnPath) onComplete { 
+        case Success(writer) =>
+          p.success(writer)
+        case Failure(err) =>
+          log.error(s"Retrying writeableColumn $columnPath. $err")
+          system.scheduler.scheduleOnce(retryDelay) { 
+            val nextDelay = retryDelay * 2 match {
+              case n if n >= MaxDelay => MaxDelay
+              case n                  => n
+            }
+            column(nextDelay) 
+          }
       }
     }
 
-    column()
+    column(InitialDelay)
 
     p.future
   }

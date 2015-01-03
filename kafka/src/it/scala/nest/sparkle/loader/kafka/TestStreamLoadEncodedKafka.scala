@@ -21,7 +21,7 @@ import org.scalatest.{ FunSuite, Matchers }
 import org.scalatest.prop.{ PropertyChecks, TableDrivenPropertyChecks }
 
 import nest.sparkle.loader.ColumnUpdate
-import nest.sparkle.store.cassandra.{ CassandraReaderWriter, CassandraTestConfig }
+import nest.sparkle.store.cassandra.{CassandraReaderWriter, CassandraStoreTestConfig}
 import nest.sparkle.util.Log
 import nest.sparkle.util.ConfigUtil.{modifiedConfig, sparkleConfigName, configForSparkle}
 
@@ -34,7 +34,7 @@ class TestStreamLoadEncodedKafka
           with Matchers 
           with PropertyChecks 
           with TableDrivenPropertyChecks
-          with CassandraTestConfig
+          with CassandraStoreTestConfig
           with KafkaTestConfig 
           with Log
 {
@@ -70,15 +70,17 @@ class TestStreamLoadEncodedKafka
 
         val storeWrite = testStore.writeListener.listen[Long](columnPath)
         val modifiedRoot = modifiedConfig(rootConfig, overrides: _*)
-        val loader = new KafkaLoader[Long](modifiedRoot, testStore)
-        loader.start()
+        withTestActors { implicit system =>
+          val loader = new KafkaLoader[Long](modifiedRoot, testStore)
+          loader.start()
 
-        try {
-          storeWrite.take(records.length).toBlocking.head // await completion
-          checkCassandra(testStore, records)
-        } finally {
-          log.debug("shutting down loader")
-          loader.shutdown()
+          try {
+            storeWrite.take(records.length).toBlocking.head // await completion
+            checkCassandra(testStore, records)
+          } finally {
+            log.debug("shutting down loader")
+            loader.shutdown()
+          }
         }
       }
     }

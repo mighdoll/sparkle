@@ -1,16 +1,3 @@
-/* Copyright 2013  Nest Labs
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.  */
 package nest.sparkle.loader.kafka
 
 import java.util.concurrent.Executors
@@ -22,11 +9,17 @@ import org.scalatest.{ FunSuite, Matchers }
 import org.scalatest.prop.PropertyChecks
 
 import nest.sparkle.loader.kafka.KafkaTestUtil.withTestEncodedTopic
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.util.ConfigUtil.{ modifiedConfig, sparkleConfigName }
 import nest.sparkle.util.QuickTiming.printTime
 
-class TestLargeKafkaStream extends FunSuite with Matchers with PropertyChecks with KafkaTestConfig with CassandraTestConfig {
+class TestLargeKafkaStream 
+  extends FunSuite 
+          with Matchers 
+          with PropertyChecks 
+          with CassandraStoreTestConfig 
+          with KafkaTestConfig 
+{
   import MillisDoubleTSVGenerators._
 
   val id1 = "foo"
@@ -64,24 +57,26 @@ class TestLargeKafkaStream extends FunSuite with Matchers with PropertyChecks wi
         val storeWrite = testStore.writeListener.listen[Long](columnPath)
         val modifiedRoot = modifiedConfig(rootConfig, overrides: _*)
 
-        withFixedThreadPool() { implicit execution =>
-          val loader = new KafkaLoader[Long](modifiedRoot, testStore)
-          
-          // Set up a future that will complete when a notification for the last write is received
-          val p = promise[Unit]()
-          storeWrite.subscribe { update =>
-            if (update.end == lastKey) {
-              p.success(())
-            }
-          }
-          val writesDone = p.future
+        withTestActors { implicit system =>
+          withFixedThreadPool() { implicit execution =>
+            val loader = new KafkaLoader[Long](modifiedRoot, testStore)
 
-          printTime(s"loading $records:") {
-            loader.start()
-            try {
-              Await.ready[Unit](writesDone, 2.minutes)
-            } finally {
-              loader.shutdown()
+            // Set up a future that will complete when a notification for the last write is received
+            val p = promise[Unit]()
+            storeWrite.subscribe { update =>
+              if (update.end == lastKey) {
+                p.success(())
+              }
+            }
+            val writesDone = p.future
+
+            printTime(s"loading $records:") {
+              loader.start()
+              try {
+                Await.ready[Unit](writesDone, 2.minutes)
+              } finally {
+                loader.shutdown()
+              }
             }
           }
         }

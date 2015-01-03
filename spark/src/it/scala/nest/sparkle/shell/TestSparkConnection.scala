@@ -1,13 +1,13 @@
 package nest.sparkle.shell
 
 import org.scalatest.{ FunSuite, Matchers }
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.store.cassandra.ColumnTypes
 import scala.reflect.runtime.universe._
 import org.apache.spark.rdd.RDD
 import nest.sparkle.store.Event
 
-class TestSparkConnection extends FunSuite with Matchers with CassandraTestConfig {
+class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTestConfig {
 
   override def testKeySpace = "testsparkconnection"
   

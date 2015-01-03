@@ -99,10 +99,9 @@ object SparkleBuild extends Build {
 
   lazy val kafkaLoader =    // loading from kafka into the store
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
-      .dependsOn(sparkleStore % "it->compile")
+      .dependsOn(sparkleStore % "compile->compile;it->it;it->compile")
       .dependsOn(sparkleLoader)
-      .dependsOn(protocolTestKit)
-      .dependsOn(utilKafka % "compile->compile;it->it")
+      .dependsOn(utilKafka % "compile->compile;test->test;it->it")
       .dependsOn(log4jConfig)
       .dependsOn(httpCommon)
       .configs(IntegrationTest)
@@ -138,7 +137,7 @@ object SparkleBuild extends Build {
   lazy val protocolTestKit =        // utilities for testing sparkle protocol
     Project(id = "sparkle-protocol-test-kit", base = file("protocol-test-kit"))
       .dependsOn(sparkleCore)
-      .dependsOn(sparkleStore % "compile->it")
+      .dependsOn(sparkleStore % "compile->compile;it->it;compile->it;it->compile")
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
 
