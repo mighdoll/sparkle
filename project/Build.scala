@@ -85,6 +85,7 @@ object SparkleBuild extends Build {
     Project(id = "sparkle-loader", base = file("loader"))
       .dependsOn(sparkleStore)
       .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
       .settings(
         libraryDependencies ++= testAndLogging
       )
