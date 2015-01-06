@@ -2,10 +2,10 @@ import sbt._
 
 object Dependencies {
   object V {
-    val scalaTest = "2.1.0"
+    val scalaTest = "2.2.1"
+    val scalaCheck = "1.12.1" 
     val akka = "2.2.3"
     val spray = "1.2.1"
-    val scalaCheck = "1.11.5" 
     val scala = "2.10.4"
     val spark = "1.1.0"
     val slf4j = "1.7.9"
