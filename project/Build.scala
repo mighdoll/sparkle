@@ -39,8 +39,6 @@ object SparkleBuild extends Build {
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
         libraryDependencies ++= Seq(
           scalaReflect,
-          rxJavaCore,
-          rxJavaScala,
           spire,
           nScalaTime,
           argot,
@@ -70,7 +68,6 @@ object SparkleBuild extends Build {
       .settings(BackgroundService.settings: _*)
       .settings(
         libraryDependencies ++= cassandraClient ++ testAndLogging ++ Seq (
-          rxJavaScala,
           nettyAll,
           sprayCaching,
           sprayJson,
@@ -174,8 +171,7 @@ object SparkleBuild extends Build {
           scalaLogging,
           metricsScala,
           scalaConfig,
-          rxJavaCore,
-          rxJavaScala,
+          rxScala,
           Optional.metricsGraphite,
           sprayJson,
           sprayCan % "optional",

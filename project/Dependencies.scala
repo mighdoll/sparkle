@@ -5,7 +5,6 @@ object Dependencies {
     val scalaTest = "2.1.0"
     val akka = "2.2.3"
     val spray = "1.2.1"
-    val rxJava = "0.20.4"
     val scalaCheck = "1.11.5" 
     val scala = "2.10.4"
     val spark = "1.1.0"
@@ -39,8 +38,7 @@ object Dependencies {
   val scalaReflect          = "org.scala-lang"            % "scala-reflect"           % V.scala
   val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.1.0"
 
-  val rxJavaCore            = "com.netflix.rxjava"        % "rxjava-core"             % V.rxJava
-  val rxJavaScala           = "com.netflix.rxjava"        % "rxjava-scala"            % V.rxJava  intransitive()
+  val rxScala               = "io.reactivex"              %% "rxscala"                % "0.23.0"
   val sparkCassandra        = ("com.datastax.spark"       %% "spark-cassandra-connector" % "1.1.0" withSources() withJavadoc()
                                 excludeAll(ExclusionRule(organization = "org.apache.spark"))
                               )
