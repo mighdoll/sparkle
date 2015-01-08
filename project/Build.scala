@@ -40,7 +40,6 @@ object SparkleBuild extends Build {
         libraryDependencies ++= Seq(
           scalaReflect,
           spire,
-          nScalaTime,
           argot,
           unfiltered,
           openCsv,
@@ -171,6 +170,7 @@ object SparkleBuild extends Build {
           scalaLogging,
           metricsScala,
           scalaConfig,
+          nScalaTime,
           rxScala,
           Optional.metricsGraphite,
           sprayJson,

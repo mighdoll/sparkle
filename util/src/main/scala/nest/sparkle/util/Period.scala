@@ -1,20 +1,18 @@
 package nest.sparkle.util
 
-import org.joda.time.DurationFieldType
 import scala.util.control.Exception._
-import org.joda.time.{ Period => JodaPeriod }
+
 import com.github.nscala_time.time.Implicits._
-import org.joda.time.DateTime
-import org.joda.time.DateTimeZone
+import org.joda.time.{DateTime, DateTimeZone, DurationFieldType}
+import org.joda.time.{Period => JodaPeriod}
 
-
-case class PeriodWithZone(period:Period, dateTimeZone:DateTimeZone)
+case class PeriodWithZone(period:Period, dateTimeZone: DateTimeZone)
 
 /** A period that supports rounding date times to the same resolution, and converting to JodaPeriod */
 case class Period(value: Int, durationType: DurationFieldType) {
 
   def toJoda: JodaPeriod = {
-    import FieldTypes._
+    import nest.sparkle.util.FieldTypes._
     durationType match {
       case `millis`  => JodaPeriod.millis(value)
       case `seconds` => JodaPeriod.seconds(value)
@@ -31,7 +29,7 @@ case class Period(value: Int, durationType: DurationFieldType) {
     * e.g. round to the nearest month if the period is months.
     */
   def roundDate(date: DateTime): DateTime = { // TODO should round to the nearest modulus of even values too (e.g. 3hr boundaries)
-    import FieldTypes._
+    import nest.sparkle.util.FieldTypes._
     durationType match {
       case `millis`  => date
       case `seconds` => date.withMillisOfSecond(0)

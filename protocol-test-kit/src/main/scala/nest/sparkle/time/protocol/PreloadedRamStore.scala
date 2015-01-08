@@ -93,7 +93,7 @@ trait PreloadedRamStore extends FunSuite with Matchers with ScalatestRouteTest
   implicit class IsoDateString(isoDateString: String) {
     import com.github.nscala_time.time.Implicits._
 
-    def toMillis = isoDateString.toDateTime.millis
+    def toMillis = isoDateString.toDateTime.getMillis
   }
 
 }

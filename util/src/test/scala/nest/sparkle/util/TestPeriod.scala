@@ -1,10 +1,9 @@
 package nest.sparkle.util
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import org.joda.time.DurationFieldType
+import org.scalatest.{FunSuite, Matchers}
+
+import org.joda.time.{DateTime, DurationFieldType}
 import nest.sparkle.util.StringToMillis._
-import org.joda.time.DateTime
 
 class TestPeriod extends FunSuite with Matchers {
 

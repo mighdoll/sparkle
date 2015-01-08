@@ -126,7 +126,7 @@ object TextTableParser extends Log {
     import com.github.nscala_time.time.Imports._
     val isoParser = ISODateTimeFormat.dateHourMinuteSecondMillis().withZoneUTC()
     def unapply(string: String): Option[Long] = {
-      isoParser.parseOption(string) map (_.millis)
+      isoParser.parseOption(string) map (_.getMillis)
     }
   }
 

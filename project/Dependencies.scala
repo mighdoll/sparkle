@@ -27,7 +27,7 @@ object Dependencies {
   val akkaRemoting          = "com.typesafe.akka"         %% "akka-remote"            % V.akka
 
   val argot                 = "org.clapper"               %% "argot"                  % "1.0.3"
-  val nScalaTime            = "com.github.nscala-time"    %% "nscala-time"            % "1.0.0"
+  val nScalaTime            = "com.github.nscala-time"    %% "nscala-time"            % "1.6.0"
   val spire                 = "org.spire-math"            %% "spire"                  % "0.9.0"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
   val cassandraAll          = "org.apache.cassandra"      %  "cassandra-all"          % "2.1.0"
@@ -35,7 +35,7 @@ object Dependencies {
   val snappy                = "org.xerial.snappy"         %  "snappy-java"            % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           %  "lz4"                    % "1.3.0"
 
-  val scalaReflect          = "org.scala-lang"            % "scala-reflect"           % V.scala
+  val scalaReflect          = "org.scala-lang"            %  "scala-reflect"           % V.scala
   val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.1.0"
 
   val rxScala               = "io.reactivex"              %% "rxscala"                % "0.23.0"
@@ -124,10 +124,10 @@ object Dependencies {
   }
   
   object Kit {
-    val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest 
-    val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck        
-    val sprayTestKit        = "io.spray"                 %  "spray-testkit"          % V.spray      
-    val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       
+    val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest
+    val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck
+    val sprayTestKit        = "io.spray"                 %  "spray-testkit"          % V.spray
+    val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka
   }
   
   object Optional {

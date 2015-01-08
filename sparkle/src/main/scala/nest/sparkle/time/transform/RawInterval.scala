@@ -125,8 +125,8 @@ object RawInterval {
   def jodaMillisIntersections[T: Numeric]( // format: OFF
       intervals: Seq[RawInterval[T]],
       jodaInterval: JodaInterval): Seq[RawInterval[T]] = { // format: ON
-    val start: T = Numeric[Long].toType[T](jodaInterval.start.millis)
-    val end: T = Numeric[Long].toType[T](jodaInterval.end.millis)
+    val start: T = Numeric[Long].toType[T](jodaInterval.start.getMillis)
+    val end: T = Numeric[Long].toType[T](jodaInterval.end.getMillis)
     val period = RawInterval[T](start, end)
     intervals.flatMap { interval => interval.project(period) }
   }

@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.zip.DataFormatException
+
 import scala.Array.canBuildFrom
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuilder
@@ -32,16 +33,14 @@ import scala.util.Success
 import scala.util.Try
 import scala.util.control.Exception.allCatch
 import scala.util.control.Exception.catching
+
 import org.joda.time.format.ISODateTimeFormat
-import com.github.nscala_time.time.Imports._
 import au.com.bytecode.opencsv.CSVReader
+
 import nest.sparkle.util.Opt
+import nest.sparkle.util.Opt._
 import nest.sparkle.util.OptionConversion._
 import nest.sparkle.util.PeekableIterator
-import java.io.IOException
-import java.lang.{Double => JDouble}
-import java.lang.{Long => JLong}
-import nest.sparkle.util.Opt._
 
 class FileLoadedDataSet(val name: String, val time: Array[Long],
                         val dataColumns: Iterable[RamDataColumn]) extends RamDataSet {
@@ -54,11 +53,9 @@ object FileLoadedDataSet {
   def loadAsync(path: Path, nameOpt: Opt[String] = None)(implicit context: ExecutionContext): Future[FileLoadedDataSet] = {
     Future {
       load(path, nameOpt)
-    } flatMap { loadTry =>
-      loadTry match {
-        case Success(v)   => Future.successful(v)
-        case Failure(err) => Future.failed(err)
-      }
+    } flatMap { 
+      case Success(v)   => Future.successful(v)
+      case Failure(err) => Future.failed(err)
     }
   }
 
@@ -101,7 +98,7 @@ object FileLoadedDataSet {
   }
 
   /** results from attempting to parse the first line as column headers */
-  private case class ColumnHeaderMatch(val columnMap: Try[ColumnMap], matched: Boolean)
+  private case class ColumnHeaderMatch(columnMap: Try[ColumnMap], matched: Boolean)
 
   /** map column names to column index */
   private case class ColumnMap(time: Int, data: Map[String, Int])
@@ -109,10 +106,10 @@ object FileLoadedDataSet {
   /** parse the first line into a column map, synthesizing a map if the first line doesn't look like a header */
   private def parseColumnHeader(line: Array[String]): ColumnHeaderMatch = {
     line.headOption match {
-      case Some(columnText) if (isColumnHeader(columnText)) =>
+      case Some(columnText) if isColumnHeader(columnText) =>
         ColumnHeaderMatch(parseHeaderLine(line), true)
       case None => ???
-      case _ =>
+      case _    =>
         ColumnHeaderMatch(Success(syntheticColumnHeaders(line)), false)
     }
   }
@@ -237,7 +234,7 @@ object FileLoadedDataSet {
     import com.github.nscala_time.time.Imports._
     val isoParser = ISODateTimeFormat.dateHourMinuteSecondMillis().withZoneUTC()
     def unapply(string: String): Option[Long] = {
-      isoParser.parseOption(string) map (_.millis)
+      isoParser.parseOption(string) map (_.getMillis)
     }
   }
 
