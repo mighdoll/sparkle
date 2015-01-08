@@ -33,11 +33,11 @@ object StreamReduction extends Log {
     * any intermediate data. TODO can this be simplified and still be fast?
     */
   def reduceByOptionalPeriod[K: TypeTag, V: TypeTag] // format: OFF
-      ( stream:DataStream[K, V, AsyncWithRequestRange], 
+      ( stream:DataStream[K, V, AsyncWithRange], 
         optPeriod:Option[PeriodWithZone], 
         reduction: PairReduction[V])
       ( implicit execution: ExecutionContext)
-      : DataStream[K, Option[V], AsyncWithRequestRange] = { // format: ON 
+      : DataStream[K, Option[V], AsyncWithRange] = { // format: ON 
 
     implicit val keyClassTag = stream.self.keyClassTag
     implicit val valueClassTag = stream.self.valueClassTag
@@ -69,42 +69,43 @@ object StreamReduction extends Log {
     * (every 5 seconds by default).
     */
   def reduceByPeriod[K: TypeTag: ClassTag, V: TypeTag: ClassTag] // format: OFF
-      ( stream:DataStream[K, V, AsyncWithRequestRange], 
+      ( stream:DataStream[K, V, AsyncWithRange], 
         periodWithZone: PeriodWithZone,
         reduction: PairReduction[V],
         bufferOngoing: FiniteDuration = 5.seconds)
-      : DataStream[K, Option[V], AsyncWithRequestRange] = { // format: ON
+      : DataStream[K, Option[V], AsyncWithRange] = { // format: ON
 
     RecoverNumeric.tryNumeric[K](stream.keyType) match {
       case Success(numericKey) =>
         implicit val _ = numericKey
         val reducedInitial = reduceArrayPairsByPeriod(stream.self.initial, periodWithZone, reduction)
-        val reducedOngoing = tumblingReduce(stream.self.ongoing, bufferOngoing) {
-          buffer =>
-            reduceArrayPairsByPeriod(buffer, periodWithZone, reduction)
-        }
-        AsyncWithRequestRange(reducedInitial, reducedOngoing, stream.self.requestRange)
-      case Failure(err) => AsyncWithRequestRange.error(err, stream.self.requestRange)
+        val reducedOngoing = 
+          tumblingReduce(stream.self.ongoing, bufferOngoing) {
+            buffer =>
+              reduceArrayPairsByPeriod(buffer, periodWithZone, reduction)
+          }
+        AsyncWithRange(reducedInitial, reducedOngoing, stream.self.requestRange)
+      case Failure(err) => AsyncWithRange.error(err, stream.self.requestRange)
     }
   }
   /** reduce the initial part of the stream to a single value, and reduce the ongoing
     * stream to a single value every 5 seconds.
     */
   def reduceToOnePart[K: ClassTag: TypeTag, V: TypeTag] // format: OFF
-        ( stream:DataStream[K, V, AsyncWithRequestRange], 
+        ( stream:DataStream[K, V, AsyncWithRange], 
           reduction: PairReduction[V],
           bufferOngoing: FiniteDuration = 5.seconds)
-        : AsyncWithRequestRange[K, Option[V]] = { // format: ON
+        : AsyncWithRange[K, Option[V]] = { // format: ON
 
-    val initialReduced = reduceArrayPairsToOnePart(
-      stream.self.initial, reduction)
+    val initialReduced = reduceArrayPairsToOnePart(stream.self.initial, reduction)
 
-    val ongoingReduced = tumblingReduce(stream.self.ongoing, bufferOngoing) {
-      buffer =>
-        reduceArrayPairsToOnePart(buffer, reduction)
-    }
+    val ongoingReduced = 
+      tumblingReduce(stream.self.ongoing, bufferOngoing) {
+        buffer =>
+          reduceArrayPairsToOnePart(buffer, reduction)
+      }
 
-    AsyncWithRequestRange(initialReduced, ongoingReduced, stream.self.requestRange)
+    AsyncWithRange(initialReduced, ongoingReduced, stream.self.requestRange)
   }
 
 }

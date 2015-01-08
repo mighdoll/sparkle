@@ -19,7 +19,7 @@ object FetchRanges {
       column: Column[K, V], 
       optRange: Option[RangeInterval[K]] = None,
       parentSpan: Option[Span]) 
-      (implicit execution:ExecutionContext):AsyncWithRequestRange[K, V] = { // format: ON
+      (implicit execution:ExecutionContext):AsyncWithRange[K, V] = { // format: ON
 
     val ongoingEvents = {
       val start = optRange.flatMap(_.start)
@@ -32,7 +32,7 @@ object FetchRanges {
     val valueType: TypeTag[V] = castKind(column.valueType)
 
     val ongoingData = OngoingDataShim.fromOngoingEvents(ongoingEvents)(keyType, valueType)
-    AsyncWithRequestRange(ongoingData, optRange)
+    AsyncWithRange(ongoingData, optRange)
   }
 
 }

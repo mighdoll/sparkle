@@ -17,7 +17,7 @@ object FetchStreams {
         rangeExtend: Option[ExtendRange[K]],
         parentSpan:Option[Span]
       )(implicit execution: ExecutionContext)
-      : Future[StreamGroupSet[K, V, AsyncWithRequestRange]] = { // format: ON
+      : Future[StreamGroupSet[K, V, AsyncWithRange]] = { // format: ON
 
     case class RangeAndExtended(range: RangeInterval[K], extended: RangeInterval[K])
 
@@ -33,7 +33,7 @@ object FetchStreams {
       }
 
     /** return an stream for each requested range in the provided column */
-    def streamPerRange(column: Column[_, _]): Vector[AsyncWithRequestRange[K, V]] = {
+    def streamPerRange(column: Column[_, _]): Vector[AsyncWithRange[K, V]] = {
       val typedColumn = column.asInstanceOf[Column[K, V]]
       optRangeAndExtendeds match {
         case Some(rangeAndExtendeds) =>
@@ -53,11 +53,11 @@ object FetchStreams {
       }
     }
 
-    val result: Future[StreamGroupSet[K, V, AsyncWithRequestRange]] =
+    val result: Future[StreamGroupSet[K, V, AsyncWithRange]] =
       futureGroups.map { columnGroups =>
-        val fetchedGroups: Vector[StreamGroup[K, V, AsyncWithRequestRange]] =
+        val fetchedGroups: Vector[StreamGroup[K, V, AsyncWithRange]] =
           columnGroups.toVector.map { columnGroup =>
-            val streamStacks: Vector[StreamStack[K, V, AsyncWithRequestRange]] =
+            val streamStacks: Vector[StreamStack[K, V, AsyncWithRange]] =
               columnGroup.columns.toVector.map { column =>
                 val streams = streamPerRange(column)
                 StreamStack(streams)

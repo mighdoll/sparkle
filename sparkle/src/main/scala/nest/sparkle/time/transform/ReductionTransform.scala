@@ -66,15 +66,15 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
 
   /** TODO refactor this into a generic reducer, not just sum */
   def reduceSum[K, V] // format: OFF
-      (groupSet: StreamGroupSet[K, V, AsyncWithRequestRange], optPeriod:Option[PeriodWithZone])
+      (groupSet: StreamGroupSet[K, V, AsyncWithRange], optPeriod:Option[PeriodWithZone])
       (implicit execution: ExecutionContext)
-      : StreamGroupSet[K, Option[V], AsyncWithRequestRange] = { // format: ON
+      : StreamGroupSet[K, Option[V], AsyncWithRange] = { // format: ON
 
     groupSet.mapStreams { stream =>
       implicit val keyType = stream.keyType
       implicit val valueType = stream.valueType
       
-      val reduced: Try[DataStream[K, Option[V], AsyncWithRequestRange]] = {
+      val reduced: Try[DataStream[K, Option[V], AsyncWithRange]] = {
         for {
           numericValue <- RecoverNumeric.tryNumeric[V](valueType)
           sum = ReduceSum[V]()(numericValue)
@@ -88,7 +88,7 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
         case Success(reducedStream) =>
           reducedStream
         case Failure(err) =>
-          AsyncWithRequestRange.error[K, Option[V]](err, stream.self.requestRange)
+          AsyncWithRange.error[K, Option[V]](err, stream.self.requestRange)
       }
     }
   }
