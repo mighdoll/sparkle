@@ -2,7 +2,6 @@ package nest.sparkle.time.protocol
 
 import org.scalatest.{ FunSuite, Matchers }
 import nest.sparkle.store.cassandra.CassandraTestConfig
-import nest.sparkle.store.cassandra.TestServiceWithCassandra
 import nest.sparkle.util.FutureAwait.Implicits._
 import scala.concurrent.duration._
 import nest.sparkle.time.protocol.TestDataService.longDoubleData

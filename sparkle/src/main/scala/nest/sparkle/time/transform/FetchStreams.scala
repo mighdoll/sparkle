@@ -44,7 +44,6 @@ object FetchStreams {
                 // record the requested range with the data, not the extended range
                 implicit val keyType = dataStream.keyType
                 implicit val valueType = dataStream.valueType
-                println(s"keyType: $keyType,  valueType: $valueType")
                 dataStream.copy(requestRange = Some(requestRange))
             }
           streams.toVector

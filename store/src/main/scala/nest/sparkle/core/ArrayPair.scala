@@ -21,7 +21,6 @@ case class ArrayPair[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
   require(keys.length == values.length)
   
   // TODO: prevent keys & value elements from being mutable
-
   // TODO add more high level functions
   
   def length: Int = keys.length
@@ -109,8 +108,6 @@ case class ArrayPair[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
       case n => Some(reduceN())
     }
   }
-
-  def length = keys.length
 
   def isEmpty: Boolean = keys.length == 0
   
