@@ -1,12 +1,11 @@
 package nest.sparkle.time.transform
 
-import nest.sparkle.time.protocol.RangeInterval
 
 ///** A DataStream that buffers all initially requested data into a single array.
 //  * The DataStream also bundles the range interval request that produced this data for further downstream
 //  * processing.
 //  */
-//case class BufferedWithRequestRange[K:TypeTag, V:TypeTag] // format: OFF
+//case class BufferedWithRange[K:TypeTag, V:TypeTag] // format: OFF
 //    (initial: Future[ArrayPair[K,V]], 
 //     ongoing: Observable[ArrayPair[K,V]],
 //     requestRange: Option[RangeInterval[K]]) 
@@ -27,8 +26,4 @@ import nest.sparkle.time.protocol.RangeInterval
 //  override def runInitial():Unit = {}
 //
 //}
-
-
-trait RequestRange[K] {
-  def requestRange:Option[RangeInterval[K]]
-}
+ 

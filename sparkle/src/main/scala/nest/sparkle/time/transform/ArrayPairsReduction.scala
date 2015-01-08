@@ -25,7 +25,7 @@ object ArrayPairsReduction extends Log {
     */
   def reduceArrayPairsToOnePart[K: ClassTag: TypeTag, V: TypeTag] // format: OFF
       ( observablePairs: Observable[ArrayPair[K,V]], 
-        reduction: PairReduction[V])
+        reduction: Reduction[V])
       : Observable[ArrayPair[K, Option[V]]] = { // format: ON
 
     // buffer the first value so we can extract the first key
@@ -62,7 +62,7 @@ object ArrayPairsReduction extends Log {
   /** reduce optional values with a reduction function. */ // scalaz would make this automatic..
   private def reduceOptions[V] // format: OFF
       ( optPairs: Observable[Option[V]], 
-        reduction: PairReduction[V] ) // format: ON
+        reduction: Reduction[V] ) // format: ON
         : Observable[V] = {
 
     val optionalResult = optPairs.reduce { (optA, optB) =>
@@ -106,7 +106,7 @@ object ArrayPairsReduction extends Log {
   def reduceArrayPairsByPeriod[K: ClassTag, V: ClassTag] // format: OFF
       ( observablePairs: Observable[ArrayPair[K, V]],
         periodWithZone: PeriodWithZone,
-        reduction: PairReduction[V] )
+        reduction: Reduction[V] )
       ( implicit numericKey: Numeric[K] )
       : Observable[ArrayPair[K, Option[V]]] = { // format: ON
 
@@ -136,7 +136,7 @@ object ArrayPairsReduction extends Log {
 }
 
 /** maintains the state needed while iterating through time periods */
-private class PeriodState[K: Numeric: ClassTag, V](reduction: PairReduction[V]) {
+private class PeriodState[K: Numeric: ClassTag, V](reduction: Reduction[V]) {
   var accumulationStarted = false
   var currentTotal: V = 0.asInstanceOf[V]
   var periodStart: K = 0.asInstanceOf[K]
@@ -209,7 +209,7 @@ private class PairsState[K: Numeric: ClassTag, V](periodState: PeriodState[K, V]
     */
   def reduceCompletePeriods(pairs: PeekableIterator[(K, V)],
                             periodWithZone: PeriodWithZone,
-                            reduction: PairReduction[V]): ArrayPair[K, Option[V]] = {
+                            reduction: Reduction[V]): ArrayPair[K, Option[V]] = {
 
     pairs.headOption.foreach {
       case (firstKey, firstValue) =>

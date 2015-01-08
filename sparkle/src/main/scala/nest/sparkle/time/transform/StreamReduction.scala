@@ -35,7 +35,7 @@ object StreamReduction extends Log {
   def reduceByOptionalPeriod[K: TypeTag, V: TypeTag] // format: OFF
       ( stream:DataStream[K, V, AsyncWithRange], 
         optPeriod:Option[PeriodWithZone], 
-        reduction: PairReduction[V])
+        reduction: Reduction[V])
       ( implicit execution: ExecutionContext)
       : DataStream[K, Option[V], AsyncWithRange] = { // format: ON 
 
@@ -71,7 +71,7 @@ object StreamReduction extends Log {
   def reduceByPeriod[K: TypeTag: ClassTag, V: TypeTag: ClassTag] // format: OFF
       ( stream:DataStream[K, V, AsyncWithRange], 
         periodWithZone: PeriodWithZone,
-        reduction: PairReduction[V],
+        reduction: Reduction[V],
         bufferOngoing: FiniteDuration = 5.seconds)
       : DataStream[K, Option[V], AsyncWithRange] = { // format: ON
 
@@ -93,7 +93,7 @@ object StreamReduction extends Log {
     */
   def reduceToOnePart[K: ClassTag: TypeTag, V: TypeTag] // format: OFF
         ( stream:DataStream[K, V, AsyncWithRange], 
-          reduction: PairReduction[V],
+          reduction: Reduction[V],
           bufferOngoing: FiniteDuration = 5.seconds)
         : AsyncWithRange[K, Option[V]] = { // format: ON
 
@@ -113,13 +113,13 @@ object StreamReduction extends Log {
 /** a way to combine two key-value pairs. The function must be associative.
   * (i.e. a semigroup binary operation for pairs)
   */
-trait PairReduction[V] {
+trait Reduction[V] {
   def plus(aggregateValue: V, newValue: V): V
 }
 
 /** combine key value pairs by adding them together */
-case class ReduceSum[V: Numeric]() extends PairReduction[V] {
-  def plus(aggregateValue: V, newValue: V): V = {
+case class ReduceSum[V: Numeric]() extends Reduction[V] {
+  override def plus(aggregateValue: V, newValue: V): V = {
     aggregateValue + newValue
   }
 }
