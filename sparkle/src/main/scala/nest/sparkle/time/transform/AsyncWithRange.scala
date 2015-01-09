@@ -11,16 +11,16 @@ import nest.sparkle.core.DataArray
 import scala.{ specialized => spec }
 import nest.sparkle.util.ReflectionUtil
 
-/** A DataStream containing data in the form it comes off from the database. Initial request data
+/** A TwoPartStream containing data in the form it comes off from the database. Initial request data
   * is asynchronously delivered, block at a time, as it returned from the database driver.
-  * The DataStream bundles the range interval request that produced this data for further
+  * The TwoPartStream bundles the range interval request that produced this data for further
   * downstream processing.
   */
 case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
     (initial: Observable[DataArray[K,V]], 
      ongoing: Observable[DataArray[K,V]],
      requestRange: Option[RangeInterval[K]]) 
-     extends DataStream[K,V,AsyncWithRange] with RequestRange[K] with AsyncReduction[K,V]
+     extends TwoPartStream[K,V,AsyncWithRange] with RequestRange[K] with AsyncReduction[K,V]
     { // format: ON
 
   def mapData[B: TypeTag] // format: OFF
@@ -48,8 +48,8 @@ case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
     )
   }
 
-  override def plus(other: DataStream[K, V, AsyncWithRange]) // format: OFF
-    : DataStream[K, V, AsyncWithRange] = { // format: ON
+  override def plus(other: TwoPartStream[K, V, AsyncWithRange]) // format: OFF
+    : TwoPartStream[K, V, AsyncWithRange] = { // format: ON
     AsyncWithRange(
       initial = initial ++ other.self.initial,
       ongoing = ongoing ++ other.self.ongoing,

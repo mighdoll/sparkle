@@ -1,15 +1,15 @@
 package nest.sparkle.time.transform
 
 
-///** A DataStream that buffers all initially requested data into a single array.
-//  * The DataStream also bundles the range interval request that produced this data for further downstream
+///** A TwoPartStream that buffers all initially requested data into a single array.
+//  * The TwoPartStream also bundles the range interval request that produced this data for further downstream
 //  * processing.
 //  */
 //case class BufferedWithRange[K:TypeTag, V:TypeTag] // format: OFF
 //    (initial: Future[DataArray[K,V]], 
 //     ongoing: Observable[DataArray[K,V]],
 //     requestRange: Option[RangeInterval[K]]) 
-//    extends DataStream[K,V,BufferedWithRequestRange] with RequestRange[K]
+//    extends TwoPartStream[K,V,BufferedWithRequestRange] with RequestRange[K]
 //    { // format: ON
 //
 //  override def mapData[B: TypeTag] // format: OFF

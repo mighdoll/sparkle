@@ -39,7 +39,7 @@ trait AsyncReduction[K,V] extends Log {
       ( optPeriod:Option[PeriodWithZone], 
         reduction: Reduction[V])
       ( implicit execution: ExecutionContext)
-      : DataStream[K, Option[V], AsyncWithRange] = { // format: ON 
+      : TwoPartStream[K, Option[V], AsyncWithRange] = { // format: ON 
 
     // depending on the request parameters, summarize the stream appropriately
     (optPeriod, self.requestRange) match {
@@ -71,7 +71,7 @@ trait AsyncReduction[K,V] extends Log {
       ( periodWithZone: PeriodWithZone,
         reduction: Reduction[V],
         bufferOngoing: FiniteDuration = 5.seconds)
-      : DataStream[K, Option[V], AsyncWithRange] = { // format: ON
+      : TwoPartStream[K, Option[V], AsyncWithRange] = { // format: ON
 
     RecoverNumeric.tryNumeric[K](keyType) match {
       case Success(numericKey) =>

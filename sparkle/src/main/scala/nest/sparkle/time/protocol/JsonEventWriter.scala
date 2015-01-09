@@ -26,7 +26,7 @@ import nest.sparkle.measure.TraceId
 import nest.sparkle.measure.DummySpan
 import nest.sparkle.measure.Detail
 import nest.sparkle.time.transform.StreamGroupSet
-import nest.sparkle.time.transform.DataStream
+import nest.sparkle.time.transform.TwoPartStream
 import nest.sparkle.core.DataArray
 import scala.util.Try
 import scala.util.Success
@@ -78,7 +78,7 @@ object JsonEventWriter {
     * to the initial request.
     */
   def fromDataStream[K, V, S[_, _]] // format: OFF
-      ( dataStream: DataStream[K, V, S], parentSpan: Span)
+      ( dataStream: TwoPartStream[K, V, S], parentSpan: Span)
       : Observable[Array[JsArray]] = { // format: ON
 
     def combineToJson(implicit keyWriter: JsonWriter[K], valueWriter: JsonWriter[V]) // format: OFF
@@ -98,7 +98,7 @@ object JsonEventWriter {
 
   }
 
-  private def jsonWriters[K, V, S[_, _]](dataStream: DataStream[K, V, S]): Try[(JsonWriter[K], JsonWriter[V])] = {
+  private def jsonWriters[K, V, S[_, _]](dataStream: TwoPartStream[K, V, S]): Try[(JsonWriter[K], JsonWriter[V])] = {
     for {
       keyWriter <- RecoverJsonFormat.tryJsonFormat[K](dataStream.keyType)
       valueWriter <- RecoverJsonFormat.tryJsonFormat[V](dataStream.valueType)

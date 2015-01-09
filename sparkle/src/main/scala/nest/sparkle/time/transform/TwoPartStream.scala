@@ -17,8 +17,8 @@ import scala.{ specialized => spec }
   * StreamGroupSet - data from multiple groups of columns
   *   StreamGroup - data from multiple columns
   *     StreamStack - data from one or more slices of a single column 
-  *       DataStream - data from a single slice from a single column
-  *                    implementations of DataStream have two collections of data
+  *       TwoPartStream - data from a single slice from a single column
+  *                    implementations of TwoPartStream have two collections of data
   *         initial - all data available the time of the request
   *         ongoing - items arriving after the request (normally only for open ended ranges)
   *         
@@ -28,10 +28,10 @@ import scala.{ specialized => spec }
   * Conventions for type parameter letters:
   *   K - key type
   *   V - value type
-  *   S - DataStream typeclass proxy type
+  *   S - TwoPartStream typeclass proxy type
   *  
   *   B - target value type (e.g. for mapData)
-  *   T - target DataStream typeclass proxy type (e.g. for mapStream)
+  *   T - target TwoPartStream typeclass proxy type (e.g. for mapStream)
   * 
   * There are two core challenges in structuring the container data structures: 1) mapping higher level
   * functions through the layers of the containment heirarchy: e.g. we want to enable users of the 
@@ -43,10 +43,10 @@ import scala.{ specialized => spec }
   * 
   * -- 1) Working with nested containers --
   * To apply higher level functions to contained elements, several problems must be solved:
-  *   . Container subtypes: The type signature of the elements and the DataStream subtype must be exposed. 
+  *   . Container subtypes: The type signature of the elements and the TwoPartStream subtype must be exposed. 
   *     This keeps usage type safe. Functions that demand to operate on Long, or only on buffered streams
   *     should fail at compile time if applied to doubles, or non-buffered streams.
-  *   . Nested building: The library needs a way to construct new DataStream subtype instances, e.g. when mapping
+  *   . Nested building: The library needs a way to construct new TwoPartStream subtype instances, e.g. when mapping
   *     to from Long to Boolean elements types. 
   *   . Minimal boilerplate, especially for clients of the library. Naiive solutions that e.g. push 
   *     the nested building problem onto users of the library are unnattractive.
@@ -77,30 +77,30 @@ import scala.{ specialized => spec }
 
 /** a typeclass proxy for a stream of DataArrays. */
 // TODO this probably needs a Typetag for both key and value so that transorms can map on what they need
-trait DataStream[K, V, StreamImpl[_, _]] {
+trait TwoPartStream[K, V, StreamImpl[_, _]] {
   me: StreamImpl[K, V] =>
     
   def keyType: TypeTag[K]
   def valueType: TypeTag[V]
   
-  /** return the DataStream implementation type */
+  /** return the TwoPartStream implementation type */
   def self: StreamImpl[K, V] = me
     
   def mapData[B: TypeTag] // format: OFF
     (fn: DataArray[K, V] => DataArray[K, B])
     (implicit execution: ExecutionContext)
-    : DataStream[K, B, StreamImpl] // format: ON
+    : TwoPartStream[K, B, StreamImpl] // format: ON
 
-  def doOnEach(fn: DataArray[K, V] => Unit): DataStream[K, V, StreamImpl]
+  def doOnEach(fn: DataArray[K, V] => Unit): TwoPartStream[K, V, StreamImpl]
   def mapInitial[A](fn: DataArray[K, V] => A): Observable[A]
   def mapOngoing[A](fn: DataArray[K, V] => A): Observable[A]
 
-  def plus(other: DataStream[K, V, StreamImpl]): DataStream[K, V, StreamImpl]
+  def plus(other: TwoPartStream[K, V, StreamImpl]): TwoPartStream[K, V, StreamImpl]
 }
 
 /** a collection of DataStreams, e.g. from the multiple ranges coming from one column */
 case class StreamStack[K, V, S[_, _]] // format: OFF
-    (streams: Vector[DataStream[K, V, S]]) { // format: ON
+    (streams: Vector[TwoPartStream[K, V, S]]) { // format: ON
 }
 
 /** a collection of StreamStacks, e.g. a set of columns that should should be aggregated together */
@@ -126,7 +126,7 @@ case class StreamGroupSet[K, V, S[_, _]] // format: OFF
 
   /** */
   def mapStreams[A, B, T[_, _]] // format: OFF
-        (fn: DataStream[K, V, S] => DataStream[A, B, T])
+        (fn: TwoPartStream[K, V, S] => TwoPartStream[A, B, T])
         : StreamGroupSet[A, B, T] = { // format: ON
     val newGroups = streamGroups.map { group =>
       val newStacks = group.streamStacks.map { stack =>
@@ -139,7 +139,7 @@ case class StreamGroupSet[K, V, S[_, _]] // format: OFF
   }
 
   /** Return a flattened collection of all the contained DataStreams. */
-  def allStreams: Seq[DataStream[K, V, S]] = {
+  def allStreams: Seq[TwoPartStream[K, V, S]] = {
     for {
       group <- streamGroups
       stack <- group.streamStacks

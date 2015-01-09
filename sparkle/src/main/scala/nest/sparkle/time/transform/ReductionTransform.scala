@@ -73,7 +73,7 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
       implicit val keyType = stream.keyType
       implicit val valueType = stream.valueType
       
-      val reduced: Try[DataStream[K, Option[V], AsyncWithRange]] = {
+      val reduced: Try[TwoPartStream[K, Option[V], AsyncWithRange]] = {
         for {
           numericValue <- RecoverNumeric.tryNumeric[V](valueType)
           sum = ReduceSum[V]()(numericValue)
