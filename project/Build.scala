@@ -146,6 +146,7 @@ object SparkleBuild extends Build {
       .dependsOn(protocol)
       .dependsOn(protocolTestKit)
       .dependsOn(logbackConfig)
+      .dependsOn(util)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
