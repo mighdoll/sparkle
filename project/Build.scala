@@ -42,7 +42,6 @@ object SparkleBuild extends Build {
           spire,
           argot,
           unfiltered,
-          openCsv,
           metricsScala
         ),
 //        adminPort := Some(18000), // enable when admin supports /shutdown
@@ -71,6 +70,7 @@ object SparkleBuild extends Build {
           sprayCaching,
           sprayJson,
           sprayUtil,
+          openCsv,
           spire
         ),
         dependenciesToStart := Seq(cassandraServer),
