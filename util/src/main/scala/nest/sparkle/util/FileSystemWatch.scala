@@ -23,6 +23,7 @@ import java.nio.file.StandardWatchEventKinds._
 import FileSystemScan.scanFileSystem
 import scala.collection.JavaConverters._
 import WatchPath._
+import java.nio.file._
 
 /** Actor that watches a directory subtree using nio.  call watch() to start the filesystem watching.  Changes
   * are reported to a function provided to watch().
