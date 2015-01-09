@@ -1,6 +1,5 @@
 package nest.sparkle.time.transform
 
-
 import scala.reflect.ClassTag
 import nest.sparkle.util.PeriodWithZone
 import rx.lang.scala.Observable
