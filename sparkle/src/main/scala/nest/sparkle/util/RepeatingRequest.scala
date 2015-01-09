@@ -13,45 +13,27 @@
    limitations under the License.  */
 
 package nest.sparkle.util
-import spray.http._
+import scala.concurrent.{ExecutionContext, Future}
 import spray.client.pipelining._
-import scala.concurrent.Future
 import akka.actor.ActorRefFactory
-import scala.concurrent.ExecutionContext
 import akka.util.Timeout
 import akka.actor.ActorSystem
 import scala.concurrent.duration._
-import scala.util.Success
-import spray.util._
-import scala.util.Failure
-import java.util.concurrent.TimeoutException
+import nest.sparkle.util.RetryingFuture.retryingFuture
 
+/** utility to make a request multiple times until it succeeds */
 object RepeatingRequest extends Log {
   private val defaultMaxAttempts = 4
 
-  def get(uri: String, maxAttempts: Int = defaultMaxAttempts)(implicit refFactory: ActorRefFactory,
-                                             executionContext: ExecutionContext,
-                                             futureTimeout: Timeout = 5.seconds): Future[String] = {
+  /** http get request until it succeeds or maxAttempts is exceeded */
+  def get // format: OFF
+      ( uri: String, maxAttempts: Int = defaultMaxAttempts )
+      ( implicit refFactory: ActorRefFactory,
+        executionContext: ExecutionContext,
+        futureTimeout: Timeout = 5.seconds )
+      : Future[String] = { // format: ON 
     val pipeline = sendReceive
 
     retryingFuture(pipeline(Get(uri)), maxAttempts) map {_.entity.asString}
-  }
-
-  /** Call a function that returns a future.  If the future times out, try again (repeating up to maxAttempts times). */
-  def retryingFuture[T](fn: => Future[T], maxAttempts: Int = defaultMaxAttempts)(implicit executionContext: ExecutionContext,
-                                                                futureTimeout: Timeout = 10.seconds):Future[T] = {
-    def retry(attemptsRemaining: Int): Future[T] = {
-      if (attemptsRemaining <= 0) {
-        Future.failed(new TimeoutException(s"Timeout after $maxAttempts attempts"))
-      } else {
-        fn recoverWith {
-          case t: TimeoutException =>
-            log.info(s"retryingFuture retrying.  Remaining attempts: $attemptsRemaining")
-            retry(attemptsRemaining - 1)
-        }
-      }
-    }
-
-    retry(maxAttempts)
   }
 }
