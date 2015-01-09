@@ -5,7 +5,7 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
 import nest.sparkle.time.protocol.RangeInterval
 import rx.lang.scala.Observable
-import nest.sparkle.core.ArrayPair
+import nest.sparkle.core.DataArray
 import scala.{ specialized => spec }
 
 // format: OFF
@@ -22,8 +22,8 @@ import scala.{ specialized => spec }
   *         initial - all data available the time of the request
   *         ongoing - items arriving after the request (normally only for open ended ranges)
   *         
-  *         ArrayPair - both initial and ongoing data contain sample data packed into ArrayPairs
-  *         					  The ArrayPairs are delivered asynchronously: buffered in a Future or streamed in an Observable
+  *         DataArray - both initial and ongoing data contain sample data packed into DataArrays
+  *         					  The DataArrays are delivered asynchronously: buffered in a Future or streamed in an Observable
   * 
   * Conventions for type parameter letters:
   *   K - key type
@@ -75,7 +75,7 @@ import scala.{ specialized => spec }
 
 
 
-/** a typeclass proxy for a stream of ArrayPairs. */
+/** a typeclass proxy for a stream of DataArrays. */
 // TODO this probably needs a Typetag for both key and value so that transorms can map on what they need
 trait DataStream[K, V, StreamImpl[_, _]] {
   me: StreamImpl[K, V] =>
@@ -87,13 +87,13 @@ trait DataStream[K, V, StreamImpl[_, _]] {
   def self: StreamImpl[K, V] = me
     
   def mapData[B: TypeTag] // format: OFF
-    (fn: ArrayPair[K, V] => ArrayPair[K, B])
+    (fn: DataArray[K, V] => DataArray[K, B])
     (implicit execution: ExecutionContext)
     : DataStream[K, B, StreamImpl] // format: ON
 
-  def doOnEach(fn: ArrayPair[K, V] => Unit): DataStream[K, V, StreamImpl]
-  def mapInitial[A](fn: ArrayPair[K, V] => A): Observable[A]
-  def mapOngoing[A](fn: ArrayPair[K, V] => A): Observable[A]
+  def doOnEach(fn: DataArray[K, V] => Unit): DataStream[K, V, StreamImpl]
+  def mapInitial[A](fn: DataArray[K, V] => A): Observable[A]
+  def mapOngoing[A](fn: DataArray[K, V] => A): Observable[A]
 
   def plus(other: DataStream[K, V, StreamImpl]): DataStream[K, V, StreamImpl]
 }
@@ -114,11 +114,11 @@ case class StreamGroup[K, V, S[_, _]] // format: OFF
 case class StreamGroupSet[K, V, S[_, _]] // format: OFF
     (streamGroups:Vector[StreamGroup[K, V, S]]) { // format: ON
 
-  /** Apply a function to all the ArrayPairs in all the contained DataStreams and
+  /** Apply a function to all the DataArrays in all the contained DataStreams and
     * return the resulting StreamGroupSet
     */
   def mapData[B: TypeTag] // format: OFF
-      (fn: ArrayPair[K, V] => ArrayPair[K, B])
+      (fn: DataArray[K, V] => DataArray[K, B])
       (implicit execution:ExecutionContext)
       : StreamGroupSet[K, B, S] = { // format: ON
     mapStreams(_.mapData(fn))

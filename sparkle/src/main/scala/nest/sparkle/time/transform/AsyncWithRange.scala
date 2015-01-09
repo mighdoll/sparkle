@@ -7,7 +7,7 @@ import scala.concurrent.ExecutionContext
 import rx.lang.scala.Observable
 import scala.concurrent.Future
 import nest.sparkle.core.OngoingData
-import nest.sparkle.core.ArrayPair
+import nest.sparkle.core.DataArray
 import scala.{ specialized => spec }
 import nest.sparkle.util.ReflectionUtil
 
@@ -17,14 +17,14 @@ import nest.sparkle.util.ReflectionUtil
   * downstream processing.
   */
 case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
-    (initial: Observable[ArrayPair[K,V]], 
-     ongoing: Observable[ArrayPair[K,V]],
+    (initial: Observable[DataArray[K,V]], 
+     ongoing: Observable[DataArray[K,V]],
      requestRange: Option[RangeInterval[K]]) 
-     extends DataStream[K,V,AsyncWithRange] with RequestRange[K]
+     extends DataStream[K,V,AsyncWithRange] with RequestRange[K] with AsyncReduction[K,V]
     { // format: ON
 
   def mapData[B: TypeTag] // format: OFF
-      (fn: ArrayPair[K,V] => ArrayPair[K,B])
+      (fn: DataArray[K,V] => DataArray[K,B])
       (implicit execution:ExecutionContext)
       : AsyncWithRange[K,B] = { // format: ON
     val newInitial = initial.map(fn)
@@ -38,10 +38,10 @@ case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
   implicit lazy val keyClassTag = ReflectionUtil.classTag[K](keyType)
   implicit lazy val valueClassTag = ReflectionUtil.classTag[V](valueType)
 
-  override def mapInitial[A](fn: ArrayPair[K, V] => A): Observable[A] = initial map fn
-  override def mapOngoing[A](fn: ArrayPair[K, V] => A): Observable[A] = ongoing map fn
+  override def mapInitial[A](fn: DataArray[K, V] => A): Observable[A] = initial map fn
+  override def mapOngoing[A](fn: DataArray[K, V] => A): Observable[A] = ongoing map fn
 
-  override def doOnEach(fn: ArrayPair[K, V] => Unit): AsyncWithRange[K, V] = {
+  override def doOnEach(fn: DataArray[K, V] => Unit): AsyncWithRange[K, V] = {
     copy(
       initial = initial doOnEach fn,
       ongoing = ongoing doOnEach fn
@@ -56,7 +56,7 @@ case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
       requestRange = requestRange
     )
   }
-
+  
 }
 
 object AsyncWithRange {

@@ -9,7 +9,7 @@ import spray.util._
 
 import org.scalacheck.{Arbitrary, Gen}
 
-import nest.sparkle.core.ArrayPair
+import nest.sparkle.core.DataArray
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
@@ -77,7 +77,7 @@ class TestCassandraStore
         implicit val keyClass = ClassTag[T](keyType.mirror.runtimeClass(keyType.tpe))
         val valueType = implicitly[CanSerialize[U]].typedTag
         implicit val valueClass = ClassTag[U](valueType.mirror.runtimeClass(valueType.tpe))
-        val pair = ArrayPair[T, U](Array[T](event.argument), Array[U](event.value))
+        val pair = DataArray[T, U](Array[T](event.argument), Array[U](event.value))
 
         val read = readColumn.readRangeA(None, None)
         val results = read.initial.toBlocking.single
@@ -163,7 +163,7 @@ class TestCassandraStore
     }
   }
 
-  test("read+write many long double events with ArrayPair") {
+  test("read+write many long double events with DataArray") {
     withTestDb { implicit store =>
       forAll(Gen.chooseNum(100, 100000), minSuccessful(5)) { rowCount =>
         withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
@@ -176,7 +176,7 @@ class TestCassandraStore
           val testArray = {
             val keys = events.map(_.argument).toArray
             val values = events.map(_.value).toArray
-            ArrayPair(keys,values)
+            DataArray(keys,values)
           }
 
           writeColumn.write(events).await
@@ -184,9 +184,9 @@ class TestCassandraStore
           val results = read.initial.toBlocking.toList
           results should have length 1
           
-          val arrayPair = results.head
-          arrayPair should have length rowCount
-          arrayPair shouldBe testArray
+          val dataArray = results.head
+          dataArray should have length rowCount
+          dataArray shouldBe testArray
         }
       }
     }

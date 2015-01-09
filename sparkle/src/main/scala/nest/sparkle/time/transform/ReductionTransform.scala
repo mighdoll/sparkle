@@ -12,7 +12,6 @@ import spray.json.JsObject
 import nest.sparkle.measure.{Measurements, Span, TraceId}
 import nest.sparkle.time.protocol.{JsonDataStream, JsonEventWriter, KeyValueType}
 import nest.sparkle.time.transform.FetchStreams.fetchData
-import nest.sparkle.time.transform.StreamReduction.reduceByOptionalPeriod
 import nest.sparkle.util.{Log, PeriodWithZone, RecoverNumeric}
 
 /** support protocol "transform" field matching for the reduction transforms */ 
@@ -80,7 +79,7 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
           sum = ReduceSum[V]()(numericValue)
         } yield {
           // TODO support reduceByCount too (supported by the existing reductions)
-          reduceByOptionalPeriod(stream, optPeriod, sum)
+          stream.self.reduceByOptionalPeriod(optPeriod, sum)
         }
       }
       

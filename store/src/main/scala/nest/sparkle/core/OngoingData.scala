@@ -13,27 +13,27 @@ import nest.sparkle.store.{Event, OngoingEvents}
   * when all initial data is reported. The ongoing observable returns data available subsequent to the initial
   * request and typically never completes.
   */
-case class OngoingData[K: TypeTag, V: TypeTag](initial: Observable[ArrayPair[K, V]], ongoing: Observable[ArrayPair[K, V]]) {
+case class OngoingData[K: TypeTag, V: TypeTag](initial: Observable[DataArray[K, V]], ongoing: Observable[DataArray[K, V]]) {
   def keyType = implicitly[TypeTag[K]]
   def valueType = implicitly[TypeTag[V]]
 }
 
-/** temporary conversion shim, until we produce ArrayPairs from the storage layer */
+/** temporary conversion shim, until we produce DataArrays from the storage layer */
 object OngoingDataShim {
 
   /** (temporary shim) converts OngoingEvents to OngoingData */
   def fromOngoingEvents[K: TypeTag, V: TypeTag](ongoingEvents: OngoingEvents[K, V]): OngoingData[K, V] = {
 
-    val initial = eventsToArrayPairs(ongoingEvents.initial)
-    val ongoing = eventsToArrayPairs(ongoingEvents.ongoing)
+    val initial = eventsToDataArrays(ongoingEvents.initial)
+    val ongoing = eventsToDataArrays(ongoingEvents.ongoing)
     OngoingData(initial, ongoing)
   }
 
   /** Convert an observable of events to an observable of array pairs. We buffer the data by 5 milliseconds to
     * try and collect a worthwhile amount of data to stuff into an array. (this is intended as temporary code only
-    * until we update the store to generate ArrayPairs
+    * until we update the store to generate DataArrays
     */
-  private def eventsToArrayPairs[K: TypeTag, V: TypeTag](events: Observable[Event[K, V]]): Observable[ArrayPair[K, V]] = {
+  private def eventsToDataArrays[K: TypeTag, V: TypeTag](events: Observable[Event[K, V]]): Observable[DataArray[K, V]] = {
     val keyType = implicitly[TypeTag[K]]
     implicit val keyClass = ClassTag[K](keyType.mirror.runtimeClass(keyType.tpe))
 
@@ -47,7 +47,7 @@ object OngoingDataShim {
       keys = eventBuffer.map { case Event(k, v) => k }
       values = eventBuffer.map { case Event(k, v) => v }
     } yield {
-      ArrayPair(keys.toArray, values.toArray)
+      DataArray(keys.toArray, values.toArray)
     }
   }
 }

@@ -44,7 +44,7 @@ import org.scalatest.FunSuite
 import nest.sparkle.measure.Measurements
 import nest.sparkle.measure.ConfiguredMeasurements
 import java.util.concurrent.TimeUnit.MILLISECONDS
-import nest.sparkle.core.ArrayPair
+import nest.sparkle.core.DataArray
 import spray.httpx.unmarshalling._
 import scala.reflect.ClassTag
 

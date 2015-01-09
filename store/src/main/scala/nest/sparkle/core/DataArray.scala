@@ -3,10 +3,10 @@ package nest.sparkle.core
 import scala.reflect.{ClassTag, classTag}
 import scala.{specialized => spec}
 
-object ArrayPair {
-  /** return an ArrayPair with a single key,value pair */
-  def single[K: ClassTag, V: ClassTag](key: K, value: V): ArrayPair[K, V] = {
-    ArrayPair(Array(key), Array(value))
+object DataArray {
+  /** return an DataArray with a single key,value pair */
+  def single[K: ClassTag, V: ClassTag](key: K, value: V): DataArray[K, V] = {
+    DataArray(Array(key), Array(value))
   }
 }
 
@@ -15,7 +15,8 @@ object ArrayPair {
   */
 // LATER extend Traversable[Tuple2[K,V]] / CBF to get all the collection operators
 // (and then implement specialized variants for only a few)
-case class ArrayPair[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V]) {
+// LATER use HList instead of two arrays
+case class DataArray[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V]) {
   self =>
 
   require(keys.length == values.length)
@@ -27,7 +28,7 @@ case class ArrayPair[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
   
   override def equals(other: Any): Boolean = {
     other match {
-      case that: ArrayPair[K,V] =>
+      case that: DataArray[K,V] =>
         // TODO: rewrite to eliminate boxing/unboxing
         this.length == that.length &&
         (0 until length).forall { i =>
@@ -42,7 +43,7 @@ case class ArrayPair[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
     41 * (41 + keys(0).hashCode()) + values(0).hashCode()
   }
   
-  /** apply a function to each key,value pair in the ArrayPair. */
+  /** apply a function to each key,value pair in the DataArray. */
   // note that a standard foreach would take a tuple2 parameter, so we don't call this foreach
   def foreachPair(fn: (K, V) => Unit): Unit = { // TODO specialize
     var index = 0
@@ -75,22 +76,22 @@ case class ArrayPair[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
     array
   }
 
-  /** return a new ArrayPair with all of the elements in this ArrayPair except the first pair */
-  def tail: ArrayPair[K, V] = { // TODO specialize
+  /** return a new DataArray with all of the elements in this DataArray except the first pair */
+  def tail: DataArray[K, V] = { // TODO specialize
     // for now, we simply copy. (Fancier would be a view that peeks into the underlying array)
     val newKeys = keys.tail.toArray
     val newValues = values.tail.toArray
-    ArrayPair(newKeys, newValues)
+    DataArray(newKeys, newValues)
   }
 
-  /** Optionally return the first pair in this ArrayPair */
+  /** Optionally return the first pair in this DataArray */
   def headOption: Option[(K, V)] = {
     if (keys.length > 0) {
       Some((keys(0), values(0)))
     } else None
   }
 
-  /** Optionally return the ArrayPair values combined into a single value by a provided
+  /** Optionally return the DataArray values combined into a single value by a provided
     * binary operation function. The provided function should be associative and commutative.
     */
   def valuesReduceLeftOption(binOp: (V, V) => V): Option[V] = {

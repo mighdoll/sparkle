@@ -6,14 +6,14 @@ package nest.sparkle.time.transform
 //  * processing.
 //  */
 //case class BufferedWithRange[K:TypeTag, V:TypeTag] // format: OFF
-//    (initial: Future[ArrayPair[K,V]], 
-//     ongoing: Observable[ArrayPair[K,V]],
+//    (initial: Future[DataArray[K,V]], 
+//     ongoing: Observable[DataArray[K,V]],
 //     requestRange: Option[RangeInterval[K]]) 
 //    extends DataStream[K,V,BufferedWithRequestRange] with RequestRange[K]
 //    { // format: ON
 //
 //  override def mapData[B: TypeTag] // format: OFF
-//      (fn: ArrayPair[K,V] => ArrayPair[K,B])
+//      (fn: DataArray[K,V] => DataArray[K,B])
 //      (implicit execution:ExecutionContext)
 //      : BufferedWithRequestRange[K,B] = { // format: ON
 //    val newInitial = initial.map(fn)

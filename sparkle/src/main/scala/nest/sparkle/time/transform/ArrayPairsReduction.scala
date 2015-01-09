@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 import nest.sparkle.util.PeriodWithZone
 import rx.lang.scala.Observable
 import nest.sparkle.util.PeekableIterator
-import nest.sparkle.core.ArrayPair
+import nest.sparkle.core.DataArray
 import scala.collection.mutable.ArrayBuffer
 import rx.lang.scala.Notification
 import org.joda.time.{ Interval => JodaInterval }
@@ -14,19 +14,19 @@ import nest.sparkle.util.Log
 import scala.reflect.runtime.universe._
 import scala.concurrent.duration._
 
-/** Functions for reducing an Observable of array pairs to smaller ArrayPairs
+/** Functions for reducing an Observable of array pairs to smaller DataArrays
   */
-// LATER move these to methods on an object that wraps Observable[ArrayPair[K,V]]. PairStream?
-object ArrayPairsReduction extends Log {
+// LATER move these to methods on an object that wraps Observable[DataArray[K,V]]. PairStream?
+object DataArraysReduction extends Log {
 
   /** Reduce the array pair array to a single pair. A reduction function is applied
     * to reduce the pair values to a single value. The key of the returned pair
     * is the first key of original stream.
     */
-  def reduceArrayPairsToOnePart[K: ClassTag: TypeTag, V: TypeTag] // format: OFF
-      ( observablePairs: Observable[ArrayPair[K,V]], 
+  def reduceDataArraysToOnePart[K: ClassTag: TypeTag, V: TypeTag] // format: OFF
+      ( observablePairs: Observable[DataArray[K,V]], 
         reduction: Reduction[V])
-      : Observable[ArrayPair[K, Option[V]]] = { // format: ON
+      : Observable[DataArray[K, Option[V]]] = { // format: ON
 
     // buffer the first value so we can extract the first key
     val obsPairs = observablePairs.replay(1)
@@ -48,11 +48,11 @@ object ArrayPairsReduction extends Log {
       }
     }
 
-    // combine key and value together into an ArrayPair
-    val reduced: Observable[ArrayPair[K, Option[V]]] = {
+    // combine key and value together into an DataArray
+    val reduced: Observable[DataArray[K, Option[V]]] = {
       firstKey.zip(reducedValue).map {
         case (key, value) =>
-          ArrayPair.single(key, Some(value))
+          DataArray.single(key, Some(value))
       }
     }
 
@@ -80,9 +80,9 @@ object ArrayPairsReduction extends Log {
 
   /** apply a reduction function to a time-window of of array pairs */
   def tumblingReduce[K, V] // format: OFF
-      ( ongoing:Observable[ArrayPair[K,V]], bufferOngoing: FiniteDuration )
-      ( reduceFn: Observable[ArrayPair[K,V]] => Observable[ArrayPair[K, Option[V]]] )
-      : Observable[ArrayPair[K, Option[V]]] = { // format: ON
+      ( ongoing:Observable[DataArray[K,V]], bufferOngoing: FiniteDuration )
+      ( reduceFn: Observable[DataArray[K,V]] => Observable[DataArray[K, Option[V]]] )
+      : Observable[DataArray[K, Option[V]]] = { // format: ON
 
     for {
       buffer <- ongoing.tumbling(bufferOngoing)
@@ -93,7 +93,7 @@ object ArrayPairsReduction extends Log {
     }
   }
 
-  /** Reduce an Observable of ArrayPairs into a smaller Observable by dividing
+  /** Reduce an Observable of DataArrays into a smaller Observable by dividing
     * the pair data into partitions based on joda time period, and reducing
     * each partition's pair data with a supplied reduction function. The keys
     * for each partition are the start of the period.
@@ -103,12 +103,12 @@ object ArrayPairsReduction extends Log {
     *
     * Note that the key data is intepreted as epoch milliseconds. LATER make this configurable.
     */
-  def reduceArrayPairsByPeriod[K: ClassTag, V: ClassTag] // format: OFF
-      ( observablePairs: Observable[ArrayPair[K, V]],
+  def reduceDataArraysByPeriod[K: ClassTag, V: ClassTag] // format: OFF
+      ( observablePairs: Observable[DataArray[K, V]],
         periodWithZone: PeriodWithZone,
         reduction: Reduction[V] )
       ( implicit numericKey: Numeric[K] )
-      : Observable[ArrayPair[K, Option[V]]] = { // format: ON
+      : Observable[DataArray[K, Option[V]]] = { // format: ON
 
     val periodState = new PeriodState[K, V](reduction)
 
@@ -125,8 +125,8 @@ object ArrayPairsReduction extends Log {
         case Notification.OnError(err) =>
           Observable.error(err)
 
-        case Notification.OnNext(arrayPairs) =>
-          val pairs = PeekableIterator(arrayPairs.iterator)
+        case Notification.OnNext(dataArray) =>
+          val pairs = PeekableIterator(dataArray.iterator)
           val reducedPairs = pairsState.reduceCompletePeriods(pairs, periodWithZone, reduction)
           Observable.from(Seq(reducedPairs))
       }
@@ -190,9 +190,9 @@ private class PeriodState[K: Numeric: ClassTag, V](reduction: Reduction[V]) {
   }
 
   /** return the current aggregate total for this period, but do not reset aggregation */
-  def currentAccumulation(): Option[ArrayPair[K, Option[V]]] = {
+  def currentAccumulation(): Option[DataArray[K, Option[V]]] = {
     if (accumulationStarted) {
-      Some(ArrayPair.single(periodStart, Some(currentTotal)))
+      Some(DataArray.single(periodStart, Some(currentTotal)))
     } else {
       None
     }
@@ -209,7 +209,7 @@ private class PairsState[K: Numeric: ClassTag, V](periodState: PeriodState[K, V]
     */
   def reduceCompletePeriods(pairs: PeekableIterator[(K, V)],
                             periodWithZone: PeriodWithZone,
-                            reduction: Reduction[V]): ArrayPair[K, Option[V]] = {
+                            reduction: Reduction[V]): DataArray[K, Option[V]] = {
 
     pairs.headOption.foreach {
       case (firstKey, firstValue) =>
@@ -217,10 +217,10 @@ private class PairsState[K: Numeric: ClassTag, V](periodState: PeriodState[K, V]
         processPairs(pairs)
     }
     // results arrays are created as a side effect of processRemainingPairs
-    ArrayPair(resultKeys.toArray, resultValues.toArray)
+    DataArray(resultKeys.toArray, resultValues.toArray)
   }
 
-  /** walk through all of the elements in this ArrayPair block. As we go,
+  /** walk through all of the elements in this DataArray block. As we go,
     * we'll advance the period iterator as necessary. we reduce all
     * elements in the current period to a single value. We emit a None
     * value for periods with no elements.

@@ -20,7 +20,7 @@ import spire.implicits._
 import nest.sparkle.time.transform.FetchStreams.fetchData
 import scala.concurrent.duration._
 import scala.language.higherKinds
-import nest.sparkle.core.ArrayPair
+import nest.sparkle.core.DataArray
 import nest.sparkle.time.transform.TransformValidation.{ columnsKeyType, summaryPeriod, rangeExtender }
 
 /** convert boolean on off events to intervals from multiple columns, then sum for each requested period.
@@ -58,7 +58,7 @@ case class IntervalSum2(rootConfig: Config)(implicit measurements: Measurements)
     }
   }
 
-  /** An initial start at re-implementing IntervalSum on the ArrayPair substrate as a demonstration.
+  /** An initial start at re-implementing IntervalSum on the DataArray substrate as a demonstration.
     * Compare to OnOffIntervalSum.transformData to see the remaining work.
     */
   private def transformData[K: TypeTag: Numeric: JsonFormat: Ordering] // format: OFF
@@ -84,7 +84,7 @@ case class IntervalSum2(rootConfig: Config)(implicit measurements: Measurements)
       (implicit execution: ExecutionContext)
       : StreamGroupSet[K, K, S] = { // format: ON
 
-    def toIntervals(source: ArrayPair[Long, Boolean]): ArrayPair[Long, Long] = {
+    def toIntervals(source: DataArray[Long, Boolean]): DataArray[Long, Long] = {
       // note: This can't @specialize, because Function2 isn't specialized on Boolean
       //      source.mapElements{ (key, value) =>
       //        val length = if (value) 1L else 2L // placeholder for a real implementation
@@ -102,14 +102,14 @@ case class IntervalSum2(rootConfig: Config)(implicit measurements: Measurements)
         newValues(i) = if (value) 1L else 2L // placeholder for a real implementation
         i += 1
       }
-      ArrayPair(newKeys, newValues)
+      DataArray(newKeys, newValues)
     }
 
-    streams.mapData { arrayPair: ArrayPair[K, Boolean] =>
+    streams.mapData { DataArray: DataArray[K, Boolean] =>
       typeOf[K] match {
         case typ if typ =:= typeOf[Long] =>
-          val result: ArrayPair[Long, Long] = toIntervals(arrayPair.asInstanceOf[ArrayPair[Long, Boolean]])
-          result.asInstanceOf[ArrayPair[K, K]]
+          val result: DataArray[Long, Long] = toIntervals(DataArray.asInstanceOf[DataArray[Long, Boolean]])
+          result.asInstanceOf[DataArray[K, K]]
         case _ => ??? // TODO handle generic case
       }
     }

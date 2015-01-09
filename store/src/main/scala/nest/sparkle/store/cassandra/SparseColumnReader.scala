@@ -21,7 +21,7 @@ import rx.lang.scala.Observable
 
 import com.datastax.driver.core.{BoundStatement, Row}
 
-import nest.sparkle.core.{ArrayPair, OngoingData}
+import nest.sparkle.core.{DataArray, OngoingData}
 import nest.sparkle.store.{Column, Event, OngoingEvents}
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.store.cassandra.SparseColumnReaderStatements._
@@ -164,7 +164,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     * from C*
     */
   private def readFromStartCurrentA(start: T, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): Observable[ArrayPair[T,U]] = { // format: ON
+      (implicit execution:ExecutionContext): Observable[DataArray[T,U]] = { // format: ON
     log.trace(s"readFromStartCurrentA from $tableName $columnPath $start")
     val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
@@ -179,7 +179,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
   }
 
   private def handleColumnUpdateA(columnUpdate: ColumnUpdate[T], parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): Observable[ArrayPair[T,U]] = { // format: ON
+      (implicit execution:ExecutionContext): Observable[DataArray[T,U]] = { // format: ON
     log.trace(s"handleColumnUpdateA received $columnUpdate")
     readFromStartCurrentA(columnUpdate.start, parentSpan)
   }
@@ -200,7 +200,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     * 
     * TODO the read should only triggered if the caller subcribes to the returned observable.
     */
-  private def ongoingReadA(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[ArrayPair[T, U]] = {
+  private def ongoingReadA(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[DataArray[T, U]] = {
     writeListener.listen(columnPath).flatMap { columnUpdate: ColumnUpdate[T] =>
       handleColumnUpdateA(columnUpdate, parentSpan)
     }
@@ -233,7 +233,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     Event(argument.asInstanceOf[T], value.asInstanceOf[U])
   }
 
-  private def rowsDecoder(rows: List[Row]): ArrayPair[T, U] = {
+  private def rowsDecoder(rows: List[Row]): DataArray[T, U] = {
     log.trace(s"rowDecoderA: $rows")
     val size = rows.size
     val arguments = new Array[T](size)
@@ -243,7 +243,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
       arguments(index) = keySerializer.fromRow(row, 0)
       values(index) = valueSerializer.fromRow(row, 1)
     }
-    ArrayPair(arguments, values)
+    DataArray(arguments, values)
   }
 
   private def readEventRows(statement: BoundStatement, parentSpan:Option[Span]) // format: OFF
@@ -254,8 +254,11 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
   }
 
   private def readEventRowsA(statement: BoundStatement, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): Observable[ArrayPair[T, U]] = { // format: ON
+      (implicit execution:ExecutionContext): Observable[DataArray[T, U]] = { // format: ON
     val span = parentSpan.map { parent => Span.start("readEventRowsA", parent) }
+    
+    // TODO this blocks awaiting the last bit of data from the db.. 
+    // ..Instead, return DataArrays asynchronously
     val rows = prepared.session.executeAsync(statement).observerableRows(span).toList
     rows map rowsDecoder
   }

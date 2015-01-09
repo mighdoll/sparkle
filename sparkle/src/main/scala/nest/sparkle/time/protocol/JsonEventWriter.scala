@@ -27,7 +27,7 @@ import nest.sparkle.measure.DummySpan
 import nest.sparkle.measure.Detail
 import nest.sparkle.time.transform.StreamGroupSet
 import nest.sparkle.time.transform.DataStream
-import nest.sparkle.core.ArrayPair
+import nest.sparkle.core.DataArray
 import scala.util.Try
 import scala.util.Success
 import scala.util.Failure
@@ -108,9 +108,9 @@ object JsonEventWriter {
   }
 
   private def toJsArray[K: JsonWriter, V: JsonWriter] // format: OFF
-      ( arrayPair:ArrayPair[K,V] ) 
+      ( DataArray:DataArray[K,V] ) 
       : Array[JsArray] = { // format: ON
-    arrayPair.mapToArray { (key, value) =>
+    DataArray.mapToArray { (key, value) =>
       JsArray(key.toJson, value.toJson)
     }
   }
