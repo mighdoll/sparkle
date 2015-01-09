@@ -29,7 +29,6 @@ import akka.util.Timeout
 import spray.can.Http
 import spray.util._
 
-import nest.sparkle.legacy.PreloadedRegistry
 import nest.sparkle.loader.{ FilesLoader, LoadPathDoesNotExist }
 import nest.sparkle.store.Store
 import nest.sparkle.store.cassandra.WriteNotification
@@ -46,9 +45,8 @@ protected class SparkleAPIServer(val rootConfig: Config)(implicit val system: Ac
   
   def actorSystem = system
 
-  val fixmeRegistry = PreloadedRegistry(Nil)(system.dispatcher) // TODO delete this once we drop v0 protocol
   val service = system.actorOf(Props(
-    new ConfiguredDataServer(fixmeRegistry, store, rootConfig)),
+    new ConfiguredDataServer(store, rootConfig)),
     "sparkle-server"
   )
   

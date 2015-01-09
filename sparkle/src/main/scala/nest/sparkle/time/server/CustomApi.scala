@@ -16,7 +16,6 @@ package nest.sparkle.time.server
 
 import spray.routing.Route
 import akka.actor.ActorRefFactory
-import nest.sparkle.legacy.DataRegistry
 
 /** Extensions to the REST api provided by developers using sparkle.graph as a library.
   * Developers should subclass ApiExtension and then list their subclass in the
@@ -24,7 +23,7 @@ import nest.sparkle.legacy.DataRegistry
   * as they are instantiated.
   */
 abstract class ApiExtension(
-    val actorRefFactory: ActorRefFactory, dataRegistry:DataRegistry) {
+    val actorRefFactory: ActorRefFactory) {
   def route: Route
 }
 

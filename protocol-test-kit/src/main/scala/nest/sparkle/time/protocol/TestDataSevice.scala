@@ -18,7 +18,6 @@ import scala.concurrent.duration._
 import org.scalatest.Suite
 import spray.testkit.ScalatestRouteTest
 import nest.sparkle.time.server.DataService
-import nest.sparkle.legacy.DataRegistry
 import com.typesafe.config.ConfigFactory
 import spray.http.HttpResponse
 import spray.json._
@@ -58,9 +57,6 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 
   // tell spray test config about our configuration (and trigger logging initialization)
   override def testConfig = ConfigUtil.configForSparkle(rootConfig)
-
-  // TODO legacy, delete soon
-  def registry: DataRegistry = ???
 
   lazy val defaultTimeout = {
     val protocolConfig = configForSparkle(rootConfig).getConfig("protocol-tests")

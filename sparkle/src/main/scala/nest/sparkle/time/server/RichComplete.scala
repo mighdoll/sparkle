@@ -10,8 +10,7 @@ import scala.util.Failure
 import java.nio.file.NoSuchFileException
 import spray.http.StatusCodes
 import java.io.FileNotFoundException
-import nest.sparkle.legacy.ColumnNotFoundException
-import nest.sparkle.store.DataSetNotFound
+import nest.sparkle.store.{ColumnNotFound, DataSetNotFound}
 
 trait RichComplete extends Directives {
   implicit def executionContext: ExecutionContext
@@ -26,7 +25,7 @@ trait RichComplete extends Directives {
           complete(StatusCodes.NotFound -> notFound.getMessage)
         case Failure(notFound: FileNotFoundException) =>
           complete(StatusCodes.NotFound -> notFound.getMessage)
-        case Failure(notFound: ColumnNotFoundException) =>
+        case Failure(notFound: ColumnNotFound) =>
           complete(StatusCodes.NotFound -> notFound.getMessage)
         case Failure(notFound: DataSetNotFound) =>
           complete(StatusCodes.NotFound -> notFound.getMessage)

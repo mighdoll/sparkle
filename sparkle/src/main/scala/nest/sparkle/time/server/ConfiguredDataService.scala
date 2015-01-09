@@ -19,7 +19,6 @@ import akka.actor.ActorRefFactory
 import spray.routing.Route
 import scala.collection.JavaConverters._
 import nest.sparkle.util.Instance
-import nest.sparkle.legacy.DataRegistry
 import nest.sparkle.time.protocol.DataServiceV1
 import nest.sparkle.util.{Log, ConfigUtil}
 
