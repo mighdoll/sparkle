@@ -17,18 +17,18 @@ import nest.sparkle.util.ReflectionUtil
   * downstream processing.
   */
 case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
-    (initial: Observable[DataArray[K,V]], 
-     ongoing: Observable[DataArray[K,V]],
-     requestRange: Option[RangeInterval[K]]) 
-     extends TwoPartStream[K,V,AsyncWithRange] with RequestRange[K] with AsyncReduction[K,V]
-    { // format: ON
+    ( initial: DataStream[K,V], 
+      ongoing: DataStream[K,V],
+      requestRange: Option[RangeInterval[K]] ) 
+    extends TwoPartStream[K,V,AsyncWithRange] 
+      with RequestRange[K] with AsyncReduction[K,V] { // format: ON
 
   def mapData[B: TypeTag] // format: OFF
       (fn: DataArray[K,V] => DataArray[K,B])
       (implicit execution:ExecutionContext)
       : AsyncWithRange[K,B] = { // format: ON
-    val newInitial = initial.map(fn)
-    val newOngoing = ongoing.map(fn)
+    val newInitial = DataStream(initial.data.map(fn))
+    val newOngoing = DataStream(ongoing.data.map(fn))
     AsyncWithRange(newInitial, newOngoing, requestRange)
   }
 
@@ -38,21 +38,21 @@ case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
   implicit lazy val keyClassTag = ReflectionUtil.classTag[K](keyType)
   implicit lazy val valueClassTag = ReflectionUtil.classTag[V](valueType)
 
-  override def mapInitial[A](fn: DataArray[K, V] => A): Observable[A] = initial map fn
-  override def mapOngoing[A](fn: DataArray[K, V] => A): Observable[A] = ongoing map fn
+  override def mapInitial[A](fn: DataArray[K, V] => A): Observable[A] = initial.data map fn
+  override def mapOngoing[A](fn: DataArray[K, V] => A): Observable[A] = ongoing.data map fn
 
   override def doOnEach(fn: DataArray[K, V] => Unit): AsyncWithRange[K, V] = {
     copy(
-      initial = initial doOnEach fn,
-      ongoing = ongoing doOnEach fn
+      initial = DataStream(initial.data doOnEach fn),
+      ongoing = DataStream(ongoing.data doOnEach fn)
     )
   }
 
   override def plus(other: TwoPartStream[K, V, AsyncWithRange]) // format: OFF
     : TwoPartStream[K, V, AsyncWithRange] = { // format: ON
     AsyncWithRange(
-      initial = initial ++ other.self.initial,
-      ongoing = ongoing ++ other.self.ongoing,
+      initial = DataStream(initial.data ++ other.self.initial.data),
+      ongoing = DataStream(ongoing.data ++ other.self.ongoing.data),
       requestRange = requestRange
     )
   }
@@ -61,13 +61,21 @@ case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
 
 object AsyncWithRange {
   /** convenience constructor for creating an instance from an OngoingData */
-  def apply[K, V] // format: OFF
+  def apply[K: TypeTag, V: TypeTag] // format: OFF
     (ongoingData: OngoingData[K, V], requestRange: Option[RangeInterval[K]])
     : AsyncWithRange[K, V] = { // format: ON
-    (new AsyncWithRange(ongoingData.initial, ongoingData.ongoing, requestRange)(ongoingData.keyType, ongoingData.valueType))
+    (new AsyncWithRange(
+        initial = DataStream(ongoingData.initial), 
+        ongoing = DataStream(ongoingData.ongoing), 
+        requestRange = requestRange)(ongoingData.keyType, ongoingData.valueType))
   }
 
-  def error[K: TypeTag, V: TypeTag](err: Throwable, requestRange: Option[RangeInterval[K]]): AsyncWithRange[K, V] = {
-    AsyncWithRange[K, V](Observable.error(err), Observable.error(err), requestRange)
+  def error[K: TypeTag, V: TypeTag] // format: OFF
+      ( err: Throwable, requestRange: Option[RangeInterval[K]] )
+      : AsyncWithRange[K, V] = { // format: ON
+    AsyncWithRange[K, V](
+        initial = DataStream[K,V](Observable.error(err)), 
+        ongoing = DataStream[K,V](Observable.error(err)),
+        requestRange = requestRange)
   }
 }

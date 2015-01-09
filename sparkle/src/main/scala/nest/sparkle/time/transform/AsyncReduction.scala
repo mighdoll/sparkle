@@ -19,7 +19,6 @@ import scala.util.Success
 import nest.sparkle.util.PeekableIterator
 import rx.lang.scala.Notification
 import scala.concurrent.duration._
-import nest.sparkle.time.transform.DataArraysReduction._
 
 // TODO specialize for efficiency
 trait AsyncReduction[K,V] extends Log {
@@ -76,11 +75,10 @@ trait AsyncReduction[K,V] extends Log {
     RecoverNumeric.tryNumeric[K](keyType) match {
       case Success(numericKey) =>
         implicit val _ = numericKey
-        val reducedInitial = reduceDataArraysByPeriod(self.initial, periodWithZone, reduction)
+        val reducedInitial = self.initial.reduceByPeriod(periodWithZone, reduction)
         val reducedOngoing = 
-          tumblingReduce(self.ongoing, bufferOngoing) {
-            buffer =>
-              reduceDataArraysByPeriod(buffer, periodWithZone, reduction)
+          self.ongoing.tumblingReduce(bufferOngoing) { buffer =>
+            buffer.reduceByPeriod(periodWithZone, reduction)
           }
         AsyncWithRange(reducedInitial, reducedOngoing, self.requestRange)
       case Failure(err) => AsyncWithRange.error(err, self.requestRange)
@@ -94,12 +92,11 @@ trait AsyncReduction[K,V] extends Log {
           bufferOngoing: FiniteDuration = 5.seconds)
         : AsyncWithRange[K, Option[V]] = { // format: ON
 
-    val initialReduced = reduceDataArraysToOnePart(self.initial, reduction)
+    val initialReduced = initial.reduceToOnePart(reduction)
 
     val ongoingReduced = 
-      tumblingReduce(self.ongoing, bufferOngoing) {
-        buffer =>
-          reduceDataArraysToOnePart(buffer, reduction)
+      ongoing.tumblingReduce(bufferOngoing) {
+        _.reduceToOnePart(reduction)
       }
 
     AsyncWithRange(initialReduced, ongoingReduced, self.requestRange)

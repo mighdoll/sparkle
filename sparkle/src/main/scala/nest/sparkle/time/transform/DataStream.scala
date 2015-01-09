@@ -1,5 +1,6 @@
 package nest.sparkle.time.transform
 
+
 import scala.reflect.ClassTag
 import nest.sparkle.util.PeriodWithZone
 import rx.lang.scala.Observable
@@ -13,23 +14,24 @@ import spire.implicits._
 import nest.sparkle.util.Log
 import scala.reflect.runtime.universe._
 import scala.concurrent.duration._
+import nest.sparkle.util.ReflectionUtil
 
 /** Functions for reducing an Observable of array pairs to smaller DataArrays
   */
 // LATER move these to methods on an object that wraps Observable[DataArray[K,V]]. PairStream?
-object DataArraysReduction extends Log {
+case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]]) {
 
+  implicit lazy val keyClassTag = ReflectionUtil.classTag[K](typeTag[K])
+  implicit lazy val valueClassTag = ReflectionUtil.classTag[V](typeTag[V])
+  
   /** Reduce the array pair array to a single pair. A reduction function is applied
     * to reduce the pair values to a single value. The key of the returned pair
     * is the first key of original stream.
     */
-  def reduceDataArraysToOnePart[K: ClassTag: TypeTag, V: TypeTag] // format: OFF
-      ( observablePairs: Observable[DataArray[K,V]], 
-        reduction: Reduction[V])
-      : Observable[DataArray[K, Option[V]]] = { // format: ON
+  def reduceToOnePart(reduction: Reduction[V]): DataStream[K, Option[V]]  = { 
 
     // buffer the first value so we can extract the first key
-    val obsPairs = observablePairs.replay(1)
+    val obsPairs = data.replay(1)
     obsPairs.connect
 
     // observable containing a single reduced value
@@ -56,16 +58,16 @@ object DataArraysReduction extends Log {
       }
     }
 
-    reduced
+    new DataStream(reduced)
   }
 
   /** reduce optional values with a reduction function. */ // scalaz would make this automatic..
-  private def reduceOptions[V] // format: OFF
-      ( optPairs: Observable[Option[V]], 
-        reduction: Reduction[V] ) // format: ON
-        : Observable[V] = {
+  private def reduceOptions  // format: OFF
+      ( optValues: Observable[Option[V]], 
+        reduction: Reduction[V] )
+      : Observable[V] = { // format: ON
 
-    val optionalResult = optPairs.reduce { (optA, optB) =>
+    val optionalResult = optValues.reduce { (optA, optB) =>
       (optA, optB) match {
         case (a@Some(_), None) => a
         case (None, b@Some(_)) => b
@@ -77,22 +79,28 @@ object DataArraysReduction extends Log {
     }
     optionalResult.flatMap { option => Observable.from(option) }
   }
-
+  
+  
   /** apply a reduction function to a time-window of of array pairs */
-  def tumblingReduce[K, V] // format: OFF
-      ( ongoing:Observable[DataArray[K,V]], bufferOngoing: FiniteDuration )
-      ( reduceFn: Observable[DataArray[K,V]] => Observable[DataArray[K, Option[V]]] )
-      : Observable[DataArray[K, Option[V]]] = { // format: ON
+  def tumblingReduce // format: OFF
+      ( bufferOngoing: FiniteDuration )
+      ( reduceFn: DataStream[K, V] => DataStream[K, Option[V]] )
+      : DataStream[K, Option[V]] = { // format: ON
 
-    for {
-      buffer <- ongoing.tumbling(bufferOngoing)
-      reduced <- reduceFn(buffer)
-      nonEmptyReduced <- if (reduced.isEmpty) Observable.empty else Observable.from(Seq(reduced))
-    } yield {
-      nonEmptyReduced
-    }
+    val reducedStream = 
+      for {
+        buffer <- data.tumbling(bufferOngoing)
+        reduced <- reduceFn(DataStream(buffer)).data
+        nonEmptyReduced <- if (reduced.isEmpty) Observable.empty else Observable.from(Seq(reduced))
+      } yield {
+        nonEmptyReduced
+      }
+      
+    new DataStream(reducedStream)
   }
 
+
+  
   /** Reduce an Observable of DataArrays into a smaller Observable by dividing
     * the pair data into partitions based on joda time period, and reducing
     * each partition's pair data with a supplied reduction function. The keys
@@ -103,37 +111,40 @@ object DataArraysReduction extends Log {
     *
     * Note that the key data is intepreted as epoch milliseconds. LATER make this configurable.
     */
-  def reduceDataArraysByPeriod[K: ClassTag, V: ClassTag] // format: OFF
-      ( observablePairs: Observable[DataArray[K, V]],
-        periodWithZone: PeriodWithZone,
+  def reduceByPeriod // format: OFF
+      ( periodWithZone: PeriodWithZone,
         reduction: Reduction[V] )
       ( implicit numericKey: Numeric[K] )
-      : Observable[DataArray[K, Option[V]]] = { // format: ON
+      : DataStream[K, Option[V]] = { // format: ON
 
     val periodState = new PeriodState[K, V](reduction)
 
-    observablePairs.materialize.flatMap { notification =>
-      val pairsState = new PairsState(periodState)
-
-      notification match {
-        case Notification.OnCompleted =>
-          periodState.currentAccumulation() match {
-            case Some(pair) => Observable.from(Seq(pair))
-            case None       => Observable.empty
-          }
-
-        case Notification.OnError(err) =>
-          Observable.error(err)
-
-        case Notification.OnNext(dataArray) =>
-          val pairs = PeekableIterator(dataArray.iterator)
-          val reducedPairs = pairsState.reduceCompletePeriods(pairs, periodWithZone, reduction)
-          Observable.from(Seq(reducedPairs))
+    val reduced = 
+      data.materialize.flatMap { notification =>
+        val pairsState = new PairsState(periodState)
+  
+        notification match {
+          case Notification.OnCompleted =>
+            periodState.currentAccumulation() match {
+              case Some(pair) => Observable.from(Seq(pair))
+              case None       => Observable.empty
+            }
+  
+          case Notification.OnError(err) =>
+            Observable.error(err)
+  
+          case Notification.OnNext(dataArray) =>
+            val pairs = PeekableIterator(dataArray.iterator)
+            val reducedPairs = pairsState.reduceCompletePeriods(pairs, periodWithZone, reduction)
+            Observable.from(Seq(reducedPairs))
+        }
+  
       }
-
-    }
+    
+    new DataStream(reduced)
   }
 }
+
 
 /** maintains the state needed while iterating through time periods */
 private class PeriodState[K: Numeric: ClassTag, V](reduction: Reduction[V]) {

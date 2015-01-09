@@ -28,10 +28,10 @@ object FetchRanges {
       column.readRange(start, until, limit, parentSpan)
     }
 
-    val keyType: TypeTag[K] = castKind(column.keyType)
-    val valueType: TypeTag[V] = castKind(column.valueType)
+    implicit val keyType: TypeTag[K] = castKind(column.keyType)
+    implicit val valueType: TypeTag[V] = castKind(column.valueType)
 
-    val ongoingData = OngoingDataShim.fromOngoingEvents(ongoingEvents)(keyType, valueType)
+    val ongoingData = OngoingDataShim.fromOngoingEvents(ongoingEvents)
     AsyncWithRange(ongoingData, optRange)
   }
 
