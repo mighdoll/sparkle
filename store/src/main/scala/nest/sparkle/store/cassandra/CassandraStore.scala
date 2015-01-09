@@ -30,7 +30,7 @@ import nest.sparkle.util.Log
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.TryToFuture._
 
-import com.datastax.driver.core.{Cluster, Row, Session}
+import com.datastax.driver.core.{ConsistencyLevel, Cluster, Row, Session}
 
 case class AsciiString(string: String) extends AnyVal
 
@@ -129,6 +129,8 @@ class ConfiguredCassandraReaderWriter(
   override def writeListener = writeNotification
 }
 
+case class CassandraConsistency(read: ConsistencyLevel, write: ConsistencyLevel)
+
 trait ConfiguredCassandra extends Log
 {
   def config: Config
@@ -140,11 +142,13 @@ trait ConfiguredCassandra extends Log
     .toSeq
   private lazy val storeKeySpace = storeConfig.getString("key-space").toLowerCase
   private lazy val replicationFactor = storeConfig.getInt("replication-factor")
+  lazy val cassandraConsistency = CassandraConsistency(ConsistencyLevel.valueOf(storeConfig.getString("read-consistency-level")),
+    ConsistencyLevel.valueOf(storeConfig.getString("write-consistency-level")))
 
   // TODO use a provided execution context
   implicit def execution: ExecutionContext = ExecutionContext.global
-  lazy val columnCatalog = ColumnCatalog(config, session)
-  lazy val dataSetCatalog = DataSetCatalog(session)
+  lazy val columnCatalog = ColumnCatalog(config, session, cassandraConsistency)
+  lazy val dataSetCatalog = DataSetCatalog(session, cassandraConsistency)
 
   /** current cassandra session.  (Currently we use one session for this CassandraStore) */
   implicit lazy val session: Session = {
@@ -247,7 +251,7 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   this.session
   
   // This is not used by the TableWriters
-  private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements)
+  private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements, cassandraConsistency.write)
 
   /** return a column from a fooSet/barSet/columnName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](
@@ -299,7 +303,7 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
 
   this.session
   // trigger creating connection, and create schemas if necessary 
-  private lazy val preparedSession = PreparedSession(session, SparseColumnReaderStatements)
+  private lazy val preparedSession = PreparedSession(session, SparseColumnReaderStatements, cassandraConsistency.read)
 
   /** Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
     *

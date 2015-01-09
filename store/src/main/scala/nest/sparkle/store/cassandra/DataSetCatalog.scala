@@ -3,10 +3,8 @@ package nest.sparkle.store.cassandra
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import rx.lang.scala.Observable
-import com.datastax.driver.core.Session
-import com.datastax.driver.core.PreparedStatement
+import com.datastax.driver.core.{Session, PreparedStatement, Row}
 import com.datastax.driver.core.querybuilder.QueryBuilder
-import com.datastax.driver.core.Row
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.OptionConversion._
 import nest.sparkle.store.cassandra.ObservableResultSet._
@@ -42,8 +40,8 @@ case class DataSetCatalogStatements(addChildPath: PreparedStatement,
  *   a/b1 -> a/b1/col1:true, a/b1/col2:true
  *   a/b2 -> a/b2/col1:true, a/b2/col2:true
  */
-case class DataSetCatalog(session:Session)
-  extends PreparedStatements[DataSetCatalogStatements] with Log
+case class DataSetCatalog(session: Session, cassandraConsistency: CassandraConsistency)
+    extends PreparedStatements[DataSetCatalogStatements] with Log
 {
   val tableName = DataSetCatalog.tableName
 
@@ -67,8 +65,8 @@ case class DataSetCatalog(session:Session)
    */
   def makeStatements(): DataSetCatalogStatements = {
     DataSetCatalogStatements(
-      session.prepare(addChildPathStatement),
-      session.prepare(childrenOfParentPathStatement)
+      session.prepare(addChildPathStatement).setConsistencyLevel(cassandraConsistency.write),
+      session.prepare(childrenOfParentPathStatement).setConsistencyLevel(cassandraConsistency.read)
     )
   }
 

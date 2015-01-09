@@ -1,7 +1,6 @@
 package nest.sparkle.store.cassandra
 
-import com.datastax.driver.core.Session
-import com.datastax.driver.core.PreparedStatement
+import com.datastax.driver.core.{ConsistencyLevel, PreparedStatement, Session}
 import scala.util.control.Exception._
 import nest.sparkle.util.Log
 
@@ -13,7 +12,8 @@ trait TableOperation { def tableName: String }
 /** a C* session combined with prepared statements active on that session. Users
   * provide some functions to create CQL statements, and then access them via the statement() method
   */
-case class PreparedSession(val session: Session, perTablePrepared:PerTablePrepared) extends Log {
+case class PreparedSession(val session: Session, perTablePrepared:PerTablePrepared,
+    val consistencyLevel: ConsistencyLevel) extends Log {
 
   /** return prepared statement for a given intended operation. Throws if statement is not found. */
   def statement(tableOperation: TableOperation): PreparedStatement = {
@@ -30,7 +30,7 @@ case class PreparedSession(val session: Session, perTablePrepared:PerTablePrepar
         tableOperation = makeTableOp(tableName)
         statementText = makeStatement(tableName)
       } yield {
-        val statement = nonFatalCatch.withTry { session.prepare(statementText) }.get
+        val statement = nonFatalCatch.withTry { session.prepare(statementText).setConsistencyLevel(consistencyLevel) }.get
         tableOperation -> statement
       }
 

@@ -16,8 +16,7 @@ package nest.sparkle.store.cassandra
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import com.datastax.driver.core.Session
-import com.datastax.driver.core.PreparedStatement
+import com.datastax.driver.core.{PreparedStatement, Session, SimpleStatement}
 import nest.sparkle.store.{ColumnPathFormat, ColumnNotFound}
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.Instance
@@ -56,8 +55,9 @@ case class CatalogStatements(addCatalogEntry: PreparedStatement,
   * the cassandra table holding the column data, as well as other
   * metadata about the column like the type of data that is stored in the column.
   */
-case class ColumnCatalog(sparkleConfig : Config, session: Session) extends PreparedStatements[CatalogStatements]
-    with Log {
+case class ColumnCatalog(sparkleConfig: Config, session: Session, cassandraConsistency: CassandraConsistency)
+    extends PreparedStatements[CatalogStatements] with Log {
+
   val tableName = ColumnCatalog.tableName
 
   /** insert or overwrite a catalog entry */
@@ -162,7 +162,9 @@ case class ColumnCatalog(sparkleConfig : Config, session: Session) extends Prepa
       LIMIT 50000000;
     """
 
-    val rows = session.executeAsync(allColumnsStatement).observerableRows()
+    val rows = session.executeAsync(
+      new SimpleStatement(allColumnsStatement).setConsistencyLevel(cassandraConsistency.read))
+        .observerableRows()
     // result should be rows containing a single string: the columnCategory
     rows.map { row =>
       row.getString(0)
@@ -176,8 +178,8 @@ case class ColumnCatalog(sparkleConfig : Config, session: Session) extends Prepa
   /** prepare some cql statements */
   def makeStatements(): CatalogStatements = {
     CatalogStatements(
-      addCatalogEntry = session.prepare(addCatalogEntryStatement),
-      catalogInfo = session.prepare(catalogInfoStatement)
+      addCatalogEntry = session.prepare(addCatalogEntryStatement).setConsistencyLevel(cassandraConsistency.write),
+      catalogInfo = session.prepare(catalogInfoStatement).setConsistencyLevel(cassandraConsistency.read)
     )
   }
 }
