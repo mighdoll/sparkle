@@ -21,6 +21,8 @@ object SparkleBuild extends Build {
   lazy val protocol =       // protocol server library serving the sparkle data api
     Project(id = "sparkle-protocol", base = file("protocol"))
       .dependsOn(sparkleCore)
+      .dependsOn(sparkleStore)
+      .dependsOn(httpCommon)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
@@ -31,8 +33,8 @@ object SparkleBuild extends Build {
 
   lazy val sparkleCore =      // core libraries used the protocol server
     Project(id = "sparkle-core", base = file("sparkle"))
-      .dependsOn(httpCommon)
-      .dependsOn(sparkleStore)
+      .dependsOn(httpCommon)  // TODO remove
+      .dependsOn(sparkleStore)  // TODO maybe remove
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
