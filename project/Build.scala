@@ -146,7 +146,7 @@ object SparkleBuild extends Build {
   lazy val sparkleTests =   // unit and integration for sparkle core and protocol libraries
     Project(id = "sparkle-tests", base = file("sparkle-tests"))
       .dependsOn(protocol)
-      .dependsOn(protocolTestKit)
+      .dependsOn(protocolTestKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
       .dependsOn(util)
       .configs(IntegrationTest)
@@ -224,7 +224,7 @@ object SparkleBuild extends Build {
     Project(id = "spark-repl", base = file("spark"))
       .dependsOn(sparkleStore)
       .dependsOn(sparkleLoader)
-      .dependsOn(protocolTestKit)
+      .dependsOn(protocolTestKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
@@ -242,6 +242,7 @@ object SparkleBuild extends Build {
   lazy val sparkleDataServer =  // standalone protocol server
     Project(id = "sparkle-data-server", base = file("data-server"))
       .dependsOn(protocol)
+      .dependsOn(protocolTestKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
