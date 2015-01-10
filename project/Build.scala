@@ -20,6 +20,7 @@ object SparkleBuild extends Build {
 
   lazy val protocol =       // protocol server library serving the sparkle data api
     Project(id = "sparkle-protocol", base = file("protocol"))
+      .dependsOn(util)
       .dependsOn(sparkleCore)
       .dependsOn(sparkleStore)
       .dependsOn(httpCommon)
@@ -27,40 +28,32 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(
         libraryDependencies ++= kafka ++ testAndLogging ++ avro ++ Seq(
+          nettyAll,
+          unfiltered,
           metricsScala
         )
       )
 
-  lazy val sparkleCore =      // core libraries used the protocol server
+  lazy val sparkleCore =      // core libraries for streaming data
     Project(id = "sparkle-core", base = file("sparkle"))
-      .dependsOn(httpCommon)  // TODO remove
-      .dependsOn(sparkleStore)  // TODO maybe remove
+      .dependsOn(util)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
         libraryDependencies ++= Seq(
           scalaReflect,
-          spire,
-          argot,
-          unfiltered,
-          metricsScala
+          spire
         ),
 //        adminPort := Some(18000), // enable when admin supports /shutdown
-        healthPort := Some(18001), 
-        initialCommands in console := """
-          import nest.sg.Plot._
-          import nest.sg.StorageConsole._
-          import nest.sparkle.store.Event
-          import rx.lang.scala.Observable
-          import scala.concurrent.duration._
-          """
+        healthPort := Some(18001)
       )
 
 
   lazy val sparkleStore =
     Project(id = "sparkle-store", base = file("store"))
       .dependsOn(util)
+      .dependsOn(sparkleCore)
       .dependsOn(testKit % "it->compile")
       .dependsOn(log4jConfig % "it->compile")
       .configs(IntegrationTest)
@@ -68,12 +61,10 @@ object SparkleBuild extends Build {
       .settings(BackgroundService.settings: _*)
       .settings(
         libraryDependencies ++= cassandraClient ++ testAndLogging ++ Seq (
-          nettyAll,
           sprayCaching,
           sprayJson,
           sprayUtil,
-          openCsv,
-          spire
+          openCsv
         ),
         dependenciesToStart := Seq(cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value
@@ -138,7 +129,7 @@ object SparkleBuild extends Build {
 
   lazy val protocolTestKit =        // utilities for testing sparkle protocol
     Project(id = "sparkle-protocol-test-kit", base = file("protocol-test-kit"))
-      .dependsOn(sparkleCore)
+      .dependsOn(protocol)
       .dependsOn(sparkleStore % "compile->compile;it->it;compile->it;it->compile")
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
@@ -147,6 +138,7 @@ object SparkleBuild extends Build {
     Project(id = "sparkle-tests", base = file("sparkle-tests"))
       .dependsOn(protocol)
       .dependsOn(protocolTestKit % "it->compile;test->compile")
+      .dependsOn(testKit % "it->compile")
       .dependsOn(logbackConfig)
       .dependsOn(util)
       .configs(IntegrationTest)
@@ -250,7 +242,14 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        dependenciesToStart := Seq(cassandraServer)
+        dependenciesToStart := Seq(cassandraServer),
+        initialCommands in console := """
+          import nest.sg.Plot._
+          import nest.sg.StorageConsole._
+          import nest.sparkle.store.Event
+          import rx.lang.scala.Observable
+          import scala.concurrent.duration._
+          """
       )
 
   lazy val cassandraServer =
