@@ -36,7 +36,7 @@ import spray.json.JsValue
 class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
   override def testKeySpace = "testfilesloader"
 
-  override def testConfigFile: Option[String] = Some("tests.conf")
+  override def testConfigFile: Option[String] = Some("tests")
 
   /** try loading a known file and check the expected column for results */
   def testEpochsFile(resourcePath: String, columnPath: String) {

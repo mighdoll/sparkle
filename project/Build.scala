@@ -13,7 +13,7 @@ object SparkleBuild extends Build {
 
   lazy val sparkleRoot = Project(id = "root", base = file("."))
     .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, sparkShell, testKit, 
-      sparkleTests, sparkleStore, sparkleLoader, sparkleAvro,
+      sparkleTests, sparkleStore, storeTestKit, storeTests, sparkleLoader, sparkleAvro,
       util, logbackConfig, log4jConfig, httpCommon, utilKafka,
       cassandraServer, zookeeperServer, kafkaServer
     )
@@ -69,6 +69,32 @@ object SparkleBuild extends Build {
         dependenciesToStart := Seq(cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value
      )
+
+  lazy val storeTestKit =        // utilities for testing sparkle stuff
+    Project(id = "sparkle-store-test-kit", base = file("store-test-kit"))
+      .dependsOn(util)
+      .dependsOn(testKit)
+      .dependsOn(sparkleStore)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(
+        libraryDependencies ++= storeKitTestsAndLogging 
+      )
+
+  lazy val storeTests = 
+    Project(id = "sparkle-store-tests", base = file("sparkle-store-tests"))
+      .dependsOn(storeTestKit % "it->compile;test->compile")
+      .dependsOn(log4jConfig)
+      .dependsOn(util)
+      .configs(IntegrationTest)
+      .settings(BuildSettings.allSettings: _*)
+      .settings(BackgroundService.settings: _*)
+      .settings(
+        libraryDependencies ++= Seq(
+          metricsGraphite
+        ),
+        dependenciesToStart := Seq(cassandraServer),
+        test in IntegrationTest := BackgroundService.itTestTask.value
+      )
 
   lazy val sparkleLoader =
     Project(id = "sparkle-loader", base = file("loader"))
@@ -130,7 +156,9 @@ object SparkleBuild extends Build {
   lazy val protocolTestKit =        // utilities for testing sparkle protocol
     Project(id = "sparkle-protocol-test-kit", base = file("protocol-test-kit"))
       .dependsOn(protocol)
-      .dependsOn(sparkleStore % "compile->compile;it->it;compile->it;it->compile")
+      .dependsOn(testKit)
+      .dependsOn(storeTestKit)
+      .dependsOn(sparkleStore)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
 
@@ -233,7 +261,7 @@ object SparkleBuild extends Build {
 
   lazy val sparkleDataServer =  // standalone protocol server
     Project(id = "sparkle-data-server", base = file("data-server"))
-      .dependsOn(protocol)
+      .dependsOn(protocol % "compile->compile")
       .dependsOn(protocolTestKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)

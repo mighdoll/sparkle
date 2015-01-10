@@ -19,7 +19,6 @@ trait SparkleTestConfig extends Suite with BeforeAndAfterAll {
   lazy val loggingInitialized = new AtomicBoolean
 
   override def beforeAll() {
-    println("!! beforeAll")
     initializeLogging()
     super.beforeAll()
   }
@@ -32,16 +31,13 @@ trait SparkleTestConfig extends Suite with BeforeAndAfterAll {
 
   /** return the outermost Config object. Also triggers logging initialization */
   lazy val rootConfig: Config = {
-    println("!! getting rootConfig")
     val baseConfig = ConfigFactory.load()
     val root = testConfigFile match {
       case Some(confFile) => 
-        println(s"!!config file found: $testConfigFile")
-        
         val config = ConfigFactory.parseResources(confFile+".conf").resolve()
+        val rendered = config.root.render
         config.withFallback(baseConfig)
       case None           => 
-        println(s"!!config file NOT found: $testConfigFile")
         baseConfig
     }
  
@@ -61,7 +57,6 @@ trait SparkleTestConfig extends Suite with BeforeAndAfterAll {
     * rootConfig. Idempotent.
     */
   private def initLogging(config: Config) {
-    println("!! initLogging")
     if (loggingInitialized.compareAndSet(false, true)) {
       LogUtil.configureLogging(config)
     } else {

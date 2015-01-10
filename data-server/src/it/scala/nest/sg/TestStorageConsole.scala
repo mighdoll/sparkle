@@ -11,6 +11,8 @@ import spray.util._
 
 class TestStorageConsole extends FunSuite with Matchers with CassandraTestConfig {
   val filePath = Resources.filePathString("epochs.csv")
+  
+  override def testConfigFile = Some("tests")
 
   def withTestConsole[T](fn: StorageConsoleAPI => T): T = {    
     withTestDb { testDb =>

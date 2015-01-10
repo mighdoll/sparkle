@@ -174,6 +174,14 @@ object Dependencies {
 
   val testAndLogging = basicTest ++ logging
 
+  val storeKitTestsAndLogging = {
+    Seq( // test libraries, but in main config, not in Test or IT
+      Kit.scalaTest,
+      Kit.scalaCheck,
+      Kit.akkaTestKit
+    ) ++ logging
+  }
+
   val kitTestsAndLogging = {
     Seq( // test libraries, but in main config, not in Test or IT
       Kit.scalaTest,
