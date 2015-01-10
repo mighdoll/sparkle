@@ -27,7 +27,7 @@ object SparkleBuild extends Build {
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= kafka ++ testAndLogging ++ avro ++ Seq(
+        libraryDependencies ++= logbackTest ++ Seq(
           nettyAll,
           unfiltered,
           metricsScala
@@ -41,7 +41,7 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
-        libraryDependencies ++= Seq(
+        libraryDependencies ++= logbackTest ++ Seq(
           scalaReflect,
           spire
         ),
@@ -55,7 +55,6 @@ object SparkleBuild extends Build {
       .dependsOn(util)
       .dependsOn(sparkleCore)
       .dependsOn(testKit % "it->compile")
-      .dependsOn(log4jConfig % "it->compile")
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
@@ -83,13 +82,13 @@ object SparkleBuild extends Build {
   lazy val storeTests = 
     Project(id = "sparkle-store-tests", base = file("sparkle-store-tests"))
       .dependsOn(storeTestKit % "it->compile;test->compile")
-      .dependsOn(log4jConfig)
+      .dependsOn(logbackConfig)
       .dependsOn(util)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= Seq(
+        libraryDependencies ++= logbackTest ++ Seq(
           metricsGraphite
         ),
         dependenciesToStart := Seq(cassandraServer),
@@ -102,7 +101,7 @@ object SparkleBuild extends Build {
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= testAndLogging
+        libraryDependencies ++= logbackTest
       )
 
   lazy val sparkleAvro =
@@ -119,6 +118,7 @@ object SparkleBuild extends Build {
   lazy val kafkaLoader =    // loading from kafka into the store
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
       .dependsOn(sparkleStore % "compile->compile;it->it;it->compile")
+      .dependsOn(storeTestKit % "it->compile;test->compile")
       .dependsOn(sparkleLoader)
       .dependsOn(utilKafka % "compile->compile;test->test;it->it")
       .dependsOn(log4jConfig)
@@ -185,7 +185,7 @@ object SparkleBuild extends Build {
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= Seq(
+        libraryDependencies ++= logbackTest ++ Seq(
           argot,
           guava,
           spire,
@@ -207,9 +207,7 @@ object SparkleBuild extends Build {
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= akka ++ spray ++ testAndLogging ++ Seq(
-          Runtime.logback % "test"
-        )
+        libraryDependencies ++= akka ++ spray ++ logbackTest 
       )
 
   lazy val utilKafka =           // kafka utilities useful in other projects too
@@ -229,7 +227,7 @@ object SparkleBuild extends Build {
       .dependsOn(util)
       .settings(BuildSettings.allSettings: _*)
       .settings(
-        libraryDependencies ++= logbackLogging ++ Seq(Test.scalaTest)
+        libraryDependencies ++= Seq(Runtime.logback) ++ Seq(Test.scalaTest)
       )
 
   lazy val log4jConfig =   // mix in to projects choosing log4j (kafka requires log4j)
@@ -244,7 +242,7 @@ object SparkleBuild extends Build {
     Project(id = "spark-repl", base = file("spark"))
       .dependsOn(sparkleStore)
       .dependsOn(sparkleLoader)
-      .dependsOn(protocolTestKit % "it->compile;test->compile")
+      .dependsOn(storeTestKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
@@ -261,7 +259,7 @@ object SparkleBuild extends Build {
 
   lazy val sparkleDataServer =  // standalone protocol server
     Project(id = "sparkle-data-server", base = file("data-server"))
-      .dependsOn(protocol % "compile->compile")
+      .dependsOn(protocol)
       .dependsOn(protocolTestKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
@@ -271,6 +269,7 @@ object SparkleBuild extends Build {
       .settings(BackgroundService.settings: _*)
       .settings(
         dependenciesToStart := Seq(cassandraServer),
+        libraryDependencies ++= testAndLogging, 
         initialCommands in console := """
           import nest.sg.Plot._
           import nest.sg.StorageConsole._

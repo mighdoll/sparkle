@@ -6,19 +6,20 @@ import nest.sparkle.store.cassandra.ColumnTypes
 import scala.reflect.runtime.universe._
 import org.apache.spark.rdd.RDD
 import nest.sparkle.store.Event
+import nest.sparkle.loader.spark.SparkTestConfig
 
-class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTestConfig {
+class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTestConfig
+  with SparkTestConfig {
 
   override def testKeySpace = "testsparkconnection"
-  
+
   test("count total elements in the system") {
     val connection = SparkConnection(rootConfig, "TestSparkConnection")
 
     withTestDb { store =>
       try {
         val valueTypes = Seq(
-          typeTag[Long], typeTag[Double], typeTag[Int], typeTag[Boolean], typeTag[String]
-        )
+          typeTag[Long], typeTag[Double], typeTag[Int], typeTag[Boolean], typeTag[String])
         val rdds: Seq[RDD[Any]] = valueTypes map { valueType =>
           connection.columnsRDD(typeTag[Long], valueType).asInstanceOf[RDD[Any]]
         }
