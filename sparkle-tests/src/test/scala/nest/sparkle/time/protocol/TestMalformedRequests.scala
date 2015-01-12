@@ -6,7 +6,6 @@ import nest.sparkle.time.protocol.ResponseJson._
 import spray.httpx.SprayJsonSupport._
 
 class TestMalformedRequests extends PreloadedRamStore with StreamRequestor with TestDataService {
-  nest.sparkle.util.InitializeReflection.init
 
   test("missing transform parameters on Raw transform") {
     val msg = s"""
@@ -29,6 +28,9 @@ class TestMalformedRequests extends PreloadedRamStore with StreamRequestor with 
   }
   
   test("missing column returns column not found (601)") {
+    val underlying = log.underlying
+    val isInfo = underlying.isInfoEnabled()
+    log.info("!!!shouldn't be logged!!!")
     val msg = s"""
       {
         "messageType": "StreamRequest",

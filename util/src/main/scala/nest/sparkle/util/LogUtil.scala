@@ -1,8 +1,8 @@
 package nest.sparkle.util
 
 import java.util.concurrent.atomic.AtomicBoolean
-
 import com.typesafe.config.Config
+import org.slf4j.LoggerFactory
 
 /** Utilities for logging */
 object LogUtil {
@@ -29,6 +29,7 @@ object LogUtil {
         provider.configureLogging(sparkleConfig)
       }
     }
+    LoggerFactory.getLogger("nest.sparkle.util.LogUtil").trace("logging system configured.")
   }
   
   

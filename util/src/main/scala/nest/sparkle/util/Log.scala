@@ -21,5 +21,11 @@ import com.typesafe.scalalogging.slf4j.Logger
 /** Adds a lazy val 'log' of type com.typesafe.scalalogging.slf4j.Logger to the class into which this trait is mixed.
   */
 trait Log {
-  lazy val log: Logger = Logger(LoggerFactory.getLogger(getClass.getName))
+  lazy val log: Logger = {
+    val loggerName = getClass.getName
+    val slfjLogger = LoggerFactory.getLogger(loggerName)
+    val log = LoggerFactory.getLogger("nest.sparkle.util.Log")
+    log.trace(s"initialized logger $slfjLogger")
+    Logger(slfjLogger)
+  }
 }

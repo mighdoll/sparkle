@@ -4,12 +4,13 @@ import com.typesafe.config.ConfigFactory
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{ Files, Paths }
 import nest.sparkle.util.MetricsInstrumentation
+import nest.sparkle.test.SparkleTestConfig
 import org.scalatest.{ FunSuite, Matchers }
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import java.lang.{ Long => JLong }
 
-class TestMeasurements extends FunSuite with Matchers {
+class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
 
   def withMeasurements(fn: Measurements => Unit) {
     val rootConfig = ConfigFactory.load("testMeasure.conf")

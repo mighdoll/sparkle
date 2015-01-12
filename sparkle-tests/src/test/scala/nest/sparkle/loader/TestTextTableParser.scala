@@ -28,8 +28,6 @@ import nest.sparkle.test.SparkleTestConfig
 
 class TestTextTableParser extends FunSuite with Matchers with SparkleTestConfig {
   import ExecutionContext.Implicits.global
-
-  rootConfig // trigger logging initialiation
   
   def loadRowInfo(resourcePath: String)(fn: CloseableRowInfo => Unit) {
     val filePath = Resources.filePathString(resourcePath)

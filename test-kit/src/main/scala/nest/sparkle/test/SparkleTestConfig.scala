@@ -14,8 +14,9 @@ import java.nio.file.Paths
 import scala.collection.JavaConverters._
 import java.io.BufferedWriter
 import java.io.PrintWriter
+import nest.sparkle.util.Log
 
-trait SparkleTestConfig extends Suite with BeforeAndAfterAll {
+trait SparkleTestConfig extends Suite with BeforeAndAfterAll with Log{
   lazy val loggingInitialized = new AtomicBoolean
 
   override def beforeAll() {

@@ -41,11 +41,12 @@ object ConfigureLog4j extends ConfigureLog {
 
     val levels = logConfig.getConfig("levels")
     levels.entrySet().asScala.map { entry =>
+    val key = entry.getKey.stripPrefix("\"").stripSuffix("\"")
       val logger =
-        if (entry.getKey == "root") {
+        if (key == "root") {
           rootLogger
         } else {
-          Logger.getLogger(entry.getKey)
+          Logger.getLogger(key)
         }
       val level = entry.getValue.unwrapped.toString
       logger.setLevel(Level.toLevel(level))

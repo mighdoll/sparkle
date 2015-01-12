@@ -50,7 +50,7 @@ import scala.reflect.ClassTag
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
   self: Suite =>
 
-  override def measurements = new ConfiguredMeasurements(rootConfig)
+  override lazy val measurements = new ConfiguredMeasurements(rootConfig)
   override def actorSystem = system
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   def executionContext = system.dispatcher

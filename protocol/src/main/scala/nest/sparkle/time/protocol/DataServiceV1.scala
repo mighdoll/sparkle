@@ -46,7 +46,8 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
   def rootConfig: Config
   def measurements:Measurements
 
-  val api = StreamRequestApi(store, rootConfig)(actorSystem, measurements)
+  // (lazy to help test logging initialization order)
+  lazy val api = StreamRequestApi(store, rootConfig)(actorSystem, measurements)
 
   lazy val v1protocol = {
     cors {

@@ -20,12 +20,12 @@ import scala.collection.JavaConverters._
 
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder
 import ch.qos.logback.classic.filter.ThresholdFilter
-import ch.qos.logback.classic.spi.{ILoggingEvent, LoggingEvent}
-import ch.qos.logback.classic.{Level, Logger, LoggerContext}
+import ch.qos.logback.classic.spi.{ ILoggingEvent, LoggingEvent }
+import ch.qos.logback.classic.{ Level, Logger, LoggerContext }
 import ch.qos.logback.core.encoder.Encoder
 import ch.qos.logback.core.filter.Filter
 import ch.qos.logback.core.rolling._
-import ch.qos.logback.core.{Appender, ConsoleAppender}
+import ch.qos.logback.core.{ Appender, ConsoleAppender }
 
 import com.typesafe.config.Config
 
@@ -37,7 +37,7 @@ object ConfigureLogback extends ConfigureLog with Log {
   /** configure logging based on the .conf file */
   private val configured = new AtomicBoolean(false)
   def configureLogging(sparkleConfig: Config): Unit = {
-    if (configured.compareAndSet(false,true)) {
+    if (configured.compareAndSet(false, true)) {
       slf4j.LoggerFactory.getLogger(slf4j.Logger.ROOT_LOGGER_NAME) match {
         case rootLogger: Logger => configureLogBack(sparkleConfig, rootLogger)
         case x                  => log.warn(s"unsupported logger, can't configure logging: ${x.getClass}")
@@ -49,14 +49,15 @@ object ConfigureLogback extends ConfigureLog with Log {
   private def configureLogBack(config: Config, rootLogger: Logger): Unit = {
     val logConfig = config.getConfig("logging")
     val context = slf4j.LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
-    context.reset()  // Remove any configuration from other libraries
+    context.reset() // Remove any configuration from other libraries
 
     val levels = logConfig.getConfig("levels")
     levels.entrySet().asScala.foreach { entry =>
-      val logger = if (entry.getKey == "root") {
+      val key = entry.getKey.stripPrefix("\"").stripSuffix("\"")
+      val logger = if (key == "root") {
         rootLogger
       } else {
-        slf4j.LoggerFactory.getLogger(entry.getKey).asInstanceOf[Logger]
+        slf4j.LoggerFactory.getLogger(key).asInstanceOf[Logger]
       }
       val level = entry.getValue.unwrapped.toString
       logger.setLevel(Level.toLevel(level))
@@ -67,27 +68,27 @@ object ConfigureLogback extends ConfigureLog with Log {
       val fileAppender = new RollingFileAppender[LoggingEvent]
       fileAppender.setName("File")
       fileAppender.setContext(context)
-      
+
       val file = logConfig.getString("file.path")
       fileAppender.setFile(file)
-      
+
       val append = true //logConfig.getBoolean("file.append") RollingFileAppender requires append
       fileAppender.setAppend(append)
-      
+
       val encoder = new PatternLayoutEncoder
       encoder.setContext(context)
       val pattern = logConfig.getString("file.pattern")
       encoder.setPattern(pattern)
       encoder.start()
       fileAppender.setEncoder(encoder.asInstanceOf[Encoder[LoggingEvent]])
-      
+
       val trigger = new SizeBasedTriggeringPolicy[LoggingEvent]
       val maxSize = logConfig.getString("file.max-size")
       trigger.setMaxFileSize(maxSize)
       trigger.setContext(context)
       trigger.start()
       fileAppender.setTriggeringPolicy(trigger)
-      
+
       val policy = new FixedWindowRollingPolicy
       policy.setContext(context)
       val maxFiles = logConfig.getInt("file.max-files")
@@ -99,45 +100,45 @@ object ConfigureLogback extends ConfigureLog with Log {
           case -1 =>
             // no file extension just add index to filename
             file + ".%i"
-          case _  =>
+          case _ =>
             // put index before file extension so file type is not changed
-            file.substring(0,indexExt+1) + "%i." + file.substring(indexExt+1)
+            file.substring(0, indexExt + 1) + "%i." + file.substring(indexExt + 1)
         }
       }
       policy.setFileNamePattern(fnPattern)
       policy.setParent(fileAppender)
       policy.start()
       fileAppender.setRollingPolicy(policy)
-      
+
       val filter = new ThresholdFilter
-      val level  = logConfig.getString("file.level")
+      val level = logConfig.getString("file.level")
       filter.setLevel(level)
       fileAppender.addFilter(filter.asInstanceOf[Filter[LoggingEvent]])
-      
-      fileAppender.start() 
+
+      fileAppender.start()
       rootLogger.addAppender(fileAppender.asInstanceOf[Appender[ILoggingEvent]])
     }
-    
+
     // Attach console appender is enabled.
     if (logConfig.getBoolean("console.enable")) {
       val consoleAppender = new ConsoleAppender[LoggingEvent]
       consoleAppender.setName("Console")
       consoleAppender.setContext(context)
       consoleAppender.setTarget("System.out")
-      
+
       val encoder = new PatternLayoutEncoder
       encoder.setContext(context)
       val pattern = logConfig.getString("console.pattern")
       encoder.setPattern(pattern)
       encoder.start()
       consoleAppender.setEncoder(encoder.asInstanceOf[Encoder[LoggingEvent]])
-      
+
       val filter = new ThresholdFilter
-      val level  = logConfig.getString("console.level")
+      val level = logConfig.getString("console.level")
       filter.setLevel(level)
       filter.start()
       consoleAppender.addFilter(filter.asInstanceOf[Filter[LoggingEvent]])
-      
+
       consoleAppender.start()
       rootLogger.addAppender(consoleAppender.asInstanceOf[Appender[ILoggingEvent]])
     }
