@@ -14,38 +14,30 @@
 
 package nest.sparkle.time.protocol
 
-import scala.concurrent.duration._
-import org.scalatest.Suite
-import spray.testkit.ScalatestRouteTest
-import nest.sparkle.time.server.DataService
-import com.typesafe.config.ConfigFactory
-import spray.http.HttpResponse
-import spray.json._
-import nest.sparkle.store.Event
-import nest.sparkle.time.protocol.EventJson.EventFormat
-import spray.httpx.SprayJsonSupport._
-import spray.json.DefaultJsonProtocol._
-import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat }
-import org.scalatest.Matchers
-import nest.sparkle.test.SparkleTestConfig
-import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
-import nest.sparkle.util.{ InitializeReflection, ConfigUtil }
-import nest.sparkle.util.ConfigUtil.configForSparkle
-import spray.routing.RoutingSettings
-import spray.http.DateTime
-import spray.http.HttpResponse
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.Success
-import nest.sparkle.store.Store
-import akka.actor.ActorSystem
-import org.scalatest.FunSuite
-import nest.sparkle.measure.Measurements
-import nest.sparkle.measure.ConfiguredMeasurements
 import java.util.concurrent.TimeUnit.MILLISECONDS
-import nest.sparkle.core.DataArray
+
+import scala.concurrent.{Future, Promise}
+import scala.util.Success
+import scala.concurrent.duration._
+
+import org.scalatest.{FunSuite, Suite}
+
+import akka.actor.ActorSystem
+import spray.http.{DateTime, HttpResponse}
+import spray.httpx._
 import spray.httpx.unmarshalling._
-import scala.reflect.ClassTag
+import spray.json._
+import spray.json.DefaultJsonProtocol._
+import spray.httpx.SprayJsonSupport._
+import spray.testkit.ScalatestRouteTest
+import nest.sparkle.measure.ConfiguredMeasurements
+import nest.sparkle.store.{Event, Store}
+import nest.sparkle.test.SparkleTestConfig
+import nest.sparkle.time.protocol.EventJson.EventFormat
+import nest.sparkle.time.server.DataService
+import nest.sparkle.util.ConfigUtil.configForSparkle
+import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
+import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
   self: Suite =>
@@ -56,7 +48,7 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   def executionContext = system.dispatcher
 
   // tell spray test config about our configuration (and trigger logging initialization)
-  override def testConfig = ConfigUtil.configForSparkle(rootConfig)
+  override def testConfig = configForSparkle(rootConfig)
 
   lazy val defaultTimeout = {
     val protocolConfig = configForSparkle(rootConfig).getConfig("protocol-tests")

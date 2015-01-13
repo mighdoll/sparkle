@@ -7,7 +7,7 @@ import org.scalatest.{FunSuite, Matchers}
 
 import org.scalacheck.{Arbitrary, Gen}
 
-import nest.sparkle.core.DataArray
+import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName

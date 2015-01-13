@@ -227,7 +227,7 @@ class IntervalSum(rootConfig: Config) extends MultiColumnTransform with Log {
       events: Seq[Event[T, U]],
       rangeOpt: Option[RangeInterval[T]],
       periodWithZone: PeriodWithZone): Iterator[Event[T, U]] = { // format: ON
-    val timePartitions = PeriodPartitioner.timePartitionsFromRequest(events, rangeOpt, periodWithZone)
+    val timePartitions = PeriodPartitioner.timePartitionsFromRequest[T,U](events, rangeOpt, periodWithZone)
 
     /** composite into non-overlapping intervals */
     val intervals = combinedIntervals(events)

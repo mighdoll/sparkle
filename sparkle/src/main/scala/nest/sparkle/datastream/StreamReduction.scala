@@ -1,6 +1,4 @@
-package nest.sparkle.time.transform
-
-import scala.language.higherKinds
+package nest.sparkle.datastream
 
 import spire.implicits._
 import spire.math.Numeric

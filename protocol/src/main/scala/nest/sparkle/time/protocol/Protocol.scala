@@ -16,6 +16,7 @@ package nest.sparkle.time.protocol
 
 import spray.json._
 import nest.sparkle.util.LogUtil.optionLog
+import nest.sparkle.datastream.SoftInterval
 
 /** spray json converters for json objects we send or receive */
 
@@ -131,7 +132,10 @@ case class CustomSelector(selector: String, selectorParameters: JsObject)
 case class RangeInterval[T](
   start: Option[T] = None,
   until: Option[T] = None,
-  limit: Option[Long] = None)
+  limit: Option[Long] = None) {
+  
+  def softInterval = SoftInterval(start, until)
+}
 
 /** transformParameters for SummaryTransforms */
 case class SummaryParameters[T](

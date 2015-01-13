@@ -1,11 +1,12 @@
 package nest.sparkle.time.transform
 
-import scala.concurrent.Future
-import nest.sparkle.time.protocol.RangeInterval
+import scala.Vector
+import scala.concurrent.{ExecutionContext, Future}
+
+import nest.sparkle.datastream.{AsyncWithRange, StreamGroup, StreamGroupSet, StreamStack}
 import nest.sparkle.measure.Span
-import scala.concurrent.ExecutionContext
 import nest.sparkle.store.Column
-import scala.reflect.runtime.universe._
+import nest.sparkle.time.protocol.RangeInterval
 
 object FetchStreams {
 
@@ -44,7 +45,7 @@ object FetchStreams {
                 // record the requested range with the data, not the extended range
                 implicit val keyType = dataStream.keyType
                 implicit val valueType = dataStream.valueType
-                dataStream.copy(requestRange = Some(requestRange))
+                dataStream.copy(requestRange = Some(requestRange.softInterval))
             }
           streams.toVector
         case None =>

@@ -11,6 +11,8 @@ import rx.lang.scala.Observable
 import nest.sparkle.store.Event
 import scala.reflect.ClassTag
 import nest.sparkle.core.OngoingDataShim
+import nest.sparkle.datastream.{DataStream, AsyncWithRange}
+import nest.sparkle.datastream.SoftInterval
 
 object FetchRanges {
 
@@ -32,7 +34,10 @@ object FetchRanges {
     implicit val valueType: TypeTag[V] = castKind(column.valueType)
 
     val ongoingData = OngoingDataShim.fromOngoingEvents(ongoingEvents)
-    AsyncWithRange(ongoingData, optRange)
+    val initial = DataStream(ongoingData.initial)
+    val ongoing = DataStream(ongoingData.ongoing)
+    val softInterval = optRange.map (_.softInterval)
+    AsyncWithRange(initial, ongoing, softInterval)
   }
 
 }

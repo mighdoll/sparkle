@@ -1,11 +1,9 @@
-package nest.sparkle.time.transform
+package nest.sparkle.datastream
+
 import scala.language.higherKinds
 import scala.reflect.runtime.universe._
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext
-import nest.sparkle.time.protocol.RangeInterval
+import scala.concurrent.{Future, ExecutionContext}
 import rx.lang.scala.Observable
-import nest.sparkle.core.DataArray
 import scala.{ specialized => spec }
 
 // format: OFF
@@ -23,7 +21,7 @@ import scala.{ specialized => spec }
   *         ongoing - items arriving after the request (normally only for open ended ranges)
   *         
   *         DataArray - both initial and ongoing data contain sample data packed into DataArrays
-  *         					  The DataArrays are delivered asynchronously: buffered in a Future or streamed in an Observable
+  *                     The DataArrays are delivered asynchronously: buffered in a Future or streamed in an Observable
   * 
   * Conventions for type parameter letters:
   *   K - key type

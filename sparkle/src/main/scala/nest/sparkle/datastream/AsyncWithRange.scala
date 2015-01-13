@@ -1,14 +1,9 @@
-package nest.sparkle.time.transform
+package nest.sparkle.datastream
 
 
 import scala.reflect.runtime.universe._
-import nest.sparkle.time.protocol.RangeInterval
 import scala.concurrent.ExecutionContext
 import rx.lang.scala.Observable
-import scala.concurrent.Future
-import nest.sparkle.core.OngoingData
-import nest.sparkle.core.DataArray
-import scala.{ specialized => spec }
 import nest.sparkle.util.ReflectionUtil
 
 /** A TwoPartStream containing data in the form it comes off from the database. Initial request data
@@ -19,7 +14,7 @@ import nest.sparkle.util.ReflectionUtil
 case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
     ( initial: DataStream[K,V], 
       ongoing: DataStream[K,V],
-      requestRange: Option[RangeInterval[K]] ) 
+      requestRange: Option[SoftInterval[K]] ) 
     extends TwoPartStream[K,V,AsyncWithRange] 
       with RequestRange[K] with AsyncReduction[K,V] { // format: ON
 
@@ -60,18 +55,10 @@ case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
 }
 
 object AsyncWithRange {
-  /** convenience constructor for creating an instance from an OngoingData */
-  def apply[K: TypeTag, V: TypeTag] // format: OFF
-    (ongoingData: OngoingData[K, V], requestRange: Option[RangeInterval[K]])
-    : AsyncWithRange[K, V] = { // format: ON
-    (new AsyncWithRange(
-        initial = DataStream(ongoingData.initial), 
-        ongoing = DataStream(ongoingData.ongoing), 
-        requestRange = requestRange)(ongoingData.keyType, ongoingData.valueType))
-  }
 
+  /** an AsyncWithRange that simply returns an error over both its initial and ongoing streams */
   def error[K: TypeTag, V: TypeTag] // format: OFF
-      ( err: Throwable, requestRange: Option[RangeInterval[K]] )
+      ( err: Throwable, requestRange: Option[SoftInterval[K]] = None)
       : AsyncWithRange[K, V] = { // format: ON
     AsyncWithRange[K, V](
         initial = DataStream[K,V](Observable.error(err)), 

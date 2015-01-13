@@ -1,18 +1,17 @@
-package nest.sparkle.time.transform
+package nest.sparkle.datastream
 
 import scala.reflect.ClassTag
-import nest.sparkle.util.PeriodWithZone
-import rx.lang.scala.Observable
-import nest.sparkle.util.PeekableIterator
-import nest.sparkle.core.DataArray
-import scala.collection.mutable.ArrayBuffer
-import rx.lang.scala.Notification
-import org.joda.time.{ Interval => JodaInterval }
 import spire.math.Numeric
 import spire.implicits._
-import nest.sparkle.util.Log
 import scala.reflect.runtime.universe._
 import scala.concurrent.duration._
+import rx.lang.scala.Observable
+import rx.lang.scala.Notification
+import nest.sparkle.util.PeriodWithZone
+import nest.sparkle.util.PeekableIterator
+import scala.collection.mutable.ArrayBuffer
+import org.joda.time.{ Interval => JodaInterval }
+import nest.sparkle.util.Log
 import nest.sparkle.util.ReflectionUtil
 
 /** Functions for reducing an Observable of array pairs to smaller DataArrays
@@ -160,7 +159,7 @@ private class PeriodState[K: Numeric: ClassTag, V](reduction: Reduction[V]) {
     */
   def begin(key: K, periodWithZone: PeriodWithZone) {
     if (periods == null) {
-      periods = PeriodPartitioner.jodaIntervals(periodWithZone, key)
+      periods = PeriodGroups.jodaIntervals(periodWithZone, key)
       toNextPeriod()
     }
   }

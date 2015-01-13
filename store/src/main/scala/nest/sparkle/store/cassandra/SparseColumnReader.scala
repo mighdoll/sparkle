@@ -21,7 +21,8 @@ import rx.lang.scala.Observable
 
 import com.datastax.driver.core.{BoundStatement, Row}
 
-import nest.sparkle.core.{DataArray, OngoingData}
+import nest.sparkle.core.OngoingData
+import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.{Column, Event, OngoingEvents}
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.store.cassandra.SparseColumnReaderStatements._

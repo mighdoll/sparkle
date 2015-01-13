@@ -6,7 +6,7 @@ import scala.reflect.runtime.universe._
 import rx.lang.scala.Observable
 
 import nest.sparkle.store.{Event, OngoingEvents}
-
+import nest.sparkle.datastream.DataArray
 
 /** a stream of data that may be ongoing indefinitely. The initially available data is delivered
   * asynchronously (e.g. as database ResultSets become available), and the initial observable completes

@@ -4,15 +4,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
 import scala.reflect.runtime.universe
 import scala.util.{Failure, Success, Try}
-
 import com.typesafe.config.Config
-
 import spray.json.JsObject
-
 import nest.sparkle.measure.{Measurements, Span, TraceId}
 import nest.sparkle.time.protocol.{JsonDataStream, JsonEventWriter, KeyValueType}
 import nest.sparkle.time.transform.FetchStreams.fetchData
 import nest.sparkle.util.{Log, PeriodWithZone, RecoverNumeric}
+import nest.sparkle.datastream.{AsyncWithRange, TwoPartStream, ReduceSum, StreamGroupSet}
 
 /** support protocol "transform" field matching for the reduction transforms */ 
 case class ReductionTransform(rootConfig: Config)(implicit measurements: Measurements) extends TransformMatcher {

@@ -1,24 +1,10 @@
-package nest.sparkle.time.transform
+package nest.sparkle.datastream
 
-import scala.language.higherKinds
 import scala.concurrent.ExecutionContext
-import scala.reflect.ClassTag
-import scala.collection.mutable.ArrayBuffer
-import nest.sparkle.core.DataArray
-import scala.reflect.runtime.universe._
-import spire.implicits._
-import spire.math.Numeric
-import nest.sparkle.util.PeriodWithZone
-import rx.lang.scala.Subject
-import nest.sparkle.util.Log
-import rx.lang.scala.Observable
-import org.joda.time.{ Interval => JodaInterval }
-import nest.sparkle.util.RecoverNumeric
-import scala.util.Failure
-import scala.util.Success
-import nest.sparkle.util.PeekableIterator
-import rx.lang.scala.Notification
-import scala.concurrent.duration._
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.util.{Failure, Success}
+
+import nest.sparkle.util.{Log, PeriodWithZone, RecoverNumeric}
 
 // TODO specialize for efficiency
 trait AsyncReduction[K,V] extends Log {

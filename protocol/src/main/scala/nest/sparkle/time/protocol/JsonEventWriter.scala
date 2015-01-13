@@ -14,24 +14,16 @@
 
 package nest.sparkle.time.protocol
 
-import rx.lang.scala.Observable
-import spray.json.JsonWriter
-import spray.json._
-import nest.sparkle.util.ObservableFuture._
-import nest.sparkle.store.Event
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 import scala.language.higherKinds
-import nest.sparkle.measure.Span
-import nest.sparkle.measure.TraceId
-import nest.sparkle.measure.DummySpan
-import nest.sparkle.measure.Detail
-import nest.sparkle.time.transform.StreamGroupSet
-import nest.sparkle.time.transform.TwoPartStream
-import nest.sparkle.core.DataArray
-import scala.util.Try
-import scala.util.Success
-import scala.util.Failure
+import scala.util.{Failure, Success, Try}
+
+import nest.sparkle.datastream.{DataArray, TwoPartStream}
+import nest.sparkle.measure.{Detail, DummySpan, Span}
+import nest.sparkle.store.Event
 import nest.sparkle.util.RecoverJsonFormat
+import rx.lang.scala.Observable
+import spray.json._
 
 /** returns an observable that produces one sequence of json arrays when the provided event stream completes */
 object JsonEventWriter {

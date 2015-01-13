@@ -20,7 +20,7 @@ import spire.implicits._
 import nest.sparkle.time.transform.FetchStreams.fetchData
 import scala.concurrent.duration._
 import scala.language.higherKinds
-import nest.sparkle.core.DataArray
+import nest.sparkle.datastream.{DataArray, StreamGroupSet}
 import nest.sparkle.time.transform.TransformValidation.{ columnsKeyType, summaryPeriod, rangeExtender }
 
 /** convert boolean on off events to intervals from multiple columns, then sum for each requested period.
@@ -68,12 +68,12 @@ case class IntervalSum2(rootConfig: Config)(implicit measurements: Measurements)
       (implicit execution: ExecutionContext, parentSpan:Span)
       : Future[Seq[JsonDataStream]] = { // format: ON
 
-    for {
-      data <- fetchData[K, Boolean](futureGroups, intervalParameters.ranges, Some(rangeExtender), Some(parentSpan))
-      intervals = onOffToIntervals(data)
-    } yield {
-
-    }
+//    for {
+//      data <- fetchData[K, Boolean](futureGroups, intervalParameters.ranges, Some(rangeExtender), Some(parentSpan))
+//      intervals = onOffToIntervals(data)
+//    } yield {
+//
+//    }
 
     ???
   }

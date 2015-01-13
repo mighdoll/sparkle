@@ -1,4 +1,4 @@
-package nest.sparkle.core
+package nest.sparkle.datastream
 
 import scala.reflect.{ClassTag, classTag}
 import scala.{specialized => spec}
