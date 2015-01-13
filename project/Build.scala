@@ -61,8 +61,8 @@ object SparkleBuild extends Build {
       .settings(
         libraryDependencies ++= cassandraClient ++ logbackTest ++ Seq (
           sprayCaching,
-          sprayJson,
-          sprayUtil,
+          sprayJson,  // needed?
+          sprayUtil,  // needed?
           openCsv
         ),
         dependenciesToStart := Seq(cassandraServer),

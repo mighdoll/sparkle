@@ -21,14 +21,13 @@ import scala.util.control.Exception._
 
 import com.typesafe.config.Config
 
-import spray.util._
-
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.store._
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.Log
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.TryToFuture._
+import nest.sparkle.util.FutureAwait.Implicits._
 
 import com.datastax.driver.core.{ConsistencyLevel, Cluster, Row, Session}
 
