@@ -21,12 +21,11 @@ import scala.util.{Failure, Success, Try}
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FunSuite, Matchers}
 
-import spray.util._
-
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.store.{ColumnCategoryNotDeterminable, ColumnCategoryNotFound, ColumnNotFound, ColumnPathFormat}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.RandomUtil.randomAlphaNum
+import nest.sparkle.util.FutureAwait.Implicits._
 
 class TestColumnCatalog extends FunSuite with Matchers with PropertyChecks with CassandraStoreTestConfig {
 

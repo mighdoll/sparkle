@@ -5,13 +5,12 @@ import scala.concurrent.duration._
 
 import org.scalatest.{FunSuite, Matchers}
 
-import spray.util._
-
 import rx.lang.scala.Observable
 
 import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.util.ObservableFuture._
+import nest.sparkle.util.FutureAwait.Implicits._
 
 class TestCassandraStreaming extends FunSuite with Matchers with CassandraStoreTestConfig {
   override def testKeySpace = "testcassandrastreaming"

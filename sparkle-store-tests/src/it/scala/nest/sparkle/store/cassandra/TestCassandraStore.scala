@@ -5,8 +5,6 @@ import scala.reflect.ClassTag
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FunSuite, Matchers}
 
-import spray.util._
-
 import org.scalacheck.{Arbitrary, Gen}
 
 import nest.sparkle.core.DataArray
@@ -14,6 +12,7 @@ import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.RandomUtil.randomAlphaNum
+import nest.sparkle.util.FutureAwait.Implicits._
 
 class TestCassandraStore
   extends FunSuite
