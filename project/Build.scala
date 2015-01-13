@@ -22,7 +22,7 @@ object SparkleBuild extends Build {
     Project(id = "sparkle-protocol", base = file("protocol"))
       .dependsOn(util)
       .dependsOn(sparkleCore)
-      .dependsOn(sparkleStore % "compile->compile")
+      .dependsOn(sparkleStore % "compile->compile") // compile->compile to avoid test libs too
       .dependsOn(httpCommon)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
@@ -44,9 +44,7 @@ object SparkleBuild extends Build {
         libraryDependencies ++= logbackTest ++ Seq(
           scalaReflect,
           spire
-        ),
-//        adminPort := Some(18000), // enable when admin supports /shutdown
-        healthPort := Some(18001)
+        )
       )
 
 
@@ -54,7 +52,7 @@ object SparkleBuild extends Build {
     Project(id = "sparkle-store", base = file("store"))
       .dependsOn(util)
       .dependsOn(sparkleCore)
-      .dependsOn(testKit % "it->compile;test->compile")
+      .dependsOn(testKit % "it->compile;test->compile") // testKit libs for our it, test
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
@@ -82,6 +80,7 @@ object SparkleBuild extends Build {
 
   lazy val storeTests = 
     Project(id = "sparkle-store-tests", base = file("sparkle-store-tests"))
+      .dependsOn(sparkleStore)
       .dependsOn(storeTestKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
       .dependsOn(util)
@@ -118,7 +117,7 @@ object SparkleBuild extends Build {
 
   lazy val kafkaLoader =    // loading from kafka into the store
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
-      .dependsOn(sparkleStore % "compile->compile") // we don't want store's logback
+      .dependsOn(sparkleStore % "compile->compile") // we don't want store's logback in test,it
       .dependsOn(storeTestKit % "it->compile;test->compile")
       .dependsOn(sparkleLoader)
       .dependsOn(utilKafka % "compile->compile;test->test;it->it") // so we get it too
@@ -130,6 +129,9 @@ object SparkleBuild extends Build {
       .settings(
         dependenciesToStart := Seq(kafkaServer, cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value
+      )
+      .settings(
+        libraryDependencies ++= allTest
       )
 
   lazy val sparkAvro =   // avro libraries for spark loading
@@ -180,7 +182,7 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= testAndLogging ++ spray ++ Seq(
+        libraryDependencies ++= logbackTest ++ spray ++ Seq(
           metricsGraphite
         ),
         dependenciesToStart := Seq(cassandraServer),
@@ -270,7 +272,7 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= spark ++ testAndLogging ++ Seq(
+        libraryDependencies ++= spark ++ logbackTest ++ Seq(
           sparkRepl
         ),
         dependenciesToStart := Seq(cassandraServer),
@@ -289,8 +291,9 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
       .settings(BackgroundService.settings: _*)
       .settings(
+        healthPort := Some(1235),
         dependenciesToStart := Seq(cassandraServer),
-        libraryDependencies ++= testAndLogging, 
+        libraryDependencies ++= logbackTest, 
         initialCommands in console := """
           import nest.sg.Plot._
           import nest.sg.StorageConsole._
