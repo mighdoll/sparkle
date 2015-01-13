@@ -36,7 +36,7 @@ object BuildSettings {
     slf4jSettings ++
     testSettings ++
     publishSettings ++
-    dependencyOverrideSettings ++
+    dependencySettings ++
     org.scalastyle.sbt.ScalastylePlugin.Settings
 
   lazy val orgSettings = Seq(
@@ -95,7 +95,8 @@ object BuildSettings {
       MavenPublish.settings ++
       Revolver.settings  // TODO Revolver isn't really 'publish' settings, and BackgroundService includes revolver
   
-  lazy val dependencyOverrideSettings = Seq(
+  lazy val dependencySettings = Seq(
+    updateOptions := updateOptions.value.withCachedResolution(true),
     dependencyOverrides ++= Dependencies.dependencyOverrides
   )
 
