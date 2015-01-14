@@ -276,7 +276,12 @@ object SparkleBuild extends Build {
           sparkRepl
         ),
         dependenciesToStart := Seq(cassandraServer),
-        test in IntegrationTest := BackgroundService.itTestTask.value
+        test in IntegrationTest := BackgroundService.itTestTask.value,
+        // probably want to run the spark-repl here..
+        initialCommands in console := """
+          import nest.sparkle.shell.SparkConnection
+          nest.sparkle.util.LogUtil.configureLogging(com.typesafe.config.ConfigFactory.load())
+        """
       )
 
   // The following projects are for starting servers for integration tests

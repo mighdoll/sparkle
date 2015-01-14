@@ -15,7 +15,7 @@ object ColumnTypes {
     createSerializationInfo[Long, Int](),
     createSerializationInfo[Long, Boolean](),
     createSerializationInfo[Long, String](),
-    createSerializationInfo[Long, JsValue]()
+    createSerializationInfo[Long, JsValue](false)
   )
 
   case class UnsupportedColumnType[T, U](keySerial: CanSerialize[T], valueSerial: CanSerialize[U])
@@ -33,7 +33,9 @@ object ColumnTypes {
   }
 
   /** return some serialization info for the types provided */
-  private def createSerializationInfo[T: CanSerialize, U: CanSerialize](): SerializeInfo[T, U] = {
+  private def createSerializationInfo[T: CanSerialize, U: CanSerialize] // format: OFF
+      (directToNative:Boolean = true)
+      : SerializeInfo[T, U] = { // format: ON
     val domainSerializer = implicitly[CanSerialize[T]]
     val rangeSerializer = implicitly[CanSerialize[U]]
 
@@ -55,7 +57,12 @@ object ColumnTypes {
   }
 
   /** holder for serialization info for given domain and range types */
-  case class SerializeInfo[T, U](domain: CanSerialize[T], range: CanSerialize[U], tableName: String)
+  case class SerializeInfo[T, U](
+    domain: CanSerialize[T], 
+    range: CanSerialize[U], 
+    tableName: String,
+    directToNative: Boolean = true
+  )
 }
 
 /** extractors for type pairs of supported column types */

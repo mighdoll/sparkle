@@ -52,14 +52,9 @@ object Dependencies {
                                 exclude("com.typesafe", "scalalogging-slf4j_2.10")   // avoid version conflict (and selected explicitly above anyway)
                                 exclude("org.slf4j", "slf4j-log4j12")
                               )
-  val sparkRepl             = ("org.apache.spark"          %% "spark-repl"             % V.spark          )
-                              /* // TODO are these excludes necessary?
-                                exclude("com.google.guava", "guava")  
-                                exclude("org.apache.spark", "spark-core_2.10") 
-                                exclude("org.apache.spark", "spark-bagel_2.10") 
-                                exclude("org.apache.spark", "spark-mllib_2.10") 
-                                exclude("org.scala-lang", "scala-compiler")          
-                              */
+  val sparkRepl             = ("org.apache.spark"          %% "spark-repl"             % V.spark    
+                                exclude("org.slf4j", "slf4j-log4j12")
+                              )
 
   val breeze                = "org.scalanlp"               %% "breeze"                 % "0.9"
   // we can add this back to speed up breeze

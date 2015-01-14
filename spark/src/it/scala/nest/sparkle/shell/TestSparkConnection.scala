@@ -7,30 +7,55 @@ import scala.reflect.runtime.universe._
 import org.apache.spark.rdd.RDD
 import nest.sparkle.store.Event
 import nest.sparkle.loader.spark.SparkTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreReader
+import nest.sparkle.util.FutureAwait.Implicits._
 
 class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTestConfig
-  with SparkTestConfig {
+    with SparkTestConfig {
 
   override def testKeySpace = "testsparkconnection"
+
+  def withSpark(fn: SparkConnection => Unit): Unit = {
+    val connection = SparkConnection(rootConfig, "TestSparkConnection")
+    try {
+      fn(connection)
+    } finally {
+      connection.close()
+      connection.sparkContext.stop()
+    }
+  }
+
+  def withSparkTest(file: String)(fn: (SparkConnection, CassandraStoreReader) => Unit): Unit = {
+    withLoadedFile("epochs.csv") { (store, system) =>
+      withSpark { connection =>
+        fn(connection, store)
+      }
+
+    }
+  }
 
   test("count total elements in the system") {
     val connection = SparkConnection(rootConfig, "TestSparkConnection")
 
-    withTestDb { store =>
-      try {
-        val valueTypes = Seq(
-          typeTag[Long], typeTag[Double], typeTag[Int], typeTag[Boolean], typeTag[String])
-        val rdds: Seq[RDD[Any]] = valueTypes map { valueType =>
-          connection.columnsRDD(typeTag[Long], valueType).asInstanceOf[RDD[Any]]
-        }
-
-        val combined = rdds.reduce((a, b) => a ++ b)
-        val sum = combined.count
-
-        println(s"$sum total events stored in the keyspace: ")
-      } finally {
-        connection.close()
-      }
+    withSparkTest("epochs.csv") { (connection, store) =>
+      val sum = connection.allData.map(_.data.length).collect.sum
+      sum shouldBe 8253
     }
   }
+
+  test("count elements by type") {
+    withSparkTest("epochs.csv") { (connection, store) =>
+      val grouped = 
+        connection.allData.groupBy(_.valueTypeTag)
+      val result = 
+        grouped.map { case (valueType, columns) =>
+          val columnElementCount = columns.map(_.data.length.toLong).sum
+          (valueType.toString, columnElementCount)
+        }
+      val byType = result.collect.toMap
+      byType("Double") shouldBe 5502
+      byType("Long") shouldBe 2751
+    }
+  }
+
 }

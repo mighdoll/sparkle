@@ -42,9 +42,9 @@ object CassandraStore extends Log
   
   /** (for tests) return a Storage DAO for reading and writing to cassandra.  */
   def readerWriter(config: Config, writeNotification: WriteListenNotify) // format: OFF
-  : CassandraReaderWriter // format: ON
-  = new ConfiguredCassandraReaderWriter(config, writeNotification)
-
+      : CassandraReaderWriter = { // format: ON
+    new ConfiguredCassandraReaderWriter(config, writeNotification)
+  }
   /** Drop the keyspace.
     * This is mostly useful for testing.
     *

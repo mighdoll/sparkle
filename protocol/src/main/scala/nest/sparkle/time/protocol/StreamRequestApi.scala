@@ -96,10 +96,11 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
         socket.send(streamsMessage.toJson.prettyPrint)
         remaining
       }
-    (streamsSent
-      .doOnSubscribe { println(s"StreamRequestApi: got subscribe")}
-      .doOnEach { elem => println(s"StreamRequestApi $elem")}
-    )
+//    (streamsSent
+//      .doOnSubscribe { println(s"StreamRequestApi: got subscribe")}
+//      .doOnEach { elem => println(s"StreamRequestApi $elem")}
+//    )
+    streamsSent
   }
 
   /** send Update messages over a websocket */
