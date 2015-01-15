@@ -21,64 +21,43 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]]) 
 
   implicit lazy val keyClassTag = ReflectionUtil.classTag[K](typeTag[K])
   implicit lazy val valueClassTag = ReflectionUtil.classTag[V](typeTag[V])
-  
+
   /** Reduce the array pair array to a single pair. A reduction function is applied
     * to reduce the pair values to a single value. The key of the returned pair
     * is the first key of original stream.
     */
   def reduceToOnePart(reduction: Reduction[V]): DataStream[K, Option[V]]  = { 
 
-    // buffer the first value so we can extract the first key
-    val obsPairs = data.replay(1)
-    obsPairs.connect
-
-    // observable containing a single reduced value
-    val reducedValue = {
-      val optionPerPairsArray = obsPairs.map { pairs =>
-        pairs.valuesReduceLeftOption(reduction.plus)
+    val reducedBlocks:Observable[(K, Option[V])] = 
+      data.filter(!_.isEmpty).map { pairs =>
+        val optValue = pairs.valuesReduceLeftOption(reduction.plus)
+        (pairs.keys(0), optValue)
       }
-      reduceOptions(optionPerPairsArray, reduction)
-    }
-
-    // observable containing the single first key (or empty)
-    val firstKey: Observable[K] = {
-      obsPairs.head.map { pairs =>
-        // we're counting on the first array being nonempty.. LATER relax this assumption
-        pairs.headOption.get match { case (k, v) => k }
+    
+    val reducedTuple = 
+      reducedBlocks.reduce { (total, next) =>
+        val (key, totalValue) = total
+        val (_, newValue) = next
+        val newTotal = reduceOption(totalValue, newValue, reduction)
+        (key, newTotal)
       }
-    }
-
-    // combine key and value together into an DataArray
-    val reduced: Observable[DataArray[K, Option[V]]] = {
-      firstKey.zip(reducedValue).map {
-        case (key, value) =>
-          DataArray.single(key, Some(value))
-      }
-    }
-
-    new DataStream(reduced)
+    
+    val reducedArray = reducedTuple.map { case (key, total) => DataArray.single(key, total) }
+    DataStream(reducedArray)
   }
-
+   
   /** reduce optional values with a reduction function. */ // scalaz would make this automatic..
-  private def reduceOptions  // format: OFF
-      ( optValues: Observable[Option[V]], 
-        reduction: Reduction[V] )
-      : Observable[V] = { // format: ON
-
-    val optionalResult = optValues.reduce { (optA, optB) =>
-      (optA, optB) match {
-        case (a@Some(_), None) => a
-        case (None, b@Some(_)) => b
-        case (None, None)      => None
-        case (Some(aValue), Some(bValue)) =>
-          val reduced = reduction.plus(aValue, bValue)
-          Some(reduced)
-      }
+  private def reduceOption[T](optA:Option[T], optB:Option[T], reduction:Reduction[T]): Option[T] = {
+    (optA, optB) match {
+      case (a@Some(_), None) => a
+      case (None, b@Some(_)) => b
+      case (None, None)      => None
+      case (Some(aValue), Some(bValue)) =>
+        val reduced = reduction.plus(aValue, bValue)
+        Some(reduced)
     }
-    optionalResult.flatMap { option => Observable.from(option) }
   }
-  
-  
+
   /** apply a reduction function to a time-window of of array pairs */
   def tumblingReduce // format: OFF
       ( bufferOngoing: FiniteDuration )
@@ -132,6 +111,7 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]]) 
             Observable.error(err)
   
           case Notification.OnNext(dataArray) =>
+            println(s"reduceByPeriod.onNext dataArray: $dataArray")
             val pairs = PeekableIterator(dataArray.iterator)
             val reducedPairs = pairsState.reduceCompletePeriods(pairs, periodWithZone, reduction)
             Observable.from(Seq(reducedPairs))

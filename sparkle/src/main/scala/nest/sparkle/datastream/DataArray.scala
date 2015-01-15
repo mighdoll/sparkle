@@ -1,48 +1,61 @@
 package nest.sparkle.datastream
 
-import scala.reflect.{ClassTag, classTag}
-import scala.{specialized => spec}
+import scala.reflect.{ ClassTag, classTag }
+import scala.{ specialized => spec }
+import scala.collection.IndexedSeqLike
+import scala.collection.mutable.Builder
+import scala.collection.generic.CanBuildFrom
+import scala.collection.mutable.ArrayBuffer
 
 object DataArray {
   /** return an DataArray with a single key,value pair */
   def single[K: ClassTag, V: ClassTag](key: K, value: V): DataArray[K, V] = {
     DataArray(Array(key), Array(value))
   }
+
+  // unneeded once we extend Traversable?
+  def fromPairs[K: ClassTag, V: ClassTag](pairs: Iterable[(K, V)]): DataArray[K, V] = {
+    val keys = pairs.map { case (k, v) => k }.toArray
+    val values = pairs.map { case (k, v) => v }.toArray
+    DataArray(keys, values)
+  }
+
+  def newBuilder[K: ClassTag, V: ClassTag] = new DataArrayBuilder[K,V]
+ 
+  implicit def canBuildFrom[K: ClassTag, V: ClassTag]: CanBuildFrom[DataArray[K, V], (K, V), DataArray[K, V]] =
+    new CanBuildFrom[DataArray[K, V], (K, V), DataArray[K, V]] {
+      def apply(): Builder[(K, V), DataArray[K, V]] = newBuilder
+      def apply(from: DataArray[K, V]): Builder[(K, V), DataArray[K, V]] = newBuilder
+    }
+
 }
 
-/** A pair of arrays, suitable for efficiently storing a key,value collection
-  * Both arrays must be contain the same number of elements.
-  */
-// LATER extend Traversable[Tuple2[K,V]] / CBF to get all the collection operators
-// (and then implement specialized variants for only a few)
+/**
+ * A pair of arrays, suitable for efficiently storing a key,value collection
+ * Both arrays must be contain the same number of elements.
+ */
 // LATER use HList instead of two arrays
-case class DataArray[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V]) {
+case class DataArray[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
+  extends IndexedSeq[(K, V)] with IndexedSeqLike[(K, V), DataArray[K, V]] {
   self =>
 
   require(keys.length == values.length)
-  
+
   // TODO: prevent keys & value elements from being mutable
-  // TODO add more high level functions
-  
-  def length: Int = keys.length
-  
-  override def equals(other: Any): Boolean = {
-    other match {
-      case that: DataArray[K,V] =>
-        // TODO: rewrite to eliminate boxing/unboxing
-        this.length == that.length &&
-        (0 until length).forall { i =>
-          this.keys(i) == that.keys(i) && this.values(i) == that.values(i)
-        }
-      case _                    => false
-    }
+
+  override def length: Int = keys.length
+
+  override def apply(index: Int): (K, V) = (keys(index), values(index))
+
+  override protected[this] def newBuilder: Builder[(K, V), DataArray[K, V]] = {
+    DataArray.newBuilder
   }
-  
-  // TODO: something smarter
-  override def hashCode: Int = {
-    41 * (41 + keys(0).hashCode()) + values(0).hashCode()
+
+  override def toString = {
+    if (isEmpty) "()"
+    else keys zip values map { case (k, v) => s"($k,$v)" } mkString (", ")
   }
-  
+
   /** apply a function to each key,value pair in the DataArray. */
   // note that a standard foreach would take a tuple2 parameter, so we don't call this foreach
   def foreachPair(fn: (K, V) => Unit): Unit = { // TODO specialize
@@ -50,18 +63,6 @@ case class DataArray[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
     while (index < keys.length) {
       fn(keys(index), values(index))
       index += 1
-    }
-  }
-
-  def iterator: Iterator[(K, V)] = { // TODO specialize
-    new Iterator[(K, V)]() {
-      var index = 0
-      override def hasNext(): Boolean = index < self.length
-      override def next(): (K, V) = {
-        var result = (keys(index), values(index))
-        index = index + 1
-        result
-      }
     }
   }
 
@@ -76,24 +77,11 @@ case class DataArray[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
     array
   }
 
-  /** return a new DataArray with all of the elements in this DataArray except the first pair */
-  def tail: DataArray[K, V] = { // TODO specialize
-    // for now, we simply copy. (Fancier would be a view that peeks into the underlying array)
-    val newKeys = keys.tail.toArray
-    val newValues = values.tail.toArray
-    DataArray(newKeys, newValues)
-  }
 
-  /** Optionally return the first pair in this DataArray */
-  def headOption: Option[(K, V)] = {
-    if (keys.length > 0) {
-      Some((keys(0), values(0)))
-    } else None
-  }
-
-  /** Optionally return the DataArray values combined into a single value by a provided
-    * binary operation function. The provided function should be associative and commutative.
-    */
+  /**
+   * Optionally return the DataArray values combined into a single value by a provided
+   * binary operation function. The provided function should be associative and commutative.
+   */
   def valuesReduceLeftOption(binOp: (V, V) => V): Option[V] = {
     def reduceN(): V = {
       var aggregateValue = headOption.map { case (k, v) => v }.get
@@ -110,6 +98,5 @@ case class DataArray[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
     }
   }
 
-  def isEmpty: Boolean = keys.length == 0
-  
 }
+
