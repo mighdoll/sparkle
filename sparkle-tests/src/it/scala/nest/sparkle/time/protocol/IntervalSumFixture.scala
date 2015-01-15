@@ -1,12 +1,12 @@
 package nest.sparkle.time.protocol
 
 import nest.sparkle.store.Event
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import spray.json.DefaultJsonProtocol._
 import nest.sparkle.time.protocol.TransformParametersJson.IntervalParametersFormat
 
 trait IntervalSumFixture {
-  self: CassandraTestConfig with StreamRequestor =>
+  self: CassandraStoreTestConfig with StreamRequestor =>
 
   /** make an IntervalSum query against a store loaded with data in a .csv test file */
   def withIntervalTest( // format: OFF

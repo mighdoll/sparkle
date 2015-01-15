@@ -27,13 +27,13 @@ import spray.util._
 import nest.sparkle.util.ConfigUtil
 import nest.sparkle.store.cassandra.CassandraStore
 import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.util.Resources
 import nest.sparkle.store.Event
 import nest.sparkle.util.Log
 import spray.json.JsValue
 
-class TestFilesLoader extends FunSuite with Matchers with CassandraTestConfig {
+class TestFilesLoader extends FunSuite with Matchers with CassandraStoreTestConfig {
   override def testKeySpace = "testfilesloader"
 
   override def testConfigFile: Option[String] = Some("tests")

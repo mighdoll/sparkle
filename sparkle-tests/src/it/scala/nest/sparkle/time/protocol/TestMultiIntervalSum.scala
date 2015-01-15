@@ -1,7 +1,7 @@
 package nest.sparkle.time.protocol
 
 import org.scalatest.{ FunSuite, Matchers }
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import com.typesafe.config.Config
 import nest.sparkle.store.Store
 import spray.json.JsObject
@@ -54,7 +54,7 @@ object MultiIntervalSum {
   }
 }
 
-class TestMultiIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor with IntervalSumFixture {
+class TestMultiIntervalSum extends FunSuite with Matchers with CassandraStoreTestConfig with StreamRequestor with IntervalSumFixture {
   def withMultiSelect(csvFile: String, columnPaths: String)(fn: Seq[Seq[Event[Long, Seq[Long]]]] => Unit): Unit = {
     val message = requestMessage(columnPaths)
 

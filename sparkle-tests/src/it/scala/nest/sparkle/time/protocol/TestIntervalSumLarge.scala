@@ -1,7 +1,7 @@
 package nest.sparkle.time.protocol
 
 import nest.sparkle.store.{ Event, WriteableStore }
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.store.cassandra.serializers.{ BooleanSerializer, LongSerializer }
 import org.scalatest.{ FunSuite, Matchers }
 import scala.concurrent.{ ExecutionContext, Future }
@@ -17,7 +17,7 @@ import scala.collection.parallel._
 import scala.concurrent.duration.FiniteDuration
 import akka.util.Timeout
 
-class TestIntervalSumLarge extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor with IntervalSumFixture {
+class TestIntervalSumLarge extends FunSuite with Matchers with CassandraStoreTestConfig with StreamRequestor with IntervalSumFixture {
 
   /* store a collection of MultiRecords into the Store */
   def storeMultiRecords // format: OFF

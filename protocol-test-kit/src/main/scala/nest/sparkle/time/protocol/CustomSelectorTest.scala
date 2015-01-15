@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import spray.util.pimpFuture
 import nest.sparkle.loader.{ FileLoadComplete, FilesLoader, ReceiveLoaded }
 import nest.sparkle.store.Store
-import nest.sparkle.store.cassandra.CassandraTestConfig
 import nest.sparkle.util.Resources
 import scala.reflect.runtime.universe._
 import nest.sparkle.loader.FileLoadComplete

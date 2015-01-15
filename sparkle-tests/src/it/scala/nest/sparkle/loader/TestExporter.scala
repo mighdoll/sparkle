@@ -26,14 +26,14 @@ import org.slf4j.LoggerFactory
 import akka.actor._
 import akka.util.Timeout.longToTimeout
 import spray.util._
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.tools.Exporter
 import nest.sparkle.util.Resources
 import nest.sparkle.tools.FileExporter
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 
-class TestExporter extends FunSuite with CassandraTestConfig with Matchers {
+class TestExporter extends FunSuite with CassandraStoreTestConfig with Matchers {
   override def testKeySpace = "testexporter"
   val exportDirectory = "/tmp/testexporter"
   

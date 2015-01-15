@@ -4,12 +4,12 @@ import scala.concurrent.{ Future, Promise }
 import org.scalatest.{ FunSuite, Matchers }
 import akka.actor.ActorSystem
 import nest.sparkle.loader.{ LoadComplete, ReceiveLoaded }
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.util.Resources
 import nest.sparkle.loader.FilesLoader
 import spray.util._
 
-class TestStorageConsole extends FunSuite with Matchers with CassandraTestConfig {
+class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestConfig {
   val filePath = Resources.filePathString("epochs.csv")
   
   override def testConfigFile = Some("tests")

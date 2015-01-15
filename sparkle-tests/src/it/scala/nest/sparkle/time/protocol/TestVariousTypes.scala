@@ -2,14 +2,14 @@ package nest.sparkle.time.protocol
 
 import org.scalatest.FunSuite
 import org.scalatest.Matchers
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.store.Event
 import nest.sparkle.time.protocol.TransformParametersJson.RawParametersFormat
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 import spray.json.JsValue
 
-class TestVariousTypes extends FunSuite with Matchers with CassandraTestConfig
+class TestVariousTypes extends FunSuite with Matchers with CassandraStoreTestConfig
     with StreamRequestor {
 
   def testExplicitType[T: JsonFormat](columnName: String)(fn: T => Unit) {

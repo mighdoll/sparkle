@@ -4,14 +4,14 @@ import scala.concurrent.duration.DurationInt
 import org.scalatest.{ FunSuite, Matchers }
 import akka.util.Timeout.durationToTimeout
 import nest.sparkle.store.{ Event, Store }
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.util.StringToMillis.IsoDateString
 import spray.http.StatusCodes.OK
 import spray.json.DefaultJsonProtocol._
 import spray.util.pimpFuture
 import nest.sparkle.time.transform.IntervalSum
 
-class TestIntervalSum extends FunSuite with Matchers with CassandraTestConfig with StreamRequestor with IntervalSumFixture {
+class TestIntervalSum extends FunSuite with Matchers with CassandraStoreTestConfig with StreamRequestor with IntervalSumFixture {
  
   test("test identifying some basic overlaps") {
     withIntervalTest("intervals-basic") { data =>

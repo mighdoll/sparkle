@@ -21,14 +21,14 @@ import spray.testkit.ScalatestRouteTest
 
 import nest.sparkle.measure.MeasurementToTsvFile
 import nest.sparkle.store.Store
-import nest.sparkle.store.cassandra.CassandraTestConfig
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.time.server.AdminService
 import nest.sparkle.time.server.ConcreteAdminService
 import nest.sparkle.time.protocol.ExportData
 import nest.sparkle.time.protocol.AdminProtocol.ExportDataFormat
 import nest.sparkle.util.ExpectHeader
 
-class TestAdminPageDownload extends FunSuite with Matchers with CassandraTestConfig with ExpectHeader with RequestBuilding {
+class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTestConfig with ExpectHeader with RequestBuilding {
 
   def epochTest(headers: HttpHeader*) {
     epochRequestWithHeaders(headers: _*) { implicit response =>
