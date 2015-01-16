@@ -21,3 +21,7 @@ trait SparkleSerializer[T] {
   def toBytes(data: T): Array[Byte];
   def fromBytes(bytes:Array[Byte]): T;
 }
+
+/** Indicates serialization/deserialization issues */
+case class SparkleSerializationException(cause: Throwable) extends RuntimeException(cause)
+case class SparkleDeserializationException(cause: Throwable) extends RuntimeException(cause)

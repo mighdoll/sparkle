@@ -13,6 +13,8 @@
    limitations under the License.  */
 package nest.sparkle.loader.kafka
 
+import scala.util.{Try, Success, Failure}
+
 import _root_.kafka.serializer.Decoder
 import nest.sparkle.loader._
 
@@ -43,9 +45,18 @@ case class KafkaKeyValueColumnDecoder[R]( serde: SparkleSerializer[R],
                                           override val suffix: String,
                                           override val prefix: String) extends KafkaKeyValues {
 
+  /** Throws SparkleDeserializationException for deserialization errors and
+    * ColumnDecoderException for decoding errors */
   override def fromBytes(bytes: Array[Byte]): ArrayRecordColumns = {
-    val record = serde.fromBytes(bytes)
-    decoder.decodeRecord(record)
+    Try(serde.fromBytes(bytes)) match {
+      case Success(record) =>
+        Try(decoder.decodeRecord(record)) match {
+          case Success(decodedRecord) => decodedRecord
+          case Failure(err)           => throw ColumnDecoderException(err)
+        }
+      case Failure(err)    =>
+        throw SparkleDeserializationException(err)
+    }
   }
 
   override def metaData: ArrayRecordMeta = decoder.metaData

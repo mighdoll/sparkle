@@ -71,6 +71,10 @@ trait KeyValueColumn extends ColumnDecoder {
 
 object KeyValueColumnConverter {
 
+  /**
+   * Returns a Try with ColumnDecoderException for decoding errors and
+   * with ColumnPathNotDeterminable if the column path cannot be determined.
+   */
   def convertMessage(decoder: KeyValueColumn,
                      record: ArrayRecordColumns): Try[TaggedBlock] = {
     // Wrap a try/catch around the whole method so no error crashes the loader.
@@ -79,8 +83,7 @@ object KeyValueColumnConverter {
         val ids = decoder.metaData.ids zip record.ids flatMap { case (NameTypeDefault(name, typed, default), valueOpt) =>
           // What happens if the original value was explicitly null?
           val valueOrDefault = valueOpt orElse default orElse {
-            log.debug("record contains field {} with no value and no default", name)
-            None
+            throw ColumnPathNotDeterminable(s"record contains field $name with no value and no default")
           }
           valueOrDefault.map(_.toString) // used to use TagTypeUtils
         }
@@ -109,7 +112,14 @@ object KeyValueColumnConverter {
       )
       Success(block)
     } catch {
-      case NonFatal(err) => Failure(err)
+      case e: ColumnPathNotDeterminable => Failure(e)
+      case NonFatal(err)                => Failure(ColumnDecoderException(err))
     }
   }
 }
+
+/** Indicates a decoding issue */
+case class ColumnDecoderException(cause: Throwable) extends RuntimeException(cause)
+
+/** Used when the column path cannot be determined for a message */
+case class ColumnPathNotDeterminable(msg: String) extends RuntimeException(msg)

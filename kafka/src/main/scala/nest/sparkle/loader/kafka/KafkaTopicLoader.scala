@@ -90,7 +90,19 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   
   /** Read rate */
   private val readMetric = metrics.meter("kafka-messages-read", metricPrefix)
-  
+
+  /** Rate of deserialization errors */
+  private val deserializationErrorsMetric = metrics.meter("deserialization-errors", metricPrefix)
+
+  /** Rate of decoding errors */
+  private val decodingErrorsMetric = metrics.meter("decoding-errors", metricPrefix)
+
+  /** Rate of transformer errors */
+  private val transformErrorsMetric = metrics.meter("transform-errors", metricPrefix)
+
+  /** Rate of intentionally skipped messages */
+  private val skippedMessagesMetric = metrics.meter("skipped-messages", metricPrefix)
+
   private val batchSizeMetric = metrics.meter(s"store-batch-size", metricPrefix)
   
   /** Meter for writing to C* for this topic */
@@ -114,23 +126,49 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   override def run(): Unit = {
     
     try {
-      log.info("Loader for {} started", topic)
+      log.info(s"Loader for $topic started")
       
       // The number of kafka messages read since the last commit.
-      var messageCount = 0  
+      var messageCount = 0
+
+      // updates the message count, calls the specified function to process the
+      // message, and then checks if we need to commit
+      def processMessage()(fn: => Unit): Unit = {
+        messageCount += 1
+        readMetric.mark()
+        fn
+        if (messageCount > messageCommitLimit) {
+          commitWhenClear()
+          messageCount = 0
+        }
+      }
 
       while (keepRunning) {
         iterator.next() match {
           case Success(block) =>
-            messageCount += 1
-            readMetric.mark()
-            writeMessage(block)
-            if (messageCount > messageCommitLimit) {
-              commitWhenClear()
-              messageCount = 0
+            processMessage() { writeMessage(block) }
+          case Failure(err: SparkleDeserializationException) =>
+            processMessage() {
+              log.warn(s"failed to deserialize message from $topic", err)
+              deserializationErrorsMetric.mark()
+            }
+          case Failure(err: ColumnDecoderException) =>
+            processMessage() {
+              log.warn(s"failed to decode message from $topic", err)
+              decodingErrorsMetric.mark()
+            }
+          case Failure(err: TransformException) =>
+            processMessage() {
+              log.warn(s"failed to transform message from $topic", err)
+              transformErrorsMetric.mark()
+            }
+          case Failure(err: ColumnPathNotDeterminable) =>
+            processMessage() {
+              log.trace(s"skipping message from $topic (${err.getMessage})")
+              skippedMessagesMetric.mark()
             }
           case Failure(err: ConsumerTimeoutException) =>
-            log.trace("consumer timeout reading {}", topic)
+            log.trace(s"consumer timeout reading $topic")
             commitWhenClear()
             messageCount = 0
           case Failure(err) =>
@@ -226,13 +264,16 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
         discardIterator()
     }
   }
-  
+
+  /** Indicates there's an issue transforming a block */
+  case class TransformException(cause: Throwable) extends RuntimeException(cause)
+
   /** Transform the block. Only called if transformer is not None */
   private def transform(block: TaggedBlock): Try[TaggedBlock] = {
     try {
       Success(transformer.get.transform(block))
     } catch {
-      case NonFatal(err) => Failure(err)
+      case NonFatal(err) => Failure(TransformException(err))
     }
   }
   
@@ -278,10 +319,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     
     def withFixedType[U](): Unit = {
       implicit val valueType = slice.valueType
-      log.trace(
-        "loading {} events to column: {}  keyType: {}  valueType: {}",
-        slice.events.length.toString, slice.columnPath, keyType, valueType
-      )
+      log.trace(s"loading ${slice.events.length} events to column: ${slice.columnPath}  keyType: $keyType  valueType: $valueType")
 
       writesInProcess.acquire()  // running in loader thread here
       log.trace(s"got permit ${Thread.currentThread.getId} ${writesInProcess.availablePermits}")
