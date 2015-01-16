@@ -3,6 +3,8 @@ import sbt.Keys._
 import BackgroundService._
 import BackgroundServiceKeys._
 
+import sbtassembly.AssemblyPlugin.autoImport._
+
 object SparkleBuild extends Build {
   import Dependencies._
 
@@ -264,17 +266,48 @@ object SparkleBuild extends Build {
 
   lazy val sparkShell =   // admin shell
     Project(id = "spark-repl", base = file("spark"))
-      .dependsOn(sparkleStore % "compile->compile")
+      .dependsOn(sparkleStore)           // is "compile->compile" the default?
       .dependsOn(sparkleLoader)
-      .dependsOn(storeTestKit % "it->compile;test->compile")
+      .dependsOn(storeTestKit % "it->compile;test->compile")  // is this just "it;test"?
       .dependsOn(logbackConfig)
+      .settings(
+        // http://stackoverflow.com/questions/25035716/how-to-exclude-transitive-dependencies-of-other-subproject-in-multiproject-build
+        projectDependencies := {
+          Seq(
+            (projectID in sparkleLoader).value
+              .exclude("nl.grons", "metrics-scala_2.10")
+              .exclude("com.typesafe.akka", "akka-actor_2.10"),
+            (projectID in sparkleStore).value
+              .exclude("nl.grons", "metrics-scala_2.10")
+              .exclude("com.typesafe.akka", "akka-actor_2.10"),
+            (projectID in logbackConfig).value,
+            (projectID in storeTestKit).value % "it;test"
+          )
+        },
+        assemblyExcludedJars in assembly := { 
+          val classpath = (fullClasspath in assembly).value
+          classpath.filter{ attributedFile => 
+            val name = attributedFile.data.getName
+            name match {
+              case _ if name.endsWith("-sources.jar")   => false   // cassandra driver includes sources
+              case _ if name.endsWith("minlog-1.2.jar") => false   // probably better in current rev. see https://github.com/EsotericSoftware/kryo/issues/189
+              case _ => true
+            }
+          }
+        }
+      )
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
+      .settings(BuildSettings.setMainClass("org.apache.spark.repl.Main"): _*)
       .settings(
         libraryDependencies ++= spark ++ logbackTest ++ Seq(
           sparkRepl
         ),
+        fullClasspath in Compile := (fullClasspath in Compile).value.filter { attributedFile =>
+          println(attributedFile)
+          !attributedFile.data.getName.contains("akka-actor_2.10-2.2.4.jar")
+        },
         dependenciesToStart := Seq(cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value,
         // probably want to run the spark-repl here..
@@ -292,7 +325,6 @@ object SparkleBuild extends Build {
       .dependsOn(logbackConfig)
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
-      .settings(BuildSettings.sparkleAssemblySettings: _*)
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
       .settings(BackgroundService.settings: _*)
       .settings(

@@ -21,8 +21,7 @@ import spray.revolver.RevolverPlugin._
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseKeys
 import com.typesafe.sbteclipse.plugin.EclipsePlugin.EclipseCreateSrc
 
-import sbtassembly.Plugin.AssemblyKeys._
-import sbtassembly.Plugin._
+import sbtassembly.AssemblyPlugin.autoImport._
 
 import BackgroundServiceKeys._
 
@@ -77,20 +76,8 @@ object BuildSettings {
     )
   )
   
-  lazy val sparkleAssemblySettings = assemblySettings ++ Seq(
-    defaultMergeStrategy
-  )
-
-  lazy val defaultMergeStrategy =
-    mergeStrategy in assembly <<= (mergeStrategy in assembly) { old => {
-      case "META-INF/io.netty.versions.properties" => MergeStrategy.first
-      case x => old(x)
-    }
-  }
-
   lazy val publishSettings =
     // bintraySettings ++ // disabled pending https://github.com/softprops/bintray-sbt/issues/18
-    sbtassembly.Plugin.assemblySettings ++
       ReleasePlugin.releaseSettings ++
       MavenPublish.settings ++
       Revolver.settings  // TODO Revolver isn't really 'publish' settings, and BackgroundService includes revolver

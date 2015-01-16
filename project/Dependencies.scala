@@ -43,6 +43,10 @@ object Dependencies {
                                 excludeAll(ExclusionRule(organization = "org.apache.spark"))
                               )
   val sparkCore             = ("org.apache.spark"         %% "spark-core"             % V.spark
+                                // a shaded version of minlog included in the kryo jar, so try to exclude this additional copy
+                                // however, this doesn't seem to work, so we yank it out of the assembly
+                                // LATER revisit in a current rev of spark/kryo. See https://github.com/EsotericSoftware/kryo/issues/189
+                                exclude("com.esotericsoftware.minlog", "minlog")
                                 exclude("org.slf4j", "slf4j-log4j12")
                               )
   val sparkSql              = ("org.apache.spark"         %% "spark-sql"             % V.spark
