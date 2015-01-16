@@ -26,7 +26,7 @@ class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTest
   }
 
   def withSparkTest(file: String)(fn: (SparkConnection, CassandraStoreReader) => Unit): Unit = {
-    withLoadedFile("epochs.csv") { (store, system) =>
+    withLoadedFile(file) { (store, system) =>
       withSpark { connection =>
         fn(connection, store)
       }
