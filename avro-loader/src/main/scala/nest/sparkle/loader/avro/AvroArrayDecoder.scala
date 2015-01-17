@@ -40,13 +40,17 @@ object AvroArrayDecoder extends AvroDecoder with Log {
     *
     * @param idFields List of field names which will be separated by slashes to
     *               form the column name
-    * @param skipValueFields a blacklist of values fields in each array row to ignore
+    * @param valueFieldsFilter either a whitelist of values fields in each array row to consider, or
+    *               a blacklist of values fields in each array row to ignore, determined by
+    *               valueFieldsFilterIsBlackList param
+    * @param valueFieldsFilterIsBlackList whether valueFieldsFilter represents a whitelist or blacklist
     */
   def decoder(schema: Schema,  // format: OFF
               arrayField: String = "elements",
               idFields: Seq[(String,Option[String])] = Seq(("id", None)),
               keyField: String = "time",
-              skipValueFields: Set[String] = Set(),
+              valueFieldsFilter: Set[String] = Set(),
+              valueFieldsFilterIsBlackList: Boolean = true,
               filterOpt:Option[ArrayRecordFilter] = None ): ArrayRecordDecoder[GenericRecord] = // format: ON
     {
       val name = schema.getName
@@ -79,7 +83,10 @@ object AvroArrayDecoder extends AvroDecoder with Log {
         }
 
         val values: Seq[NameTypeDefault] = {
-          val valueFields = fieldsExcept(elementSchema, skipValueFields + keyField)
+          val valueFields = {
+            if (valueFieldsFilterIsBlackList) fieldsExcept(elementSchema, valueFieldsFilter + keyField)
+            else fields(elementSchema, valueFieldsFilter)
+          }
           val valueTypes = typeTagFields(elementSchema, valueFields)
           valueFields zip valueTypes map {
             case (valueName, typed) =>

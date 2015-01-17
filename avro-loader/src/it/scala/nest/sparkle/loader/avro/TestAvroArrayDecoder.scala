@@ -48,4 +48,42 @@ class TestAvroArrayDecoder extends FunSuite with Matchers {
     resultEvent.argument shouldBe 1L
     resultEvent.value shouldBe 13.1
   }
+
+  test("use whitelist") {
+    val schema = MillisDoubleArrayAvro.schema
+    val latencyRecord = makeLatencyRecord("abc123", "xyz", Seq(1L -> 13.1))
+
+    val decoder = AvroArrayDecoder.decoder(schema = schema,
+      arrayField = "elements",
+      idFields = Seq(("id1", None),("id2", None)),
+      keyField = "time",
+      valueFieldsFilter = Set("time"),
+      valueFieldsFilterIsBlackList = false)
+
+    val resultColumns: ArrayRecordColumns = decoder.decodeRecord(latencyRecord)
+
+    resultColumns.columns.size shouldBe 1
+    resultColumns.columns(0).size shouldBe 1
+
+    val resultEvent = resultColumns.columns(0)(0).asInstanceOf[Event[Long,Long]]
+    resultEvent.argument shouldBe 1L
+    resultEvent.value shouldBe 1L
+  }
+
+
+  test("use blacklist") {
+    val schema = MillisDoubleArrayAvro.schema
+    val latencyRecord = makeLatencyRecord("abc123", "xyz", Seq(1L -> 13.1))
+
+    val decoder = AvroArrayDecoder.decoder(schema = schema,
+      arrayField = "elements",
+      idFields = Seq(("id1", None),("id2", None)),
+      keyField = "time",
+      valueFieldsFilter = Set("value"),
+      valueFieldsFilterIsBlackList = true)
+
+    val resultColumns: ArrayRecordColumns = decoder.decodeRecord(latencyRecord)
+
+    resultColumns.columns.size shouldBe 0
+  }
 }

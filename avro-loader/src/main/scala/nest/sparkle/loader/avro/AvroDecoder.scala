@@ -74,10 +74,18 @@ trait AvroDecoder {
     }).getOrElse(SchemaDecodeException.schemaDecodeException("avro field is a union without a supported type"))
   }
 
-  protected def fieldsExcept(schema: Schema, exceptFields: Set[String]): Seq[String] = {
-    schema.getFields.asScala.map(_.name).collect {
-      case name if !exceptFields.contains(name) => name
-    }
+  /**
+   * Returns the field names from the specified schema, that are in specified whitelist.
+   */
+  protected def fields(schema: Schema, whiteListFields: Set[String]): Seq[String] = {
+    schema.getFields.asScala.map(_.name).filter(whiteListFields.contains(_))
+  }
+
+  /**
+   * Returns the field names from the specified schema, except those in the specified blacklist.
+   */
+  protected def fieldsExcept(schema: Schema, blackListFields: Set[String]): Seq[String] = {
+    schema.getFields.asScala.map(_.name).filter(!blackListFields.contains(_))
   }
 
   protected def typeTagFields(schema: Schema, fields: Seq[String]): Iterable[TypeTag[_]] = {
