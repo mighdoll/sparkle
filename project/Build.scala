@@ -289,9 +289,9 @@ object SparkleBuild extends Build {
           classpath.filter{ attributedFile => 
             val name = attributedFile.data.getName
             name match {
-              case _ if name.endsWith("-sources.jar")   => false   // cassandra driver includes sources
-              case _ if name.endsWith("minlog-1.2.jar") => false   // probably better in current rev. see https://github.com/EsotericSoftware/kryo/issues/189
-              case _ => true
+              case _ if name.endsWith("-sources.jar")   => true // cassandra driver includes sources
+              case _ if name.endsWith("minlog-1.2.jar") => true // probably better in current rev. see https://github.com/EsotericSoftware/kryo/issues/189
+              case _                                    => false  
             }
           }
         }
@@ -304,10 +304,6 @@ object SparkleBuild extends Build {
         libraryDependencies ++= spark ++ logbackTest ++ Seq(
           sparkRepl
         ),
-        fullClasspath in Compile := (fullClasspath in Compile).value.filter { attributedFile =>
-          println(attributedFile)
-          !attributedFile.data.getName.contains("akka-actor_2.10-2.2.4.jar")
-        },
         dependenciesToStart := Seq(cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value,
         // probably want to run the spark-repl here..
