@@ -87,6 +87,27 @@ object BuildSettings {
     dependencyOverrides ++= Dependencies.dependencyOverrides
   )
 
+  // hopefully this is unnecessary in the current rev of spark, 
+  // (if not, we should pick winners/exclusions more carefully)
+  lazy val sparkMergeSettings = Seq(
+    assemblyMergeStrategy in assembly <<= (assemblyMergeStrategy in assembly) { old => 
+      { case "META-INF/mailcap"                                      => MergeStrategy.first
+        case n if n.startsWith("META-INF/maven/org.slf4j/slf4j-api") => MergeStrategy.first
+        case n if n.endsWith("linux32/libjansi.so")                  => MergeStrategy.discard
+        case n if n.endsWith("jansi.dll")                            => MergeStrategy.discard
+        case n if n.endsWith("linux64/libjansi.so")                  => MergeStrategy.last  // TODO fix better
+        case n if n.endsWith("osx/libjansi.jnilib")                  => MergeStrategy.last  // TODO fix better
+        case n if n.startsWith("org/apache/commons/beanutils/")      => MergeStrategy.last  // TODO fix better
+        case n if n.startsWith("org/apache/commons/collections/")    => MergeStrategy.last  // TODO fix better
+        case n if n.startsWith("org/apache/commons/logging/")        => MergeStrategy.last  // TODO fix better
+        case n if n.startsWith("org/fusesource/hawtjni/runtime/")    => MergeStrategy.last  // TODO fix better
+        case n if n.startsWith("org/fusesource/jansi/")              => MergeStrategy.last  // TODO fix better
+        case "plugin.properties"                                     => MergeStrategy.first // TODO fix better
+        case x                                                       => old(x)
+      }
+    }
+  )
+
   /** settings so that we launch our favorite Main by default */
   def setMainClass(className: String): Seq[Setting[_]] = {
     Seq(
