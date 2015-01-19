@@ -271,27 +271,15 @@ object SparkleBuild extends Build {
       .dependsOn(storeTestKit % "it->compile;test->compile")  // is this just "it;test"?
       .dependsOn(logbackConfig)
       .settings(
-        // http://stackoverflow.com/questions/25035716/how-to-exclude-transitive-dependencies-of-other-subproject-in-multiproject-build
-        projectDependencies := {
-          Seq(
-            (projectID in sparkleLoader).value
-              .exclude("nl.grons", "metrics-scala_2.10")
-              .exclude("com.typesafe.akka", "akka-actor_2.10"),
-            (projectID in sparkleStore).value
-              .exclude("nl.grons", "metrics-scala_2.10")
-              .exclude("com.typesafe.akka", "akka-actor_2.10"),
-            (projectID in logbackConfig).value,
-            (projectID in storeTestKit).value % "it;test"
-          )
-        },
         assemblyExcludedJars in assembly := { 
           val classpath = (fullClasspath in assembly).value
           classpath.filter{ attributedFile => 
             val name = attributedFile.data.getName
             name match {
-              case _ if name.endsWith("-sources.jar")   => true // cassandra driver includes sources
-              case _ if name.endsWith("minlog-1.2.jar") => true // probably better in current rev. see https://github.com/EsotericSoftware/kryo/issues/189
-              case _                                    => false  
+              case _ if name.endsWith("-sources.jar")              => true // cassandra driver includes sources
+              case _ if name.endsWith("akka-actor_2.10-2.2.4.jar") => true // exclusion trick doesn't work with cached resolution
+              case _ if name.endsWith("minlog-1.2.jar")            => true // probably better in current rev. see https://github.com/EsotericSoftware/kryo/issues/189
+              case _                                               => false  
             }
           }
         }
@@ -299,6 +287,7 @@ object SparkleBuild extends Build {
       .configs(IntegrationTest)
       .settings(BuildSettings.allSettings: _*)
       .settings(BackgroundService.settings: _*)
+      .settings(BuildSettings.sparkMergeSettings: _*)
       .settings(BuildSettings.setMainClass("org.apache.spark.repl.Main"): _*)
       .settings(
         libraryDependencies ++= spark ++ logbackTest ++ Seq(
