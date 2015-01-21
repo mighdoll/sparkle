@@ -68,7 +68,7 @@ class TestStreamLoadEncodedKafka
           s"$sparkleConfigName.kafka-loader.find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleTSVFinder" ::
           Nil
 
-        val storeWrite = testStore.writeListener.listen[Long](columnPath)
+        val storeWrite = testStore.writeListener.listen(columnPath)
         val modifiedRoot = modifiedConfig(rootConfig, overrides: _*)
         withTestActors { implicit system =>
           val loader = new KafkaLoader[Long](modifiedRoot, testStore)

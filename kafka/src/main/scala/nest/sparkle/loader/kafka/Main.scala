@@ -9,7 +9,7 @@ import scala.util.control.Exception.nonFatalCatch
 import org.clapper.argot.ArgotConverters._
 
 import nest.sparkle.store.{WriteableStore, Store}
-import nest.sparkle.store.cassandra.WriteNotification  // TODO: shouldn't require cassandra
+import nest.sparkle.store.WriteNotification  
 import nest.sparkle.util.{Log, InitializeReflection, SparkleApp}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 

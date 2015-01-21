@@ -49,9 +49,9 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
   
   def validateSimpleByHour[K,V](data:DataArray[K,Option[V]]):Boolean = {
     data.length shouldBe 3
-    data(0) shouldBe ("2014-12-01T00:00:00.000".toMillis, Some(8))
-    data(1) shouldBe ("2014-12-01T01:00:00.000".toMillis, None)
-    data(2) shouldBe ("2014-12-01T02:00:00.000".toMillis, Some(2))
+    data(0) shouldBe ("2014-12-01T00:00:00.000".toMillis -> Some(8))
+    data(1) shouldBe ("2014-12-01T01:00:00.000".toMillis -> None)
+    data(2) shouldBe ("2014-12-01T02:00:00.000".toMillis -> Some(2))
     true // throws if it fails
   }
 

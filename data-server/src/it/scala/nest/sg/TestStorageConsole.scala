@@ -1,24 +1,22 @@
 package nest.sg
 
-import scala.concurrent.{ Future, Promise }
 import org.scalatest.{ FunSuite, Matchers }
-import akka.actor.ActorSystem
-import nest.sparkle.loader.{ LoadComplete, ReceiveLoaded }
+import nest.sparkle.loader.FilesLoader
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.util.Resources
-import nest.sparkle.loader.FilesLoader
-import spray.util._
+import nest.sparkle.util.FutureAwait.Implicits._
 
 class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestConfig {
-  val filePath = Resources.filePathString("epochs.csv")
+  val fileName = "epochs.csv"
+  val filePath = Resources.filePathString(fileName)
   
   override def testConfigFile = Some("tests")
 
   def withTestConsole[T](fn: StorageConsoleAPI => T): T = {    
     withTestDb { testDb =>
       withTestActors{ implicit system =>
-        val complete = onLoadCompleteOld(system, "epochs/count")
-        FilesLoader(sparkleConfig, filePath, testDb)
+        val complete = onLoadComplete(testDb, fileName)
+        FilesLoader(sparkleConfig, filePath, fileName, testDb)
         complete.await
         val storageConsole = new ConcreteStorageConsole(testDb, system.dispatcher)
         fn(storageConsole)

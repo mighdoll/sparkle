@@ -111,7 +111,6 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]]) 
             Observable.error(err)
   
           case Notification.OnNext(dataArray) =>
-            println(s"reduceByPeriod.onNext dataArray: $dataArray")
             val pairs = PeekableIterator(dataArray.iterator)
             val reducedPairs = pairsState.reduceCompletePeriods(pairs, periodWithZone, reduction)
             Observable.from(Seq(reducedPairs))

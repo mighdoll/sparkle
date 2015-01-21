@@ -75,7 +75,7 @@ trait EncodedRecordLoaderFixture extends CassandraStoreTestConfig {
       val recordsecords = readEncodedRecords()
       kafkaWriter.write(recordsecords)
       withTestActors { implicit system =>
-        val storeWrite = testStore.writeListener.listen[T](loadColumnPath)
+        val storeWrite = testStore.writeListener.listen(loadColumnPath)
         val loader = new KafkaLoader[Long](modifiedRootConfig, testStore)
         try {
           loader.start()

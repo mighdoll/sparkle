@@ -57,11 +57,10 @@ object LargeReduction {
         
         val values = (0 until keys.length).map { _ => 2L }.toArray
         val result = DataArray(keys, values)
-        result.foreach { keyValue => println(keyValue.timeValueString) }
         result
       }
       
-      override def hasNext():Boolean = startMillis < untilMillis
+      override def hasNext:Boolean = startMillis < untilMillis
     }
     
     val data = Observable.from(iter.toIterable)

@@ -19,7 +19,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 
 import com.datastax.driver.core.{ BatchStatement, Session }
 
-import nest.sparkle.store.Event
+import nest.sparkle.store.{Event, ColumnUpdate, WriteNotifier}
 import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
 import nest.sparkle.store.cassandra.SparseColumnWriterStatements._
 import nest.sparkle.util.GuavaConverters._
@@ -148,7 +148,8 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       items.headOption.foreach { head =>
         val start = head.argument
         val end = items.last.argument
-        writeNotifier.notify(columnPath, ColumnUpdate(start, end))
+        log.trace(s"wrote events: $events")
+        writeNotifier.columnUpdate(columnPath, ColumnUpdate(start, end))
       }
     }
   }

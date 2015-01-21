@@ -23,7 +23,7 @@ import com.datastax.driver.core.{BoundStatement, Row}
 
 import nest.sparkle.core.OngoingData
 import nest.sparkle.datastream.DataArray
-import nest.sparkle.store.{Column, Event, OngoingEvents}
+import nest.sparkle.store.{Column, ColumnUpdate, WriteListener, WriteEvent, WriteNotifier, Event, OngoingEvents}
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.store.cassandra.SparseColumnReaderStatements._
 import nest.sparkle.measure.Span
@@ -188,22 +188,28 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
   /** listen for writes, and trigger a read each time new data is available.
     * Return an observable that never completes (except if there's an error).
     * 
-    * TODO the read should only triggered if the caller subcribes to the returned observable.
+    * TODO the read should only triggered if the caller subscribes to the returned observable.
     */
   private def ongoingRead(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[Event[T, U]] = {
-    writeListener.listen(columnPath).flatMap { columnUpdate: ColumnUpdate[T] =>
-      handleColumnUpdate(columnUpdate, parentSpan)
+    writeListener.listen(columnPath).flatMap { written:WriteEvent  =>
+      written match { 
+        case columnUpdate:ColumnUpdate[T] => handleColumnUpdate(columnUpdate, parentSpan)
+        case _                            => Observable.empty
+      }
     }
   }
 
   /** listen for writes, and trigger a read each time new data is available.
     * Return an observable that never completes (except if there's an error).
     * 
-    * TODO the read should only triggered if the caller subcribes to the returned observable.
+    * TODO the read should only triggered if the caller subscribes to the returned observable.
     */
   private def ongoingReadA(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[DataArray[T, U]] = {
-    writeListener.listen(columnPath).flatMap { columnUpdate: ColumnUpdate[T] =>
-      handleColumnUpdateA(columnUpdate, parentSpan)
+    writeListener.listen(columnPath).flatMap { written:WriteEvent =>
+      written match { 
+        case columnUpdate:ColumnUpdate[T] => handleColumnUpdateA(columnUpdate, parentSpan)
+        case _                            => Observable.empty
+      }
     }
   }
 

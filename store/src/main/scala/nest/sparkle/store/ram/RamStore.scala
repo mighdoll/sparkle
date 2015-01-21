@@ -26,6 +26,8 @@ import scala.reflect.runtime.universe._
 /** A java heap resident database of Columns */
 class WriteableRamStore extends Store {
   private val columns = mutable.Map[String, RamColumn[_, _]]()
+  
+  override val writeListener = new WriteNotification()
 
   /** return the dataset for the provided name name or path (fooSet/barSet/mySet).  */
   def dataSet(name: String): Future[DataSet] = {

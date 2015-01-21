@@ -30,8 +30,7 @@ import spray.can.Http
 import spray.util._
 
 import nest.sparkle.loader.{ FilesLoader, LoadPathDoesNotExist }
-import nest.sparkle.store.Store
-import nest.sparkle.store.cassandra.WriteNotification
+import nest.sparkle.store.{Store, WriteNotification}
 import nest.sparkle.util._
 import nest.sparkle.measure.ConfiguredMeasurements
 
@@ -110,7 +109,7 @@ protected class SparkleAPIServer(val rootConfig: Config)(implicit val system: Ac
       val strip = sparkleConfig.getInt("files-loader.directory-strip")
       sparkleConfig.getStringList("files-loader.directories").asScala.foreach { pathString =>
         try {
-          FilesLoader(sparkleConfig, pathString, writeableStore, strip)
+          FilesLoader(sparkleConfig, pathString, pathString, writeableStore, strip)
         } catch {
           case LoadPathDoesNotExist(path) => sys.exit(1)
         }

@@ -142,7 +142,7 @@ class TestCassandraStore
 
   test("read+write many long double events") {
     withTestDb { implicit store =>
-      forAll(Gen.chooseNum(100, 100000), minSuccessful(5)) { rowCount =>
+      forAll(Gen.chooseNum(100, 30000), minSuccessful(5)) { rowCount =>
         withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
           val readColumn = store.column[Long, Double](testColumnPath).await
           //          writeColumn.erase().await // intermittently fails. race in cassandra? // for now runnng one iteration per column
@@ -164,7 +164,7 @@ class TestCassandraStore
 
   test("read+write many long double events with DataArray") {
     withTestDb { implicit store =>
-      forAll(Gen.chooseNum(100, 100000), minSuccessful(5)) { rowCount =>
+      forAll(Gen.chooseNum(100, 30000), minSuccessful(5)) { rowCount =>
         withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
           val readColumn = store.column[Long, Double](testColumnPath).await
           //          writeColumn.erase().await // intermittently fails. race in cassandra? // for now runnng one iteration per column

@@ -13,26 +13,19 @@
    limitations under the License.  */
 
 package nest.sparkle.store.cassandra
-
 import scala.collection.JavaConverters._
-import com.typesafe.config.Config
-import akka.actor._
-import nest.sparkle.test.SparkleTestConfig
-import nest.sparkle.util.ConfigUtil
-import nest.sparkle.util.Resources
-import nest.sparkle.loader.FilesLoader
-import nest.sparkle.store.Event
-import scala.concurrent.Future
-import nest.sparkle.util.FutureAwait.Implicits._
-import nest.sparkle.loader.ReceiveLoaded
-import nest.sparkle.loader.LoadComplete
-import nest.sparkle.loader.FileLoadComplete
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration._
-import nest.sparkle.store.Store
+import scala.util.Success
 
-
-// TODO DRY these!
+import akka.actor._
+import com.typesafe.config.Config
+import nest.sparkle.loader.FilesLoader
+import nest.sparkle.store.{ColumnUpdate, DirectoryLoaded, Event, FileLoaded, ListenRegistered, Store, WriteEvent, WriteNotification}
+import nest.sparkle.test.SparkleTestConfig
+import nest.sparkle.util.FutureAwait.Implicits._
+import nest.sparkle.util.RandomUtil.randomAlphaNum
+import nest.sparkle.util.{ConfigUtil, Resources}
 
 /** a test jig for running tests using cassandra. */
 trait CassandraStoreTestConfig extends SparkleTestConfig
@@ -64,21 +57,18 @@ trait CassandraStoreTestConfig extends SparkleTestConfig
       fn(store)
     } finally {
       store.close()
-      //      CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
     }
   }
 
   /** run a function within a test actor system */
   def withTestActors[T](fn: ActorSystem => T): T = {
-    val system = ActorSystem("test-config")
+    val system = ActorSystem("cassandra-store-test-config-" + randomAlphaNum(3))
     try {
       fn(system)
     } finally {
       system.shutdown()
     }
   }
-
-  
   
   /** try loading a known file and check the expected column for results */
   def testLoadFile[T, U, V](resourcePath: String, columnPath: String)(fn: Seq[Event[U, V]] => T) {
@@ -87,8 +77,8 @@ trait CassandraStoreTestConfig extends SparkleTestConfig
     withTestDb { testDb =>
       withTestActors { implicit system =>
         import system.dispatcher
-        val complete = onLoadCompleteOld(system, columnPath)
-        FilesLoader(sparkleConfig, filePath, testDb, 0)
+        val complete = onLoadComplete(testDb, resourcePath)
+        FilesLoader(sparkleConfig, filePath, resourcePath, testDb, 0)
         complete.await(4.seconds)
 
         val column = testDb.column[U, V](columnPath).await
@@ -99,43 +89,25 @@ trait CassandraStoreTestConfig extends SparkleTestConfig
     }
   }
 
-  /** return a future that completes when the loader reports that loading is complete */
-  // TODO DRY this by moving files loader to stream loader style notification
-  def onLoadCompleteOld(system: ActorSystem, path: String): Future[Unit] = {
-    val promise = Promise[Unit]()
-    system.eventStream.subscribe(
-      system.actorOf(ReceiveLoaded.props(path, promise)), classOf[LoadComplete]
-    )
-
-    promise.future
-  }
 
   /** run a test function after loading some data into cassandra */
   def withLoadedFile[T](resourcePath: String) // format: OFF
-      (fn: (CassandraReaderWriter, ActorSystem) => T): T =
-  {
-    // format: ON
-    withLoadedFileInResource(resourcePath, resourcePath)(fn) // TODO this seems incorrect..
+      (fn: (CassandraReaderWriter, ActorSystem) => T): T = { // format: ON    
+    withLoadedFileInResource(resourcePath)(fn)
   }
 
   /** Run a test function after loading some data into cassandra.
     * @param fn - test function to call after the data has been loaded.
-    * @param resource - directory in the classpath resources to load (recursively)
-    * @param relativePath - call the function after a particular file in the resource directory has been
-    *                     completely loaded.
-    *                     TODO have the FilesLoader report when the entire resource subdirectory is loaded, so
-    *                     we don't need to path both the resource and relativePath. (Perhaps
-    *                     the existing dataSet notification is enough for this?) */
-  def withLoadedFileInResource[T](resource: String, relativePath: String) // format: OFF
-      (fn: (CassandraReaderWriter, ActorSystem) => T): T =
-  {
-    // format: ON
+    * @param resourcePath - directory in the classpath resources to load (recursively)
+    */
+  def withLoadedFileInResource[T](resourcePath: String) // format: OFF
+      (fn: (CassandraReaderWriter, ActorSystem) => T): T = { // format: ON
 
     withTestDb { testDb =>
       withTestActors { implicit system =>
-        val complete = onFileLoadComplete(system, relativePath)
-        val loadPath = Resources.filePathString(resource)
-        val loader = FilesLoader(sparkleConfig, loadPath, testDb, 0)
+        val complete = onLoadComplete(testDb, resourcePath)
+        val loadPath = Resources.filePathString(resourcePath)
+        val loader = FilesLoader(sparkleConfig, loadPath, resourcePath, testDb, 0)
         complete.await
         val result =
           try {
@@ -149,12 +121,20 @@ trait CassandraStoreTestConfig extends SparkleTestConfig
   }
 
   /** return a future that completes when the loader reports that loading is complete */
-  // TODO DRY this by moving files loader to stream loader style notification
-  def onFileLoadComplete(system: ActorSystem, path: String): Future[Unit] = {
+  def onLoadComplete(store:Store, path: String): Future[Unit] = {
     val promise = Promise[Unit]()
-    system.eventStream.subscribe(
-      system.actorOf(ReceiveLoaded.props(path, promise)), classOf[FileLoadComplete]
-    )
+    def complete(): Unit = if (!promise.isCompleted) promise.complete(Success(Unit))
+
+    store.writeListener.listen(path).subscribe {writeEvent:WriteEvent =>
+      writeEvent match {
+        case FileLoaded(`path`)      => complete()
+        case DirectoryLoaded(`path`) => complete()
+        case ListenRegistered        => // ignore
+        case DirectoryLoaded(_)      => // ignore
+        case FileLoaded(_)           => // ignore
+        case c:ColumnUpdate[_]       => // ignore
+      }
+    }
 
     promise.future
   }

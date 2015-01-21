@@ -244,8 +244,6 @@ trait CassandraReaderWriter extends CassandraStoreReader with CassandraStoreWrit
 /** a data access object for Cassandra writing. */
 trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with Log
 {
-  def writeNotifier: WriteNotifier
-
   // trigger creating connection, and create schemas if necessary
   this.session
   

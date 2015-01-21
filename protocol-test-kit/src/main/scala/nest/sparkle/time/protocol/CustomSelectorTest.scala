@@ -1,16 +1,12 @@
 package nest.sparkle.time.protocol
 
-import scala.collection.JavaConverters._
-import scala.concurrent.{ Future, Promise }
+import scala.collection.JavaConverters.seqAsJavaListConverter
+import scala.reflect.runtime.universe._
+
 import org.scalatest.FunSuite
+
 import akka.actor.ActorSystem
-import spray.util.pimpFuture
-import nest.sparkle.loader.{ FileLoadComplete, FilesLoader, ReceiveLoaded }
 import nest.sparkle.store.Store
-import nest.sparkle.util.Resources
-import scala.reflect.runtime.universe._
-import nest.sparkle.loader.FileLoadComplete
-import scala.reflect.runtime.universe._
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
 /** test jig for making custom selector tests */

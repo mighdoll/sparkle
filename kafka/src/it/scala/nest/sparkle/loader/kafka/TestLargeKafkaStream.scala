@@ -1,17 +1,15 @@
 package nest.sparkle.loader.kafka
 
 import java.util.concurrent.Executors
-
 import scala.concurrent.{ExecutionContext, Await, promise}
 import scala.concurrent.duration._
-
 import org.scalatest.{ FunSuite, Matchers }
 import org.scalatest.prop.PropertyChecks
-
 import nest.sparkle.loader.kafka.KafkaTestUtil.withTestEncodedTopic
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.util.ConfigUtil.{ modifiedConfig, sparkleConfigName }
 import nest.sparkle.util.QuickTiming.printTime
+import nest.sparkle.store.ColumnUpdate
 
 class TestLargeKafkaStream 
   extends FunSuite 
@@ -54,7 +52,7 @@ class TestLargeKafkaStream
             s"$sparkleConfigName.kafka-loader.find-decoder" -> "nest.sparkle.loader.kafka.MillisDoubleTSVFinder" ::
             Nil
 
-        val storeWrite = testStore.writeListener.listen[Long](columnPath)
+        val storeWrite = testStore.writeListener.listen(columnPath)
         val modifiedRoot = modifiedConfig(rootConfig, overrides: _*)
 
         withTestActors { implicit system =>
@@ -64,8 +62,9 @@ class TestLargeKafkaStream
             // Set up a future that will complete when a notification for the last write is received
             val p = promise[Unit]()
             storeWrite.subscribe { update =>
-              if (update.end == lastKey) {
-                p.success(())
+              update match {
+                case update:ColumnUpdate[_] if update.end == lastKey => p.success(())
+                case _ => 
               }
             }
             val writesDone = p.future

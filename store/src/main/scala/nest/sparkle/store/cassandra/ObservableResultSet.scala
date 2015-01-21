@@ -59,6 +59,7 @@ object ObservableResultSet {
                 val iterator = resultSet.iterator().asScala
                 val availableNow = resultSet.getAvailableWithoutFetching()
                 iterator.take(availableNow).foreach { row =>
+                  log.trace(s"availableNow: $availableNow  row: $row")
                   subscriber.onNext(row) // note blocks the thread here if consumer is slow. RX
                 }
 

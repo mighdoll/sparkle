@@ -9,8 +9,7 @@ import spray.util._
 
 import org.clapper.argot.ArgotConverters._
 
-import nest.sparkle.store.Store
-import nest.sparkle.store.cassandra.WriteNotification
+import nest.sparkle.store.{Store, WriteNotification}
 import nest.sparkle.util.{SparkleApp, Log, ConfigUtil}
 
 /** Main program to run Exporter.

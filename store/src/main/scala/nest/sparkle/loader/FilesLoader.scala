@@ -41,16 +41,12 @@ import com.typesafe.config.Config
 import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.store.cassandra.CanSerialize
 
-/** emitted to the event stream when the column has been completely loaded */
-case class LoadComplete(columnPath: String)
-case class FileLoadComplete(relativePath: String)
-
 case class LoadPathDoesNotExist(path: String) extends RuntimeException
 
 object FilesLoader extends Log {
-  def apply(sparkleConfig: Config, rootDirectory: String, store: WriteableStore, strip: Int = 0) // format: OFF
+  def apply(sparkleConfig: Config, rootDirectory: String, rootName:String, store: WriteableStore, strip: Int = 0) // format: OFF
       (implicit system: ActorSystem): FilesLoader = { // format: ON
-    new FilesLoader(sparkleConfig, rootDirectory, store, strip)
+    new FilesLoader(sparkleConfig, rootDirectory, rootName, store, strip)
   }
 }
 
@@ -58,11 +54,13 @@ object FilesLoader extends Log {
   * The directory or file must exist.
   *
   * @param loadPath Path to directory to load from/watch or a single file to load.
+  * @param pathName name of the file/directory to load (for reporting when loading is complete)
   * @param store Store to write data to.
   * @param strip Number of leading path elements to strip when
   * creating the DataSet name.
   */
-protected class FilesLoader(sparkleConfig: Config, loadPath: String, store: WriteableStore, strip: Int) // format: OFF
+protected class FilesLoader(sparkleConfig: Config, loadPath: String, pathName:String,
+                            store: WriteableStore, strip: Int) // format: OFF
     (implicit system: ActorSystem) { // format: ON
   import FilesLoader.log
 
@@ -138,14 +136,11 @@ protected class FilesLoader(sparkleConfig: Config, loadPath: String, store: Writ
           val loaded =
             loadRows(rowInfo, store, dataSet).andThen {
               case _ => rowInfo.close()
-            }.map { dataSet =>
-              if (!relativePath.getFileName.startsWith("_")) {
-                log.info(s"Finished loading dataSet: $dataSet into the store")
-                system.eventStream.publish(LoadComplete(dataSet))
-              }
             }
 
-          loaded.foreach { _ => system.eventStream.publish(FileLoadComplete(relativePath.toString)) }
+          loaded.foreach { _ => 
+            store.writeNotifier.fileLoaded(pathName)
+          }
           loaded.failed.foreach { failure => log.error(s"loading $fullPath failed", failure) }
         }
       case x => log.warn(s"$fullPath could not be parsed, ignoring")
@@ -221,10 +216,6 @@ protected class FilesLoader(sparkleConfig: Config, loadPath: String, store: Writ
         columns <- Future.sequence(futureColumns)
         written <- writeColumns(rowInfo, columns)
       } yield {
-        columnPaths.foreach { columnPath =>
-          log.info(s"Finished loading $columnPath into the store")
-          system.eventStream.publish(LoadComplete(columnPath))
-        }
         dataSet
       }
 

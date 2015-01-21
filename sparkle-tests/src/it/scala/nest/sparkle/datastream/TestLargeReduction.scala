@@ -23,7 +23,7 @@ class TestLargeReduction extends FunSuite with Matchers {
   test("toOnePart") {
     val reduced = toOnePart(1.day)
     reduced.length shouldBe 1
-    reduced.head shouldBe ("2013-01-01T00:00:00.000".toMillis, Some(730))
+    reduced.head shouldBe ("2013-01-01T00:00:00.000".toMillis -> Some(730))
   }
 }
 

@@ -17,8 +17,6 @@ package nest.sparkle.store
 import scala.concurrent.Future
 import com.typesafe.config.Config
 import nest.sparkle.util.Instance
-import nest.sparkle.store.cassandra.WriteListener
-import nest.sparkle.store.cassandra.WriteNotifier
 
 /** An abstraction for a datastore that holds readable columns */
 trait Store {
@@ -29,6 +27,9 @@ trait Store {
   def column[T, U](columnPath: String): Future[Column[T, U]]
 
   def close(): Unit
+  
+  /** allow callers to listen for write events per column */
+  def writeListener:WriteListener
 }
 
 object Store {
