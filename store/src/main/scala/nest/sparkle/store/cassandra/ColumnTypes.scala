@@ -46,7 +46,7 @@ object ColumnTypes {
 
     assert(validateTableName(tableName), s"invalid table name $tableName")
 
-    SerializeInfo(domainSerializer, rangeSerializer, tableName)
+    SerializeInfo(domainSerializer, rangeSerializer, tableName, directToNative)
   }
 
   // Cassandra table name length limit per http://cassandra.apache.org/doc/cql3/CQL.html#createTableStmt
@@ -61,7 +61,7 @@ object ColumnTypes {
     domain: CanSerialize[T], 
     range: CanSerialize[U], 
     tableName: String,
-    directToNative: Boolean = true
+    directToNative: Boolean
   )
 }
 
