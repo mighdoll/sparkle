@@ -1,10 +1,12 @@
 package nest.sparkle.time.protocol
 
-import org.scalatest.{ FunSuite, Matchers }
-import nest.sparkle.store.cassandra.CassandraStoreTestConfig
-import nest.sparkle.util.FutureAwait.Implicits._
 import scala.concurrent.duration._
+
+import org.scalatest.{FunSuite, Matchers}
+
+import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.time.protocol.TestDataService.longDoubleData
+import nest.sparkle.util.FutureAwait.Implicits._
 import nest.sparkle.util.StringToMillis.IsoDateString
 
 class TestReductions extends FunSuite with Matchers with CassandraStoreTestConfig with StreamRequestor {
