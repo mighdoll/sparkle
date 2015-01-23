@@ -4,6 +4,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success}
 
+import nest.sparkle.measure.Span
 import nest.sparkle.util.{Log, PeriodWithZone, RecoverNumeric}
 
 // TODO specialize for efficiency
@@ -23,7 +24,7 @@ trait AsyncReduction[K,V] extends Log {
   def reduceByOptionalPeriod // format: OFF
       ( optPeriod:Option[PeriodWithZone], 
         reduction: Reduction[V])
-      ( implicit execution: ExecutionContext)
+      ( implicit execution: ExecutionContext, parentSpan:Span )
       : TwoPartStream[K, Option[V], AsyncWithRange] = { // format: ON 
 
     // depending on the request parameters, summarize the stream appropriately
@@ -55,7 +56,8 @@ trait AsyncReduction[K,V] extends Log {
   def reduceByPeriod // format: OFF
       ( periodWithZone: PeriodWithZone,
         reduction: Reduction[V],
-        bufferOngoing: FiniteDuration = 5.seconds)
+        bufferOngoing: FiniteDuration = 5.seconds )
+      ( implicit parentSpan:Span )
       : TwoPartStream[K, Option[V], AsyncWithRange] = { // format: ON
 
     RecoverNumeric.tryNumeric[K](keyType) match {
@@ -75,7 +77,8 @@ trait AsyncReduction[K,V] extends Log {
     */
   def reduceToOnePart // format: OFF
         ( reduction: Reduction[V],
-          bufferOngoing: FiniteDuration = 5.seconds)
+          bufferOngoing: FiniteDuration = 5.seconds )
+        ( implicit parentSpan: Span)
         : AsyncWithRange[K, Option[V]] = { // format: ON
 
     val initialReduced = initial.reduceToOnePart(reduction)

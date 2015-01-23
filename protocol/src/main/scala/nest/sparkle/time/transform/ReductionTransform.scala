@@ -33,7 +33,7 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
       (futureGroups:Future[Seq[ColumnGroup]], transformParameters: JsObject)
       (implicit execution: ExecutionContext, traceId:TraceId)
       : Future[Seq[JsonDataStream]] = { // format: ON
-    val span = Span.prepareRoot("Sum", traceId).start()
+    implicit val span = Span.prepareRoot("Sum", traceId).start()
 
     for {
       ValidReductionParameters(
@@ -63,8 +63,8 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
 
   /** TODO refactor this into a generic reducer, not just sum */
   def reduceSum[K, V] // format: OFF
-      (groupSet: StreamGroupSet[K, V, AsyncWithRange], optPeriod:Option[PeriodWithZone])
-      (implicit execution: ExecutionContext)
+      ( groupSet: StreamGroupSet[K, V, AsyncWithRange], optPeriod:Option[PeriodWithZone] )
+      ( implicit execution: ExecutionContext, parentSpan: Span)
       : StreamGroupSet[K, Option[V], AsyncWithRange] = { // format: ON
 
     groupSet.mapStreams { stream =>
@@ -82,10 +82,8 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
       }
       
       reduced match {
-        case Success(reducedStream) =>
-          reducedStream
-        case Failure(err) =>
-          AsyncWithRange.error[K, Option[V]](err, stream.self.requestRange)
+        case Success(reducedStream) => reducedStream
+        case Failure(err) => AsyncWithRange.error[K, Option[V]](err, stream.self.requestRange)
       }
     }
   }

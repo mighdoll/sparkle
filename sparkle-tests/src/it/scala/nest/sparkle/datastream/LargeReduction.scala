@@ -1,19 +1,28 @@
 package nest.sparkle.datastream
 
 import scala.concurrent.duration._
-import nest.sparkle.util.StringToMillis._
-import rx.lang.scala.Observable
-import nest.sparkle.util.{Period, PeriodWithZone}
+import com.typesafe.config.ConfigFactory
+
 import org.joda.time.DateTimeZone
-import nest.sparkle.util.TimeValueString.implicits._
+import rx.lang.scala.Observable
+
+import nest.sparkle.measure.{DummySpan, Span, ConfiguredMeasurements}
+import nest.sparkle.util.StringToMillis._
+import nest.sparkle.util.{Period, PeriodWithZone}
 
 /** Utilities for doing reduction tests.
   */
 object LargeReduction {
   
   def main(args:Array[String]) {
-    byPeriod(30.seconds, "1 day") // warmup
-    byPeriod(30.seconds, "1 day") // test
+    val rootConfig = ConfigFactory.load()
+
+
+    implicit lazy val measurements = new ConfiguredMeasurements(rootConfig)
+    val span = Span.prepareRoot("reductionTest")
+
+    byPeriod(30.seconds, "1 day")(DummySpan) // warmup
+    byPeriod(30.seconds, "1 day")(span) // test
   }
 
   /** generate a years worth of test data and reduce it into time periods.
@@ -22,7 +31,7 @@ object LargeReduction {
     *  spacing of 1 second tests 365*24*60*60=31M samples.)
     * @param spacing the time between generated samples
     * @param summaryPeriod summarize samples into this size buckets (e.g. "1 day") */
-  def byPeriod(spacing:FiniteDuration, summaryPeriod:String)
+  def byPeriod(spacing:FiniteDuration, summaryPeriod:String)(implicit parentSpan:Span)
       : DataArray[Long, Option[Long]] = {
     val stream = generateDataStream(spacing)
     val periodWithZone = PeriodWithZone(Period.parse(summaryPeriod).get, DateTimeZone.UTC)
@@ -36,7 +45,7 @@ object LargeReduction {
     * (e.g. using spacing of 1.day tests with 365 samples,
     *  spacing of 1 second tests 365*24*60*60=31M samples.)
     * @param spacing the time between generated samples */
-  def toOnePart(spacing:FiniteDuration)
+  def toOnePart(spacing:FiniteDuration)(implicit parentSpan:Span)
       : DataArray[Long, Option[Long]] = {
     val stream = generateDataStream(spacing)
     val reduced = stream.reduceToOnePart(ReduceSum[Long]())

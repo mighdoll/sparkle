@@ -1,18 +1,17 @@
 package nest.sparkle.datastream
 
-import scala.reflect.ClassTag
-import spire.math.Numeric
-import spire.implicits._
-import scala.reflect.runtime.universe._
-import scala.concurrent.duration._
-import rx.lang.scala.Observable
-import rx.lang.scala.Notification
-import nest.sparkle.util.PeriodWithZone
-import nest.sparkle.util.PeekableIterator
 import scala.collection.mutable.ArrayBuffer
-import org.joda.time.{ Interval => JodaInterval }
-import nest.sparkle.util.Log
-import nest.sparkle.util.ReflectionUtil
+import scala.concurrent.duration._
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
+
+import org.joda.time.{Interval => JodaInterval}
+import rx.lang.scala.{Notification, Observable}
+import spire.implicits._
+import spire.math.Numeric
+
+import nest.sparkle.measure.Span
+import nest.sparkle.util.{Log, PeekableIterator, PeriodWithZone, ReflectionUtil}
 
 /** Functions for reducing an Observable of array pairs to smaller DataArrays
   */
@@ -26,15 +25,20 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]]) 
     * to reduce the pair values to a single value. The key of the returned pair
     * is the first key of original stream.
     */
-  def reduceToOnePart(reduction: Reduction[V]): DataStream[K, Option[V]]  = { 
+  def reduceToOnePart
+      ( reduction: Reduction[V] )
+      ( implicit parentSpan:Span )
+      : DataStream[K, Option[V]] = {
 
-    val reducedBlocks:Observable[(K, Option[V])] = 
+    val reducedBlocks:Observable[(K, Option[V])] =
       data.filter(!_.isEmpty).map { pairs =>
-        val optValue = pairs.valuesReduceLeftOption(reduction.plus)
-        (pairs.keys(0), optValue)
+        Span("reduceBlock").time {
+          val optValue = pairs.valuesReduceLeftOption(reduction.plus)
+          (pairs.keys(0), optValue)
+        }
       }
     
-    val reducedTuple = 
+    val reducedTuple =
       reducedBlocks.reduce { (total, next) =>
         val (key, totalValue) = total
         val (_, newValue) = next
@@ -91,39 +95,38 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]]) 
   def reduceByPeriod // format: OFF
       ( periodWithZone: PeriodWithZone,
         reduction: Reduction[V] )
-      ( implicit numericKey: Numeric[K] )
+      ( implicit numericKey: Numeric[K], parentSpan:Span )
       : DataStream[K, Option[V]] = { // format: ON
 
     val periodState = new PeriodState[K, V](reduction)
 
-    val reduced = 
-      data.materialize.flatMap { notification =>
-        val pairsState = new PairsState(periodState)
-  
-        notification match {
-          case Notification.OnCompleted =>
-            periodState.currentAccumulation() match {
-              case Some(pair) => Observable.from(Seq(pair))
-              case None       => Observable.empty
-            }
-  
-          case Notification.OnError(err) =>
-            Observable.error(err)
-  
-          case Notification.OnNext(dataArray) =>
-            val pairs = PeekableIterator(dataArray.iterator)
-            val reducedPairs = pairsState.reduceCompletePeriods(pairs, periodWithZone, reduction)
-            Observable.from(Seq(reducedPairs))
-        }
-  
+    val reduced = data.materialize.flatMap { notification =>
+      val pairsState = new PairsState(periodState)
+
+      notification match {
+        case Notification.OnNext(dataArray) =>
+          val pairs = PeekableIterator(dataArray.iterator)
+          val reducedPairs = pairsState.reduceCompletePeriods(pairs, periodWithZone, reduction)
+          Observable.from(Seq(reducedPairs))
+
+        case Notification.OnCompleted =>
+          periodState.currentAccumulation() match {
+            case Some(pair) => Observable.from(Seq(pair))
+            case None       => Observable.empty
+          }
+
+        case Notification.OnError(err) =>
+          Observable.error(err)
+
       }
+    }
     
     new DataStream(reduced)
   }
 }
 
 
-/** maintains the state needed while iterating through time periods */
+/** Maintains the state needed while iterating through time periods */
 private class PeriodState[K: Numeric: ClassTag, V](reduction: Reduction[V]) {
   var accumulationStarted = false
   var currentTotal: V = 0.asInstanceOf[V]
@@ -193,19 +196,25 @@ private class PairsState[K: Numeric: ClassTag, V](periodState: PeriodState[K, V]
   private val resultValues = ArrayBuffer[Option[V]]()
 
   /** reduce an array of pairs by period, returning the reduced totals. Accumulate
-    * an partial data for the last period in the periodState.
+    * any partial data for the last period in the periodState.
     */
-  def reduceCompletePeriods(pairs: PeekableIterator[(K, V)],
-                            periodWithZone: PeriodWithZone,
-                            reduction: Reduction[V]): DataArray[K, Option[V]] = {
+  def reduceCompletePeriods
+      ( pairs: PeekableIterator[(K, V)],
+        periodWithZone: PeriodWithZone,
+        reduction: Reduction[V] )
+      (implicit parentSpan:Span)
+      : DataArray[K, Option[V]] = {
 
-    pairs.headOption.foreach {
-      case (firstKey, firstValue) =>
-        periodState.begin(firstKey, periodWithZone)
-        processPairs(pairs)
+    Span("reduceBlock").time {
+      pairs.headOption.foreach {
+        case (firstKey, firstValue) =>
+          periodState.begin(firstKey, periodWithZone)
+          processPairs(pairs)
+      }
+
+      // results arrays are created as a side effect of processPairs
+      DataArray(resultKeys.toArray, resultValues.toArray)
     }
-    // results arrays are created as a side effect of processRemainingPairs
-    DataArray(resultKeys.toArray, resultValues.toArray)
   }
 
   /** walk through all of the elements in this DataArray block. As we go,

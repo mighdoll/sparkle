@@ -3,6 +3,7 @@ package nest.sparkle.datastream
 import org.scalatest.{ Matchers, FunSuite }
 import org.scalatest.prop.PropertyChecks
 import nest.sparkle.datastream.StreamGeneration._
+import nest.sparkle.measure.DummySpan
 import nest.sparkle.util.StringToMillis._
 import spire.implicits._
 import spire.math._
@@ -34,6 +35,7 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
       : DataArray[K,Option[V]] = { // format: ON
     val stream = createStream(parts)
     val periodWithZone = PeriodWithZone(Period.parse(period).get, DateTimeZone.UTC)
+    implicit val span = DummySpan
     val reduced = stream.reduceByPeriod(periodWithZone, ReduceSum[V]())
     val dataArrays = reduced.data.toBlocking.toList
     dataArrays.reduce (_ ++ _)

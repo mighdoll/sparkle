@@ -6,6 +6,8 @@ import spire.math._
 import nest.sparkle.datastream.StreamGeneration._
 import org.scalacheck.Prop
 
+import nest.sparkle.measure.DummySpan
+
 
 class TestDataStreamReduceOnePart extends FunSuite with Matchers with PropertyChecks {
   val table = Table(
@@ -20,6 +22,7 @@ class TestDataStreamReduceOnePart extends FunSuite with Matchers with PropertyCh
     val keyValues = parts.reduce(_ ++ _)
     val expectedSum = sumValues(keyValues)      
     val stream = createStream(parts)
+    implicit val span = DummySpan
     val reduced = stream.reduceToOnePart(ReduceSum[Int]())
     val result = reduced.data.toBlocking.toList
     result.length shouldBe 1 

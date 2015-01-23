@@ -53,9 +53,7 @@ trait SparkleApp
   
   implicit lazy val measurements = new ConfiguredMeasurements(rootConfig)
   
-  /** Override this fcn to return a list of key, values to override in the 
-    * configuration. Will be called in initialize() 
-    */
+  /** Subclasses may implement to override settings in the .conf file */
   def overrides: Seq[(String, Any)] = Seq()
 
   /** Initialize process global items.
