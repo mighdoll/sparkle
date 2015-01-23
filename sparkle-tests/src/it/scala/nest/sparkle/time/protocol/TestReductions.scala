@@ -21,7 +21,7 @@ class TestReductions extends FunSuite with Matchers with CassandraStoreTestConfi
     |}""".stripMargin
   }
 
-  test("sum a few elements with no requested range and no requested period") {
+  ignore("sum a few elements with no requested range and no requested period") {
     withLoadedFile("simple-events.csv") { (store, system) =>
       val service = new TestServiceWithCassandra(store, system)
       val message = request("reduceSum")
@@ -37,7 +37,7 @@ class TestReductions extends FunSuite with Matchers with CassandraStoreTestConfi
   }
 
   // TODO fixme, fails intermittently
-  test("sum a few elements with no requested range with a 1 hour period") {
+  ignore("sum a few elements with no requested range with a 1 hour period") {
     withLoadedFile("simple-events.csv") { (store, system) =>
       log.info("TestReductions claims file loaded (1 hour period test)")
       val service = new TestServiceWithCassandra(store, system)
