@@ -51,9 +51,18 @@ case class DataArray[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
     DataArray.newBuilder
   }
 
+  private val debugPrintSize = 5
   override def toString = {
-    if (isEmpty) "()"
-    else keys zip values map { case (k, v) => s"($k,$v)" } mkString (", ")
+    if (isEmpty) {
+      "()"
+    } else {
+      val resultsString = keys.take(debugPrintSize).zip(values).map{ case (k, v) => s"($k,$v)" }.mkString (", ")
+      if (length > debugPrintSize) {
+        resultsString + ", ..."
+      } else {
+        resultsString
+      }
+    }
   }
 
   /** apply a function to each key,value pair in the DataArray. */

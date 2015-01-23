@@ -1,12 +1,11 @@
 package nest.sparkle.store
 
-import rx.lang.scala.Observable
-import akka.actor.ActorSystem
-import java.util.concurrent.ConcurrentHashMap
-import rx.lang.scala.Subject
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import rx.lang.scala.Subscriber
+import java.util.concurrent.ConcurrentHashMap
+
+import rx.lang.scala.{Observable, Subject}
+
 import nest.sparkle.util.Log
 
 /** Message sent to WriteListener */
