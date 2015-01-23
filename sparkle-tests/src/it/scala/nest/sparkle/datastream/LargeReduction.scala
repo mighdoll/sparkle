@@ -7,14 +7,21 @@ import nest.sparkle.util.{Period, PeriodWithZone}
 import org.joda.time.DateTimeZone
 import nest.sparkle.util.TimeValueString.implicits._
 
-/**
+/** Utilities for doing reduction tests.
   */
 object LargeReduction {
   
   def main(args:Array[String]) {
-    byPeriod(30.seconds, "1 day")
+    byPeriod(30.seconds, "1 day") // warmup
+    byPeriod(30.seconds, "1 day") // test
   }
-  
+
+  /** generate a years worth of test data and reduce it into time periods.
+    * The amount of data is controlled by adjusting the spacing between samples
+    * (e.g. using spacing of 1.day tests with 365 samples,
+    *  spacing of 1 second tests 365*24*60*60=31M samples.)
+    * @param spacing the time between generated samples
+    * @param summaryPeriod summarize samples into this size buckets (e.g. "1 day") */
   def byPeriod(spacing:FiniteDuration, summaryPeriod:String)
       : DataArray[Long, Option[Long]] = {
     val stream = generateDataStream(spacing)
@@ -23,7 +30,12 @@ object LargeReduction {
     val arrays = reduced.data.toBlocking.toList
     arrays.reduce(_ ++ _)
   }
-  
+
+  /** generate a years worth of test data and reduce it into a single value.
+    * The amount of data is controlled by adjusting the spacing between samples
+    * (e.g. using spacing of 1.day tests with 365 samples,
+    *  spacing of 1 second tests 365*24*60*60=31M samples.)
+    * @param spacing the time between generated samples */
   def toOnePart(spacing:FiniteDuration)
       : DataArray[Long, Option[Long]] = {
     val stream = generateDataStream(spacing)
@@ -31,7 +43,8 @@ object LargeReduction {
     val arrays = reduced.data.toBlocking.toList
     arrays.reduce(_ ++ _)
   }
-  
+
+  /** Generate a DataStream of test data */
   def generateDataStream
       ( spacing:FiniteDuration = 30.seconds,
         blockSize: Int = 1000,

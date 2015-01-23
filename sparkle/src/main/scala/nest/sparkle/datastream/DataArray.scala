@@ -24,8 +24,8 @@ object DataArray {
  
   implicit def canBuildFrom[K: ClassTag, V: ClassTag]: CanBuildFrom[DataArray[K, V], (K, V), DataArray[K, V]] =
     new CanBuildFrom[DataArray[K, V], (K, V), DataArray[K, V]] {
-      def apply(): Builder[(K, V), DataArray[K, V]] = newBuilder
-      def apply(from: DataArray[K, V]): Builder[(K, V), DataArray[K, V]] = newBuilder
+      override def apply(): Builder[(K, V), DataArray[K, V]] = newBuilder
+      override def apply(from: DataArray[K, V]): Builder[(K, V), DataArray[K, V]] = newBuilder
     }
 
 }

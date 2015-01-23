@@ -41,12 +41,12 @@ trait MeasurementGateway {
   def configured(measureConfig: Config): Option[Measurements]
 }
 
-/** a measurement system that drops measurments on the floor */
+/** a measurement system that drops measurements on the floor */
 object DummyMeasurements extends Measurements {
   override def publish(span: CompletedSpan) {}
 }
 
-/** a measurment system that sends measurements to a file */
+/** a measurement system that sends measurements to a file */
 class MeasurementToTsvFile(fileName: String) extends Measurements {
   val path = Paths.get(fileName)
   val charSet = Charset.forName("UTF-8")
