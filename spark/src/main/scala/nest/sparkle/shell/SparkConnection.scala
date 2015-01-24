@@ -2,7 +2,6 @@ package nest.sparkle.shell
 
 import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe._
-import scala.util.Try
 import scala.reflect.ClassTag
 import scala.util.control.Exception._
 import scala.language.existentials
@@ -11,13 +10,9 @@ import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.{SparkConf, SparkContext}
 import com.datastax.spark.connector._
-import com.datastax.spark.connector.rdd.reader._
-import com.datastax.spark.connector.rdd.CassandraRDD
 import org.apache.spark.rdd.RDD
-import org.apache.spark.rdd.EmptyRDD
 import com.datastax.spark.connector.types.TypeConverter
 import spray.json.JsValue
-import nest.sparkle.store.Event
 import nest.sparkle.util.{ReflectionUtil, Log}
 import nest.sparkle.util.ConfigUtil.{modifiedConfig, configForSparkle, sparkleConfigName}
 import nest.sparkle.store.cassandra.ColumnTypes
@@ -52,6 +47,11 @@ case class SparkConnection(rootConfig: Config, applicationName: String = "Sparkl
 
     val sparkConf = new SparkConf(true)
       .set("spark.cassandra.connection.host", cassandraHost)
+      .set("spark.local.dir", sparkleConfig.getString("spark.local-dir"))
+      .set("spark.executor.memory", sparkleConfig.getString("spark.executor-memory"))
+      .set("spark.logConf", "true")
+      .set("spark.shuffle.consolidateFiles", "true")
+      .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer") //TODO: registerKryoClasses
 
     val sparkClusterUrl = sparkleConfig.getString("spark.master-url")
 
