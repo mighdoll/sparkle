@@ -19,7 +19,7 @@ trait AsyncReduction[K,V] extends Log {
     * piece is reduced based on the reduction function.
     *
     * The partitioning and reduction are combined here to reduce the need to allocate
-    * any intermediate data. TODO can this be simplified and still be fast?
+    * any intermediate data.
     */
   def reduceByOptionalPeriod // format: OFF
       ( optPeriod:Option[PeriodWithZone], 

@@ -23,17 +23,16 @@ object FetchRanges {
       parentSpan: Option[Span]) 
       (implicit execution:ExecutionContext):AsyncWithRange[K, V] = { // format: ON
 
-    val ongoingEvents = {
+    val ongoingData = {
       val start = optRange.flatMap(_.start)
       val until = optRange.flatMap(_.until)
       val limit = optRange.flatMap(_.limit)
-      column.readRange(start, until, limit, parentSpan)
+      column.readRangeA(start, until, limit, parentSpan)
     }
 
     implicit val keyType: TypeTag[K] = castKind(column.keyType)
     implicit val valueType: TypeTag[V] = castKind(column.valueType)
 
-    val ongoingData = OngoingDataShim.fromOngoingEvents(ongoingEvents)
     val initial = DataStream(ongoingData.initial)
     val ongoing = DataStream(ongoingData.ongoing)
     val softInterval = optRange.map (_.softInterval)

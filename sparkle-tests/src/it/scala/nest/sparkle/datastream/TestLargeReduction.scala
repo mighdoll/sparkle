@@ -16,7 +16,6 @@ class TestLargeReduction extends FunSuite with Matchers {
     val first = reduced(10)
     val second = reduced(1)
     val last = reduced.last
-    println(s"first: ${first.timeValueString}  second: ${second.timeValueString}  last: ${last.timeValueString}")
     reduced.length shouldBe 365
     reduced.foreach { case (key, value) => value shouldBe Some(48)}
   }
