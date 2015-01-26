@@ -27,7 +27,7 @@ import BackgroundServiceKeys._
 
 object BuildSettings {
 
-  lazy val allSettings =
+  lazy val sparkleSettings =
     orgSettings ++
     compileSettings ++
     eclipseSettings ++
@@ -87,6 +87,14 @@ object BuildSettings {
     dependencyOverrides ++= Dependencies.dependencyOverrides
   )
 
+
+  lazy val dataServerMergeSettings = Seq(
+    assemblyMergeStrategy in assembly <<= (assemblyMergeStrategy in assembly) { old =>
+      { case "META-INF/io.netty.versions.properties" => MergeStrategy.first
+        case x => old(x)
+      }
+    }
+  )
   // hopefully this is unnecessary in the current rev of spark, 
   // (if not, we should pick winners/exclusions more carefully)
   lazy val sparkMergeSettings = Seq(
