@@ -1,5 +1,8 @@
 package nest.sg
 
+import scala.reflect.ClassTag
+
+import nest.sparkle.datastream.DataArray
 import nest.sparkle.util.Log
 import nest.sparkle.store.cassandra.CassandraStore
 import scala.concurrent.duration._
@@ -25,6 +28,9 @@ object StorageConsole extends ConsoleServer with StorageConsoleAPI with Log {
     storageConsole.eventsByColumnPath(columnPath)
     
   override def allColumns(): Observable[String] = storageConsole.allColumns()
+
+  override def columnData[T: ClassTag](columnPath:String):DataArray[Long,T] =
+    storageConsole.columnData[T](columnPath)
 }
 
 
@@ -37,7 +43,7 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
   /** Return events for all columns inside a dataset.
     * Only direct children a returned (it does not recurse on nested dataSets).
     */
-  def eventsByDataSet(dataSet: String): Seq[ColumnEvents] = {
+  override def eventsByDataSet(dataSet: String): Seq[ColumnEvents] = {
     val tryDataSet = store.dataSet(dataSet).toTry
     val tryColumnEvents =
       tryDataSet.flatMap{ dataSet =>
@@ -74,7 +80,7 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
   }
 
   /** Return events from a given column path */
-  def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]] = {
+  override def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]] = {
     val futureEvents =
       for {
         column <- store.column[Long, Double](columnPath)
@@ -93,12 +99,29 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
   }
 
   /** return an observable of _all_ columns in the store */
-  def allColumns(): Observable[String] = {
+  override def allColumns(): Observable[String] = {
     store match {
       case cassandraStore: CassandraStoreReader =>
         cassandraStore.columnCatalog.allColumns()
     }
   }
+
+  override def columnData[T: ClassTag](columnPath:String):DataArray[Long,T] = {
+    val futureResult =
+      for {
+        column <- store.column[Long,T](columnPath)
+        data <- column.readRangeA().initial.toFutureSeq
+      } yield data
+
+    futureResult.toTry match {
+      case Success(dataSeq) =>
+        dataSeq.reduce(_ ++ _)
+      case Failure(err) =>
+        log.error("column loading failed", err)
+        DataArray.empty[Long, T]
+    }
+  }
+
 }
 
 
@@ -106,6 +129,7 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
 trait StorageConsoleAPI {
   def eventsByDataSet(dataSet: String): Seq[ColumnEvents]
   def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]]
-  def allColumns(): Observable[String]  
+  def allColumns(): Observable[String]
+  def columnData[T: ClassTag](columnPath:String):DataArray[Long,T]
 }
 

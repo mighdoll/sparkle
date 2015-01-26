@@ -28,6 +28,7 @@ object DataArray {
       override def apply(from: DataArray[K, V]): Builder[(K, V), DataArray[K, V]] = newBuilder
     }
 
+  def empty[K:ClassTag, V:ClassTag] = DataArray(Array[K](), Array[V]())
 }
 
 /**
