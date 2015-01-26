@@ -1,11 +1,9 @@
 package nest.sparkle.core
 
-import scala.concurrent.duration._
-import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+
 import rx.lang.scala.Observable
 
-import nest.sparkle.store.{Event, OngoingEvents}
 import nest.sparkle.datastream.DataArray
 
 /** a stream of data that may be ongoing indefinitely. The initially available data is delivered
