@@ -13,17 +13,6 @@ import nest.sparkle.util.{Period, PeriodWithZone}
 /** Utilities for doing reduction tests.
   */
 object LargeReduction {
-  
-  def main(args:Array[String]) {
-    val rootConfig = ConfigFactory.load()
-
-
-    implicit lazy val measurements = new ConfiguredMeasurements(rootConfig)
-    val span = Span.prepareRoot("reductionTest")
-
-    byPeriod(30.seconds, "1 day")(DummySpan) // warmup
-    byPeriod(30.seconds, "1 day")(span) // test
-  }
 
   /** generate a years worth of test data and reduce it into time periods.
     * The amount of data is controlled by adjusting the spacing between samples
