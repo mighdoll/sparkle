@@ -21,8 +21,8 @@ import nest.sparkle.util.{ConfigUtil, SparkleApp}
 
 /** Main launcher for Sparkle application */
 object Main extends SparkleApp {
-  val appName = "sparkle"
-  val appVersion = "Version 0.6.0"  // TODO: get from the build
+  override def appName = "sparkle"
+  override def appVersion = "Version 0.6.0"  // TODO: get from the build
 
   val filesPath = parser.option[String](List("f", "files"), "path", ".csv/.tsv file, or directory containing .csv or .tsv files")
   val filesStrip = parser.option[Int](List("s", "files-strip"), "strip", "Number of leading path elements to strip off of path when creating DataSet name")

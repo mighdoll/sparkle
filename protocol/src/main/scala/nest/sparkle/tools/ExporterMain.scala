@@ -15,8 +15,8 @@ import nest.sparkle.util.{SparkleApp, Log, ConfigUtil}
 /** Main program to run Exporter.
   */
 object ExporterMain extends SparkleApp with Log {
-  val appName = "sparkle-exporter"
-  val appVersion = "0.6.0"
+  override def appName = "sparkle-exporter"
+  override def appVersion = "0.6.0"
 
   val dataSet = parser.option[String](List("d", "dataset"), "dataset", "DataSet to export")
   

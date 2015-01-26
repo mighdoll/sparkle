@@ -30,10 +30,10 @@ import nest.sparkle.metrics.MetricsSupport
   * metrics reporting.
   */
 trait SparkleApp 
-  extends App 
+  extends App
 {
-  val appName: String
-  val appVersion: String
+  def appName: String = "SomeSparkleApp"
+  def appVersion: String = "0.1"
   
   /** Parser to define additional command line parameters */
   val parser = new ArgotParser(appName, preUsage = Some(appVersion))

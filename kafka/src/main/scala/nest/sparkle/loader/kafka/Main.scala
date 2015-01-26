@@ -20,8 +20,8 @@ object Main
   extends SparkleApp 
           with Log 
 {
-  val appName = "kafka-loader"
-  val appVersion = "0.6.0"
+  override def appName = "kafka-loader"
+  override def appVersion = "0.6.0"
   
   val erase = parser.flag[Boolean](List("format"), "erase and format the database")
   

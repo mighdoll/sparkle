@@ -11,8 +11,8 @@ import nest.sparkle.util.ConfigUtil.sparkleConfigName
 /** a test driver for reduction test
  */
 object ReductionMain extends SparkleApp {
-  override val appName = "LargeReduction"
-  override val appVersion = "0.1"
+  override def appName = "LargeReduction"
+  override def appVersion = "0.1"
   override val overrides = Seq(
     s"$sparkleConfigName.measure.metrics-gateway.enable" -> false,
     s"$sparkleConfigName.measure.tsv-gateway.enable" -> true
