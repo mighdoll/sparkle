@@ -138,7 +138,8 @@ protected class FilesLoader(sparkleConfig: Config, loadPath: String, pathName:St
               case _ => rowInfo.close()
             }
 
-          loaded.foreach { _ => 
+          loaded.foreach { _ =>
+            log.info(s"file loaded: $fullPath")
             store.writeNotifier.fileLoaded(pathName)
           }
           loaded.failed.foreach { failure => log.error(s"loading $fullPath failed", failure) }
