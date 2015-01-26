@@ -17,37 +17,3 @@ case class OngoingData[K: TypeTag, V: TypeTag](initial: Observable[DataArray[K, 
   def keyType = implicitly[TypeTag[K]]
   def valueType = implicitly[TypeTag[V]]
 }
-
-/** temporary conversion shim, until we produce DataArrays from the storage layer */
-object OngoingDataShim {
-
-  /** (temporary shim) converts OngoingEvents to OngoingData */
-  def fromOngoingEvents[K: TypeTag, V: TypeTag](ongoingEvents: OngoingEvents[K, V]): OngoingData[K, V] = {
-
-    val initial = eventsToDataArrays(ongoingEvents.initial)
-    val ongoing = eventsToDataArrays(ongoingEvents.ongoing)
-    OngoingData(initial, ongoing)
-  }
-
-  /** Convert an observable of events to an observable of array pairs. We buffer the data by 5 milliseconds to
-    * try and collect a worthwhile amount of data to stuff into an array. (this is intended as temporary code only
-    * until we update the store to generate DataArrays
-    */
-  private def eventsToDataArrays[K: TypeTag, V: TypeTag](events: Observable[Event[K, V]]): Observable[DataArray[K, V]] = {
-    val keyType = implicitly[TypeTag[K]]
-    implicit val keyClass = ClassTag[K](keyType.mirror.runtimeClass(keyType.tpe))
-
-    val valueType = implicitly[TypeTag[V]]
-    implicit val valueClass = ClassTag[V](valueType.mirror.runtimeClass(valueType.tpe))
-
-    for {
-      obserableBuffer <- events.tumbling(5.milliseconds)
-      eventBuffer <- obserableBuffer.toVector
-      if (eventBuffer.nonEmpty)
-      keys = eventBuffer.map { case Event(k, v) => k }
-      values = eventBuffer.map { case Event(k, v) => v }
-    } yield {
-      DataArray(keys.toArray, values.toArray)
-    }
-  }
-}

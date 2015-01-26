@@ -1,18 +1,13 @@
 package nest.sparkle.time.transform
 
-import nest.sparkle.store.Column
-import nest.sparkle.time.protocol.RangeInterval
-import nest.sparkle.measure.Span
 import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.universe._
+
+import nest.sparkle.datastream.{AsyncWithRange, DataStream}
+import nest.sparkle.measure.Span
+import nest.sparkle.store.Column
+import nest.sparkle.time.protocol.RangeInterval
 import nest.sparkle.util.KindCast._
-import nest.sparkle.store.OngoingEvents
-import rx.lang.scala.Observable
-import nest.sparkle.store.Event
-import scala.reflect.ClassTag
-import nest.sparkle.core.OngoingDataShim
-import nest.sparkle.datastream.{DataStream, AsyncWithRange}
-import nest.sparkle.datastream.SoftInterval
 
 object FetchRanges {
 

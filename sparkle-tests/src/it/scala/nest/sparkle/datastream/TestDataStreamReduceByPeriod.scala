@@ -1,17 +1,18 @@
 package nest.sparkle.datastream
 
-import org.scalatest.{ Matchers, FunSuite }
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
+
+import org.joda.time.DateTimeZone
+import org.scalacheck.Prop
 import org.scalatest.prop.PropertyChecks
+import org.scalatest.{FunSuite, Matchers}
+import spire.math._
+
 import nest.sparkle.datastream.StreamGeneration._
 import nest.sparkle.measure.DummySpan
 import nest.sparkle.util.StringToMillis._
-import spire.implicits._
-import spire.math._
-import scala.reflect.runtime.universe._
-import org.joda.time.DateTimeZone
-import nest.sparkle.util.{ Period, PeriodWithZone }
-import scala.reflect.ClassTag
-import org.scalacheck.Prop
+import nest.sparkle.util.{Period, PeriodWithZone}
 
 /**
  */

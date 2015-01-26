@@ -4,6 +4,7 @@ import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FunSuite, Matchers}
+import org.scalacheck.Prop
 
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -33,7 +34,7 @@ class TestCassandraStore
   
   
   def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStoreWriter) // format: OFF
-      (fn: (WriteableColumn[T, U], String) => Unit): Unit =
+      (fn: (WriteableColumn[T, U], String) => Unit): Boolean =
   {
     // format: ON
     val testColumn = s"latency.p99.${randomAlphaNum(3)}"
@@ -43,6 +44,7 @@ class TestCassandraStore
     try {
       fn(column, testColumnPath)
     }
+    true  // so that it can be used in a property that throws to report errors
   }
 
   /** read and write a single event */
@@ -164,7 +166,7 @@ class TestCassandraStore
 
   test("read+write many long double events with DataArray") {
     withTestDb { implicit store =>
-      forAll(Gen.chooseNum(100, 30000), minSuccessful(5)) { rowCount =>
+      val prop = Prop.forAllNoShrink(Gen.chooseNum(100, 30000)) { rowCount =>
         withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
           val readColumn = store.column[Long, Double](testColumnPath).await
           //          writeColumn.erase().await // intermittently fails. race in cassandra? // for now runnng one iteration per column
@@ -180,14 +182,14 @@ class TestCassandraStore
 
           writeColumn.write(events).await
           val read = readColumn.readRangeA(None, None)
-          val results = read.initial.toBlocking.toList
-          results should have length 1
-          
-          val dataArray = results.head
-          dataArray should have length rowCount
-          dataArray shouldBe testArray
+          val resultParts = read.initial.toBlocking.toList
+
+          val resultArray = resultParts.reduce(_ ++ _)
+          resultArray.length shouldBe rowCount
+          resultArray shouldBe testArray
         }
       }
+      prop.check(_.withMinSuccessfulTests(5))
     }
   }
 

@@ -24,7 +24,6 @@ import com.datastax.driver.core.{BoundStatement, Row}
 import nest.sparkle.core.OngoingData
 import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.{Column, ColumnUpdate, WriteListener, WriteEvent, WriteNotifier, Event, OngoingEvents}
-import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.store.cassandra.SparseColumnReaderStatements._
 import nest.sparkle.measure.Span
 import nest.sparkle.util.Log
@@ -240,7 +239,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     Event(argument.asInstanceOf[T], value.asInstanceOf[U])
   }
 
-  private def rowsDecoder(rows: List[Row]): DataArray[T, U] = {
+  private def rowsDecoder(rows: Seq[Row]): DataArray[T, U] = {
     log.trace(s"rowDecoderA: $rows")
     val size = rows.size
     val arguments = new Array[T](size)
@@ -255,6 +254,8 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
 
   private def readEventRows(statement: BoundStatement, parentSpan:Option[Span]) // format: OFF
       (implicit execution:ExecutionContext): Observable[Event[T, U]] = { // format: ON
+    import nest.sparkle.store.cassandra.ObservableResultSet._
+
     val span = parentSpan.map { parent => Span.start("readEventRows", parent) }
     val rows = prepared.session.executeAsync(statement).observerableRows(span)
     rows map rowDecoder
@@ -262,11 +263,10 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
 
   private def readEventRowsA(statement: BoundStatement, parentSpan:Option[Span]) // format: OFF
       (implicit execution:ExecutionContext): Observable[DataArray[T, U]] = { // format: ON
+    import nest.sparkle.store.cassandra.ObservableResultSetA._
+
     val span = parentSpan.map { parent => Span.start("readEventRowsA", parent) }
-    
-    // TODO this blocks awaiting the last bit of data from the db.. 
-    // ..Instead, return DataArrays asynchronously
-    val rows = prepared.session.executeAsync(statement).observerableRows(span).toList
+    val rows = prepared.session.executeAsync(statement).observerableRowsA(span)
     rows map rowsDecoder
   }
 
