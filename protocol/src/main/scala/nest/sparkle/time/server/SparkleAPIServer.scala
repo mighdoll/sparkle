@@ -34,7 +34,9 @@ import nest.sparkle.store.{Store, WriteNotification}
 import nest.sparkle.util._
 import nest.sparkle.measure.ConfiguredMeasurements
 
-protected class SparkleAPIServer(val rootConfig: Config)(implicit val system: ActorSystem) extends Log {
+protected class SparkleAPIServer // format: OFF
+    ( val rootConfig: Config )
+    ( implicit val system: ActorSystem ) extends Log { // format: ON
   val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
   val notification = new WriteNotification()
   val store = Store.instantiateStore(sparkleConfig, notification)
@@ -105,11 +107,13 @@ protected class SparkleAPIServer(val rootConfig: Config)(implicit val system: Ac
 
   /** launch a FilesLoader for each configured directory */
   private def possiblyStartFilesLoader(): Unit = {
-    if (sparkleConfig.getBoolean("files-loader.auto-start")) {
-      val strip = sparkleConfig.getInt("files-loader.directory-strip")
-      sparkleConfig.getStringList("files-loader.directories").asScala.foreach { pathString =>
+    val loaderConfig = sparkleConfig.getConfig("files-loader")
+    if (loaderConfig.getBoolean("auto-start")) {
+      loaderConfig.getStringList("directories").asScala.foreach { pathString =>
+        val strip = loaderConfig.getInt("directory-strip")
+        val watch = loaderConfig.getBoolean("watch-directories")
         try {
-          FilesLoader(sparkleConfig, pathString, pathString, writeableStore, strip)
+          new FilesLoader(sparkleConfig, pathString, pathString, writeableStore, strip, Some(watch))
         } catch {
           case LoadPathDoesNotExist(path) => sys.exit(1)
         }

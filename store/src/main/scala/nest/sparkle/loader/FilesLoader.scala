@@ -43,13 +43,6 @@ import nest.sparkle.store.cassandra.CanSerialize
 
 case class LoadPathDoesNotExist(path: String) extends RuntimeException
 
-object FilesLoader extends Log {
-  def apply(sparkleConfig: Config, rootDirectory: String, rootName:String, store: WriteableStore, strip: Int = 0) // format: OFF
-      (implicit system: ActorSystem): FilesLoader = { // format: ON
-    new FilesLoader(sparkleConfig, rootDirectory, rootName, store, strip)
-  }
-}
-
 /** Load all the events in the csv/tsv files in a directory or load a single file.
   * The directory or file must exist.
   *
@@ -59,10 +52,10 @@ object FilesLoader extends Log {
   * @param strip Number of leading path elements to strip when
   * creating the DataSet name.
   */
-protected class FilesLoader(sparkleConfig: Config, loadPath: String, pathName:String,
-                            store: WriteableStore, strip: Int) // format: OFF
-    (implicit system: ActorSystem) { // format: ON
-  import FilesLoader.log
+class FilesLoader // format: OFF
+    ( sparkleConfig: Config, loadPath: String, pathName:String,
+      store: WriteableStore, strip: Int, watch:Option[Boolean] = None)
+    (implicit system: ActorSystem) extends Log { // format: ON
 
   /** number of rows to read in a block */
   val batchSize = sparkleConfig.getInt("files-loader.batch-size")
@@ -88,7 +81,17 @@ protected class FilesLoader(sparkleConfig: Config, loadPath: String, pathName:St
       root.getParent()
     }
 
-  if (Files.isDirectory(root)) {
+  val doWatch = {
+    watch match {
+      case Some(true) if Files.isDirectory(root) => true
+      case Some(true) =>
+        log.error(s"Watch requested on $root, which is not a directory")
+        false
+      case _ => false
+    }
+  }
+
+  if (doWatch) {
     log.info(s"Watching $loadPath for files to load into store")
     val pathWatcher = WatchPath(root)
     watcher = Some(pathWatcher)
@@ -114,11 +117,13 @@ protected class FilesLoader(sparkleConfig: Config, loadPath: String, pathName:St
   private def fileChange(change: Change, store: WriteableStore): Unit = {
     change match {
       case Added(path) =>
+        log.info(s"file added: $path")
         loadFile(path, store)
       case Removed(path) =>
-        log.warn(s"removed $path.  ignoring for now")
+        log.info(s"file removed: $path (ignoring)")
       case Modified(path) =>
-        log.warn(s"modified $path.  ignoring for now")
+        log.info(s"file modified: $path")
+        loadFile(path, store)
     }
   }
 

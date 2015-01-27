@@ -39,7 +39,7 @@ class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
     withMeasurements { implicit measurements =>
       val spanName = publishSpan()
 
-      val tsvFile = Paths.get("/tmp/sparkle-measurements.tsv")
+      val tsvFile = Paths.get("/tmp/sparkle-measurement/spans.tsv")
       val lines = Files.readAllLines(tsvFile, UTF_8).asScala
       lines.length shouldBe 2
       lines.head shouldBe "name\ttraceId\ttime\tduration"

@@ -14,20 +14,23 @@
 
 package nest.sparkle.util
 
-import org.scalatest.FunSuite
-import spray.util._
-import org.scalatest.Matchers
-import java.nio.file.Files
-import akka.actor.ActorSystem
-import java.nio.file.Path
+import java.nio.charset.Charset
+import java.nio.file.StandardOpenOption.{CREATE, TRUNCATE_EXISTING}
+import java.nio.file.{Files, NotDirectoryException, Path}
 import scala.collection.mutable
 import scala.concurrent.Promise
+import scala.concurrent.duration._
+import scala.util.Success
 
+import akka.actor.ActorSystem
+import org.scalatest.{FunSuite, Matchers}
+
+import nest.sparkle.util.FutureAwait.Implicits._
 
 class TestWatchPath extends FunSuite with Matchers {
 
   test("recursive directory scan") {
-    val root = Files.createTempDirectory("TestFileDataRegistry")
+    val root = Files.createTempDirectory("TestWatchPath-recursive")
     val subPath = root.resolve("deeper")
     val sub = Files.createDirectory(subPath)
     val a = Files.createFile(root.resolve("a.csv"))
@@ -41,6 +44,27 @@ class TestWatchPath extends FunSuite with Matchers {
     } finally {
       created foreach Files.deleteIfExists
     }
+  }
+
+  test("trying watch single file should throw an exception") {
+    val root = Files.createTempDirectory("TestWatchPath-recursive")
+    val a = Files.createFile(root.resolve("a.tsv"))
+    val writer = Files.newBufferedWriter(a, Charset.forName("UTF-8"), TRUNCATE_EXISTING, CREATE)
+    implicit val system = ActorSystem("TestWatchPath")
+    val expectedException = Promise[Boolean]()
+    try {
+      val watcher = WatchPath(a, "**.tsv")
+      expectedException.future.await
+    } catch {
+      case e:NotDirectoryException =>
+        expectedException.complete(Success(true))
+    } finally {
+      system.shutdown()
+      Files.deleteIfExists(a)
+      Files.deleteIfExists(root)
+    }
+
+    expectedException.future.await shouldBe true
   }
 
   test("watch directory") {
@@ -76,7 +100,7 @@ class TestWatchPath extends FunSuite with Matchers {
     val c = Files.createFile(sub2.resolve("c.csv"))
 
     try {
-      allFound.future.await   // on MacOS, could take a while
+      allFound.future.await(20.seconds)   // on MacOS, could take a while
       found.length should be (3)
       found.find(_.endsWith("b.csv")) should be ('defined)
       found.find(_.endsWith("a.csv")) should be ('defined)

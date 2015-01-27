@@ -44,6 +44,8 @@ object WatchPath {
     * (See http://docs.oracle.com/javase/7/docs/api/java/nio/file/FileSystem.html#getPathMatcher(java.lang.String))
     */
   def apply(root: Path, glob: String = "**")(implicit system: ActorSystem): PathWatcher = {
+    if (!Files.isDirectory(root)) throw new NotDirectoryException(root.toString)
+
     val actorProxy = TypedActor(system).typedActorOf(TypedProps(classOf[PathWatcher],
       new PathWatcherActor(root, glob)), "FileRegistry" + root.getName(root.getNameCount - 1))
 

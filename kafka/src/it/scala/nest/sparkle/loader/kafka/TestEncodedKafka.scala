@@ -23,7 +23,7 @@ import nest.sparkle.loader.kafka.KafkaTestUtil.{ withTestEncodedTopic, withTestR
 class TestEncodedKafka extends FunSuite with Matchers with PropertyChecks with KafkaTestConfig {
   val stringSerde = KafkaTestUtil.stringSerde
 
-  test("read/w rite a few encoded elements from the kafka queue"){
+  test("read/write a few encoded elements from the kafka queue"){
     forAll(MinSuccessful(5), MinSize(1)) { records: List[String] =>
       withTestEncodedTopic[String, Unit](rootConfig, stringSerde) { testTopic =>
         testTopic.writer.write(records)

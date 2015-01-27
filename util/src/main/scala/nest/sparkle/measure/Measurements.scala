@@ -49,8 +49,12 @@ object DummyMeasurements extends Measurements {
 /** a measurement system that sends measurements to a file */
 class MeasurementToTsvFile(fileName: String) extends Measurements {
   val path = Paths.get(fileName)
+  val parentDir = path.getParent
+  if (!Files.exists(parentDir)) {
+    Files.createDirectories(parentDir)
+  }
   val charSet = Charset.forName("UTF-8")
-  val writer = Files.newBufferedWriter(Paths.get(fileName), charSet, TRUNCATE_EXISTING, CREATE)
+  val writer = Files.newBufferedWriter(path, charSet, TRUNCATE_EXISTING, CREATE)
   writer.write("name\ttraceId\ttime\tduration\n")
   writer.flush()
 

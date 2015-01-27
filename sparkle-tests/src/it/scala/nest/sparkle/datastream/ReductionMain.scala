@@ -7,8 +7,7 @@ import nest.sparkle.measure.{DummySpan, Span}
 import nest.sparkle.util.{ConfigUtil, SparkleApp}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
-
-/** a test driver for reduction test
+/** a test driver for reduction tests
  */
 object ReductionMain extends SparkleApp {
   override def appName = "LargeReduction"
@@ -25,11 +24,10 @@ object ReductionMain extends SparkleApp {
 
   implicit val span = Span.prepareRoot("reductionTest")
   TestJig.run()(testToOnePart)
-
 }
 
 object TestJig {
-  def run[T](warmups:Int = 2)(fn: Span=>T)(implicit parentSpan:Span):T = {
+  def run[T](warmups:Int = 2)(fn: Span => T)(implicit parentSpan:Span):T = {
 
     (0 until warmups).foreach {_ =>
       fn(DummySpan)

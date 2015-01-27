@@ -23,10 +23,14 @@ object LargeReduction {
   def byPeriod(spacing:FiniteDuration, summaryPeriod:String)(implicit parentSpan:Span)
       : DataArray[Long, Option[Long]] = {
     val stream = generateDataStream(spacing)
-    val periodWithZone = PeriodWithZone(Period.parse(summaryPeriod).get, DateTimeZone.UTC)
-    val reduced = stream.reduceByPeriod(periodWithZone, ReduceSum[Long]())
-    val arrays = reduced.data.toBlocking.toList
-    arrays.reduce(_ ++ _)
+    Span("total-no-generator").time {
+      val periodWithZone = PeriodWithZone(Period.parse(summaryPeriod).get, DateTimeZone.UTC)
+      val reduced = stream.reduceByPeriod(periodWithZone, ReduceSum[Long]())
+      val arrays = reduced.data.toBlocking.toList
+      Span("reduce").time {
+        arrays.reduce(_ ++ _)
+      }
+    }
   }
 
   /** generate a years worth of test data and reduce it into a single value.
@@ -37,9 +41,13 @@ object LargeReduction {
   def toOnePart(spacing:FiniteDuration)(implicit parentSpan:Span)
       : DataArray[Long, Option[Long]] = {
     val stream = generateDataStream(spacing)
-    val reduced = stream.reduceToOnePart(ReduceSum[Long]())
-    val arrays = reduced.data.toBlocking.toList
-    arrays.reduce(_ ++ _)
+    Span("total-no-generator").time {
+      val reduced = stream.reduceToOnePart(ReduceSum[Long]())
+      val arrays = reduced.data.toBlocking.toList
+      Span("reduce").time {
+        arrays.reduce(_ ++ _)
+      }
+    }
   }
 
   /** Generate a DataStream of test data */

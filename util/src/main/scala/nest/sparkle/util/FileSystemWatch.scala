@@ -20,18 +20,25 @@ import java.nio.file._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.{ Future, Promise }
 import java.nio.file.StandardWatchEventKinds._
+import com.sun.nio.file.SensitivityWatchEventModifier
+
 import FileSystemScan.scanFileSystem
 import scala.collection.JavaConverters._
 import WatchPath._
 import java.nio.file._
 
-/** Actor that watches a directory subtree using nio.  call watch() to start the filesystem watching.  Changes
-  * are reported to a function provided to watch().
+/** Actor that watches a directory subtree using nio.
+  * call watch() to start the filesystem watching.
+  * Changes are reported to a function provided to watch().
   */
 protected[util] class PathWatcherActor(root: Path, glob: String) extends PathWatcher with TypedActor.PostStop {
-  private val watchers = mutable.ArrayBuffer[WatchPath.Change => Unit]()
-  private var fsWatcher: Option[FileSystemWatch] = None
   implicit val dispatcher = TypedActor.dispatcher
+
+  // call-registered functions to notify on file changes
+  private val watchers = mutable.ArrayBuffer[WatchPath.Change => Unit]()
+
+  // file watching actor, created on demand at the first watch() call
+  private var fsWatcher: Option[FileSystemWatch] = None
 
   /** Register a callback on changes, start the filesystem change scanner if necessary,
     * and report the current set of matching files.
@@ -39,8 +46,14 @@ protected[util] class PathWatcherActor(root: Path, glob: String) extends PathWat
   def watch(fn: WatchPath.Change => Unit): Future[Iterable[Path]] = {
     watchers.append(fn)
     fsWatcher = fsWatcher orElse {
-      val (_, dirs) = scanFileSystem(root, "")
-      Some(new FileSystemWatch(change _, glob, dirs: _*))
+      val paths =
+        if (Files.isDirectory(root)) {
+          val (_, dirs) = scanFileSystem(root, "")
+          dirs
+        } else {
+          Seq(root)
+        }
+      Some(new FileSystemWatch(change _, glob, paths: _*))
     }
 
     val (files, _) = scanFileSystem(root, glob)
@@ -69,8 +82,8 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
 
   /** watch an additional path */
   private def watchPath(path: Path): Unit = {
-    val key = path.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY)
-
+    val watchKind:Array[WatchEvent.Kind[_]] = Array(ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY)
+    val key = path.register(watcher, watchKind, SensitivityWatchEventModifier.HIGH)
     watchKeys += (key -> path)
   }
 

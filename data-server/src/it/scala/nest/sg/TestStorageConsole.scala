@@ -16,7 +16,7 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestC
     withTestDb { testDb =>
       withTestActors{ implicit system =>
         val complete = onLoadComplete(testDb, fileName)
-        FilesLoader(sparkleConfig, filePath, fileName, testDb)
+        new FilesLoader(sparkleConfig, filePath, fileName, testDb, 0, Some(false))
         complete.await
         val storageConsole = new ConcreteStorageConsole(testDb, system.dispatcher)
         fn(storageConsole)
