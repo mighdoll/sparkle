@@ -1,25 +1,27 @@
 package nest.sg
 
+import java.text.NumberFormat
+import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
+import scala.util.{Failure, Success}
+
+import rx.lang.scala.Observable
 
 import nest.sparkle.datastream.DataArray
-import nest.sparkle.util.Log
-import nest.sparkle.store.cassandra.CassandraStore
-import scala.concurrent.duration._
-import nest.sparkle.util.FutureToTry._
-import nest.sparkle.store.Event
-import nest.sparkle.util.ObservableFuture._
-import scala.concurrent.Future
-import scala.util.Success
-import scala.util.Failure
-import rx.lang.scala.Observable
-import scala.concurrent.ExecutionContext
-import nest.sparkle.store.Store
+import nest.sparkle.store.{Event, Store}
 import nest.sparkle.store.cassandra.CassandraStoreReader
+import nest.sparkle.util.FutureToTry._
+import nest.sparkle.util.Log
+import nest.sparkle.util.ObservableFuture._
+import nest.sparkle.util.ReflectionUtil.caseClassFields
+import nest.sparkle.util.FutureAwait.Implicits._
+import nest.sg.StorageConsole.Interval
 
 /** a console for making queries to the store from the scala console */
 object StorageConsole extends ConsoleServer with Log {
   lazy val storage = new ConcreteStorageConsole(server.store, server.actorSystem.dispatcher)
+  case class Interval(time:Long, duration:Long)
 }
 
 
@@ -96,32 +98,86 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends Lo
   }
 
   def columnData[T: ClassTag](columnPath:String):DataArray[Long,T] = {
-    val futureResult =
-      for {
-        column <- store.column[Long,T](columnPath)
-        data <- column.readRangeA().initial.toFutureSeq
-      } yield data
 
-    futureResult.toTry match {
-      case Success(dataSeq) =>
-        dataSeq.reduce(_ ++ _)
-      case Failure(err) =>
+    futureColumnData[T](columnPath).toTry match {
+      case Success(data) => data
+      case Failure(err)  =>
         log.error("column loading failed", err)
         DataArray.empty[Long, T]
     }
   }
 
-  case class Measure(time:Long, name:String, traceId:String, duration:Long)
-  def measurementsData(measurementName:String):DataArray[Long,Long] = {
-    val durations = columnData[Long]("sparkle-measurements/duration")
-    val traceIds = columnData[String]("sparkle-measurements/traceId")
-    val names = columnData[String]("sparkle-measurements/name")
-
-
-    val validTimes = traceIds.collect{case (k,v) if v == measurementName => k}
-
-    ???
+  private def futureColumnData[T:ClassTag](columnPath:String):Future[DataArray[Long,T]] = {
+    for {
+      column <- store.column[Long, T](columnPath)
+      dataSeq <- column.readRangeA().initial.toFutureSeq
+    } yield {
+      dataSeq.reduceLeft(_ ++ _)
+    }
   }
 
+// this is hard to do generically, Shapeless would help after we upgrade.
+//  def records[T: TypeTag](prefix:String):Seq[T] = {
+//    val futureColumns = for {
+//      fieldName <- caseClassFields[T]
+//      if (fieldName != "time")
+//      columnPath = s"$prefix/$fieldName"
+//    } yield {
+//      futureColumnData[Any](columnPath)
+//    }
+//    val columns:Seq[DataArray[Long, Any]] = Future.sequence(futureColumns).await
+//    columns.map(_.values)
+////    val x = columns.map(_.values).zip
+//
+//    ???
+//  }
+
+
+  /** return the span latency data for a given measurement name, grouped by trace id */
+  def measurementsData(measurementName:String):Map[String,Intervals] = {
+    case class MiniSpan(time:Long, name:String, traceId:String, duration:Long)
+
+    val durations = columnData[Long]("sparkle-measurements/duration")
+    val traceIds = columnData[String]("sparkle-measurements/traceId").values.iterator
+    val names = columnData[String]("sparkle-measurements/name").values.iterator
+    val spans =
+      durations.map { case (time, duration) =>
+        val traceId = traceIds.next()
+        val name = names.next()
+        MiniSpan(time, name, traceId, duration)
+      }
+
+
+    val matchingSpans = spans.filter(_.name == measurementName)
+    val groupedSpans = matchingSpans.groupBy(_.traceId)
+    val groupedIntervals = groupedSpans.map { case (traceId, spans) =>
+        val intervalSeq = spans.map{span => Interval(span.time, span.duration)}
+        traceId -> Intervals(intervalSeq)
+      }
+
+    groupedIntervals
+  }
+
+  /** return a summary of the measurement data for the first traceId of a given measurement name */
+  def firstMeasurement(measurementName:String):Intervals = {
+    measurementsData(measurementName).head match {
+      case (traceId,intervals) => intervals
+    }
+  }
+}
+
+case class Intervals(data:Seq[Interval]) {
+  def printDuration() = {
+    val micros = NumberFormat.getIntegerInstance.format(totalDuration / 1000)
+    println(s"total duration: $micros microseconds")
+  }
+
+  def printTotalGap() = {
+    val micros = NumberFormat.getIntegerInstance.format(startGaps.sum / 1000)
+    println(s"total gap time: $micros microseconds")
+  }
+
+  def totalDuration:Long = data.map(_.duration).sum
+  def startGaps:Seq[Long] = data.map(_.time).sliding(2).map{ case Seq(a, b) => b - a }.toVector
 }
 
