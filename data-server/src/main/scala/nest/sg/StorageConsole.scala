@@ -18,32 +18,21 @@ import nest.sparkle.store.Store
 import nest.sparkle.store.cassandra.CassandraStoreReader
 
 /** a console for making queries to the store from the scala console */
-object StorageConsole extends ConsoleServer with StorageConsoleAPI with Log {
-  lazy val storageConsole = new ConcreteStorageConsole(server.store, server.actorSystem.dispatcher)
-  
-  override def eventsByDataSet(dataSet: String): Seq[ColumnEvents] = 
-    storageConsole.eventsByDataSet(dataSet)
-    
-  override def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]] =
-    storageConsole.eventsByColumnPath(columnPath)
-    
-  override def allColumns(): Observable[String] = storageConsole.allColumns()
-
-  override def columnData[T: ClassTag](columnPath:String):DataArray[Long,T] =
-    storageConsole.columnData[T](columnPath)
+object StorageConsole extends ConsoleServer with Log {
+  lazy val storage = new ConcreteStorageConsole(server.store, server.actorSystem.dispatcher)
 }
 
 
 case class ColumnEvents(name: String, events: Seq[Event[Long, Double]])
 
 /** a console for making queries to the store from the scala console */
-class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends StorageConsoleAPI with Log {
+class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends Log {
   implicit def _execution = execution
 
   /** Return events for all columns inside a dataset.
     * Only direct children a returned (it does not recurse on nested dataSets).
     */
-  override def eventsByDataSet(dataSet: String): Seq[ColumnEvents] = {
+  def eventsByDataSet(dataSet: String): Seq[ColumnEvents] = {
     val tryDataSet = store.dataSet(dataSet).toTry
     val tryColumnEvents =
       tryDataSet.flatMap{ dataSet =>
@@ -80,7 +69,7 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
   }
 
   /** Return events from a given column path */
-  override def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]] = {
+  def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]] = {
     val futureEvents =
       for {
         column <- store.column[Long, Double](columnPath)
@@ -99,14 +88,14 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
   }
 
   /** return an observable of _all_ columns in the store */
-  override def allColumns(): Observable[String] = {
+  def allColumns(): Observable[String] = {
     store match {
       case cassandraStore: CassandraStoreReader =>
         cassandraStore.columnCatalog.allColumns()
     }
   }
 
-  override def columnData[T: ClassTag](columnPath:String):DataArray[Long,T] = {
+  def columnData[T: ClassTag](columnPath:String):DataArray[Long,T] = {
     val futureResult =
       for {
         column <- store.column[Long,T](columnPath)
@@ -122,14 +111,17 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends St
     }
   }
 
-}
+  case class Measure(time:Long, name:String, traceId:String, duration:Long)
+  def measurementsData(measurementName:String):DataArray[Long,Long] = {
+    val durations = columnData[Long]("sparkle-measurements/duration")
+    val traceIds = columnData[String]("sparkle-measurements/traceId")
+    val names = columnData[String]("sparkle-measurements/name")
 
 
-/** console methods exposed by the StorageConsole */
-trait StorageConsoleAPI {
-  def eventsByDataSet(dataSet: String): Seq[ColumnEvents]
-  def eventsByColumnPath(columnPath: String): Seq[Event[Long, Double]]
-  def allColumns(): Observable[String]
-  def columnData[T: ClassTag](columnPath:String):DataArray[Long,T]
+    val validTimes = traceIds.collect{case (k,v) if v == measurementName => k}
+
+    ???
+  }
+
 }
 

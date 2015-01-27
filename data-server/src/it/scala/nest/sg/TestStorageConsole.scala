@@ -12,7 +12,7 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestC
   
   override def testConfigFile = Some("tests")
 
-  def withTestConsole[T](fn: StorageConsoleAPI => T): T = {    
+  def withTestConsole[T](fn: ConcreteStorageConsole => T): T = {
     withTestDb { testDb =>
       withTestActors{ implicit system =>
         val complete = onLoadComplete(testDb, fileName)
@@ -49,6 +49,13 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestC
     withTestConsole { storageConsole =>
       val events = storageConsole.eventsByColumnPath("epochs/count")
       events.length shouldBe 2751
+    }
+  }
+
+  test("dataByColumnPath") {
+    withTestConsole { storageConsole =>
+      val data = storageConsole.columnData("epochs/count")
+      data.length shouldBe 2751
     }
   }
 
