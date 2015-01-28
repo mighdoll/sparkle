@@ -137,9 +137,9 @@ class ConcreteStorageConsole(store:Store, execution:ExecutionContext) extends Lo
   def measurementsData(measurementName:String):Map[String,Intervals] = {
     case class MiniSpan(time:Long, name:String, traceId:String, duration:Long)
 
-    val durations = columnData[Long]("sparkle-measurements/duration")
-    val traceIds = columnData[String]("sparkle-measurements/traceId").values.iterator
-    val names = columnData[String]("sparkle-measurements/name").values.iterator
+    val durations = columnData[Long]("sparkle-measurement/spans/duration")
+    val traceIds = columnData[String]("sparkle-measurement/spans/traceId").values.iterator
+    val names = columnData[String]("sparkle-measurement/spans/name").values.iterator
     val spans =
       durations.map { case (time, duration) =>
         val traceId = traceIds.next()
