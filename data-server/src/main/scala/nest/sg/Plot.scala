@@ -3,12 +3,13 @@ package nest.sg
 import scala.reflect.runtime.universe.typeTag
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
-import nest.sparkle.store.Event
+import nest.sparkle.store.{WriteableStore, Event}
 import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.store.cassandra.serializers._
 import scala.reflect.runtime.universe._
 import spray.json.JsObject
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import nest.sparkle.time.server.SparkleAPIServer
 import nest.sparkle.util.OptionConversion.OptionFuture
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.Log
@@ -25,11 +26,13 @@ case class PlotParameterError(msg: String) extends RuntimeException
 /** Interim work on supporting the launching of graph from the repl..
   * TODO finish this.
   */
-object Plot extends ConsoleServer with Log {
+trait PlotConsole extends Log {
+  def server:SparkleAPIServer
+  lazy val writeStore = server.writeableStore
+  implicit lazy val dispatcher = server.system.dispatcher
+
   val sessionId = RandomUtil.randomAlphaNum(5)
 
-  private lazy val store = server.writeableStore
-  import server.system.dispatcher
 
   var launched = false
   def plot[T: TypeTag](iterable: Iterable[T], name: String = nowString(), dashboard: String = "",
@@ -94,7 +97,7 @@ object Plot extends ConsoleServer with Log {
     obsSerializers.flatMap {
       case (serializeKey, serializeValue) =>
         val columnPath = nameToPath(name)
-        val futureColumn = store.writeableColumn[T, U](columnPath)(serializeKey, serializeValue).toObservable
+        val futureColumn = writeStore.writeableColumn[T, U](columnPath)(serializeKey, serializeValue).toObservable
         val columnWritten: Observable[Unit] =
           for {
             column <- futureColumn
@@ -121,7 +124,7 @@ object Plot extends ConsoleServer with Log {
     futureSerializers.flatMap {
       case (serializeKey, serializeValue) =>
         val columnPath = nameToPath(name)
-        val futureColumn = store.writeableColumn[T, U](columnPath)(serializeKey, serializeValue)
+        val futureColumn = writeStore.writeableColumn[T, U](columnPath)(serializeKey, serializeValue)
         val columnWritten: Future[Unit] =
           for {
             column <- futureColumn
@@ -153,7 +156,7 @@ object Plot extends ConsoleServer with Log {
     val timeSeriesOpt = if (timeSeries) Some(true) else None
     val plotParameters = PlotParameters(Array(source), title, unitsLabel, timeSeriesOpt)
     val plotParametersJson: JsValue = plotParameters.toJson
-    val futureColumn = store.writeableColumn[Long, JsValue](parametersColumnPath)
+    val futureColumn = writeStore.writeableColumn[Long, JsValue](parametersColumnPath)
     val entry = Event(System.currentTimeMillis, plotParametersJson)
 
     log.trace(s"storeParameters: $plotParametersJson")

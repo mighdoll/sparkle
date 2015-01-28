@@ -34,7 +34,7 @@ import nest.sparkle.store.{Store, WriteNotification}
 import nest.sparkle.util._
 import nest.sparkle.measure.ConfiguredMeasurements
 
-protected class SparkleAPIServer // format: OFF
+class SparkleAPIServer // format: OFF
     ( val rootConfig: Config )
     ( implicit val system: ActorSystem ) extends Log { // format: ON
   val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)

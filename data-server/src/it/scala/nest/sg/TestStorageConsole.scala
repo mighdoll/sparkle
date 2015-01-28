@@ -12,13 +12,16 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestC
   
   override def testConfigFile = Some("tests")
 
-  def withTestConsole[T](fn: ConcreteStorageConsole => T): T = {
+  def withTestConsole[T](fn: StorageConsole => T): T = {
     withTestDb { testDb =>
       withTestActors{ implicit system =>
         val complete = onLoadComplete(testDb, fileName)
         new FilesLoader(sparkleConfig, filePath, fileName, testDb, 0, Some(false))
         complete.await
-        val storageConsole = new ConcreteStorageConsole(testDb, system.dispatcher)
+        val storageConsole = new StorageConsole {
+          override val store = testDb
+          override val execution = system.dispatcher
+        }
         fn(storageConsole)
       }
     }

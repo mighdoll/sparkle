@@ -316,8 +316,7 @@ object SparkleBuild extends Build {
         dependenciesToStart := Seq(cassandraServer),
         libraryDependencies ++= logbackTest, 
         initialCommands in console := """
-          import nest.sg.Plot._
-          import nest.sg.StorageConsole.storage._
+          import nest.sg.SparkleConsole._
           import nest.sparkle.store.Event
           import rx.lang.scala.Observable
           import scala.concurrent.duration._
