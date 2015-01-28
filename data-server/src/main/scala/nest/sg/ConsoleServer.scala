@@ -15,8 +15,8 @@ trait ConsoleServer {
 //    s"$sparkleConfigName.sparkle-store-cassandra.key-space" -> "plot"
   )
 
-  val config = modifiedConfig(ConfigFactory.load(), configOverrides: _*)
-  LogUtil.configureLogging(config)
-  val server = SparkleAPIServer(config)
+  val rootConfig = modifiedConfig(ConfigFactory.load(), configOverrides: _*)
+  LogUtil.configureLogging(rootConfig)
+  val server = SparkleAPIServer(rootConfig)
 
 }

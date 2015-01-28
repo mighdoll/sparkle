@@ -14,6 +14,7 @@
 
 package nest.sparkle.loader
 
+import nest.sparkle.util.FileSystemScan._
 import nest.sparkle.util.WatchPath
 import nest.sparkle.util.WatchPath._
 import akka.actor.ActorSystem
@@ -96,15 +97,31 @@ class FilesLoader // format: OFF
     val pathWatcher = WatchPath(root)
     watcher = Some(pathWatcher)
     val initialFiles = pathWatcher.watch{ change => fileChange(change, store) }
-    initialFiles.foreach{ futureFiles =>
-      futureFiles.foreach{ path =>
-        if (!closed) {
+    loadFiles(initialFiles)
+  } else {
+    if (Files.isDirectory(root)) {
+      val initialFiles = scanForFiles(root)
+      loadFiles(Future.successful(initialFiles))
+    } else {
+      loadFile(root, store)
+    }
+  }
+
+  def loadFiles(futureFiles:Future[Iterable[Path]]): Unit = {
+    futureFiles.foreach {files=>
+      val loadedSeq =
+        for {
+          path <- files
+          if !closed
+        } yield {
           loadFile(root.resolve(path), store)
         }
+
+      Future.sequence(loadedSeq).foreach { _ =>
+        log.info(s"directory loaded $root")
+        store.writeNotifier.directoryLoaded(root.toString)
       }
     }
-  } else {
-    loadFile(root, store)
   }
 
   /** terminate the file loader */
@@ -130,7 +147,8 @@ class FilesLoader // format: OFF
   /** Load a single file into the store. Returns immediately, the loading
     * continues in a background thread.
     */
-  private def loadFile(fullPath: Path, store: WriteableStore): Unit = {
+  private def loadFile(fullPath: Path, store: WriteableStore): Future[Unit] = {
+    val complete = Promise[Unit]()
     fullPath match {
       case ParseableFile(format) if Files.isRegularFile(fullPath) =>
         log.info(s"Started loading $fullPath into the Store")
@@ -145,12 +163,16 @@ class FilesLoader // format: OFF
 
           loaded.foreach { _ =>
             log.info(s"file loaded: $fullPath")
+            complete.complete(Success(Unit))
             store.writeNotifier.fileLoaded(pathName)
           }
           loaded.failed.foreach { failure => log.error(s"loading $fullPath failed", failure) }
         }
       case x => log.warn(s"$fullPath could not be parsed, ignoring")
+        complete.complete(Success(Unit))
     }
+
+    complete.future
   }
 
   case class FileLoaderTypeConfiguration(msg: String) extends RuntimeException(msg)
