@@ -43,7 +43,12 @@ object Main extends SparkleApp {
   
   override def overrides = {
     val sparkleConfigName = ConfigUtil.sparkleConfigName
-    val portMapping = port.value.toList.map { (s"$sparkleConfigName.port", _) }
+    val portMapping = port.value.toList.flatMap { portNumber =>
+      Seq(
+        (s"$sparkleConfigName.port", portNumber),
+        (s"$sparkleConfigName.admin.port", portNumber + 1)
+      )
+    }
     val rootMapping = root.value.toList.map { value => (s"$sparkleConfigName.web-root.directory", List(value)) }
     val eraseOverride = erase.value.toList.map { (s"$sparkleConfigName.erase-store", _) }
     val directories = filesPath.value orElse watch.value
