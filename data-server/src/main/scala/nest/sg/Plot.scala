@@ -24,17 +24,14 @@ import rx.lang.scala.Observable
 case class PlotParameterError(msg: String) extends RuntimeException
 
 /** Interim work on supporting the launching of graph from the repl..
-  * TODO finish this.
   */
 trait PlotConsole extends Log {
   def server:SparkleAPIServer
   lazy val writeStore = server.writeableStore
   implicit lazy val dispatcher = server.system.dispatcher
-
   val sessionId = RandomUtil.randomAlphaNum(5)
-
-
   var launched = false
+
   def plot[T: TypeTag](iterable: Iterable[T], name: String = nowString(), dashboard: String = "",
     title: Opt[String] = None, units: Opt[String] = None) {
 

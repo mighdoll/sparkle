@@ -18,7 +18,7 @@ class TestLoaderConsole extends FunSuite with Matchers with SparkleConsoleFixtur
       console.store.writeListener.listen(measuresDirectory).subscribe{ event =>
         event match {
           case DirectoryLoaded(`measuresDirectory`) => done.complete(Success(Unit))
-          case x                                    => println(x)
+          case x                                    => 
         }
       }
       fn(console)

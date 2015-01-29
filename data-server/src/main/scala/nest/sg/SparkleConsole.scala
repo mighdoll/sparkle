@@ -10,7 +10,8 @@ import nest.sparkle.store.Store
 object SparkleConsole extends SparkleConsole
 
 /** a collection of handy functions useful from the repl console */
-trait SparkleConsole extends ConsoleServer
+trait SparkleConsole
+    extends ConsoleServer
     with StorageConsole
     with MeasurementConsole
     with PlotConsole

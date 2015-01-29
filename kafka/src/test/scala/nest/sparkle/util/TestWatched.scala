@@ -80,7 +80,7 @@ class TestWatched extends FunSuite with Matchers {
       source.watch(watch)
 
       // print the filtered result stream
-      watch.report.subscribe { value => println(value) }
+//      watch.report.subscribe { value => println(value) }
     }
 
     val watched = TestWatchable()

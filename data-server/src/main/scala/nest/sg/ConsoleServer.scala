@@ -9,9 +9,9 @@ import nest.sparkle.util.LogUtil
 /** launch a sparkle server for a console based debugging app */
 trait ConsoleServer {
 
-  private def configOverrides: List[(String, Any)] = List(
+  def configOverrides: Seq[(String, Any)] = Seq(
     s"$sparkleConfigName.port" -> 2323,
-    s"$sparkleConfigName.web-root.resource" -> List("web/sg/plot-default")
+    s"$sparkleConfigName.web-root.resource" -> Seq("web/sg/plot-default")
 //    s"$sparkleConfigName.sparkle-store-cassandra.key-space" -> "plot"
   )
 

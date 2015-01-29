@@ -4,7 +4,7 @@ import org.scalatest.{Matchers, FunSuite}
 import nest.sparkle.util.PrettyNumbers.implicits._
 
 class TestMeasurementConsole extends FunSuite with Matchers with SparkleConsoleFixture {
-  test("measurements for reduceBlock") {
+  ignore("measurements for reduceBlock") { // TODO convert to test
     withSparkleConsole { console =>
       import console._
 

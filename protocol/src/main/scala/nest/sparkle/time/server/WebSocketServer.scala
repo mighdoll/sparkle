@@ -1,15 +1,21 @@
 package nest.sparkle.time.server
+
+import com.typesafe.config.Config
+
 import unfiltered.netty.websockets._
 import unfiltered.request.Path
+import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.Log
 import rx.lang.scala.Observable
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConverters._
 import rx.lang.scala.Subscriber
 
-class WebSocketServer extends Log {
+class WebSocketServer(rootConfig:Config) extends Log {
   val subscribers = new ConcurrentHashMap[Subscriber[SocketCallback], Boolean].asScala
   private lazy val http = {
+    val port = configForSparkle(rootConfig).getInt("web-socket.port")
+
     val plan = Planify {
       case Path("/echo") => {
         case Open(socket) =>
@@ -28,7 +34,7 @@ class WebSocketServer extends Log {
           sendToSubscribers(message)
       }
     }
-    unfiltered.netty.Http(3333)  // TODO make configurable
+    unfiltered.netty.Http(port)
       .handler(plan)
   }
   

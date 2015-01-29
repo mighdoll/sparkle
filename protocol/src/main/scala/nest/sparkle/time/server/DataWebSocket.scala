@@ -19,7 +19,7 @@ class DataWebSocket(store: Store, rootConfig: Config) // format: OFF
     (implicit system: ActorSystem, measurements:Measurements) extends Log { // format: ON
   import system.dispatcher
   var sockets = new scala.collection.mutable.ListBuffer[WebSocket]()
-  val webSocketServer = new WebSocketServer()
+  val webSocketServer = new WebSocketServer(rootConfig)
   val api = StreamRequestApi(store, rootConfig)
 
   webSocketServer.results.subscribe { x =>
