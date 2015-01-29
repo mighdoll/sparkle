@@ -11,7 +11,8 @@ class TestKafkaStatus
   extends KafkaTestSuite
 {
   implicit val zkProps = ZkConnectProps("localhost:2181", timeout, timeout)
-  implicit override val measurements = new MeasurementToTsvFile("/tmp/kafka-util-tests.tsv")
+  implicit override lazy val measurements =
+    new MeasurementToTsvFile("/tmp/kafka-util-tests.tsv")(kafkaStatusContext)
   
   private def checkTestTopic(topic: KafkaTopic) {
     topic.name shouldBe TopicName

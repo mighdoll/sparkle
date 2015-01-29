@@ -1,21 +1,39 @@
 package nest.sparkle.measure
 
-import com.typesafe.config.ConfigFactory
+import java.lang.{Long => JLong}
 import java.nio.charset.StandardCharsets.UTF_8
-import java.nio.file.{ Files, Paths }
-import nest.sparkle.util.MetricsInstrumentation
-import nest.sparkle.test.SparkleTestConfig
-import org.scalatest.{ FunSuite, Matchers }
+import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import java.lang.{ Long => JLong }
+import com.typesafe.config.ConfigFactory
+
+import org.scalatest.{FunSuite, Matchers}
+
+import nest.sparkle.test.SparkleTestConfig
+import nest.sparkle.util.ConfigUtil.sparkleConfigName
+import nest.sparkle.util.RandomUtil.randomAlphaNum
+import nest.sparkle.util.{ConfigUtil, MetricsInstrumentation}
+
 
 class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
 
-  def withMeasurements(fn: Measurements => Unit) {
-    val rootConfig = ConfigFactory.load("testMeasure.conf")
-    val measurement = new ConfiguredMeasurements(rootConfig)
-    fn(measurement)
+  def withMeasurements(fn: (Measurements, Path) => Unit) {
+    val spanFile = s"/tmp/TestMeasurements-${randomAlphaNum(3)}.tsv"
+    val overridenConfig = {
+      val rootConfig = ConfigFactory.load("testMeasure.conf")
+      val tsvConfig = (s"$sparkleConfigName.measure.tsv-gateway.file" -> spanFile)
+      ConfigUtil.modifiedConfig(rootConfig, tsvConfig)
+    }
+    val spanFilePath = Paths.get(spanFile)
+
+    import scala.concurrent.ExecutionContext.Implicits.global
+    val measurement = new ConfiguredMeasurements(overridenConfig)
+    try {
+      fn(measurement, spanFilePath)
+    } finally {
+      measurement.close()
+      Files.deleteIfExists(spanFilePath)
+    }
   }
 
   def publishSpan()(implicit measurements: Measurements): String = {
@@ -27,8 +45,8 @@ class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
   }
 
   test("publish a span to coda-metrics") {
-    withMeasurements { implicit measurements =>
-      val name = publishSpan()
+    withMeasurements { (measurements, _) =>
+      val name = publishSpan()(measurements)
       val timers = MetricsInstrumentation.registry.getTimers.asScala
       val x = timers(name)
       x.getCount shouldBe 1
@@ -36,10 +54,10 @@ class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
   }
 
   test("publish a span to a .tsv file") {
-    withMeasurements { implicit measurements =>
-      val spanName = publishSpan()
+    withMeasurements { (measurements, tsvFile) =>
+      val spanName = publishSpan()(measurements)
+      measurements.flush()
 
-      val tsvFile = Paths.get("/tmp/sparkle-measurement/spans.tsv")
       val lines = Files.readAllLines(tsvFile, UTF_8).asScala
       lines.length shouldBe 2
       lines.head shouldBe "name\ttraceId\ttime\tduration"

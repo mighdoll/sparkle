@@ -48,7 +48,7 @@ trait KafkaTestSuite
   implicit val zkProps: ZkConnectProps
   private lazy val statusThreadPool = Executors.newCachedThreadPool()
   implicit lazy val kafkaStatusContext = ExecutionContext.fromExecutor(statusThreadPool)
-  implicit val measurements = new MeasurementToTsvFile("/tmp/kafka-tests.tsv")
+  implicit lazy val measurements = new MeasurementToTsvFile("/tmp/kafka-tests.tsv")
   
   implicit val timeout = 60.seconds 
   //implicit val timeout = 1.hours  // use when running with a debugger
@@ -67,6 +67,7 @@ trait KafkaTestSuite
     consumer = None
     
     statusThreadPool.shutdown()
+    super.afterAll()
   }
 
 

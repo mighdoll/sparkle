@@ -50,7 +50,11 @@ object MultiIntervalSum {
         super.configOverrides :+ s"$sparkleConfigName.custom-selectors" -> selectors
       }
     }
-    fn(service)
+    try {
+      fn(service)
+    } finally {
+      service.close()
+    }
   }
 }
 

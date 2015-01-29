@@ -84,9 +84,10 @@ class AdminTestService(override val store: Store, override val rootConfig: Confi
     extends FunSuite with AdminService with ScalatestRouteTest with Matchers {
 
   def actorRefFactory = system // connect the DSL to the test ActorSystem
-  def executionContext = system.dispatcher
+  implicit def executionContext = system.dispatcher
 
-  implicit override val measurements = new MeasurementToTsvFile("/tmp/sparkle-admin-tests.tsv")
+  implicit override val measurements =
+    new MeasurementToTsvFile("/tmp/sparkle-admin-tests.tsv")(executionContext)
 
   def fetchRequest(request: HttpRequest)(fn: HttpResponse => Unit): Unit = {
     request ~> sealRoute(routes) ~> check {

@@ -50,6 +50,7 @@ trait SparkleApp
     
   // TODO: Use DI or something for this
   implicit lazy val system = ActorSystem("sparkle", sparkleConfig)
+  import system.dispatcher
   
   implicit lazy val measurements = new ConfiguredMeasurements(rootConfig)
   

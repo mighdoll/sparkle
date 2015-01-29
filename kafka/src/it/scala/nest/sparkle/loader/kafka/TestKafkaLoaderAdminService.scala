@@ -21,8 +21,9 @@ class TestKafkaLoaderAdminService
     with KafkaLoaderAdminService
 {
   override def actorRefFactory: ActorRefFactory = system
-  def executionContext = system.dispatcher
-  implicit override val measurements = new MeasurementToTsvFile("/tmp/kafka-loader-tests.tsv")
+  implicit def executionContext = system.dispatcher
+  implicit override lazy val measurements =
+    new MeasurementToTsvFile("/tmp/kafka-loader-tests.tsv")(executionContext) // SCALA why doesn't implicit above catch this?
   
   // Some of the requests currently take a very long time
   implicit val routeTestTimeout = RouteTestTimeout(1.minute)

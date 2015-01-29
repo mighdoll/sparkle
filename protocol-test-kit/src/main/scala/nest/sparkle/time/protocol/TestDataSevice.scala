@@ -20,7 +20,7 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Success
 import scala.concurrent.duration._
 
-import org.scalatest.{FunSuite, Suite}
+import org.scalatest.{BeforeAndAfterAll, FunSuite, Suite}
 
 import akka.actor.ActorSystem
 import spray.http.{DateTime, HttpResponse}
@@ -40,7 +40,7 @@ import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
-  self: Suite =>
+  self: Suite with BeforeAndAfterAll =>
 
   override lazy val measurements = new ConfiguredMeasurements(rootConfig)
   override def actorSystem = system
@@ -49,6 +49,13 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 
   // tell spray test config about our configuration (and trigger logging initialization)
   override def testConfig = configForSparkle(rootConfig)
+
+  def close(): Unit = measurements.close()
+
+  override def afterAll(): Unit = {
+    super.afterAll()
+    measurements.close()
+  }
 
   lazy val defaultTimeout = {
     val protocolConfig = configForSparkle(rootConfig).getConfig("protocol-tests")

@@ -1,6 +1,7 @@
 package nest.sparkle.measure
 
 import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future, blocking}
 
 import java.nio.charset.Charset
 import java.nio.file.{ Files, Paths }
@@ -15,7 +16,8 @@ import nest.sparkle.util.BooleanOption.BooleanToOption
 import nl.grons.metrics.scala.Timer
 
 /** A measurement system configured to where to publish its metrics */
-class ConfiguredMeasurements(rootConfig: Config) extends Measurements with Log {
+class ConfiguredMeasurements(rootConfig: Config)
+                            (implicit execution:ExecutionContext) extends Measurements with Log {
 
   val gateways = {
     val measureConfig = ConfigUtil.configForSparkle(rootConfig).getConfig("measure")
@@ -27,27 +29,42 @@ class ConfiguredMeasurements(rootConfig: Config) extends Measurements with Log {
   override def publish(span: CompletedSpan): Unit = {
     gateways.foreach(gateway => gateway.publish(span))
   }
+
+  override def close(): Unit = {
+    gateways.foreach(_.close())
+  }
+
+  override def flush(): Unit = {
+    gateways.foreach(_.flush())
+  }
 }
 
 /** a measurement recording system, allows publishing duration Span measurements to various backends */
 trait Measurements {
   def publish(span: CompletedSpan)
+  def close(): Unit = {}
+  def flush(): Unit = {}
 }
 
 /** a factory to create a configured Measurements gateway */
 trait MeasurementGateway {
 
   /** subclasses should return a Measurements object if they're enabled in the .conf file */
-  def configured(measureConfig: Config): Option[Measurements]
+  def configured(measureConfig: Config)
+                (implicit executionContext: ExecutionContext): Option[Measurements]
 }
 
 /** a measurement system that drops measurements on the floor */
 object DummyMeasurements extends Measurements {
   override def publish(span: CompletedSpan) {}
+  override def flush() {}
 }
 
 /** a measurement system that sends measurements to a file */
-class MeasurementToTsvFile(fileName: String) extends Measurements {
+class MeasurementToTsvFile
+    ( fileName: String )
+    ( implicit execution:ExecutionContext ) extends Measurements {
+  @volatile var stopped = false
   val path = Paths.get(fileName)
   val parentDir = path.getParent
   if (!Files.exists(parentDir)) {
@@ -58,16 +75,19 @@ class MeasurementToTsvFile(fileName: String) extends Measurements {
   writer.write("name\ttraceId\ttime\tduration\n")
   writer.flush()
 
-  //  @volatile var stopped = false
-  //  import scala.concurrent.future
-  //  future {
-  //    while (!stopped) {
-  //      Thread.sleep(1000)
-  //      writer.flush()
-  //    }
-  //  }
-  //  
-  //  def shutdown():Unit = { }
+  Future {
+    blocking {
+      Thread.currentThread.setName("MeasurementToTsvFile-flush")
+      while (!stopped) {
+        Thread.sleep(1000)
+        writer.flush()
+      }
+      writer.close()
+    }
+  }
+
+  override def close(): Unit = { stopped = true }
+  override def flush(): Unit = if (!stopped) writer.flush()
 
   def publish(span: CompletedSpan): Unit = {
     val name = span.name
@@ -76,7 +96,6 @@ class MeasurementToTsvFile(fileName: String) extends Measurements {
     val traceId = span.traceId.value
     val csv = s"$name\t$traceId\t$startMicros\t$duration\n"
     writer.write(csv)
-    writer.flush() // LATER only flush every few seconds
   }
 }
 
@@ -99,7 +118,10 @@ class MeasurementToMetrics(reportLevel: ReportLevel) extends Measurements with I
 
 /** optionally return a gateway that sends measurements to a .tsv file */
 object MeasurementToTsvFile extends MeasurementGateway with Log {
-  override def configured(measureConfig: Config): Option[Measurements] = {
+  override def configured
+      ( measureConfig: Config )
+      ( implicit executionContext: ExecutionContext )
+      : Option[Measurements] = {
     val tsvConfig = measureConfig.getConfig("tsv-gateway")
     tsvConfig.getBoolean("enable").toOption.map { _ =>
       val file = tsvConfig.getString("file")
@@ -111,7 +133,10 @@ object MeasurementToTsvFile extends MeasurementGateway with Log {
 
 /** optionally return a gateway that sends measurements to coda's Metrics library */
 object MeasurementToMetrics extends MeasurementGateway with Log {
-  override def configured(measureConfig: Config): Option[Measurements] = {
+  override def configured
+      ( measureConfig: Config )
+      ( implicit executionContext: ExecutionContext )
+      : Option[Measurements] = {
     val metricsConfig = measureConfig.getConfig("metrics-gateway")
     metricsConfig.getBoolean("enable").toOption.map { _ =>
       log.info("Measurements to Metrics gateway enabled")
