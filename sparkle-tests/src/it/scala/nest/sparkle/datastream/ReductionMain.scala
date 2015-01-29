@@ -22,12 +22,12 @@ object ReductionMain extends SparkleApp {
   val testByPeriod = {span:Span => byPeriod(30.seconds, "1 day")(span) }
   val testToOnePart = {span:Span => toOnePart(30.seconds)(span) }
 
-  TestJig.run("reductionTest", warmups = 0, runs = 300)(testByPeriod)
+  TestJig.run("reductionTest", warmups = 5, runs = 1000)(testByPeriod)
 }
 
 object TestJig {
   def run[T]
-      ( name:String, warmups:Int = 2, runs:Int = 1 )
+      ( name:String, warmups:Int = 2, runs:Int = 1, pause:Duration = 5.seconds)
       ( fn: Span => T )
       ( implicit measurements: Measurements)
       : Seq[T] = {
@@ -35,6 +35,11 @@ object TestJig {
     (0 until warmups).foreach {_ =>
       fn(DummySpan)
     }
+    println("press return to continue")
+    Console.in.readLine()
+    println("continuing")
+
+//    Thread.sleep(pause.toMillis) // so that the start time will be clear in the profiler
 
     (0 until runs).map {_ =>
       implicit val span = Span.prepareRoot(name)
