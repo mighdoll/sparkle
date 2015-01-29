@@ -23,13 +23,11 @@ object LargeReduction {
   def byPeriod(spacing:FiniteDuration, summaryPeriod:String)(implicit parentSpan:Span)
       : DataArray[Long, Option[Long]] = {
     val stream = generateDataStream(spacing)
-    Span("total-no-generator").time {
-      val periodWithZone = PeriodWithZone(Period.parse(summaryPeriod).get, DateTimeZone.UTC)
-      val reduced = stream.reduceByPeriod(periodWithZone, ReduceSum[Long]())
-      val arrays = reduced.data.toBlocking.toList
-      Span("reduce").time {
-        arrays.reduce(_ ++ _)
-      }
+    val periodWithZone = PeriodWithZone(Period.parse(summaryPeriod).get, DateTimeZone.UTC)
+    val reduced = stream.reduceByPeriod(periodWithZone, ReduceSum[Long]())
+    val arrays = reduced.data.toBlocking.toList
+    Span("reduce").time {
+      arrays.reduce(_ ++ _)
     }
   }
 
@@ -41,12 +39,10 @@ object LargeReduction {
   def toOnePart(spacing:FiniteDuration)(implicit parentSpan:Span)
       : DataArray[Long, Option[Long]] = {
     val stream = generateDataStream(spacing)
-    Span("total-no-generator").time {
-      val reduced = stream.reduceToOnePart(ReduceSum[Long]())
-      val arrays = reduced.data.toBlocking.toList
-      Span("reduce").time {
-        arrays.reduce(_ ++ _)
-      }
+    val reduced = stream.reduceToOnePart(ReduceSum[Long]())
+    val arrays = reduced.data.toBlocking.toList
+    Span("reduce").time {
+      arrays.reduce(_ ++ _)
     }
   }
 
@@ -55,7 +51,8 @@ object LargeReduction {
       ( spacing:FiniteDuration = 30.seconds,
         blockSize: Int = 1000,
         start:String = "2013-01-01T00:00:00.000",
-        until:String = "2014-01-01T00:00:00.000" )
+        until:String = "2014-01-01T00:00:00.000")
+      ( implicit parentSpan:Span)
       : DataStream[Long, Long] = {
     var startMillis = start.toMillis
     val untilMillis = until.toMillis
@@ -65,18 +62,20 @@ object LargeReduction {
       /** return a data array covering the next time period. Keys are
        *  spaced according to spacing above, and every value is 2 (long). */
       override def next():DataArray[Long,Long] = {
-        val keys = 
-          (0 until blockSize).iterator
-            .map(_ => startMillis)
-            .takeWhile {time => 
-              startMillis = time + spacing.toMillis
-              time < untilMillis 
-            }
-            .toArray
-        
-        val values = (0 until keys.length).map { _ => 2L }.toArray
-        val result = DataArray(keys, values)
-        result
+        Span("generateTestData").time {
+          val keys =
+            (0 until blockSize).iterator
+              .map(_ => startMillis)
+              .takeWhile {time =>
+                startMillis = time + spacing.toMillis
+                time < untilMillis
+              }
+              .toArray
+
+          val values = (0 until keys.length).map { _ => 2L }.toArray
+          val result = DataArray(keys, values)
+          result
+        }
       }
       
       override def hasNext:Boolean = startMillis < untilMillis

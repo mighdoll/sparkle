@@ -3,7 +3,7 @@ package nest.sparkle.datastream
 import scala.concurrent.duration._
 
 import nest.sparkle.datastream.LargeReduction.{byPeriod, toOnePart}
-import nest.sparkle.measure.{DummySpan, Span}
+import nest.sparkle.measure.{Measurements, DummySpan, Span}
 import nest.sparkle.util.{ConfigUtil, SparkleApp}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
@@ -22,19 +22,26 @@ object ReductionMain extends SparkleApp {
   val testByPeriod = {span:Span => byPeriod(30.seconds, "1 day")(span) }
   val testToOnePart = {span:Span => toOnePart(30.seconds)(span) }
 
-  implicit val span = Span.prepareRoot("reductionTest")
-  TestJig.run()(testToOnePart)
+  TestJig.run("reductionTest", warmups = 0, runs = 300)(testByPeriod)
 }
 
 object TestJig {
-  def run[T](warmups:Int = 2)(fn: Span => T)(implicit parentSpan:Span):T = {
+  def run[T]
+      ( name:String, warmups:Int = 2, runs:Int = 1 )
+      ( fn: Span => T )
+      ( implicit measurements: Measurements)
+      : Seq[T] = {
 
     (0 until warmups).foreach {_ =>
       fn(DummySpan)
     }
-    Span("total").time {
-      fn(parentSpan)
-    }
+
+    (0 until runs).map {_ =>
+      implicit val span = Span.prepareRoot(name)
+      Span("total").time {
+        fn(span)
+      }
+    }.toVector
 
   }
 }

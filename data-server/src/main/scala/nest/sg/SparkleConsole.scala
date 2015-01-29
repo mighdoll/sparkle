@@ -20,7 +20,8 @@ trait SparkleConsole extends ConsoleServer
   override def store:Store = server.store
   override def system:ActorSystem = server.system
 
-  def close(): Unit = {
+  override def close(): Unit = {
+    super.close()
     shutdown()
   }
 
