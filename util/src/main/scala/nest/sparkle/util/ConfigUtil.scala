@@ -84,7 +84,7 @@ object ConfigUtil {
     rootConfig.getConfig(sparkleConfigName)
   }
   
-  val sparkleConfigName = "sparkle-time-server"
+  val sparkleConfigName = "sparkle"
 
   
   /** write a composited version of the .conf file */

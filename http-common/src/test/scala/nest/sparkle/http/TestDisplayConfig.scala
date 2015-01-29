@@ -31,8 +31,8 @@ class TestDisplayConfig
       status shouldBe OK
       contentType shouldBe `application/json`
       val json = body.asString.asJson.asJsObject
-      json.fields("sparkle-time-server") shouldBe a [JsObject]
-      val sparkleConfig = json.fields("sparkle-time-server").asJsObject
+      json.fields("sparkle") shouldBe a [JsObject]
+      val sparkleConfig = json.fields("sparkle").asJsObject
       sparkleConfig.fields("logging") shouldBe a [JsObject]
     }
   }
@@ -45,7 +45,7 @@ class TestDisplayConfig
       val text = body.asString
       text should startWith ("{\n")
       text should endWith ("}\n")
-      text should include ("sparkle-time-server")
+      text should include ("sparkle")
     }
   }
 }
