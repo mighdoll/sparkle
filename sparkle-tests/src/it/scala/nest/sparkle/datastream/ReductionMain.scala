@@ -22,7 +22,8 @@ object ReductionMain extends SparkleApp {
   val testByPeriod = {span:Span => byPeriod(30.seconds, "1 day")(span) }
   val testToOnePart = {span:Span => toOnePart(30.seconds)(span) }
 
-  TestJig.run("reductionTest", warmups = 5, runs = 1000)(testByPeriod)
+  TestJig.run("reductionTest", warmups = 0, runs = 30)(testByPeriod)
+  shutdown()
 }
 
 object TestJig {

@@ -106,4 +106,9 @@ trait SparkleApp
         sys.exit(1)
     }
   }
+
+  def shutdown(): Unit = {
+    measurements.close()
+    system.shutdown()
+  }
 }
