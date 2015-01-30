@@ -38,7 +38,7 @@ class DoublingTransform(rootConfig: Config) extends CustomTransform {
 
   }
 }
-class TestCustomTransform extends PreloadedRamStore with StreamRequestor with TestDataService {
+class TestCustomTransform extends PreloadedRamService with StreamRequestor {
   nest.sparkle.util.InitializeReflection.init
   lazy val transformClassName = classOf[DoublingTransform].getCanonicalName
   override def configOverrides = {

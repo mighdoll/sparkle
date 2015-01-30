@@ -24,7 +24,8 @@ import nest.sparkle.store.cassandra.WriteableColumn
 trait WriteableStore {
   /** Return an interface that supports writing to a column identified by columnPath. */
   // LATER generalize this to non cassandra typeclasses
-  def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]]
+  def writeableColumn[T: CanSerialize, U: CanSerialize]
+      ( columnPath: String ): Future[WriteableColumn[T, U]]
 
   /** to notify listeners about writes made to the store */
   def writeNotifier: WriteNotifier
@@ -36,7 +37,6 @@ trait WriteableStore {
    * as if it was just created.
    */
   def format(): Unit
-
 
   /** write a data stream to the store */
   def writeStream[K: CanSerialize, V: CanSerialize]

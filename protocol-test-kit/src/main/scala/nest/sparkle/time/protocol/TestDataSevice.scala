@@ -31,7 +31,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.httpx.SprayJsonSupport._
 import spray.testkit.ScalatestRouteTest
 import nest.sparkle.measure.ConfiguredMeasurements
-import nest.sparkle.store.{Event, Store}
+import nest.sparkle.store.{ReadWriteStore, Event, Store}
 import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.time.protocol.EventJson.EventFormat
 import nest.sparkle.time.server.DataService
@@ -46,6 +46,8 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
   override def actorSystem = system
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   def executionContext = system.dispatcher
+  def readWriteStore: ReadWriteStore
+  override def store:Store = readWriteStore
 
   // tell spray test config about our configuration (and trigger logging initialization)
   override def testConfig = configForSparkle(rootConfig)
@@ -94,12 +96,12 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
 
 object TestDataService {
 
-  class TestDataServiceInstance(override val store: Store, actorSystem: ActorSystem)
+  class TestDataServiceInstance(override val readWriteStore: ReadWriteStore, actorSystem: ActorSystem)
       extends FunSuite with TestDataService {
     override def actorRefFactory: ActorSystem = actorSystem
   }
 
-  def apply(store: Store, actorSystem: ActorSystem) = new TestDataServiceInstance(store, actorSystem)
+  def apply(store: ReadWriteStore, actorSystem: ActorSystem) = new TestDataServiceInstance(store, actorSystem)
 
   /** return the data array portion from a Streams response as a sequence of Event objects */
   def typicalStreamData(response: HttpResponse): Seq[Event[Long, Double]] = {

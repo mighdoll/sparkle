@@ -32,6 +32,8 @@ trait Store {
   def writeListener:WriteListener
 }
 
+trait ReadWriteStore extends Store with WriteableStore
+
 object Store {
   /** return an instance of Store, based on the store class specified in the config file */
   def instantiateStore(config: Config, writeListener: WriteListener): Store = {

@@ -24,13 +24,13 @@ import nest.sparkle.util.OptionConversion.OptionFuture
 import scala.reflect.runtime.universe._
 
 /** A java heap resident database of Columns */
-class WriteableRamStore extends Store {
+class WriteableRamStore extends ReadWriteStore {
   private val columns = mutable.Map[String, RamColumn[_, _]]()
   
   override val writeListener = new WriteNotification()
 
   /** return the dataset for the provided name name or path (fooSet/barSet/mySet).  */
-  def dataSet(name: String): Future[DataSet] = {
+  override def dataSet(name: String): Future[DataSet] = {
     if (dataSetColumnPaths(name).isEmpty) {
       Future.failed(DataSetNotFound(name))
     } else {
@@ -39,19 +39,24 @@ class WriteableRamStore extends Store {
   }
 
   /** return a column from a columnPath e.g. "fooSet/barSet/columName". */
-  def column[T, U](columnPath: String): Future[Column[T, U]] = {
+  override def column[T, U](columnPath: String): Future[Column[T, U]] = {
     val optTypedColumn = columns.get(columnPath).map { _.asInstanceOf[Column[T, U]] }
     optTypedColumn.toFutureOr(ColumnNotFound(columnPath))
   }
 
   /** return a WriteableColumn for the given columnPath.  (returned as a future
    *  for compatibility with other slower Storage types) */
-  def writeableColumn[T: TypeTag, U: TypeTag](columnPath: String) // format: OFF
+  override def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String) // format: OFF
       : Future[WriteableColumn[T, U]] = { // format: ON
+    implicit val keyTag = implicitly[CanSerialize[T]].typedTag
+    implicit val valueTag = implicitly[CanSerialize[U]].typedTag
     val ramColumn = new WriteableRamColumn[T, U]("foo")
     columns += columnPath -> ramColumn
     Future.successful(ramColumn)
   }
+
+  override def format(): Unit = ???
+  override def writeNotifier: nest.sparkle.store.WriteNotifier = ???
 
   /**
    * Return the columnPaths of the children of the DataSet

@@ -3,12 +3,11 @@ package nest.sparkle.time.protocol
 import org.scalatest.{ FunSuite, Matchers }
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import com.typesafe.config.Config
-import nest.sparkle.store.Store
+import nest.sparkle.store.{ReadWriteStore, Store, Column, Event}
 import spray.json.JsObject
 import scala.concurrent.ExecutionContext
 import spray.json.JsString
 import scala.concurrent.Future
-import nest.sparkle.store.Column
 import spray.json._
 import spray.util.pimpFuture
 import scala.collection.JavaConverters._
@@ -18,7 +17,6 @@ import scala.util.control.Exception._
 import MultiParamsJson.multiParamsJson
 import nest.sparkle.time.transform.ColumnGroup
 import spray.http.HttpResponse
-import nest.sparkle.store.Event
 import nest.sparkle.util.StringToMillis.IsoDateString
 import scala.concurrent.duration._
 import MultiIntervalSum._
@@ -43,8 +41,8 @@ object MultiIntervalSum {
       |  }
       |}""".stripMargin
 
-  def withTestService[T](store: Store, system: ActorSystem)(fn: TestDataService => T): T = {
-    val service = new TestServiceWithCassandra(store, system) {
+  def withTestService[T](readWriteStore:ReadWriteStore, system: ActorSystem)(fn: TestDataService => T): T = {
+    val service = new TestServiceWithCassandra(readWriteStore, system) {
       override def configOverrides = {
         val selectors = Seq(s"${classOf[MultiSelect].getName}").asJava
         super.configOverrides :+ s"$sparkleConfigName.custom-selectors" -> selectors

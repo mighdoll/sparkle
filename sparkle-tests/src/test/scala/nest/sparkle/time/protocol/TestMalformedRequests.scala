@@ -5,7 +5,7 @@ import spray.http.StatusCodes.OK
 import nest.sparkle.time.protocol.ResponseJson._
 import spray.httpx.SprayJsonSupport._
 
-class TestMalformedRequests extends PreloadedRamStore with StreamRequestor with TestDataService {
+class TestMalformedRequests extends PreloadedRamService with StreamRequestor {
 
   test("missing transform parameters on Raw transform") {
     val msg = s"""

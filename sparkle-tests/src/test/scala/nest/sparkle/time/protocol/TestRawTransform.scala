@@ -3,7 +3,7 @@ package nest.sparkle.time.protocol
 import spray.json.DefaultJsonProtocol._
 import nest.sparkle.time.protocol.TransformParametersJson.RawParametersFormat
 
-class TestRawTransform extends PreloadedRamStore with StreamRequestor with TestDataService {
+class TestRawTransform extends PreloadedRamService with StreamRequestor {
   nest.sparkle.util.InitializeReflection.init
 
   test("Raw transform two raw events") {

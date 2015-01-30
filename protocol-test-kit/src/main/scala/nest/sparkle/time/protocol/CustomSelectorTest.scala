@@ -6,7 +6,7 @@ import scala.reflect.runtime.universe._
 import org.scalatest.FunSuite
 
 import akka.actor.ActorSystem
-import nest.sparkle.store.Store
+import nest.sparkle.store.{ReadWriteStore, Store}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
 /** test jig for making custom selector tests */
@@ -17,7 +17,8 @@ trait CustomSelectorTest  {
     * this is handy for testing with a store that's dynamically setup and torn down
     * in testing as the TestCassandraStore does.
     */
-  class CustomSelectorService[T <: CustomSourceSelector: TypeTag](override val store: Store, actorSystem: ActorSystem)
+  class CustomSelectorService[T <: CustomSourceSelector: TypeTag]
+      (override val readWriteStore: ReadWriteStore, actorSystem: ActorSystem)
       extends FunSuite with TestDataService {
     // note: defs instead of vals to deal with initialization order
     def className = typeTag[T].tpe.typeSymbol.fullName

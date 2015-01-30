@@ -10,6 +10,7 @@ import rx.lang.scala.Observable
 
 import nest.sparkle.measure.{DummySpan, Span, ConfiguredMeasurements}
 import nest.sparkle.store.WriteableStore
+import nest.sparkle.time.protocol.TestDataService
 import nest.sparkle.util.StringToMillis._
 import nest.sparkle.util.{Period, PeriodWithZone}
 import nest.sparkle.util.FutureAwait.Implicits._
@@ -36,9 +37,12 @@ object LargeReduction {
     }
   }
 
-  def byPeriodProtocol
-    ( spacing:FiniteDuration, summaryPeriod:String, columnPath:String )
+  def byPeriodLocalProtocol
+    ( spacing:FiniteDuration, summaryPeriod:String, columnPath:String, service:TestDataService)
     ( implicit parentSpan:Span ): DataArray[Long, Option[Long]] = {
+    val stream = generateDataStream(spacing)
+    service.readWriteStore
+
 
     ???
   }
@@ -57,6 +61,8 @@ object LargeReduction {
       arrays.reduce(_ ++ _)
     }
   }
+
+
 
 
   /** Generate a DataStream of test data */

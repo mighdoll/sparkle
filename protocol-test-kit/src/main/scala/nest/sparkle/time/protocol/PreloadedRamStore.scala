@@ -22,8 +22,13 @@ import spray.testkit.ScalatestRouteTest
 
 import spray.util._
 
-import nest.sparkle.store.Event
+import nest.sparkle.store.{ReadWriteStore, Event}
+import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.store.ram.WriteableRamStore
+
+trait PreloadedRamService extends PreloadedRamStore with TestDataService {
+  override def readWriteStore = writeableRamStore
+}
 
 /** (for unit tests) a ram based Store with a sample column */
 trait PreloadedRamStore extends FunSuite with Matchers with ScalatestRouteTest
@@ -72,7 +77,7 @@ trait PreloadedRamStore extends FunSuite with Matchers with ScalatestRouteTest
     stringTimeEvents(data)
   }
 
-  lazy val store: WriteableRamStore = {
+  lazy val writeableRamStore: WriteableRamStore = {
     val ramStore = new WriteableRamStore()
     addTestColumn(ramStore, testColumnPath, testEvents)
     addTestColumn(ramStore, simpleColumnPath, simpleEvents)
@@ -82,6 +87,8 @@ trait PreloadedRamStore extends FunSuite with Matchers with ScalatestRouteTest
 
   private def addTestColumn[T: TypeTag, U: TypeTag](testStore: WriteableRamStore,
                                                     columnPath: String, events: Seq[Event[T, U]]) {
+    implicit val keyTag = RecoverCanSerialize.tryCanSerialize[T](typeTag[T]).get
+    implicit val valueTag = RecoverCanSerialize.tryCanSerialize[U](typeTag[U]).get
     val column = testStore.writeableColumn[T, U](columnPath).await
     column.write(events).await
   }

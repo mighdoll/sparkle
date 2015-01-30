@@ -4,7 +4,7 @@ import spray.json.DefaultJsonProtocol._
 
 import nest.sparkle.store.Event
 
-class TestSummarizeMax extends PreloadedRamStore with StreamRequestor with TestDataService {
+class TestSummarizeMax extends PreloadedRamService with StreamRequestor {
   nest.sparkle.util.InitializeReflection.init
 
   test("summarizeMax two raw events") { // note that this test just copies input to output

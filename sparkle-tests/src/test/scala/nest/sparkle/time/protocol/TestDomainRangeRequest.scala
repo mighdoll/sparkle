@@ -10,6 +10,7 @@ import spray.json._
 
 import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.ArbitraryColumn.arbitraryEvent
+import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.time.protocol.TestDomainRange.minMaxEvents
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.transform.{DomainRange, MinMax}
@@ -20,10 +21,14 @@ import nest.sparkle.util.RandomUtil.randomAlphaNum
 class TestDomainRangeRequest extends PreloadedRamStore with StreamRequestor with TestDataService {
   nest.sparkle.util.InitializeReflection.init
 
+  override def readWriteStore = writeableRamStore
+
   /** create a new column in the test RAM store and return its columnPath */
   def makeColumn[T: TypeTag, U: TypeTag](prefix: String, events: List[Event[T, U]]): String = {
+    implicit val serializeKey = RecoverCanSerialize.tryCanSerialize[T](typeTag[T]).get
+    implicit val serializeValue = RecoverCanSerialize.tryCanSerialize[U](typeTag[U]).get
     val columnName = prefix + "/" + randomAlphaNum(4)
-    val column = store.writeableColumn[T, U](columnName).await
+    val column = writeableRamStore.writeableColumn[T, U](columnName).await
     column.write(events)
     columnName
   }

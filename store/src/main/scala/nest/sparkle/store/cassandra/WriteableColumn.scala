@@ -30,7 +30,7 @@ trait WriteableColumn[K,V] {
     * Rewriting the same event is safe. Overwriting an event with different values has
     * undefined results.   */
   def writeData(dataArray:DataArray[K,V])
-                    (implicit executionContext: ExecutionContext): Future[Unit]
+               (implicit executionContext: ExecutionContext): Future[Unit]
 
   /** (Intended for testing) Delete all the data in the column.   */
   def erase()(implicit executionContext:ExecutionContext): Future[Unit]

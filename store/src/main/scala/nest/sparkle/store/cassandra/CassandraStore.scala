@@ -239,7 +239,7 @@ trait ConfiguredCassandra extends Log
 
 }
 
-trait CassandraReaderWriter extends CassandraStoreReader with CassandraStoreWriter
+trait CassandraReaderWriter extends ReadWriteStore with CassandraStoreReader with CassandraStoreWriter
 
 /** a data access object for Cassandra writing. */
 trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with Log

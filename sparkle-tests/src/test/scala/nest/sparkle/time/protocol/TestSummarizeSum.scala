@@ -2,7 +2,7 @@ package nest.sparkle.time.protocol
 import spray.json.DefaultJsonProtocol._
 import nest.sparkle.store.Event
 
-class TestSummarizeSum extends PreloadedRamStore with StreamRequestor with TestDataService {
+class TestSummarizeSum extends PreloadedRamService with StreamRequestor {
   nest.sparkle.util.InitializeReflection.init
   
   test("summarizeSum simple set to one") {

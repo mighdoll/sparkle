@@ -10,7 +10,7 @@ import nest.sparkle.time.protocol.ResponseJson.{ StatusMessageFormat, StreamsMes
 import nest.sparkle.time.protocol.TransformParametersJson.RawParametersFormat
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
-class TestStaticAuthentication extends PreloadedRamStore with SparkleTestConfig with TestDataService with StreamRequestor {
+class TestStaticAuthentication extends PreloadedRamService with SparkleTestConfig with StreamRequestor {
   def password = "foo" // def for initialization order issues
   override def configOverrides: List[(String, Any)] = super.configOverrides ++ List(
     s"$sparkleConfigName.auth.password" -> password,

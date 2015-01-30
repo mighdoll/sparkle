@@ -7,7 +7,7 @@ import nest.sparkle.time.transform.SummaryTransform.Events
 import spire.math._
 import spire.implicits._
 
-class TestSummarizeCount extends PreloadedRamStore with StreamRequestor with TestDataService {
+class TestSummarizeCount extends PreloadedRamService with StreamRequestor {
   nest.sparkle.util.InitializeReflection.init
 
   def count[T: Numeric, U: Numeric](events: Events[T, U]): Event[T, U] = {
