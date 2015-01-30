@@ -19,6 +19,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 
 import com.datastax.driver.core.{ BatchStatement, Session }
 
+import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.{Event, ColumnUpdate, WriteNotifier}
 import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
 import nest.sparkle.store.cassandra.SparseColumnWriterStatements._
@@ -153,6 +154,46 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       }
     }
   }
+
+  override def writeData // format: OFF
+      ( dataArray:DataArray[T,U] )
+      ( implicit executionContext: ExecutionContext)
+      : Future[Unit] = { // format: ON
+
+    val batches = dataArray.grouped(batchSize).map { eventGroup =>
+      val insertGroup = eventGroup.map { case (key, value) =>
+        val serialKey  =  serialInfo.domain.serialize(key)
+        val serialValue  =  serialInfo.range.serialize(value)
+
+        preparedSession.statement(InsertOne(tableName)).bind(
+          Seq[AnyRef](dataSetName, columnName, rowIndex, serialKey, serialValue): _*
+        )
+      }
+
+      val batch = new BatchStatement(batchType)
+      val statements = insertGroup.toSeq.asJava
+      batchSizeMetric.mark(statements.size)  // measure the size of batches to this table
+      batch.addAll(statements)
+      batch
+    }
+
+    val resultsIterator =
+      batches.map { batch =>
+        val timer = batchMetric.timerContext()
+        val result = preparedSession.session.executeAsync(batch).toFuture
+        result.onComplete(_ => timer.stop())
+        val resultUnit = result.map { _ => }
+        resultUnit
+      }
+
+    val allDone: Future[Unit] =
+      resultsIterator.foldLeft(Future.successful(())) { (a, b) =>
+        a.flatMap(_ => b)
+      }
+
+    allDone
+  }
+
 
   /** delete all the column values in the column */
   def erase()(implicit executionContext: ExecutionContext): Future[Unit] = { // format: ON

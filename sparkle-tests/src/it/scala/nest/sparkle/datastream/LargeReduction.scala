@@ -1,14 +1,19 @@
 package nest.sparkle.datastream
 
+import scala.concurrent.{Future, ExecutionContext, Promise}
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 import com.typesafe.config.ConfigFactory
 
 import org.joda.time.DateTimeZone
 import rx.lang.scala.Observable
 
 import nest.sparkle.measure.{DummySpan, Span, ConfiguredMeasurements}
+import nest.sparkle.store.WriteableStore
 import nest.sparkle.util.StringToMillis._
 import nest.sparkle.util.{Period, PeriodWithZone}
+import nest.sparkle.util.FutureAwait.Implicits._
+import nest.sparkle.store.cassandra.serializers._
 
 /** Utilities for doing reduction tests.
   */
@@ -31,6 +36,13 @@ object LargeReduction {
     }
   }
 
+  def byPeriodProtocol
+    ( spacing:FiniteDuration, summaryPeriod:String, columnPath:String )
+    ( implicit parentSpan:Span ): DataArray[Long, Option[Long]] = {
+
+    ???
+  }
+
   /** generate a years worth of test data and reduce it into a single value.
     * The amount of data is controlled by adjusting the spacing between samples
     * (e.g. using spacing of 1.day tests with 365 samples,
@@ -45,6 +57,7 @@ object LargeReduction {
       arrays.reduce(_ ++ _)
     }
   }
+
 
   /** Generate a DataStream of test data */
   def generateDataStream
@@ -84,6 +97,7 @@ object LargeReduction {
     val data = Observable.from(iter.toIterable)
     DataStream(data)
   }
-  
+
+
 }
 

@@ -9,24 +9,13 @@ import nest.sparkle.time.protocol.TestDataService.longDoubleData
 import nest.sparkle.util.FutureAwait.Implicits._
 import nest.sparkle.util.StringToMillis.IsoDateString
 
-class TestReductions extends FunSuite with Matchers with CassandraStoreTestConfig with StreamRequestor {
-  def request(transform: String, transformParameters: String = "{}"): String = {
-    s"""{
-    |  "messageType": "StreamRequest",
-    |  "message": {
-    |    "sources": [
-  	|  	  "simple-events/seconds"
-    |    ],
-    |    "transform": "$transform",
-    |    "transformParameters": $transformParameters
-    |  }
-    |}""".stripMargin
-  }
+class TestReductions extends FunSuite with Matchers
+    with CassandraStoreTestConfig with StreamRequestor {
 
   test("sum a few elements with no requested range and no requested period") {
     withLoadedFile("simple-events.csv") { (store, system) =>
       val service = new TestServiceWithCassandra(store, system)
-      val message = request("reduceSum")
+      val message = stringRequest("simple-events/seconds", "reduceSum")
       val response = service.sendDataMessage(message, 1.hour).await
       val data = longDoubleData(response)
       data.length shouldBe 1
@@ -42,7 +31,8 @@ class TestReductions extends FunSuite with Matchers with CassandraStoreTestConfi
     withLoadedFile("simple-events.csv") { (store, system) =>
       log.info("TestReductions claims file loaded (1 hour period test)")
       val service = new TestServiceWithCassandra(store, system)
-      val message = request("reduceSum", """{ "partBySize" : "1 hour" } """)
+      val message = stringRequest("simple-events/seconds", "reduceSum",
+        """{ "partBySize" : "1 hour" } """)
       val response = service.sendDataMessage(message, 1.hour).await
 
       val data = longDoubleData(response)

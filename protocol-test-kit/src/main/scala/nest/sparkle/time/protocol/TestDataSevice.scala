@@ -116,7 +116,11 @@ object TestDataService {
   def longDoubleData(response:HttpResponse):Seq[(Long,Option[Double])] = {
     singleArrayFromStreamsResponse[Long,Option[Double]](response)
   }
-  
+
+  def longLongData(response:HttpResponse):Seq[(Long,Option[Long])] = {
+    singleArrayFromStreamsResponse[Long,Option[Long]](response)
+  }
+
   def singleArrayFromStreamsResponse[K:JsonFormat, V:JsonFormat] // format: OFF
       (response: HttpResponse)
       : Seq[(K,V)] = {

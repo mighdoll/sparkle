@@ -5,9 +5,8 @@ import nest.sparkle.measure.DummySpan
 import nest.sparkle.util.StringToMillis._
 import org.scalatest.{FunSuite, Matchers}
 import nest.sparkle.datastream.LargeReduction.{byPeriod, toOnePart}
-import nest.sparkle.util.TimeValueString.implicits._
 
-/**
+/** tests reductions on DataStream (no cassandra or protocol involved)
   */
 class TestLargeReduction extends FunSuite with Matchers {
   

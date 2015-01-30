@@ -15,6 +15,7 @@
 package nest.sparkle.store.ram
 
 import nest.sparkle.core.OngoingData
+import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.Column
 import scala.collection.immutable.VectorBuilder
 import scala.reflect.runtime.universe._
@@ -92,7 +93,7 @@ class WriteableRamColumn[T: TypeTag, U: TypeTag](name: String)
   val values = ArrayBuffer[U]()
 
   /** Store some events in the internal column arrays.  Note not synchronized. */
-  def write(events: Iterable[Event[T, U]]) // format: OFF
+  override def write(events: Iterable[Event[T, U]]) // format: OFF
       (implicit executionContext: ExecutionContext): Future[Unit] = { // format: ON
     for {
       Event(key, value) <- events
@@ -102,6 +103,13 @@ class WriteableRamColumn[T: TypeTag, U: TypeTag](name: String)
     }
     Future.successful(())
   }
+
+  /** NYI */
+  override def writeData(dataArray:DataArray[T,U])
+                    (implicit executionContext: ExecutionContext): Future[Unit] = {
+    ???
+  }
+
 
   /** does nothing, for compatibility with the WriteableColumn interface */
   def create(description: String)(implicit executionContext: ExecutionContext): Future[Unit] = {

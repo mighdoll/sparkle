@@ -14,14 +14,16 @@
 
 package nest.sparkle.store
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Promise, ExecutionContext, Future}
+import scala.util.{Failure, Success}
+import nest.sparkle.datastream.DataStream
 import nest.sparkle.store.cassandra.CanSerialize
 import nest.sparkle.store.cassandra.WriteableColumn
 
 /** A writeable interface to a database of Columns */
 trait WriteableStore {
   /** Return an interface that supports writing to a column identified by columnPath. */
-  // TODO generalize this to non cassandra typeclasses
+  // LATER generalize this to non cassandra typeclasses
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String): Future[WriteableColumn[T, U]]
 
   /** to notify listeners about writes made to the store */
@@ -34,4 +36,25 @@ trait WriteableStore {
    * as if it was just created.
    */
   def format(): Unit
+
+
+  /** write a data stream to the store */
+  def writeStream[K: CanSerialize, V: CanSerialize]
+      ( dataStream:DataStream[K, V], columnPath:String )
+      ( implicit executionContext: ExecutionContext ): Future[Unit] = {
+
+    writeableColumn[K, V](columnPath).flatMap { column =>
+      val done = Promise[Unit]()
+      dataStream.data.doOnEach { dataArray =>
+        column.writeData(dataArray)
+      }.doOnCompleted {
+        done.complete(Success(Unit))
+      }.doOnError {err =>
+        done.complete(Failure(err))
+      }.subscribe()
+
+      done.future
+    }
+  }
+
 }

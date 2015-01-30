@@ -63,4 +63,20 @@ trait StreamRequestor {
     StreamRequestMessage(requestId = Some(requestId),
       realm = None, traceId = Some(traceId), messageType = "StreamRequest", message = streamRequest)
   }
+
+  /** return a string StreamRequest for a simple transform */
+  def stringRequest(columnPath:String, transform:String,
+                    transformParameters:String = "{}"): String = {
+    s"""{
+    |  "messageType": "StreamRequest",
+    |  "message": {
+    |    "sources": [
+  	|  	  "$columnPath"
+    |    ],
+    |    "transform": "$transform",
+    |    "transformParameters": $transformParameters
+    |  }
+    |}""".stripMargin
+  }
+
 }
