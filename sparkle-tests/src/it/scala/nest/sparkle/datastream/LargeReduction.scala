@@ -10,7 +10,7 @@ import rx.lang.scala.Observable
 
 import nest.sparkle.measure.{DummySpan, Span, ConfiguredMeasurements}
 import nest.sparkle.store.WriteableStore
-import nest.sparkle.time.protocol.TestDataService
+import nest.sparkle.time.protocol.{StreamRequestor, TestDataService}
 import nest.sparkle.util.StringToMillis._
 import nest.sparkle.util.{Period, PeriodWithZone}
 import nest.sparkle.util.FutureAwait.Implicits._
@@ -18,7 +18,7 @@ import nest.sparkle.store.cassandra.serializers._
 
 /** Utilities for doing reduction tests.
   */
-object LargeReduction {
+object LargeReduction extends StreamRequestor {
 
   /** generate a years worth of test data and reduce it into time periods.
     * The amount of data is controlled by adjusting the spacing between samples
@@ -37,14 +37,29 @@ object LargeReduction {
     }
   }
 
-  def byPeriodLocalProtocol
-    ( spacing:FiniteDuration, summaryPeriod:String, columnPath:String, service:TestDataService)
-    ( implicit parentSpan:Span ): DataArray[Long, Option[Long]] = {
+  def preloadStore
+      ( spacing:FiniteDuration, columnPath:String, service:TestDataService )
+      ( implicit parentSpan:Span, executionContext: ExecutionContext )
+      : Unit = {
     val stream = generateDataStream(spacing)
-    service.readWriteStore
+    service.readWriteStore.writeStream(stream, columnPath)
+  }
 
+  def byPeriodLocalProtocol
+    ( summaryPeriod:String, columnPath:String, service:TestDataService )
+    ( implicit parentSpan:Span ): Future[Unit] = {
 
-    ???
+    implicit val execution = service.executionContext
+
+    val message = stringRequest(columnPath, "reduceSum",
+      s"""{ "partBySize" : "$summaryPeriod",
+         |  "timeZoneId" : "UTC" }""".stripMargin)
+    val responseFuture = Span("requestResponse").time {
+      service.sendDataMessage(message)
+    }
+    responseFuture.map { response =>
+      TestDataService.longLongData(response) // LATER validate data
+    }
   }
 
   /** generate a years worth of test data and reduce it into a single value.
@@ -61,9 +76,6 @@ object LargeReduction {
       arrays.reduce(_ ++ _)
     }
   }
-
-
-
 
   /** Generate a DataStream of test data */
   def generateDataStream

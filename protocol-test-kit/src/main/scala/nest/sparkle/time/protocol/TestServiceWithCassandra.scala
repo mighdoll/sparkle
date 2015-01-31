@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import nest.sparkle.store.{ReadWriteStore, Store}
 
 /** separate instance of test service, so we can create it within a withLoadedPath block */
+// TODO rename: shouldn't have Test as a prefix
 class TestServiceWithCassandra(val readWriteStore: ReadWriteStore, actorSystem: ActorSystem)
     extends FunSuite with TestDataService {
   override def store = readWriteStore

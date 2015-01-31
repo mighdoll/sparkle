@@ -29,7 +29,7 @@ class TestLargeProtocolReduction extends FunSuite with Matchers
         store.writeStream(stream, columnPath).await
 
         val service = new TestServiceWithCassandra(store, system)
-        val response = service.sendDataMessage(message, 1.hour).await
+        val response = service.sendDataMessage(message).await
         val reduced = longLongData(response)
         reduced.length shouldBe 365
         reduced.foreach { case (key, value) => value shouldBe Some(48)}

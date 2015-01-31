@@ -39,6 +39,7 @@ import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 
+// TODO rename to not prefix with Test
 trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
   self: Suite with BeforeAndAfterAll =>
 
@@ -112,6 +113,19 @@ object TestDataService {
   def dataFromStreamsResponse[U: JsonFormat](response: HttpResponse): Seq[Seq[Event[Long, U]]] = {
     streamDataJson(response).map { data =>
       data.map(_.convertTo[Event[Long, U]])
+    }
+  }
+
+  /** Run a function with a newly created test service.
+    * The test service is shut down after the function returns */
+  def withTestService[T]
+      ( store:ReadWriteStore, actorSystem:ActorSystem )
+      ( fn: TestDataService => T ): T = {
+    val service = TestDataService(store, actorSystem)
+    try {
+      fn(service)
+    } finally {
+      service.close()
     }
   }
   

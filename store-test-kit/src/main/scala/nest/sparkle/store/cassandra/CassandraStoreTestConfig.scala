@@ -27,6 +27,22 @@ import nest.sparkle.util.FutureAwait.Implicits._
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 import nest.sparkle.util.{ConfigUtil, Resources}
 
+object CassandraStoreFixture {
+  /** recreate the database and a test column */
+  def withTestDb[T](sparkleConfig:Config, keySpace:String)(fn: CassandraReaderWriter => T): T = {
+    val storeConfig = sparkleConfig.getConfig("sparkle-store-cassandra")
+    val testContactHosts = storeConfig.getStringList("contact-hosts").asScala.toSeq
+    CassandraStore.dropKeySpace(testContactHosts, keySpace)
+    val notification = new WriteNotification
+    val store = CassandraStore.readerWriter(sparkleConfig, notification)
+
+    try {
+      fn(store)
+    } finally {
+      store.close()
+    }
+  }
+}
 /** a test jig for running tests using cassandra. */
 trait CassandraStoreTestConfig extends SparkleTestConfig
 {
@@ -47,27 +63,12 @@ trait CassandraStoreTestConfig extends SparkleTestConfig
 
   /** recreate the database and a test column */
   def withTestDb[T](fn: CassandraReaderWriter => T): T = {
-    val storeConfig = sparkleConfig.getConfig("sparkle-store-cassandra")
-    val testContactHosts = storeConfig.getStringList("contact-hosts").asScala.toSeq
-    CassandraStore.dropKeySpace(testContactHosts, testKeySpace)
-    val notification = new WriteNotification
-    val store = CassandraStore.readerWriter(sparkleConfig, notification)
-
-    try {
-      fn(store)
-    } finally {
-      store.close()
-    }
+    CassandraStoreFixture.withTestDb(sparkleConfig, testKeySpace)(fn)
   }
 
   /** run a function within a test actor system */
   def withTestActors[T](fn: ActorSystem => T): T = {
-    val system = ActorSystem("cassandra-store-test-config-" + randomAlphaNum(3))
-    try {
-      fn(system)
-    } finally {
-      system.shutdown()
-    }
+    ActorSystemFixture.withTestActors("cassandra-store-test-config")(fn)
   }
   
   /** try loading a known file and check the expected column for results */

@@ -2,10 +2,13 @@ package nest.sparkle.datastream
 
 import scala.concurrent.duration._
 
-import nest.sparkle.datastream.LargeReduction.{byPeriod, toOnePart}
+import nest.sparkle.datastream.LargeReduction._
 import nest.sparkle.measure.{Measurements, DummySpan, Span}
+import nest.sparkle.store.cassandra.{ActorSystemFixture, CassandraStoreFixture}
+import nest.sparkle.time.protocol.{TestDataService, TestServiceWithCassandra}
 import nest.sparkle.util.{ConfigUtil, SparkleApp}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
+import nest.sparkle.util.FutureAwait.Implicits._
 
 /** a test driver for reduction tests
  */
@@ -19,31 +22,59 @@ object ReductionMain extends SparkleApp {
 
   initialize()
 
-  val testByPeriod = {span:Span => byPeriod(30.seconds, "1 day")(span) }
-  val testToOnePart = {span:Span => toOnePart(30.seconds)(span) }
+  val jig = new TestJig("reductionTest", warmups = 0, runs = 1, pause = false)
 
-  TestJig.run("reductionTest", warmups = 0, runs = 300)(testByPeriod)
+  runProtocolTest()
+
   shutdown()
+
+  println("all done")
+
+  def runProtocolTest(): Unit = {
+    val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
+    val testColumnPath = "reduce/test"
+    CassandraStoreFixture.withTestDb(sparkleConfig, "reduction_main") { testDb =>
+      ActorSystemFixture.withTestActors("reduction-main") { actorSystem =>
+        TestDataService.withTestService(testDb, actorSystem) {testService =>
+          preloadStore(1.hour, testColumnPath, testService)(jig.span, testService.executionContext)
+
+          jig.run {span =>
+            byPeriodLocalProtocol("1 day", testColumnPath, testService)(span).await(1.minute)
+          }
+        }
+      }
+    }
+  }
+
+  def runStreamOnlyTest(): Unit = {
+    jig.run{ implicit span =>
+//    toOnePart(30.seconds)
+      byPeriod(30.seconds, "1 day")
+    }
+  }
 }
 
-object TestJig {
+class TestJig(name: String, warmups:Int = 2, runs:Int = 1, pause:Boolean = false)
+             ( implicit measurements: Measurements) {
+
+  //    Thread.sleep(pause.toMillis) // so that the start time will be clear in the profiler
+  implicit val span = Span.prepareRoot(name)
+
   def run[T]
-      ( name:String, warmups:Int = 2, runs:Int = 1, pause:Duration = 5.seconds)
       ( fn: Span => T )
-      ( implicit measurements: Measurements)
       : Seq[T] = {
 
     (0 until warmups).foreach {_ =>
       fn(DummySpan)
     }
-    println("press return to continue")
-    Console.in.readLine()
-    println("continuing")
 
-//    Thread.sleep(pause.toMillis) // so that the start time will be clear in the profiler
+    if (pause) {
+      println("press return to continue")
+      Console.in.readLine()
+      println("continuing")
+    }
 
     (0 until runs).map {_ =>
-      implicit val span = Span.prepareRoot(name)
       Span("total").time {
         fn(span)
       }
