@@ -2,10 +2,13 @@ package nest.sparkle.datastream
 
 import scala.concurrent.duration._
 
+import akka.actor.Props
+
 import nest.sparkle.datastream.LargeReduction._
 import nest.sparkle.measure.{Measurements, DummySpan, Span}
 import nest.sparkle.store.cassandra.{ActorSystemFixture, CassandraStoreFixture}
-import nest.sparkle.time.protocol.{TestDataService, TestServiceWithCassandra}
+import nest.sparkle.time.protocol.{DataServiceFixture, TestDataService, TestServiceWithCassandra}
+import nest.sparkle.time.server.ConfiguredDataServer
 import nest.sparkle.util.{ConfigUtil, SparkleApp}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.FutureAwait.Implicits._
@@ -19,6 +22,8 @@ object ReductionMain extends SparkleApp {
     s"$sparkleConfigName.measure.metrics-gateway.enable" -> false,
     s"$sparkleConfigName.measure.tsv-gateway.enable" -> true
   )
+  override def extraConfResources =
+    super.extraConfResources ++ Seq("independent-test.conf")
 
   initialize()
 
@@ -34,13 +39,11 @@ object ReductionMain extends SparkleApp {
     val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
     val testColumnPath = "reduce/test"
     CassandraStoreFixture.withTestDb(sparkleConfig, "reduction_main") { testDb =>
-      ActorSystemFixture.withTestActors("reduction-main") { actorSystem =>
-        TestDataService.withTestService(testDb, actorSystem) {testService =>
-          preloadStore(1.hour, testColumnPath, testService)(jig.span, testService.executionContext)
+      DataServiceFixture.withDataServiceFixture(rootConfig, testDb) { service =>
+        preloadStore(1.hour, testColumnPath, service)(jig.span, system.dispatcher)
 
-          jig.run {span =>
-            byPeriodLocalProtocol("1 day", testColumnPath, testService)(span).await(1.minute)
-          }
+        jig.run {span =>
+          byPeriodLocalProtocol("1 day", testColumnPath, service)(span).await(1.minute)
         }
       }
     }

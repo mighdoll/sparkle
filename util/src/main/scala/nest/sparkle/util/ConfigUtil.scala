@@ -29,17 +29,23 @@ object ConfigUtil {
   /** Load the configuration from a .conf file in the filesystem, falling back to
     * the built in reference.conf.
     */
-  def configFromFile(configFileOpt: Option[String]): Config = {
+  def configFromFile(configFiles: String*): Config = {
+    configFromFilesAndResources(configFiles, Seq())
+  }
+
+  /** Load the configuration from a .conf file in the filesystem, falling back to
+    * provided resources files, and then the built in reference.conf.
+    */
+  def configFromFilesAndResources(files: Seq[String], resources:Seq[String]): Config = {
     val baseConfig = ConfigFactory.load()
-    val root =
-      configFileOpt.map { configFile =>
+    val fileConfigs = files.map { configFile =>
         val file = new File(configFile)
-        val config = ConfigFactory.parseFile(file).resolve()
-        config.withFallback(baseConfig)
-      } getOrElse {
-        baseConfig
+        ConfigFactory.parseFile(file)
       }
-    root
+    val resourceConfigs = resources map ConfigFactory.parseResources
+    val allConfigs:Seq[Config] = (fileConfigs ++ resourceConfigs :+ baseConfig)
+    val combined = allConfigs.reduceLeft{ (a,b) => b.withFallback(a) }
+    combined.resolve()
   }
 
   /** apply some new key,value settings to a Config, returning the modified config */

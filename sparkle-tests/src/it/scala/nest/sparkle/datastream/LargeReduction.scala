@@ -10,7 +10,8 @@ import rx.lang.scala.Observable
 
 import nest.sparkle.measure.{DummySpan, Span, ConfiguredMeasurements}
 import nest.sparkle.store.WriteableStore
-import nest.sparkle.time.protocol.{StreamRequestor, TestDataService}
+import nest.sparkle.time.protocol.{DataServiceFixture, StreamRequestor, TestDataService}
+import nest.sparkle.time.server.DataService
 import nest.sparkle.util.StringToMillis._
 import nest.sparkle.util.{Period, PeriodWithZone}
 import nest.sparkle.util.FutureAwait.Implicits._
@@ -38,7 +39,7 @@ object LargeReduction extends StreamRequestor {
   }
 
   def preloadStore
-      ( spacing:FiniteDuration, columnPath:String, service:TestDataService )
+      ( spacing:FiniteDuration, columnPath:String, service:DataServiceFixture )
       ( implicit parentSpan:Span, executionContext: ExecutionContext )
       : Unit = {
     val stream = generateDataStream(spacing)
@@ -46,7 +47,7 @@ object LargeReduction extends StreamRequestor {
   }
 
   def byPeriodLocalProtocol
-    ( summaryPeriod:String, columnPath:String, service:TestDataService )
+    ( summaryPeriod:String, columnPath:String, service:DataServiceFixture )
     ( implicit parentSpan:Span ): Future[Unit] = {
 
     implicit val execution = service.executionContext

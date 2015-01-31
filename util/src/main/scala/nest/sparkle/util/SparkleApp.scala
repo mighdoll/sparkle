@@ -32,6 +32,13 @@ import nest.sparkle.metrics.MetricsSupport
 trait SparkleApp 
   extends App
 {
+  /** subclasses may implement to include additional conf files */
+  def extraConfFiles:Seq[String] = Seq()
+  def extraConfResources:Seq[String] = Seq()
+
+  /** Subclasses may implement to override settings in the .conf file */
+  def overrides: Seq[(String, Any)] = Seq()
+
   def appName: String = "SomeSparkleApp"
   def appVersion: String = "0.1"
   
@@ -39,23 +46,19 @@ trait SparkleApp
   val parser = new ArgotParser(appName, preUsage = Some(appVersion))
   val help = parser.flag[Boolean](List("h", "help"), "show this help")
   val confFile = parser.option[String](List("conf"), "path", "path to a .conf file")
-  
+
   lazy val rootConfig = {
-    val fileConfig = ConfigUtil.configFromFile(confFile.value)
-    val config = ConfigUtil.modifiedConfig(fileConfig, overrides: _*)
+    val baseConfig = ConfigUtil.configFromFilesAndResources(
+      confFile.value.toSeq ++ extraConfFiles, extraConfResources)
+    val config = ConfigUtil.modifiedConfig(baseConfig, overrides: _*)
     ConfigUtil.dumpConfigToFile(config)
     config
   }
   lazy val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
-    
-  // TODO: Use DI or something for this
-  implicit lazy val system = ActorSystem("sparkle", sparkleConfig)
+  implicit lazy val system = ActorSystem("sparkleApp", sparkleConfig)
   import system.dispatcher
-  
   implicit lazy val measurements = new ConfiguredMeasurements(rootConfig)
   
-  /** Subclasses may implement to override settings in the .conf file */
-  def overrides: Seq[(String, Any)] = Seq()
 
   /** Initialize process global items.
     * 

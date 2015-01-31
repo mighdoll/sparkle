@@ -40,14 +40,13 @@ import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 
 // TODO rename to not prefix with Test
-trait TestDataService extends DataService with ScalatestRouteTest with SparkleTestConfig {
+trait TestDataService extends DataServiceFixture with SparkleTestConfig {
   self: Suite with BeforeAndAfterAll =>
 
   override lazy val measurements = new ConfiguredMeasurements(rootConfig)
   override def actorSystem = system
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   def executionContext = system.dispatcher
-  def readWriteStore: ReadWriteStore
   override def store:Store = readWriteStore
 
   // tell spray test config about our configuration (and trigger logging initialization)
@@ -60,11 +59,6 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
     measurements.close()
   }
 
-  lazy val defaultTimeout = {
-    val protocolConfig = configForSparkle(rootConfig).getConfig("protocol-tests")
-    val millis = protocolConfig.getDuration("default-timeout", MILLISECONDS)
-    FiniteDuration(millis, MILLISECONDS)
-  }
 
   /** make a stream request, expecting a single stream of long/double results */
   def v1TypicalRequest(message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => Unit) {
@@ -84,15 +78,6 @@ trait TestDataService extends DataService with ScalatestRouteTest with SparkleTe
     }
   }
 
-  /** send a json string to the data port and report back the http response */
-  def sendDataMessage(message: String, timeout: FiniteDuration = defaultTimeout): Future[HttpResponse] = {
-    implicit val routeTimeout: RouteTestTimeout = RouteTestTimeout(timeout)
-    val promised = Promise[HttpResponse]
-    Post("/v1/data", message) ~> v1protocol ~> check {
-      promised.complete(Success(response))
-    }
-    promised.future
-  }
 }
 
 object TestDataService {
