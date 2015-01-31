@@ -67,7 +67,10 @@ trait StreamRequestor {
   /** return a string StreamRequest for a simple transform */
   def stringRequest(columnPath:String, transform:String,
                     transformParameters:String = "{}"): String = {
+    val (requestId, traceId) = nextRequestIds()
     s"""{
+    |  "requestId": $requestId,
+    |  "traceId": "$traceId",
     |  "messageType": "StreamRequest",
     |  "message": {
     |    "sources": [
