@@ -265,7 +265,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
       (implicit execution:ExecutionContext): Observable[DataArray[T, U]] = { // format: ON
     import nest.sparkle.store.cassandra.ObservableResultSetA._
 
-    val span = parentSpan.map { parent => Span.start("readEventRowsA", parent) }
+    val span = Span.start("readEventRowsA", parentSpan.get)
     val rows = prepared.session.executeAsync(statement).observerableRowsA(span)
     rows map rowsDecoder
   }

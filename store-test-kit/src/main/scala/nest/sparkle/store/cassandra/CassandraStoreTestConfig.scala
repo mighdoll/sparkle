@@ -31,10 +31,15 @@ object CassandraStoreFixture {
   /** recreate the database and a test column */
   def withTestDb[T](sparkleConfig:Config, keySpace:String)(fn: CassandraReaderWriter => T): T = {
     val storeConfig = sparkleConfig.getConfig("sparkle-store-cassandra")
+
+    val modifiedSparkleConfig = ConfigUtil.modifiedConfig(sparkleConfig,
+      "sparkle-store-cassandra.key-space" -> keySpace
+    )
+
     val testContactHosts = storeConfig.getStringList("contact-hosts").asScala.toSeq
     CassandraStore.dropKeySpace(testContactHosts, keySpace)
     val notification = new WriteNotification
-    val store = CassandraStore.readerWriter(sparkleConfig, notification)
+    val store = CassandraStore.readerWriter(modifiedSparkleConfig, notification)
 
     try {
       fn(store)
@@ -44,19 +49,12 @@ object CassandraStoreFixture {
   }
 }
 /** a test jig for running tests using cassandra. */
-trait CassandraStoreTestConfig extends SparkleTestConfig
-{
+trait CassandraStoreTestConfig extends SparkleTestConfig {
   /** override .conf file for store tests */
   override def testConfigFile: Option[String] = Some("sparkle-store-tests")
 
   /** the 'sparkle' level Config */
-  lazy val sparkleConfig: Config = {
-    ConfigUtil.configForSparkle(rootConfig)
-  }
-
-  override def configOverrides: List[(String, Any)] =
-    super.configOverrides :+
-    (s"${ConfigUtil.sparkleConfigName}.sparkle-store-cassandra.key-space" -> testKeySpace)
+  lazy val sparkleConfig: Config = ConfigUtil.configForSparkle(rootConfig)
 
   /** subclasses should define their own keyspace so that tests don't interfere with each other  */
   def testKeySpace: String = getClass.getSimpleName

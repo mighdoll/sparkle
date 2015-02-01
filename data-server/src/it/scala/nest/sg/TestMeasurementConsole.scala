@@ -3,31 +3,39 @@ package nest.sg
 import org.scalatest.{Matchers, FunSuite}
 import nest.sparkle.util.PrettyNumbers.implicits._
 
-class TestMeasurementConsole extends FunSuite with Matchers with SparkleConsoleFixture {
-  ignore("measurements for reduceBlock") { // TODO convert to proper test
-    withSparkleConsole { console =>
-      import console._
+object ConsoleSumReductionMain extends App with SparkleConsoleFixture {
+  withSparkleConsole { console =>
+    import console._
 
-      loadFiles("/tmp/sparkle-measurement")
+    loadFiles("/tmp/sparkle-measurement")
 
-      println("Last ReduceBlock Time:")
-      val reduceBlock = lastMeasurement("reductionTest.reduceBlock")
-      reduceBlock.printAll()
+    writeStore
+    println("Last ReduceBlock Time:")
+    val reduceBlock = lastMeasurement("Sum.reduceBlock")
+    reduceBlock.printAll()
 
-      println("Last Total Time:")
-      val total = lastMeasurement("reductionTest.total")
-      total.printAll()
+    println("Last FetchBlock Time:")
+    val fetchBlock = lastMeasurement("Sum.readEventRowsA.fetchBlock")
+    fetchBlock.printAll()
 
-      println("Last Generate Time:")
-      val generates = lastMeasurement("reductionTest.generateTestData")
-      generates.printAll()
+    println("Last Total Time:")
+    val total = lastMeasurement("reductionTest.requestResponse")
+    total.printAll()
 
-      println("Trend ReduceBlock Times")
-      val allReduceBlocks = measurementsData("reductionTest.reduceBlock")
-      allReduceBlocks.foreach { case (traceId, intervals) =>
-        println(s"  $traceId: ${intervals.totalDuration.pretty} microseconds")
-      }
+    println("Last Generate Time:")
+    val generates = lastMeasurement("reductionTest.generateTestData")
+    generates.printAll()
 
+    println("Trend ReduceBlock Times")
+    val allReduceBlocks = measurementsData("Sum.reduceBlock")
+    allReduceBlocks.foreach { case (traceId, intervals) =>
+      println(s"  $traceId: ${intervals.totalDuration.pretty} microseconds")
+    }
+
+    println("Trend FetchBlock Times")
+    val allFetchBlocks = measurementsData("Sum.readEventRowsA.fetchBlock")
+    allFetchBlocks.foreach { case (traceId, intervals) =>
+      println(s"  $traceId: ${intervals.totalDuration.pretty} microseconds")
     }
   }
 }

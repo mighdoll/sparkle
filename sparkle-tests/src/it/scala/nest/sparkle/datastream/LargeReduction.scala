@@ -8,7 +8,7 @@ import com.typesafe.config.ConfigFactory
 import org.joda.time.DateTimeZone
 import rx.lang.scala.Observable
 
-import nest.sparkle.measure.{DummySpan, Span, ConfiguredMeasurements}
+import nest.sparkle.measure.{TraceId, DummySpan, Span, ConfiguredMeasurements}
 import nest.sparkle.store.WriteableStore
 import nest.sparkle.time.protocol.{DataServiceFixture, StreamRequestor, TestDataService}
 import nest.sparkle.time.server.DataService
@@ -43,23 +43,31 @@ object LargeReduction extends StreamRequestor {
       ( implicit parentSpan:Span, executionContext: ExecutionContext )
       : Unit = {
     val stream = generateDataStream(spacing)
-    service.readWriteStore.writeStream(stream, columnPath)
+    Span("writeGeneratedData").time {
+      service.readWriteStore.writeStream(stream, columnPath).await(20.seconds)
+    }
   }
 
   def byPeriodLocalProtocol
-    ( summaryPeriod:String, columnPath:String, service:DataServiceFixture )
-    ( implicit parentSpan:Span ): Future[Unit] = {
+      ( summaryPeriod:String, columnPath:String, service:DataServiceFixture )
+      ( implicit parentSpan:Span ): Future[Unit] = {
 
     implicit val execution = service.executionContext
 
-    val message = stringRequest(columnPath, "reduceSum",
-      s"""{ "partBySize" : "$summaryPeriod",
-         |  "timeZoneId" : "UTC" }""".stripMargin)
-    val responseFuture = Span("requestResponse").time {
-      service.sendDataMessage(message)
+    val traceIdOverride:Option[TraceId] = {
+      if (parentSpan == DummySpan) Some(Span.ignoreTraceId) else None
     }
+    val responseFuture = {
+      val message = stringRequest(columnPath, "reduceSum",
+        s"""{ "partBySize" : "$summaryPeriod",
+         |  "timeZoneId" : "UTC" }""".stripMargin, traceIdOverride)
+      Span("requestResponse").time {
+        service.sendDataMessage(message)
+      }
+    }
+
     responseFuture.map { response =>
-      TestDataService.longLongData(response) // LATER validate data
+      TestDataService.longLongData(response) // LATER validate data accuracy
     }
   }
 

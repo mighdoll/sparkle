@@ -9,6 +9,7 @@ import scala.util.{Failure, Success}
 import rx.lang.scala.Observable
 
 import nest.sparkle.datastream.DataArray
+import nest.sparkle.measure.DummySpan
 import nest.sparkle.store.{WriteableStore, Event, Store}
 import nest.sparkle.store.cassandra.CassandraStoreReader
 import nest.sparkle.util.FutureToTry._
@@ -23,6 +24,11 @@ case class ColumnEvents(name: String, events: Seq[Event[Long, Double]])
 trait StorageConsole extends Log {
   def store:Store
   implicit def execution:ExecutionContext
+
+  /** use a different cassandra keyspace other than the default */
+  def use(keySpace:String): Unit = {
+    ???
+  }
 
   /** Return events for all columns inside a dataset.
     * Only direct children a returned (it does not recurse on nested dataSets).
@@ -103,7 +109,7 @@ trait StorageConsole extends Log {
   private def futureColumnData[T:ClassTag](columnPath:String):Future[DataArray[Long,T]] = {
     for {
       column <- store.column[Long, T](columnPath)
-      dataSeq <- column.readRangeA().initial.toFutureSeq
+      dataSeq <- column.readRangeA(parentSpan = Some(DummySpan)).initial.toFutureSeq
     } yield {
       dataSeq.reduceLeft(_ ++ _)
     }

@@ -27,7 +27,7 @@ object ReductionMain extends SparkleApp {
 
   initialize()
 
-  val jig = new TestJig("reductionTest", warmups = 0, runs = 1, pause = false)
+  val jig = new TestJig("reductionTest", warmups = 0, runs = 20, pause = false)
 
   runProtocolTest()
 
@@ -40,7 +40,8 @@ object ReductionMain extends SparkleApp {
     val testColumnPath = "reduce/test"
     CassandraStoreFixture.withTestDb(sparkleConfig, "reduction_main") { testDb =>
       DataServiceFixture.withDataServiceFixture(rootConfig, testDb) { service =>
-        preloadStore(1.hour, testColumnPath, service)(jig.span, system.dispatcher)
+        val loadSpan = Span.prepareRoot("preload")
+        preloadStore(30.seconds, testColumnPath, service)(loadSpan, system.dispatcher)
 
         jig.run {span =>
           byPeriodLocalProtocol("1 day", testColumnPath, service)(span).await(1.minute)
@@ -60,9 +61,6 @@ object ReductionMain extends SparkleApp {
 class TestJig(name: String, warmups:Int = 2, runs:Int = 1, pause:Boolean = false)
              ( implicit measurements: Measurements) {
 
-  //    Thread.sleep(pause.toMillis) // so that the start time will be clear in the profiler
-  implicit val span = Span.prepareRoot(name)
-
   def run[T]
       ( fn: Span => T )
       : Seq[T] = {
@@ -78,6 +76,7 @@ class TestJig(name: String, warmups:Int = 2, runs:Int = 1, pause:Boolean = false
     }
 
     (0 until runs).map {_ =>
+      implicit val span = Span.prepareRoot(name)
       Span("total").time {
         fn(span)
       }

@@ -9,14 +9,13 @@ import rx.lang.scala.Subscription
 import scala.concurrent.ExecutionContext
 import scala.collection.JavaConverters._
 import com.datastax.driver.core.Row
-import nest.sparkle.measure.StartedSpan
+import nest.sparkle.measure.{Span, StartedSpan}
 import nest.sparkle.util.GuavaConverters._
 import scala.annotation.tailrec
 import com.datastax.driver.core.ResultSetFuture
 import rx.lang.scala.Subscriber
 import nest.sparkle.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
-import nest.sparkle.measure.StartedSpan
 import nest.sparkle.util.Log
 
 object ObservableResultSetA {
@@ -27,9 +26,12 @@ object ObservableResultSetA {
 
     /** return an Observable[Row] for the Future[ResultSet].  */
     def observerableRowsA // format: OFF
-        ( span: Option[StartedSpan] = None )
+        ( parentSpan: StartedSpan )
         ( implicit executionContext: ExecutionContext )
         : Observable[Seq[Row]] = { // format: ON
+
+      def nextFetch() = Span.start("fetchBlock", parentSpan)
+      var currentFetch = nextFetch()
 
       val asScalaFuture = resultSetFuture.toFuture
       val subscribed = new AtomicBoolean
@@ -51,12 +53,14 @@ object ObservableResultSetA {
                 val iterator = resultSet.iterator().asScala
                 val availableNow = resultSet.getAvailableWithoutFetching()
                 val rows = iterator.take(availableNow).toVector
+                currentFetch.complete()
                 subscriber.onNext(rows)
                 
                 if (resultSet.isFullyFetched()) { // CONSIDER - is this a race with availableNow?
-                  span.foreach(_.complete())
+                  parentSpan.complete()
                   subscriber.onCompleted()
                 } else {
+                  currentFetch = nextFetch()
                   resultSet.fetchMoreResults().toFuture.foreach { _ => rowChunk() }
                 }
               }

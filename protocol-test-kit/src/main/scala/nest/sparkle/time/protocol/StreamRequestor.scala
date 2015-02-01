@@ -14,6 +14,7 @@
 
 package nest.sparkle.time.protocol
 import spray.json._
+import nest.sparkle.measure.TraceId
 import nest.sparkle.time.protocol.TransformParametersJson.SummaryParametersFormat
 import nest.sparkle.time.protocol.RequestJson.CustomSelectorFormat
 import spray.json.DefaultJsonProtocol._
@@ -65,9 +66,12 @@ trait StreamRequestor {
   }
 
   /** return a string StreamRequest for a simple transform */
-  def stringRequest(columnPath:String, transform:String,
-                    transformParameters:String = "{}"): String = {
-    val (requestId, traceId) = nextRequestIds()
+  def stringRequest
+      ( columnPath:String, transform:String,
+        transformParameters:String = "{}", traceIdOverride:Option[TraceId] = None )
+      : String = {
+    val (requestId, nextTraceId) = nextRequestIds()
+    val traceId = traceIdOverride.map(_.value).getOrElse(nextTraceId)
     s"""{
     |  "requestId": $requestId,
     |  "traceId": "$traceId",
