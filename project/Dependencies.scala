@@ -30,7 +30,7 @@ object Dependencies {
   val nScalaTime            = "com.github.nscala-time"    %% "nscala-time"            % "1.6.0"
   val spire                 = "org.spire-math"            %% "spire"                  % "0.9.0"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
-  val cassandraAll          = "org.apache.cassandra"      %  "cassandra-all"          % "2.1.0"
+  val cassandraAll          = "org.apache.cassandra"      %  "cassandra-all"          % "2.1.2"
   val cassandraDriver       = "com.datastax.cassandra"    %  "cassandra-driver-core"  % "2.1.3"
   val snappy                = "org.xerial.snappy"         %  "snappy-java"            % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           %  "lz4"                    % "1.3.0"
