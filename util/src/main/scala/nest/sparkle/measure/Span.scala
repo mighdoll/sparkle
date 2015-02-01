@@ -18,6 +18,8 @@ sealed trait Span {
 
 /** convenient ways to create a Span for timing */
 object Span {
+  val ignoreTraceId = TraceId("__ignore")
+
   /** return an UnstartedSpan without a parent Span (e.g. parent is a trace) */
   def prepareRoot(name: String, traceId: TraceId = TraceId.create(), level: ReportLevel = Info) // format: OFF
       (implicit measurements: Measurements): UnstartedSpan = { // format: ON
@@ -113,14 +115,16 @@ case class StartedSpan protected[measure](
     measurements: Measurements) extends Span {
 
   /** complete a timing, reporting the total time through the measurements gateway (to e.g. graphite and .csv) */
-  def complete() = {
-    val end = NanoSeconds.current()
-    val duration = NanoSeconds(end.value - start.value)
-    val startMicros = EpochMicroseconds.fromNanos(start)
-    val completed = CompletedSpan(name = name, traceId = traceId, spanId = spanId, parentId = parentId,
-      start = startMicros, duration = duration, annotations = annotations,
-      level = level, measurements = measurements)
-    measurements.publish(completed)
+  def complete():Unit = {
+    if (traceId != Span.ignoreTraceId) {
+      val end = NanoSeconds.current()
+      val duration = NanoSeconds(end.value - start.value)
+      val startMicros = EpochMicroseconds.fromNanos(start)
+      val completed = CompletedSpan(name = name, traceId = traceId, spanId = spanId, parentId = parentId,
+        start = startMicros, duration = duration, annotations = annotations,
+        level = level, measurements = measurements)
+      measurements.publish(completed)
+      }
   }
 }
 
