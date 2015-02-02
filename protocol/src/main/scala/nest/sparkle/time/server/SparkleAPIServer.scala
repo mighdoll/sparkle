@@ -42,13 +42,14 @@ class SparkleAPIServer // format: OFF
   def store = readWriteStore
   lazy val webPort = sparkleConfig.getInt("port")
   implicit val measurements = new ConfiguredMeasurements(rootConfig)
-  
+  var openWebSocket: Option[DataWebSocket] = None
+
   def actorSystem = system
 
-  val service = system.actorOf(Props(
-    new ConfiguredDataServer(store, rootConfig)),
-    "sparkle-server"
-  )
+  val service = system.actorOf(
+      props = Props(new ConfiguredDataServer(store, rootConfig)),
+      name = "sparkle-server"
+    )
   
   AdminService.start(rootConfig, store, measurements).await(10.seconds)
 
@@ -75,25 +76,26 @@ class SparkleAPIServer // format: OFF
         sys.exit(1)
     }
   }
-  
-  def shutdown() {
-    actorSystem.shutdown()
-  }
 
+  def close(): Unit = {
+    openWebSocket.foreach { dataWebSocket =>
+      dataWebSocket.shutdown()
+    }
+  }
+  
   /** Launch the http server for sparkle API requests.
     *
     * This call will block until the server is ready to accept incoming requests.
     */
-  private def startServer(serviceActor: ActorRef, port: Int) // format: OFF
-      (implicit system: ActorSystem) { // format: ON
+  private def startServer(serviceActor: ActorRef, port: Int)  {
     if (sparkleConfig.getBoolean("auto-start")) {
       log.info("---- starting server ----")
       implicit val timeout = Timeout(10.seconds)
       val started = IO(Http) ? Http.Bind(serviceActor, interface = "0.0.0.0", port = port)
       started.await // wait until server is started
   
-      // Does webSocket need to be saved anywhere? For shutdown?
-      /*val webSocket = */ new DataWebSocket(store, rootConfig)
+      val webSocket = new DataWebSocket(store, rootConfig)
+      openWebSocket = Some(webSocket)
     }
   }
 

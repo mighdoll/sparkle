@@ -139,10 +139,6 @@ trait PlotConsole extends Log {
     storeEvents[Long, T](events, name)
   }
 
-  def shutdown() {
-    server.shutdown()
-  }
-
   private def nameToPath(name: String): String = s"plot/$sessionId/$name"
   private val plotParametersPath = "_plotParameters"
 

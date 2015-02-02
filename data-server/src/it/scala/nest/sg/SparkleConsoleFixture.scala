@@ -4,6 +4,7 @@ import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import SparkleConsoleFixture.takePort
 
 object SparkleConsoleFixture {
+  // we give each test its own set of ports, so that multiple tests can run in parallel
   private var nextPort = 22222
   def takePort():Int = {
     val port = nextPort

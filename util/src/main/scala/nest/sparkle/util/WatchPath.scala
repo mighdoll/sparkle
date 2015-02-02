@@ -31,8 +31,10 @@ trait PathWatcher {
     * Does not currently support symbolic links */
   def watch(fn: WatchPath.Change => Unit): Future[Iterable[Path]]
   
-  def close()(implicit system: ActorSystem):Unit = {
-    TypedActor(system).getActorRefFor(this) ! PoisonPill
+  def close()(implicit system: ActorSystem): Unit = {
+    Option(TypedActor(system)).foreach { typedActor =>
+      typedActor.getActorRefFor(this) ! PoisonPill
+    }
   }
 }
 

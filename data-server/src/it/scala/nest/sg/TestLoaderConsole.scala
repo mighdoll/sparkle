@@ -30,6 +30,7 @@ class TestLoaderConsole extends FunSuite with Matchers with SparkleConsoleFixtur
     testLoad(_.loadFiles(measuresDirectory))
   }
 
+
   test("watchFiles") {
     testLoad(_.watchFiles(measuresDirectory))
   }

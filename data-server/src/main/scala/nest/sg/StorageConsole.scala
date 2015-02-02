@@ -23,7 +23,7 @@ case class ColumnEvents(name: String, events: Seq[Event[Long, Double]])
 /** a console for making queries to the store from the scala console */
 trait StorageConsole extends Log {
   def store:Store
-  implicit def execution:ExecutionContext
+  implicit def executionContext:ExecutionContext
 
   /** use a different cassandra keyspace other than the default */
   def use(keySpace:String): Unit = {

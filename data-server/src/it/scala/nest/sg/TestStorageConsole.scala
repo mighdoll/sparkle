@@ -20,7 +20,7 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestC
         complete.await
         val storageConsole = new StorageConsole {
           override val store = testDb
-          override val execution = system.dispatcher
+          override val executionContext = system.dispatcher
         }
         fn(storageConsole)
       }
