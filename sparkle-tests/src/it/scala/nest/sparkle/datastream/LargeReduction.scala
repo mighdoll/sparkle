@@ -44,7 +44,7 @@ object LargeReduction extends StreamRequestor {
       : Unit = {
     val stream = generateDataStream(spacing)
     Span("writeGeneratedData").time {
-      service.readWriteStore.writeStream(stream, columnPath).await(20.seconds)
+      service.readWriteStore.writeStream(stream, columnPath).await(30.seconds)
     }
   }
 

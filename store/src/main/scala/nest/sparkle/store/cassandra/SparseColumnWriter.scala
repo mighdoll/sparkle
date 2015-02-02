@@ -157,7 +157,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
 
   override def writeData // format: OFF
       ( dataArray:DataArray[T,U] )
-      ( implicit executionContext: ExecutionContext)
+      ( implicit executionContext: ExecutionContext ) // TODO add a parentSpan here
       : Future[Unit] = { // format: ON
 
     val batches = dataArray.grouped(batchSize).map { eventGroup =>
@@ -191,7 +191,9 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
         a.flatMap(_ => b)
       }
 
-    allDone
+    allDone.map { _ =>
+      log.trace(s"writeData wrote ${dataArray.length} elements to $columnPath")
+    }
   }
 
 
@@ -201,8 +203,10 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     preparedSession.session.executeAsync(deleteAll).toFuture.map { _ => () }
   }
 
-  private val batchSize = 25000 // CQL driver has a max batch size of 64K
-  
+  // Cassandra complains about batches > 5K bytes
+  // see Cassandra-6487 where they recommend a batchSize of about 100. Much slower in my testing though.
+  private val batchSize = 10000
+
   /** write a bunch of column values in a batch */ // format: OFF
   private def writeMany(events:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON

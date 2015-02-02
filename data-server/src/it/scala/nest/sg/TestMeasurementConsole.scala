@@ -7,6 +7,9 @@ object ConsoleSumReductionMain extends App with SparkleConsoleFixture {
   withSparkleConsole { console =>
     import console._
 
+    use("console_sum_reduction")
+    store.format()
+
     loadFiles("/tmp/sparkle-measurement")
 
     writeStore
@@ -23,7 +26,7 @@ object ConsoleSumReductionMain extends App with SparkleConsoleFixture {
     total.printAll()
 
     println("Last Generate Time:")
-    val generates = lastMeasurement("reductionTest.generateTestData")
+    val generates = lastMeasurement("preload.generateTestData")
     generates.printAll()
 
     println("Trend ReduceBlock Times")

@@ -22,13 +22,9 @@ case class ColumnEvents(name: String, events: Seq[Event[Long, Double]])
 
 /** a console for making queries to the store from the scala console */
 trait StorageConsole extends Log {
+
   def store:Store
   implicit def executionContext:ExecutionContext
-
-  /** use a different cassandra keyspace other than the default */
-  def use(keySpace:String): Unit = {
-    ???
-  }
 
   /** Return events for all columns inside a dataset.
     * Only direct children a returned (it does not recurse on nested dataSets).

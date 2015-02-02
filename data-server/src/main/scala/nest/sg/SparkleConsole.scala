@@ -45,6 +45,11 @@ trait SparkleConsole
     throw ConfigurationError("store not initialized")
   }
 
+  /** use a different cassandra keyspace other than the default */
+  def use(keySpace:String): Unit = {
+    connectStore(keySpace)
+  }
+
   protected def connectStore(): Unit = {
     connectStoreWithConfig(rootConfig)
   }
