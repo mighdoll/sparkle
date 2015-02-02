@@ -1,10 +1,11 @@
 package nest.sparkle.datastream
 
+import org.scalacheck.Test.Passed
 import org.scalatest.{ FunSuite, Matchers }
 import org.scalatest.prop.PropertyChecks
 import spire.math._
 import nest.sparkle.datastream.StreamGeneration._
-import org.scalacheck.Prop
+import org.scalacheck.{Test, Prop}
 
 import nest.sparkle.measure.DummySpan
 
@@ -35,7 +36,8 @@ class TestDataStreamReduceOnePart extends FunSuite with Matchers with PropertyCh
       val prop = Prop.forAllNoShrink(threeParts(keyValues)) { parts =>
         testSum(parts)
       }
-      prop.check
+      val result = Test.check(prop)(_.withMinSuccessfulTests(20))
+      result.status shouldBe Passed
     }
   }
   

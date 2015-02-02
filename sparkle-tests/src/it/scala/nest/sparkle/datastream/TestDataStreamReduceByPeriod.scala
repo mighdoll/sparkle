@@ -4,7 +4,8 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
 import org.joda.time.DateTimeZone
-import org.scalacheck.Prop
+import org.scalacheck.Test.Passed
+import org.scalacheck.{Test, Prop}
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FunSuite, Matchers}
 import spire.math._
@@ -67,7 +68,8 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
     val prop = Prop.forAllNoShrink(threeParts(simpleEvents)) { parts =>
       testSumSimpleByHour(parts)
     }
-    prop.check
+    val result = Test.check(prop)(_.withMinSuccessfulTests(20))
+    result.status shouldBe Passed
   }
     
 }
