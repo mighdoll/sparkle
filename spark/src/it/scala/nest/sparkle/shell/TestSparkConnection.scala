@@ -4,6 +4,7 @@ import org.scalatest.{ FunSuite, Matchers }
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.loader.spark.SparkTestConfig
 import nest.sparkle.store.cassandra.CassandraStoreReader
+import nest.sparkle.util.ConfigUtil
 
 class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTestConfig
     with SparkTestConfig {
@@ -11,7 +12,9 @@ class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTest
   override def testKeySpace = "testsparkconnection"
 
   def withSpark(fn: SparkConnection => Unit): Unit = {
-    val connection = SparkConnection(rootConfig, "TestSparkConnection")
+    val modifiedConfig = ConfigUtil.modifiedConfig(rootConfig,
+      "sparkle.sparkle-store-cassandra.key-space" -> testKeySpace)
+    val connection = SparkConnection(modifiedConfig, "TestSparkConnection")
     try {
       fn(connection)
     } finally {
