@@ -42,10 +42,17 @@ object Store {
     store
   }
 
-  /** return an instance of Store, based on the store class specified in the config file */
+  /** return an instance of WriteableStore, based on the store class specified in the config file */
   def instantiateWritableStore(config: Config, writeNotifier: WriteNotifier): WriteableStore = {
     val storeClass = config.getString("writeable-store")
     val store = Instance.byName[WriteableStore](storeClass)(config, writeNotifier)
+    store
+  }
+
+  /** return an instance of ReadWriteStore, based on the store class specified in the config file */
+  def instantiateReadWriteStore(config: Config, writeNotifier: WriteNotifier): ReadWriteStore = {
+    val storeClass = config.getString("read-write-store")
+    val store = Instance.byName[ReadWriteStore](storeClass)(config, writeNotifier)
     store
   }
 

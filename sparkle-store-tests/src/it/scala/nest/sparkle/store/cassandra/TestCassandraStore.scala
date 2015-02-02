@@ -2,13 +2,13 @@ package nest.sparkle.store.cassandra
 
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
+import org.scalacheck.Test.Passed
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FunSuite, Matchers}
-import org.scalacheck.Prop
-
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.{Test, Prop, Arbitrary, Gen}
 
 import nest.sparkle.datastream.DataArray
+import nest.sparkle.measure.DummySpan
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
@@ -80,7 +80,7 @@ class TestCassandraStore
         implicit val valueClass = ClassTag[U](valueType.mirror.runtimeClass(valueType.tpe))
         val pair = DataArray[T, U](Array[T](event.argument), Array[U](event.value))
 
-        val read = readColumn.readRangeA(None, None)
+        val read = readColumn.readRangeA(parentSpan = Some(DummySpan))
         val results = read.initial.toBlocking.single
         results should have length 1
       }
@@ -181,7 +181,7 @@ class TestCassandraStore
           }
 
           writeColumn.write(events).await
-          val read = readColumn.readRangeA(None, None)
+          val read = readColumn.readRangeA(parentSpan = Some(DummySpan))
           val resultParts = read.initial.toBlocking.toList
 
           val resultArray = resultParts.reduce(_ ++ _)
@@ -189,7 +189,8 @@ class TestCassandraStore
           resultArray shouldBe testArray
         }
       }
-      prop.check(_.withMinSuccessfulTests(5))
+      val result = Test.check(prop)(_.withMinSuccessfulTests(5))
+      result.status shouldBe Passed
     }
   }
 

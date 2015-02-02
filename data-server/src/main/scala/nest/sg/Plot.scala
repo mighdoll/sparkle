@@ -27,7 +27,7 @@ case class PlotParameterError(msg: String) extends RuntimeException
   */
 trait PlotConsole extends Log {
   def server:SparkleAPIServer
-  lazy val writeStore = server.writeableStore
+  def writeStore = server.readWriteStore
   implicit lazy val dispatcher = server.system.dispatcher
   val sessionId = RandomUtil.randomAlphaNum(5)
   var launched = false

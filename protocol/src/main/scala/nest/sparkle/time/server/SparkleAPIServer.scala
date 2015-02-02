@@ -30,18 +30,16 @@ import spray.can.Http
 import spray.util._
 
 import nest.sparkle.loader.{ FilesLoader, LoadPathDoesNotExist }
-import nest.sparkle.store.{Store, WriteNotification}
+import nest.sparkle.store.{ReadWriteStore, Store, WriteNotification}
 import nest.sparkle.util._
 import nest.sparkle.measure.ConfiguredMeasurements
 
 class SparkleAPIServer // format: OFF
-    ( val rootConfig: Config )
+    ( rootConfig: Config, val readWriteStore:ReadWriteStore )
     ( implicit val system: ActorSystem ) extends Log { // format: ON
   import system.dispatcher
   val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
-  val notification = new WriteNotification()
-  val store = Store.instantiateStore(sparkleConfig, notification)
-  lazy val writeableStore = Store.instantiateWritableStore(sparkleConfig, notification)
+  def store = readWriteStore
   lazy val webPort = sparkleConfig.getInt("port")
   implicit val measurements = new ConfiguredMeasurements(rootConfig)
   
@@ -102,7 +100,7 @@ class SparkleAPIServer // format: OFF
   /** Erase and reformat the storage system if requested */
   private def possiblyErase(): Unit = {
     if (sparkleConfig.getBoolean("erase-store")) {
-      writeableStore.format()
+      readWriteStore.format()
     }
   }
 
@@ -114,7 +112,7 @@ class SparkleAPIServer // format: OFF
         val strip = loaderConfig.getInt("directory-strip")
         val watch = loaderConfig.getBoolean("watch-directories")
         try {
-          new FilesLoader(sparkleConfig, pathString, pathString, writeableStore, strip, Some(watch))
+          new FilesLoader(sparkleConfig, pathString, pathString, readWriteStore, strip, Some(watch))
         } catch {
           case LoadPathDoesNotExist(path) => sys.exit(1)
         }
@@ -133,6 +131,9 @@ object SparkleAPIServer extends Log {
     val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
     implicit val system = ActorSystem("sparkle", sparkleConfig)
 
-    new SparkleAPIServer(rootConfig)
+    val notification = new WriteNotification()
+    val store = Store.instantiateReadWriteStore(sparkleConfig, notification)
+
+    new SparkleAPIServer(rootConfig, store)
   }
 }
