@@ -72,6 +72,7 @@ trait AsyncReduction[K,V] extends Log {
       case Failure(err) => AsyncWithRange.error(err, self.requestRange)
     }
   }
+
   /** reduce the initial part of the stream to a single value, and reduce the ongoing
     * stream to a single value every 5 seconds.
     */

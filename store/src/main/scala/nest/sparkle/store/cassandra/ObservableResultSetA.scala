@@ -9,7 +9,7 @@ import rx.lang.scala.Subscription
 import scala.concurrent.ExecutionContext
 import scala.collection.JavaConverters._
 import com.datastax.driver.core.Row
-import nest.sparkle.measure.{Span, StartedSpan}
+import nest.sparkle.measure.{Span, Gauged, StartedSpan}
 import nest.sparkle.util.GuavaConverters._
 import scala.annotation.tailrec
 import com.datastax.driver.core.ResultSetFuture
@@ -52,6 +52,7 @@ object ObservableResultSetA {
               if (!subscriber.isUnsubscribed) {
                 val iterator = resultSet.iterator().asScala
                 val availableNow = resultSet.getAvailableWithoutFetching()
+                Gauged[Int]("resultSetBlockSize", availableNow)(parentSpan)
                 val rows = iterator.take(availableNow).toVector
                 currentFetch.complete()
                 subscriber.onNext(rows)

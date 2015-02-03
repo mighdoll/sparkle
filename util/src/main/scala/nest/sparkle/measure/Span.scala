@@ -4,10 +4,7 @@ import nest.sparkle.util.Log
 import scala.concurrent.forkjoin.ThreadLocalRandom
 import nest.sparkle.util.RandomUtil
 
-/** a measurement of a span of time. Subclasses encode various states of a Span: Unstarted, Started, Completed, etc.)
-  * All Spans are immutable
-  */
-sealed trait Span {
+sealed trait Measurement {
   def name: String
   def traceId: TraceId
   def spanId: SpanId
@@ -15,6 +12,14 @@ sealed trait Span {
   def measurements: Measurements
   def level: ReportLevel
 }
+
+sealed trait CompletedMeasurement extends Measurement
+
+
+/** a measurement of a span of time. Subclasses encode various states of a Span: Unstarted, Started, Completed, etc.)
+  * All Spans are immutable
+  */
+sealed trait Span extends Measurement
 
 /** convenient ways to create a Span for timing */
 object Span {
@@ -74,8 +79,9 @@ case class CompletedSpan protected[measure](
     duration: NanoSeconds,
     annotations: Seq[Annotation],
     level: ReportLevel,
-    measurements: Measurements) extends Span with Log {
+    measurements: Measurements) extends CompletedMeasurement with Log {
 }
+
 
 case class UnstartedSpan protected[measure](
     name: String,
@@ -170,7 +176,7 @@ object TraceId {
 }
 
 /** The id for a single duration record */
-case class SpanId(value: Long) extends AnyVal
+case class SpanId(value: Long) extends AnyVal // TODO rename to MeasurementId
 
 /** The id for a single duration record */
 object SpanId {
@@ -185,3 +191,32 @@ case class StringAnnotation(_time: NanoSeconds, name: String) extends Annotation
 
 /** Thrown when using Inherit for a root span */
 class RootSpanLevelException extends Exception("Root Spans can not have level Inherit")
+
+/** a sampled metric value */
+case class Gauged[T](
+    name: String,
+    traceId: TraceId,
+    spanId: SpanId = SpanId.create(),
+    parentId: Option[SpanId] = None,
+    annotations: Seq[Annotation] = Seq(),
+    level: ReportLevel,
+    measurements: Measurements,
+    start: EpochMicroseconds,
+    value:T) extends CompletedMeasurement
+
+object Gauged {
+  /** report a sampled metric value */
+  def apply[T](name:String, value:T, level: ReportLevel = Inherit)(implicit parent: Span): Unit = {
+    val classOfValue = value.getClass
+    // for now require Long compatible type until we write to multiple gauge files for each value type
+    assert(
+      classOfValue == classOf[Long] || classOfValue == classOf[java.lang.Long] ||
+        classOfValue == classOf[Int] || classOfValue == classOf[java.lang.Integer] ||
+        classOfValue == classOf[Short] || classOfValue == classOf[java.lang.Short] ||
+        classOfValue == classOf[Byte] || classOfValue == classOf[java.lang.Byte]
+    )
+    val gauged = Gauged[T](name = name, traceId = parent.traceId, level = level,
+      measurements = parent.measurements, start = EpochMicroseconds.now, value = value)
+    parent.measurements.publish(gauged)
+  }
+}

@@ -1,5 +1,7 @@
 package nest.sg
 
+import scala.util.matching.Regex
+
 import org.scalatest.{Matchers, FunSuite}
 import nest.sparkle.util.PrettyNumbers.implicits._
 
@@ -9,35 +11,38 @@ object ConsoleSumReductionMain extends App with SparkleConsoleFixture {
 
     use("console_sum_reduction")
     store.format()
-
     loadFiles("/tmp/sparkle-measurement")
+    val all = allIntervals()
 
-    writeStore
-    println("Last ReduceBlock Time:")
-    val reduceBlock = lastMeasurement("Sum.reduceBlock")
-    reduceBlock.printAll()
-
-    println("Last FetchBlock Time:")
-    val fetchBlock = lastMeasurement("Sum.readEventRowsA.fetchBlock")
-    fetchBlock.printAll()
-
-    println("Last Total Time:")
-    val total = lastMeasurement("reductionTest.requestResponse")
-    total.printAll()
-
-    println("Last Generate Time:")
-    val generates = lastMeasurement("preload.generateTestData")
-    generates.printAll()
-
-    println("Trend ReduceBlock Times")
-    val allReduceBlocks = measurementsData("Sum.reduceBlock")
-    allReduceBlocks.foreach { case (traceId, intervals) =>
-      println(s"  $traceId: ${intervals.totalDuration.pretty} microseconds")
+    all.foreach { case NamedTraceIntervals(name, traceIntervals) =>
+      println(s"Last $name time:")
+      val lastTraceInterval = traceIntervals.last
+      lastTraceInterval.intervals.printAll()
     }
 
-    println("Trend FetchBlock Times")
-    val allFetchBlocks = measurementsData("Sum.readEventRowsA.fetchBlock")
-    allFetchBlocks.foreach { case (traceId, intervals) =>
+    printTrends(all, """.*\.reduceBlock""", """.*\.fetchBlock""")
+  }
+
+  def printTrends(allNamedTraceIntervals:Seq[NamedTraceIntervals], names:String*): Unit = {
+    val matchers = names.map (_.r)
+    def matchesName(name:String):Boolean = {
+      val foundMatch = matchers.find{regex => regex.findFirstIn(name).isDefined }
+      foundMatch.isDefined
+    }
+
+    for {
+      namedTraceIntervals <- allNamedTraceIntervals
+      NamedTraceIntervals(name, traceIntervals) = namedTraceIntervals
+      if matchesName(name)
+    } {
+      printTrend(namedTraceIntervals)
+    }
+  }
+
+  def printTrend(namedTraceIntervals:NamedTraceIntervals): Unit = {
+    val NamedTraceIntervals(name, traceIntervals) = namedTraceIntervals
+    println(s"Trend $name")
+    traceIntervals.foreach { case TraceIntervals(traceId, intervals) =>
       println(s"  $traceId: ${intervals.totalDuration.pretty} microseconds")
     }
   }

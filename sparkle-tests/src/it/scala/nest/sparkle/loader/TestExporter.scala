@@ -28,7 +28,7 @@ import akka.util.Timeout.longToTimeout
 import spray.util._
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.tools.Exporter
-import nest.sparkle.util.Resources
+import nest.sparkle.util.{FileUtil, Resources}
 import nest.sparkle.tools.FileExporter
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
@@ -66,31 +66,10 @@ class TestExporter extends FunSuite with CassandraStoreTestConfig with Matchers 
     try {
       fn
     } finally {
-      cleanDirectory(Paths.get(pathString))
+      FileUtil.cleanDirectory(Paths.get(pathString))
     }
   }
 
-  /** Remove all the files in a directory recursively.
-    * @param path Directory to clean.
-    */
-  private def cleanDirectory(path: Path) {
-    if (Files.isDirectory(path)) {
-      Files.walkFileTree(path, new SimpleFileVisitor[Path]() {
-        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-          Files.delete(file)
-          FileVisitResult.CONTINUE
-        }
-        override def postVisitDirectory(dir: Path, e: IOException): FileVisitResult = {
-          e match {
-            case _: IOException => throw e
-            case _ =>
-              Files.delete(dir)
-              FileVisitResult.CONTINUE
-          }
-        }
-      })
-    }
-  }
 }
 
 

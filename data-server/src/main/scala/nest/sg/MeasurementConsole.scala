@@ -4,12 +4,15 @@ import java.text.NumberFormat
 import nest.sparkle.util.PrettyNumbers.implicits._
 
 case class Interval(time:Long, duration:Long)
+case class TraceIntervals(traceId:String, intervals:Intervals)
+case class NamedTraceIntervals(name:String, traceIntervals:Seq[TraceIntervals])
+
 
 trait MeasurementConsole {
   self:StorageConsole =>
   /** return the span latency data for a given measurement name, grouped by trace id,
     * in time order of the start time of each group. */
-  def measurementsData(measurementName:String):Seq[(String,Intervals)] = {
+  def measurementsData(measurementName:String):Seq[TraceIntervals] = {
     case class MiniSpan(time: Long, name: String, traceId: String, duration: Long)
 
     val durations = columnData[Long]("spans/duration")
@@ -27,16 +30,24 @@ trait MeasurementConsole {
     val groupedSpans = matchingSpans.groupBy(_.traceId)
     val groupedIntervals = groupedSpans.map { case (traceId, spans) =>
       val intervalSeq = spans.map { span => Interval(span.time, span.duration)}
-      traceId -> Intervals(intervalSeq)
+      TraceIntervals(traceId, Intervals(intervalSeq))
     }
-    groupedIntervals.toVector.sortBy { case (traceId, intervals) =>
-      intervals.data.head.time
-    }
+    groupedIntervals.toVector.sortBy(_.intervals.data.head.time)
   }
 
   /** return a summary of the measurement data for the first traceId of a given measurement name */
   def lastMeasurement(measurementName:String):Intervals = {
-    measurementsData(measurementName).last match { case (traceId, intervals) => intervals }
+    measurementsData(measurementName).last.intervals
+  }
+
+  def allIntervals():Seq[NamedTraceIntervals] = {
+    allMeasurements().map { name =>
+      NamedTraceIntervals(name, measurementsData(name))
+    }.toSeq
+  }
+
+  def allMeasurements():Set[String] = {
+    columnData[String]("spans/name").values.toSet
   }
 
 }

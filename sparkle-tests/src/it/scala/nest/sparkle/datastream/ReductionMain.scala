@@ -27,9 +27,10 @@ object ReductionMain extends SparkleApp {
 
   initialize()
 
-  val jig = new TestJig("reductionTest", warmups = 0, runs = 20, pause = false)
+  val jig = new TestJig("reductionTest", warmups = 0, runs = 50, pause = false)
 
   runProtocolTest()
+//  runStreamOnlyTest()
 
   shutdown()
 

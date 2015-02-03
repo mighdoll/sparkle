@@ -28,7 +28,8 @@ import nest.sparkle.time.protocol.ExportData
 import nest.sparkle.time.protocol.AdminProtocol.ExportDataFormat
 import nest.sparkle.util.ExpectHeader
 
-class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTestConfig with ExpectHeader with RequestBuilding {
+class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTestConfig
+    with ExpectHeader with RequestBuilding {
 
   def epochTest(headers: HttpHeader*) {
     epochRequestWithHeaders(headers: _*) { implicit response =>
@@ -87,7 +88,7 @@ class AdminTestService(override val store: Store, override val rootConfig: Confi
   implicit def executionContext = system.dispatcher
 
   implicit override val measurements =
-    new MeasurementToTsvFile("/tmp/sparkle-admin-tests.tsv")(executionContext)
+    new MeasurementToTsvFile("/tmp/sparkle-admin-tests")(executionContext)
 
   def fetchRequest(request: HttpRequest)(fn: HttpResponse => Unit): Unit = {
     request ~> sealRoute(routes) ~> check {

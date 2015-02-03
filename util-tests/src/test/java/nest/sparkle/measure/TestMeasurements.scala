@@ -12,35 +12,43 @@ import org.scalatest.{FunSuite, Matchers}
 import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.RandomUtil.randomAlphaNum
-import nest.sparkle.util.{ConfigUtil, MetricsInstrumentation}
+import nest.sparkle.util.{RandomUtil, FileUtil, ConfigUtil, MetricsInstrumentation}
 
 
 class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
 
   def withMeasurements(fn: (Measurements, Path) => Unit) {
-    val spanFile = s"/tmp/TestMeasurements-${randomAlphaNum(3)}.tsv"
+    val spanDirectory = s"/tmp/TestMeasurements-${randomAlphaNum(3)}"
     val overridenConfig = {
       val rootConfig = ConfigFactory.load("testMeasure.conf")
-      val tsvConfig = (s"$sparkleConfigName.measure.tsv-gateway.file" -> spanFile)
+      val tsvConfig = (s"$sparkleConfigName.measure.tsv-gateway.directory" -> spanDirectory)
       ConfigUtil.modifiedConfig(rootConfig, tsvConfig)
     }
-    val spanFilePath = Paths.get(spanFile)
+    val spanDirectoryPath = Paths.get(spanDirectory)
 
     import scala.concurrent.ExecutionContext.Implicits.global
     val measurement = new ConfiguredMeasurements(overridenConfig)
     try {
-      fn(measurement, spanFilePath)
+      fn(measurement, spanDirectoryPath)
     } finally {
       measurement.close()
-      Files.deleteIfExists(spanFilePath)
+      FileUtil.cleanDirectory(spanDirectoryPath)
     }
   }
 
   def publishSpan()(implicit measurements: Measurements): String = {
     val name = "short-test"
-    val traceId = TraceId("foo") // TODO replace with RandomUtil.RandomAlphaNum
+    val traceId = TraceId(RandomUtil.randomAlphaNum(3))
     val span = Span.startNoParent(name, traceId)
     span.complete()
+    name
+  }
+
+  def publishGauge()(implicit measurements: Measurements): String = {
+    val name = "gauge-test"
+    val traceId = TraceId(RandomUtil.randomAlphaNum(3))
+    implicit val span = Span.prepareRoot(name, traceId)
+    Gauged[Long](name, 11)
     name
   }
 
@@ -54,11 +62,11 @@ class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
   }
 
   test("publish a span to a .tsv file") {
-    withMeasurements { (measurements, tsvFile) =>
+    withMeasurements { (measurements, directory) =>
       val spanName = publishSpan()(measurements)
       measurements.flush()
 
-      val lines = Files.readAllLines(tsvFile, UTF_8).asScala
+      val lines = Files.readAllLines(directory.resolve("spans.tsv"), UTF_8).asScala
       lines.length shouldBe 2
       lines.head shouldBe "name\ttraceId\ttime\tduration"
       val Array(name, traceIdString, timeString, durationString) = lines(1).split("\t")
@@ -69,7 +77,25 @@ class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
       timeToNow should be < 5.seconds.toMillis
       duration / (1000 * 1000) should be < 5.seconds.toMillis 
     }
+  }
 
+
+  test("publish a gauge to a .tsv file") {
+    withMeasurements { (measurements, directory) =>
+      val gaugeName = publishGauge()(measurements)
+      measurements.flush()
+
+      val lines = Files.readAllLines(directory.resolve("gauged.tsv"), UTF_8).asScala
+      lines.length shouldBe 2
+      lines.head shouldBe "name\ttraceId\ttime\tvalue"
+      val Array(name, traceIdString, timeString, valueString) = lines(1).split("\t")
+      name shouldBe gaugeName
+      val time = JLong.parseLong(timeString)
+      val value = JLong.parseLong(valueString)
+      val timeToNow = Math.abs(time / 1000L - System.currentTimeMillis())
+      timeToNow should be < 5.seconds.toMillis
+      value shouldBe 11
+    }
   }
 
 }
