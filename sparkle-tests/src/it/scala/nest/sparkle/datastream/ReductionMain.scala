@@ -1,5 +1,7 @@
 package nest.sparkle.datastream
 
+import scala.concurrent.forkjoin.ForkJoinPool
+import scala.collection.parallel.ForkJoinTaskSupport
 import scala.concurrent.duration._
 
 import akka.actor.Props
@@ -27,7 +29,7 @@ object ReductionMain extends SparkleApp {
 
   initialize()
 
-  val jig = new TestJig("reductionTest", warmups = 2, runs = 1, pause = true)
+  val jig = new TestJig("reductionTest", warmups = 0, runs = 1000, parallelism = 100, pause = false)
 
   runProtocolTest()
 //  runStreamOnlyTest()
@@ -59,7 +61,7 @@ object ReductionMain extends SparkleApp {
   }
 }
 
-class TestJig(name: String, warmups:Int = 2, runs:Int = 1, pause:Boolean = false)
+class TestJig(name: String, warmups:Int = 2, runs:Int = 1, parallelism:Int = 1, pause:Boolean = false)
              ( implicit measurements: Measurements) {
 
   def run[T]
@@ -76,8 +78,10 @@ class TestJig(name: String, warmups:Int = 2, runs:Int = 1, pause:Boolean = false
       println("continuing")
     }
 
+    val parallelRuns = (0 until runs).par
+    parallelRuns.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(parallelism))
     val result =
-      (0 until runs).map {_ =>
+      parallelRuns.map {_ =>
         implicit val span = Span.prepareRoot(name)
         Span("total").time {
           fn(span)
