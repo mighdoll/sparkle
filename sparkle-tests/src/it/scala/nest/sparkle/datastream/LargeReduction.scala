@@ -89,7 +89,7 @@ object LargeReduction extends StreamRequestor {
   /** Generate a DataStream of test data */
   def generateDataStream
       ( spacing:FiniteDuration = 30.seconds,
-        blockSize: Int = 1000,
+        blockSize: Int = 5000,
         start:String = "2013-01-01T00:00:00.000",
         until:String = "2014-01-01T00:00:00.000")
       ( implicit parentSpan:Span)

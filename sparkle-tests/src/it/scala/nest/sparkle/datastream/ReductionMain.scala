@@ -27,7 +27,7 @@ object ReductionMain extends SparkleApp {
 
   initialize()
 
-  val jig = new TestJig("reductionTest", warmups = 0, runs = 50, pause = false)
+  val jig = new TestJig("reductionTest", warmups = 0, runs = 20, pause = false)
 
   runProtocolTest()
 //  runStreamOnlyTest()
@@ -42,7 +42,7 @@ object ReductionMain extends SparkleApp {
     CassandraStoreFixture.withTestDb(sparkleConfig, "reduction_main") { testDb =>
       DataServiceFixture.withDataServiceFixture(rootConfig, testDb) { service =>
         val loadSpan = Span.prepareRoot("preload")
-        preloadStore(10.minutes, testColumnPath, service)(loadSpan, system.dispatcher)
+        preloadStore(30.seconds, testColumnPath, service)(loadSpan, system.dispatcher)
 
         jig.run {span =>
           byPeriodLocalProtocol("1 day", testColumnPath, service)(span).await(1.minute)
