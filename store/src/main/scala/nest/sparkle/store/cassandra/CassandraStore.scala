@@ -135,10 +135,8 @@ trait ConfiguredCassandra extends Log
   def config: Config
 
   private lazy val storeConfig = config.getConfig("sparkle-store-cassandra")
-  private lazy val contactHosts: Seq[String] = storeConfig
-    .getStringList("contact-hosts")
-    .asScala
-    .toSeq
+  private lazy val contactHosts: Seq[String] = storeConfig.getStringList("contact-hosts").asScala.toSeq
+  private lazy val dataCenters: Seq[String] = storeConfig.getStringList("data-centers").asScala.toSeq
   private lazy val storeKeySpace = storeConfig.getString("key-space").toLowerCase
   private lazy val replicationFactor = storeConfig.getInt("replication-factor")
   lazy val cassandraConsistency = CassandraConsistency(ConsistencyLevel.valueOf(storeConfig.getString("read-consistency-level")),
@@ -196,9 +194,10 @@ trait ConfiguredCassandra extends Log
 
   /** create a keyspace (db) in cassandra */
   private def createKeySpace(session: Session, keySpace: String): Unit = {
+    val dcInfo = dataCenters.map{ dataCenter => s"'$dataCenter' : $replicationFactor" }.mkString(", ")
     session.execute( s"""
         CREATE KEYSPACE $keySpace
-        with replication = {'class': 'SimpleStrategy', 'replication_factor': $replicationFactor}"""
+        with replication = {'class': 'NetworkTopologyStrategy', $dcInfo}"""
     )
     session.execute(s"USE $keySpace")
     format(session)

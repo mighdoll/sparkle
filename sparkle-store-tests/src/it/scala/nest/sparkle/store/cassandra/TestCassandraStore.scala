@@ -97,7 +97,9 @@ class TestCassandraStore
       val rows = resultRows.all.asScala
       rows.length shouldBe 1
       val strategy = rows(0).getString(0)
-      strategy shouldBe s"""  {"replication_factor":"$replicationFactor"}  """.trim
+      val dcInfo = sparkleConfig.getStringList("sparkle-store-cassandra.data-centers")
+        .asScala.toSeq.map{ dataCenter => s"""  "$dataCenter":"$replicationFactor"  """.trim }.mkString("{", ", ", "}")
+      strategy shouldBe dcInfo
     }
 
     // check expected tables exist
