@@ -44,7 +44,7 @@ object ConfigUtil {
       }
     val resourceConfigs = resources map ConfigFactory.parseResources
     val allConfigs:Seq[Config] = (fileConfigs ++ resourceConfigs :+ baseConfig)
-    val combined = allConfigs.reduceLeft{ (a,b) => b.withFallback(a) }
+    val combined = allConfigs.reduceLeft{ (a,b) => a.withFallback(b) }
     combined.resolve()
   }
 
