@@ -68,7 +68,7 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
     val prop = Prop.forAllNoShrink(threeParts(simpleEvents)) { parts =>
       testSumSimpleByHour(parts)
     }
-    val result = Test.check(prop)(_.withMinSuccessfulTests(20))
+    val result = Test.check(prop)(_.withMinSuccessfulTests(5))
     result.status shouldBe Passed
   }
     
