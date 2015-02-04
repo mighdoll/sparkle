@@ -257,7 +257,7 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     SparseColumnWriter.instance[T, U](
-      dataSetName, columnName, columnCatalog, dataSetCatalog, writeNotifier, preparedSession
+      dataSetName, columnName, columnCatalog, dataSetCatalog, writeNotifier, preparedSession, cassandraConsistency.write
     )
   }
 
@@ -299,6 +299,7 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
   def writeListener: WriteListener
 
   this.session
+
   // trigger creating connection, and create schemas if necessary 
   private lazy val preparedSession = PreparedSession(session, SparseColumnReaderStatements, cassandraConsistency.read)
 

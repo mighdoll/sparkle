@@ -17,7 +17,7 @@ package nest.sparkle.store.cassandra
 import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 
-import com.datastax.driver.core.{ BatchStatement, Session }
+import com.datastax.driver.core.{ConsistencyLevel, BatchStatement, Session}
 
 import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.{Event, ColumnUpdate, WriteNotifier}
@@ -39,10 +39,12 @@ object SparseColumnWriter
         catalog: ColumnCatalog, 
         dataSetCatalog: DataSetCatalog, 
         writeNotifier:WriteNotifier,
-        preparedSession: PreparedSession
+        preparedSession: PreparedSession,
+        consistencyLevel: ConsistencyLevel
       ): SparseColumnWriter[T,U] = { // format: ON
 
-    new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier, preparedSession)
+    new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier,
+      preparedSession, consistencyLevel)
   }
 
   /** constructor to create a SparseColumnWriter and update the store */
@@ -52,10 +54,12 @@ object SparseColumnWriter
         catalog: ColumnCatalog, 
         dataSetCatalog: DataSetCatalog, 
         writeNotifier:WriteNotifier,
-        preparedSession: PreparedSession
+        preparedSession: PreparedSession,
+        consistencyLevel: ConsistencyLevel
       )(implicit execution:ExecutionContext):Future[SparseColumnWriter[T,U]] = { // format: ON
 
-    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier, preparedSession)
+    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier,
+      preparedSession, consistencyLevel)
     writer.updateCatalog().map { _ => writer}
   }
 
@@ -106,7 +110,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     val dataSetName: String, val columnName: String,
     catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog, 
     writeNotifier:WriteNotifier, preparedSession: PreparedSession,
-    unloggedBatches: Boolean = true
+    consistencyLevel: ConsistencyLevel, unloggedBatches: Boolean = true
 )
   extends WriteableColumn[T, U] 
   with ColumnSupport 
@@ -171,6 +175,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       }
 
       val batch = new BatchStatement(batchType)
+      batch.setConsistencyLevel(consistencyLevel)
       val statements = insertGroup.toSeq.asJava
       batchSizeMetric.mark(statements.size)  // measure the size of batches to this table
       batch.addAll(statements)
@@ -220,6 +225,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       }
 
       val batch = new BatchStatement(batchType)
+      batch.setConsistencyLevel(consistencyLevel)
       val statements = insertGroup.toSeq.asJava
       batchSizeMetric.mark(statements.size)  // measure the size of batches to this table
       batch.addAll(statements)
