@@ -73,8 +73,10 @@ import scala.{ specialized => spec }
 
 
 
-/** a typeclass proxy for a stream of DataArrays. */
-// TODO this probably needs a Typetag for both key and value so that transorms can map on what they need
+/** a stream of DataArrays. The stream is divided into two sections, one
+  * designated the 'initial' part, followed by the 'ongoing' part. Typically
+  * the initial part completes with the data available in the database, and the ongoing
+  * part continues indefinitely as new data is fed into the database. */
 trait TwoPartStream[K, V, StreamImpl[_, _]] {
   me: StreamImpl[K, V] =>
     

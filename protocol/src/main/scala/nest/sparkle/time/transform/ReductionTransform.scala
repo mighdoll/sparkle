@@ -64,13 +64,13 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
   /** TODO refactor this into a generic reducer, not just sum */
   def reduceSum[K, V] // format: OFF
       ( groupSet: StreamGroupSet[K, V, AsyncWithRange], optPeriod:Option[PeriodWithZone] )
-      ( implicit execution: ExecutionContext, parentSpan: Span)
+      ( implicit execution: ExecutionContext, parentSpan: Span )
       : StreamGroupSet[K, Option[V], AsyncWithRange] = { // format: ON
 
     groupSet.mapStreams { stream =>
       implicit val keyType = stream.keyType
       implicit val valueType = stream.valueType
-      
+
       val reduced: Try[TwoPartStream[K, Option[V], AsyncWithRange]] = {
         for {
           numericValue <- RecoverNumeric.tryNumeric[V](valueType)

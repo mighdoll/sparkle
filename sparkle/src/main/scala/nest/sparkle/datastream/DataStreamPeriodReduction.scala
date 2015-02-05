@@ -33,12 +33,13 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     */
   def reduceByPeriod // format: OFF
   ( periodWithZone: PeriodWithZone,
+    range: SoftInterval[K],
     reduction: Reduction[V],
     maxPeriods: Int = defaultMaxPeriods)
   ( implicit numericKey: Numeric[K], parentSpan:Span )
   : DataStream[K, Option[V]] = { // format: ON
 
-    var state = new State(periodWithZone, reduction, maxPeriods)
+    var state = new State(periodWithZone, reduction, range, maxPeriods)
     val reduced = data.materialize.flatMap { notification =>
       notification match {
         case Notification.OnNext(dataArray) =>
@@ -68,7 +69,8 @@ trait DataStreamPeriodReduction[K,V] extends Log {
   /** Maintains the state while reducing a sequence of data arrays. The caller
     * should call processArray for each block, and then remaining when the sequence
     * is complete to fetch any partially reduced data. */
-  class State( periodWithZone: PeriodWithZone, reduction: Reduction[V], maxPeriods: Int)
+  class State( periodWithZone: PeriodWithZone, reduction: Reduction[V],
+               range:SoftInterval[K], maxPeriods: Int )
              ( implicit numericKey:Numeric[K] ) {
     var started = false
     var accumulationStarted = false
@@ -79,6 +81,11 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     private var periods: Iterator[JodaInterval] = null
     private val resultKeys = ArrayBuffer[K]()
     private val resultValues = ArrayBuffer[Option[V]]()
+
+    range.start.foreach{key =>
+      startAt(key)
+      toNextPeriod()
+    }
 
     /** walk through all of the elements in this DataArray block. As we go,
       * we'll advance the period iterator as necessary. Returns a data array
@@ -92,18 +99,13 @@ trait DataStreamPeriodReduction[K,V] extends Log {
         takeCompleted()
       }
 
-      def start(): Option[DataArray[K, Option[V]]] = {
-        started = true
-        periods = PeriodGroups.jodaIntervals(periodWithZone, dataArray.keys.head)
-        toNextPeriod() match {
-          case true  => processPairs()
-          case false => None
-        }
-      }
-
      if (!dataArray.isEmpty) {
         if (!started) {
-          start()
+          startAt(dataArray.keys.head)
+          toNextPeriod() match {
+            case true  => processPairs()
+            case false => None
+          }
         } else {
           processPairs()
         }
@@ -122,7 +124,19 @@ trait DataStreamPeriodReduction[K,V] extends Log {
         // for now, we're done anyway, so ok to pretend this partial value is complete
         emit(Some(currentTotal))
       }
+      range.until.foreach { until =>
+        var done = false
+        while (periodEnd < until && !done) {
+          done = !toNextPeriod()
+          emit(None)
+        }
+      }
       takeCompleted()
+    }
+
+    private def startAt(key: K): Unit = {
+      started = true
+      periods = PeriodGroups.jodaIntervals(periodWithZone, key)
     }
 
     /** optionally return a data array containing the reduced total for each time period. */
@@ -140,10 +154,24 @@ trait DataStreamPeriodReduction[K,V] extends Log {
 
     /** advance period iteration to the next time period */
     private def toNextPeriod(): Boolean = {
+//      def pastDefinedEnd():Boolean = {
+//        optEnd match {
+//          case None => false
+//          case Some(end) if (end)
+//        }
+//      }
+
+      def clipToRequestedEnd(proposedEnd:K):K = {
+        range.until match {
+          case Some(until) if until < proposedEnd => until
+          case _ => proposedEnd
+        }
+      }
+
       if (periods.hasNext && periodsUsed < maxPeriods) {
         val interval = periods.next()
         periodStart = numericKey.fromLong(interval.getStartMillis)
-        periodEnd = numericKey.fromLong(interval.getEndMillis)
+        periodEnd = clipToRequestedEnd(numericKey.fromLong(interval.getEndMillis))
         periodsUsed += 1
         true
       } else {
@@ -194,8 +222,8 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       assert(key >= periodEnd)  // we're only called if the key is ahead of the period
       var done = false
       while (!done) {
-        val optionalValue = finishAccumulation()
-        emit(optionalValue)
+        val value = finishAccumulation()
+        emit(value)
         val nextPeriodExists = toNextPeriod()
         if (!nextPeriodExists || key < periodEnd) {
           done = true
