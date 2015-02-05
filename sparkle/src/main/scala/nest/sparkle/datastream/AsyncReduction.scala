@@ -23,7 +23,8 @@ trait AsyncReduction[K,V] extends Log {
     */
   def reduceByOptionalPeriod // format: OFF
       ( optPeriod:Option[PeriodWithZone], 
-        reduction: Reduction[V])
+        reduction: Reduction[V],
+        maxParts: Int )
       ( implicit execution: ExecutionContext, parentSpan:Span )
       : TwoPartStream[K, Option[V], AsyncWithRange] = { // format: ON 
 
@@ -35,7 +36,7 @@ trait AsyncReduction[K,V] extends Log {
         //partByPeriod(periodWithZone, rangeInterval)
         ???
       case (Some(periodWithZone), None) =>
-        reduceByPeriod(periodWithZone, reduction)
+        reduceByPeriod(periodWithZone, reduction, maxParts = maxParts)
       case (None, Some(rangeInterval)) =>
         // partition everything in one partition
         // use the range start as the group key
@@ -56,17 +57,18 @@ trait AsyncReduction[K,V] extends Log {
   def reduceByPeriod // format: OFF
       ( periodWithZone: PeriodWithZone,
         reduction: Reduction[V],
-        bufferOngoing: FiniteDuration = 5.seconds )
+        bufferOngoing: FiniteDuration = 5.seconds,
+        maxParts: Int )
       ( implicit parentSpan:Span )
       : TwoPartStream[K, Option[V], AsyncWithRange] = { // format: ON
 
     RecoverNumeric.tryNumeric[K](keyType) match {
       case Success(numericKey) =>
         implicit val _ = numericKey
-        val reducedInitial = self.initial.reduceByPeriod(periodWithZone, reduction)
+        val reducedInitial = self.initial.reduceByPeriod(periodWithZone, reduction, maxParts)
         val reducedOngoing = 
           self.ongoing.tumblingReduce(bufferOngoing) { buffer =>
-            buffer.reduceByPeriod(periodWithZone, reduction)
+            buffer.reduceByPeriod(periodWithZone, reduction, maxParts)
           }
         AsyncWithRange(reducedInitial, reducedOngoing, self.requestRange)
       case Failure(err) => AsyncWithRange.error(err, self.requestRange)

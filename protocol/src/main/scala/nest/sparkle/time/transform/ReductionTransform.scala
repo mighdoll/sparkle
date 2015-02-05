@@ -77,7 +77,7 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
           sum = ReduceSum[V]()(numericValue)
         } yield {
           // TODO support reduceByCount too (supported by the existing reductions)
-          stream.self.reduceByOptionalPeriod(optPeriod, sum)
+          stream.self.reduceByOptionalPeriod(optPeriod, sum, maxParts)
         }
       }
       

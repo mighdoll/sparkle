@@ -18,6 +18,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
   implicit def keyTypeTag_ = keyTypeTag
   implicit def valueTypeTag_ = valueTypeTag
 
+  val defaultMaxPeriods = 1000
   /** Reduce an Observable of DataArrays into a smaller Observable by dividing
     * the pair data into partitions based on joda time period, and reducing
     * each partition's pair data with a supplied reduction function. The keys
@@ -27,14 +28,17 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     * for partitions that contain no pair data.
     *
     * Note that the key data is intepreted as epoch milliseconds. LATER make this configurable.
+    *
+    * @param maxPeriods reduce into at most this many time periods
     */
   def reduceByPeriod // format: OFF
   ( periodWithZone: PeriodWithZone,
-    reduction: Reduction[V] )
+    reduction: Reduction[V],
+    maxPeriods: Int = defaultMaxPeriods)
   ( implicit numericKey: Numeric[K], parentSpan:Span )
   : DataStream[K, Option[V]] = { // format: ON
 
-    var state = new State(periodWithZone, reduction)
+    var state = new State(periodWithZone, reduction, maxPeriods)
     val reduced = data.materialize.flatMap { notification =>
       notification match {
         case Notification.OnNext(dataArray) =>
@@ -53,7 +57,6 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     new DataStream(reduced)
   }
 
-  val maxPeriods = 1000 // TODO get from config
 //  private def reduceByPeriods( periods: Iterator[JodaInterval], reduction:Reduction[V] )
 //    : DataStream[K, Option[V]] = {
 //    val availablePeriods = periods.take(maxPeriods)
@@ -65,7 +68,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
   /** Maintains the state while reducing a sequence of data arrays. The caller
     * should call processArray for each block, and then remaining when the sequence
     * is complete to fetch any partially reduced data. */
-  class State( periodWithZone: PeriodWithZone, reduction: Reduction[V] )
+  class State( periodWithZone: PeriodWithZone, reduction: Reduction[V], maxPeriods: Int)
              ( implicit numericKey:Numeric[K] ) {
     var started = false
     var accumulationStarted = false
