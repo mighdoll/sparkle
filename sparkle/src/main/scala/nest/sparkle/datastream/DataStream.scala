@@ -29,15 +29,16 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
     * is the first key of original stream.
     */
   def reduceToOnePart
-      ( reduction: Reduction[V] )
+      ( reduction: Reduction[V], reduceKey:Option[K] = None)
       ( implicit parentSpan:Span )
       : DataStream[K, Option[V]] = {
 
     val reducedBlocks:Observable[(K, Option[V])] =
       data.filter(!_.isEmpty).map { pairs =>
         Span("reduceBlock").time {
-          val optValue = pairs.valuesReduceLeftOption(reduction.plus)
-          (pairs.keys(0), optValue)
+          val optValue = pairs.values.reduceLeftOption(reduction.plus)
+          val key = reduceKey.getOrElse(pairs.keys(0))
+          (key, optValue)
         }
       }
     

@@ -36,7 +36,8 @@ class TestReductions extends FunSuite with Matchers
 
       val data = longDoubleData(response)
       data.length shouldBe 3
-      val Seq(keys, values) = data
+      val keys = data.map { case (key, _) => key}
+      val values = data.map { case (_, value) => value}
       keys shouldBe Seq(
         "2014-12-01T00:00:00.000Z".toMillis,
         "2014-12-01T01:00:00.000Z".toMillis,
@@ -80,4 +81,28 @@ class TestReductions extends FunSuite with Matchers
 
     }
   }
+
+  test("sum a few elements with a specified start and no period") {
+    withLoadedFile("simple-events.csv") { (store, system) =>
+      val service = new TestServiceWithCassandra(store, system)
+      val start = "2014-12-01T01:11:00.000Z".toMillis
+      val until = "2014-12-01T04:00:00.000Z".toMillis
+      val message = stringRequest("simple-events/seconds", "reduceSum",
+        s"""{ "ranges": [ {
+           |    "start": $start,
+           |    "until": $until
+           |   } ]
+           |} """.stripMargin)
+      val response = service.sendDataMessage(message, 1.hour).await
+
+      val data = longDoubleData(response)
+      data.length shouldBe 1
+      data.head match {
+        case (key, value) =>
+          key shouldBe "2014-12-01T01:11:00.000Z".toMillis
+          value shouldBe Some(2)
+      }
+    }
+  }
+
 }

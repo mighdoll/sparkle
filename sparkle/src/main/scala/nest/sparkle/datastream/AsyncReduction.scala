@@ -33,9 +33,7 @@ trait AsyncReduction[K,V] extends Log {
       case (Some(periodWithZone), _) =>
         reduceByPeriod(periodWithZone, reduction, maxParts = maxParts)
       case (None, Some(rangeInterval)) =>
-        // partition everything in one partition
-        // use the range start as the group key
-        ???
+        reduceToOnePart(reduction, rangeInterval.start)
       case (None, None) =>
         reduceToOnePart(reduction)
     }
@@ -75,12 +73,12 @@ trait AsyncReduction[K,V] extends Log {
     * stream to a single value every 5 seconds.
     */
   def reduceToOnePart // format: OFF
-        ( reduction: Reduction[V],
+        ( reduction: Reduction[V], reduceKey: Option[K] = None,
           bufferOngoing: FiniteDuration = 5.seconds )
         ( implicit parentSpan: Span)
         : AsyncWithRange[K, Option[V]] = { // format: ON
 
-    val initialReduced = initial.reduceToOnePart(reduction)
+    val initialReduced = initial.reduceToOnePart(reduction, reduceKey)
 
     val ongoingReduced = 
       ongoing.tumblingReduce(bufferOngoing) {
