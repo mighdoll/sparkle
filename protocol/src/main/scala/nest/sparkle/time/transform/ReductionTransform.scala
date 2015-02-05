@@ -40,7 +40,7 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
         keyType, keyJsonFormat, keyOrdering, reductionParameters, periodSize
         ) <- validator.validate[Any](futureGroups, transformParameters)
       data <- fetchData[Any, Any](futureGroups, reductionParameters.ranges, None, Some(span))
-      reduced = reduceSum(data, periodSize)
+      reduced = reduceSum(data, reductionParameters.partByCount, periodSize)
     } yield {
       
       // TODO remove temporary debugging code after the other reductions are implemented
@@ -63,7 +63,8 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
 
   /** TODO refactor this into a generic reducer, not just sum */
   def reduceSum[K, V] // format: OFF
-      ( groupSet: StreamGroupSet[K, V, AsyncWithRange], optPeriod:Option[PeriodWithZone] )
+      ( groupSet: StreamGroupSet[K, V, AsyncWithRange], optCount:Option[Int],
+        optPeriod:Option[PeriodWithZone] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
       : StreamGroupSet[K, Option[V], AsyncWithRange] = { // format: ON
 
@@ -77,7 +78,7 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
           sum = ReduceSum[V]()(numericValue)
         } yield {
           // TODO support reduceByCount too (supported by the existing reductions)
-          stream.self.reduceByOptionalPeriod(optPeriod, sum, maxParts)
+          stream.self.flexibleReduce(optPeriod, optCount, sum, maxParts)
         }
       }
       

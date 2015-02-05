@@ -29,6 +29,7 @@ import nest.sparkle.util.TryToFuture.FutureTry
       columnGroups <- futureGroups
       (keyType, keyJson, keyOrdering) <- recoverKeyTypes[K](columnGroups).toFuture
       reductionParameters <- parseParameters(transformParameters)(keyJson).toFuture
+    // TODO handle partByCount case here too
       periodSize <- summaryPeriod(reductionParameters.partBySize, reductionParameters.timeZoneId).toFuture
     } yield {
       ValidReductionParameters(keyType, keyJson, keyOrdering, reductionParameters, periodSize)

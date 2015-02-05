@@ -58,14 +58,6 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     new DataStream(reduced)
   }
 
-//  private def reduceByPeriods( periods: Iterator[JodaInterval], reduction:Reduction[V] )
-//    : DataStream[K, Option[V]] = {
-//    val availablePeriods = periods.take(maxPeriods)
-//    val observablePeriods = Observable.from(availablePeriods.toIterable)
-//    observablePeriods.flatMap { period =>
-//    }
-//  }
-
   /** Maintains the state while reducing a sequence of data arrays. The caller
     * should call processArray for each block, and then remaining when the sequence
     * is complete to fetch any partially reduced data. */
@@ -134,6 +126,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       takeCompleted()
     }
 
+    /** initialize time period iterator */
     private def startAt(key: K): Unit = {
       started = true
       periods = PeriodGroups.jodaIntervals(periodWithZone, key)

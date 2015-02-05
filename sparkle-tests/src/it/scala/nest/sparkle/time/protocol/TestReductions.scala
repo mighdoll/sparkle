@@ -32,7 +32,7 @@ class TestReductions extends FunSuite with Matchers
       val service = new TestServiceWithCassandra(store, system)
       val message = stringRequest("simple-events/seconds", "reduceSum",
         """{ "partBySize" : "1 hour" } """)
-      val response = service.sendDataMessage(message, 1.hour).await
+      val response = service.sendDataMessage(message).await
 
       val data = longDoubleData(response)
       data.length shouldBe 3
@@ -63,7 +63,7 @@ class TestReductions extends FunSuite with Matchers
            |    "until": $until
            |   } ]
            |} """.stripMargin)
-      val response = service.sendDataMessage(message, 1.hour).await
+      val response = service.sendDataMessage(message).await
 
       val data = longDoubleData(response)
       val keys = data.map { case (key, _) => key}
@@ -93,7 +93,7 @@ class TestReductions extends FunSuite with Matchers
            |    "until": $until
            |   } ]
            |} """.stripMargin)
-      val response = service.sendDataMessage(message, 1.hour).await
+      val response = service.sendDataMessage(message).await
 
       val data = longDoubleData(response)
       data.length shouldBe 1
@@ -103,6 +103,58 @@ class TestReductions extends FunSuite with Matchers
           value shouldBe Some(2)
       }
     }
+  }
+
+  def testSimpleByCount(count:Int, expectedKeys:Seq[String], expectedValues:Seq[Option[Double]]): Unit = {
+    withLoadedFile("simple-events.csv") { (store, system) =>
+      val service = new TestServiceWithCassandra(store, system)
+      val message = stringRequest("simple-events/seconds", "reduceSum",
+        s"""{ "partByCount" : $count } """)
+      val response = service.sendDataMessage(message).await
+
+      val data = longDoubleData(response)
+      data.length shouldBe expectedKeys.length
+      val keys = data.map { case (key, _) => key}
+      val values = data.map { case (_, value) => value}
+
+      val expectedMillis = expectedKeys.map(_.toMillis)
+
+      keys shouldBe expectedMillis
+      values shouldBe expectedValues
+    }
+
+  }
+
+  test("sum five elements, count = 6") {
+    testSimpleByCount(
+      count = 6,
+      expectedKeys = Seq("2014-12-01T00:00:00.000"),
+      expectedValues = Seq(Some(10))
+    )
+  }
+
+  test("sum five elements, count = 5") {
+    testSimpleByCount(
+      count = 5,
+      expectedKeys = Seq("2014-12-01T00:00:00.000"),
+      expectedValues = Seq(Some(10))
+    )
+  }
+
+  test("sum five elements, count = 2") {
+    testSimpleByCount(
+      count = 2,
+      expectedKeys = Seq(
+        "2014-12-01T00:00:00.000",
+        "2014-12-01T00:40:00.000",
+        "2014-12-01T02:00:00.000"
+      ),
+      expectedValues = Seq(
+        Some(4),
+        Some(4),
+        Some(2)
+      )
+    )
   }
 
 }
