@@ -1,16 +1,18 @@
 package nest.sparkle.time.transform
 
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
-import scala.reflect.runtime.universe
 import scala.util.{Failure, Success, Try}
+import scala.reflect.runtime.universe._
+
 import com.typesafe.config.Config
 import spray.json.JsObject
 import nest.sparkle.measure.{Measurements, Span, TraceId}
 import nest.sparkle.time.protocol.{JsonDataStream, JsonEventWriter, KeyValueType}
 import nest.sparkle.time.transform.FetchStreams.fetchData
 import nest.sparkle.util.{Log, PeriodWithZone, RecoverNumeric}
-import nest.sparkle.datastream.{AsyncWithRange, TwoPartStream, ReduceSum, StreamGroupSet}
+import nest.sparkle.datastream._
 
 /** support protocol "transform" field matching for the reduction transforms */ 
 case class ReductionTransform(rootConfig: Config)(implicit measurements: Measurements) extends TransformMatcher {
@@ -37,10 +39,10 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
 
     for {
       ValidReductionParameters(
-        keyType, keyJsonFormat, keyOrdering, reductionParameters, periodSize
+        keyType, keyJsonFormat, keyOrdering, reductionParameters, periodSize, ongoingDuration
         ) <- validator.validate[Any](futureGroups, transformParameters)
       data <- fetchData[Any, Any](futureGroups, reductionParameters.ranges, None, Some(span))
-      reduced = reduceSum(data, reductionParameters.partByCount, periodSize)
+      reduced = reduceSum(data, reductionParameters.partByCount, periodSize, ongoingDuration)
     } yield {
       
       // TODO remove temporary debugging code after the other reductions are implemented
@@ -61,10 +63,83 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
     }
   }
 
+  case class ReduceTransform(rootConfig: Config, produceReduction: TypeTag[_] => Try[Reduction[_]])
+                            (implicit measurements: Measurements)
+    extends MultiTransform with Log {
+
+    private val validator = ValidateReductionParameters()
+
+    override def transform  // format: OFF
+        ( futureGroups:Future[Seq[ColumnGroup]], transformParameters: JsObject)
+        ( implicit execution: ExecutionContext, traceId:TraceId)
+        : Future[Seq[JsonDataStream]] = { // format: ON
+    implicit val span = Span.prepareRoot("Sum", traceId).start()
+
+      for {
+        ValidReductionParameters(
+        keyType, keyJsonFormat, keyOrdering, reductionParameters, periodSize, ongoingDuration
+        ) <- validator.validate[Any](futureGroups, transformParameters)
+        data <- fetchData[Any, Any](futureGroups, reductionParameters.ranges, None, Some(span))
+        reduced = reduceSum(data, reductionParameters.partByCount, periodSize, ongoingDuration)
+      } yield {
+
+        // TODO remove temporary debugging code after the other reductions are implemented
+        //      val debugPrinted = reduced.mapStreams { stream =>
+        //        stream.doOnEach { pairs =>
+        //          pairs.foreachPair { (key, value) => println(s"SumTransform: $key:$value") }
+        //        }
+        //      }
+
+        reduced.allStreams.map { stream =>
+          val json = JsonEventWriter.fromDataStream(stream, span)
+          val jsonSeq = json.map(_.toVector) // LATER switch to array for a bit of extra perf
+          JsonDataStream(
+            dataStream = jsonSeq,
+            streamType = KeyValueType
+          )
+        }
+      }
+    }
+
+
+    // def numericValueReduction[K,V](reduction:Numeric[V]=>Reduction[V])
+  def reduceSum2 =
+
+
+  /** Perform a reduce operation on all the streams in a group set.
+    */
+  def reduceOperation[K, V] // format: OFF
+      ( makeReduction: TypeTag[_] => Try[Reduction[V]],
+        groupSet: StreamGroupSet[K, V, AsyncWithRange],
+        optCount: Option[Int],
+        optPeriod: Option[PeriodWithZone],
+        ongoingDuration: Option[FiniteDuration] )
+      ( implicit execution: ExecutionContext, parentSpan: Span )
+      : StreamGroupSet[K, Option[V], AsyncWithRange] = { // format: ON
+
+    groupSet.mapStreams { stream =>
+      implicit val keyType = stream.keyType
+      implicit val valueType = stream.valueType
+
+      val reduced: Try[TwoPartStream[K, Option[V], AsyncWithRange]] = {
+        for {
+          reduction <- makeReduction(valueType)
+        } yield {
+          stream.self.flexibleReduce(optPeriod, optCount, reduction, maxParts, ongoingDuration)
+        }
+      }
+
+      reduced match {
+        case Success(reducedStream) => reducedStream
+        case Failure(err) => AsyncWithRange.error[K, Option[V]](err, stream.self.requestRange)
+      }
+    }
+  }
+
   /** TODO refactor this into a generic reducer, not just sum */
   def reduceSum[K, V] // format: OFF
       ( groupSet: StreamGroupSet[K, V, AsyncWithRange], optCount:Option[Int],
-        optPeriod:Option[PeriodWithZone] )
+        optPeriod:Option[PeriodWithZone], ongoingDuration:Option[FiniteDuration] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
       : StreamGroupSet[K, Option[V], AsyncWithRange] = { // format: ON
 
@@ -77,8 +152,7 @@ case class SumTransform(rootConfig: Config)(implicit measurements: Measurements)
           numericValue <- RecoverNumeric.tryNumeric[V](valueType)
           sum = ReduceSum[V]()(numericValue)
         } yield {
-          // TODO support reduceByCount too (supported by the existing reductions)
-          stream.self.flexibleReduce(optPeriod, optCount, sum, maxParts)
+          stream.self.flexibleReduce(optPeriod, optCount, sum, maxParts, ongoingDuration)
         }
       }
       

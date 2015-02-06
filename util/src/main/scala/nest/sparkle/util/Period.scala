@@ -8,6 +8,8 @@ import org.joda.time.{Period => JodaPeriod}
 
 case class PeriodWithZone(period:Period, dateTimeZone: DateTimeZone)
 
+case class PeriodParseException(message:String) extends RuntimeException(message)
+
 /** A period that supports rounding date times to the same resolution, and converting to JodaPeriod */
 case class Period(value: Int, durationType: DurationFieldType) {
 
@@ -41,6 +43,13 @@ case class Period(value: Int, durationType: DurationFieldType) {
       case `years`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withMonth(1)
       case _         => ???
     }
+  }
+
+  private def epochZero = new DateTime(0L)
+  /** length of this period w/o timezone considerations */
+  def utcMillis:Long = {
+    val end = epochZero + toJoda
+    end.getMillis
   }
 }
 

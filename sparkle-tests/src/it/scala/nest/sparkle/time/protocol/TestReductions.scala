@@ -16,7 +16,7 @@ class TestReductions extends FunSuite with Matchers
     withLoadedFile("simple-events.csv") { (store, system) =>
       val service = new TestServiceWithCassandra(store, system)
       val message = stringRequest("simple-events/seconds", "reduceSum")
-      val response = service.sendDataMessage(message, 1.hour).await
+      val response = service.sendDataMessage(message).await
       val data = longDoubleData(response)
       data.length shouldBe 1
       data.head match {
@@ -122,7 +122,6 @@ class TestReductions extends FunSuite with Matchers
       keys shouldBe expectedMillis
       values shouldBe expectedValues
     }
-
   }
 
   test("sum five elements, count = 6") {

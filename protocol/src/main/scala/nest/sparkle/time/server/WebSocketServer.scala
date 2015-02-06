@@ -34,7 +34,7 @@ class WebSocketServer(rootConfig:Config) extends Log {
           sendToSubscribers(message)
       }
     }
-    unfiltered.netty.Http(port)
+    unfiltered.netty.Server.http(port)
       .handler(plan)
   }
   

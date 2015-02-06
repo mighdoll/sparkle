@@ -1,11 +1,9 @@
 package nest.sparkle.datastream
 
-import scala.reflect.{ ClassTag, classTag }
-import scala.{ specialized => spec }
 import scala.collection.IndexedSeqLike
-import scala.collection.mutable.Builder
 import scala.collection.generic.CanBuildFrom
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.Builder
+import scala.reflect.ClassTag
 
 object DataArray {
   /** return an DataArray with a single key,value pair */

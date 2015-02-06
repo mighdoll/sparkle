@@ -185,7 +185,8 @@ object SparkleBuild extends Build {
       .settings(BackgroundService.settings: _*)
       .settings(
         libraryDependencies ++= logbackTest ++ spray ++ Seq(
-          metricsGraphite
+          metricsGraphite,
+          IT.tubeSocks
         ),
         dependenciesToStart := Seq(cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value

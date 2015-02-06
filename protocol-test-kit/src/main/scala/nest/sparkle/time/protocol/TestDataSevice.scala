@@ -38,6 +38,7 @@ import nest.sparkle.time.server.DataService
 import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
+import nest.sparkle.time.protocol.ResponseJson.UpdateMessageFormat
 
 // TODO rename to not prefix with Test
 trait TestDataService extends DataServiceFixture with SparkleTestConfig {
@@ -114,17 +115,17 @@ object TestDataService {
     }
   }
   
-  def longDoubleData(response:HttpResponse):Seq[(Long,Option[Double])] = {
-    singleArrayFromStreamsResponse[Long,Option[Double]](response)
+  def longDoubleData(response:HttpResponse): Seq[(Long, Option[Double])] = {
+    singleArrayFromStreamsResponse[Long, Option[Double]](response)
   }
 
-  def longLongData(response:HttpResponse):Seq[(Long,Option[Long])] = {
-    singleArrayFromStreamsResponse[Long,Option[Long]](response)
+  def longLongData(response:HttpResponse): Seq[(Long, Option[Long])] = {
+    singleArrayFromStreamsResponse[Long, Option[Long]](response)
   }
 
-  def singleArrayFromStreamsResponse[K:JsonFormat, V:JsonFormat] // format: OFF
+  def singleArrayFromStreamsResponse[K: JsonFormat, V: JsonFormat] // format: OFF
       (response: HttpResponse)
-      : Seq[(K,V)] = {
+      : Seq[(K,V)] = { // format: ON
     val jsData = streamDataJson(response)
     for {
       seqArray <- jsData.headOption.toVector
@@ -150,6 +151,29 @@ object TestDataService {
         stream.data.get
       }
     datas
+  }
+
+  /** returns long double data from only the first stream contained in a Streams message */
+  def longDoubleFromStreams(message: String): Seq[(Long, Option[Double])] = {
+    val jsonStream = dataFromStreams(message).head
+    jsonStream.map{ _.convertTo[(Long, Option[Double])]}
+  }
+
+  def longDoubleFromUpdate(message: String): Seq[(Long, Option[Double])] = {
+    val jsonStream = dataFromUpdate(message)
+    jsonStream.map{ _.convertTo[(Long, Option[Double])]}
+  }
+
+  def dataFromStreams(message:String): Seq[Seq[JsArray]] = {
+    val jsonMessage = message.asJson
+    val streamsMessage = jsonMessage.convertTo[StreamsMessage]
+    streamsMessage.message.streams.map { stream => stream.data.get}
+  }
+
+  def dataFromUpdate(message:String): Seq[JsArray] = {
+    val jsonMessage = message.asJson
+    val updateMessage = jsonMessage.convertTo[UpdateMessage]
+    updateMessage.message.data.get
   }
 
   def printMillisEvents[T](events: Seq[Event[Long, T]]) {

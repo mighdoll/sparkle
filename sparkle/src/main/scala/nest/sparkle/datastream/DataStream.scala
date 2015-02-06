@@ -1,21 +1,17 @@
 package nest.sparkle.datastream
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
-import scala.reflect.ClassTag
+import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.runtime.universe._
 
-import org.joda.time.{Interval => JodaInterval}
 import rx.lang.scala.{Notification, Observable}
-import spire.implicits._
-import spire.math.Numeric
 
 import nest.sparkle.measure.Span
-import nest.sparkle.util.{Log, PeekableIterator, PeriodWithZone, ReflectionUtil}
+import nest.sparkle.util.ObservableUtil.reduceSafe
+import nest.sparkle.util.ReflectionUtil
 
 /** Functions for reducing an Observable of array pairs to smaller DataArrays
   */
-// LATER move these to methods on an object that wraps Observable[DataArray[K,V]]. PairStream?
 case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
     extends DataStreamPeriodReduction[K,V] {
 
@@ -24,9 +20,11 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
   def keyTypeTag = typeTag[K]
   def valueTypeTag = typeTag[V]
 
-  /** Reduce the array pair array to a single pair. A reduction function is applied
-    * to reduce the pair values to a single value. The key of the returned pair
-    * is the first key of original stream.
+  /** Reduce the entire stream of key,value pairs to a single pair. The returned value
+    * is produced by a reduction function over the values and is wrapped in a Some
+    * for consistency with other reductions. The key of the returned pair
+    * is the optionally provided reduceKey, or the first key of original stream if
+    * no reduceKey is provided.
     */
   def reduceToOnePart
       ( reduction: Reduction[V], reduceKey:Option[K] = None)
@@ -38,23 +36,25 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
         Span("reduceBlock").time {
           val optValue = pairs.values.reduceLeftOption(reduction.plus)
           val key = reduceKey.getOrElse(pairs.keys(0))
-          (key, optValue)
+          key -> optValue
         }
       }
-    
+
+    // combine the reduced block values into a single value
     val reducedTuple =
-      reducedBlocks.reduce { (total, next) =>
-        val (key, totalValue) = total
-        val (_, newValue) = next
-        val newTotal = reduceOption(totalValue, newValue, reduction)
-        (key, newTotal)
+      reduceSafe(reducedBlocks){ (totalPair, nextPair) =>
+        val (oldKey, optOldValue) = totalPair
+        val (newKey, optNewValue) = nextPair
+
+        oldKey -> reduceOption(optOldValue, optNewValue, reduction)
       }
     
     val reducedArray = reducedTuple.map { case (key, total) => DataArray.single(key, total) }
     DataStream(reducedArray)
   }
 
-  object ToPartsState {
+  /** support functions for ToPartsState */
+  private object ToPartsState {
     def apply():ToPartsState = ToPartsState(Vector[K](), Vector[V]())
     def apply(pairs:Vector[(K,V)]):ToPartsState = {
       val keys = pairs.map { case (key, value) => key }
@@ -69,15 +69,15 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
       (key, value)
     }
   }
-
   import ToPartsState.reduceGroup
 
-  case class ToPartsState( resultKeys:Vector[K],
-                           resultValues:Vector[V],
-                           currentCount:Int = 0,
-                           currentKey: Option[K] = None,
-                           currentTotal: Option[V] = None
-                           ) {
+  /** interim state for reducing by element count */
+  private case class ToPartsState(resultKeys: Vector[K],
+                                  resultValues: Vector[V],
+                                  currentCount: Int = 0,
+                                  currentKey: Option[K] = None,
+                                  currentTotal: Option[V] = None) {
+
     def withCurrentZero:ToPartsState = ToPartsState(resultKeys, resultValues)
 
     def mergeGroup(group:Seq[(K,V)], reduction:Reduction[V]): ToPartsState = {
@@ -105,7 +105,7 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
 
   /** reduce a stream into count parts */
   def reduceToParts
-      ( count: Int, reduction: Reduction[V])
+      ( count: Int, reduction: Reduction[V] )
       ( implicit parentSpan:Span )
       : DataStream[K, V] = {
 
@@ -188,22 +188,57 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
     }
   }
 
-  /** apply a reduction function to a time-window of of array pairs */
-  // TODO progagate ToPartsState between each buffer, so the reduction can use data from multiple buffers
-  def tumblingReduce // format: OFF
-      ( bufferOngoing: FiniteDuration )
-      ( reduceFn: DataStream[K, V] => DataStream[K, Option[V]] )
+  /** apply a reduction function to a time-window of array blocks */
+  def tumblingReduce[S] // format: OFF
+      ( bufferOngoing: FiniteDuration,
+        initialState: Future[Option[S]] = Future.successful(None) )
+      ( reduceFn: (DataStream[K, V], Option[S]) => ReductionResult[K,V,S] )
+      ( implicit executionContext: ExecutionContext)
       : DataStream[K, Option[V]] = { // format: ON
 
-    val reducedStream = 
-      for {
-        buffer <- data.tumbling(bufferOngoing)
-        reduced <- reduceFn(DataStream(buffer)).data
-        nonEmptyReduced <- if (reduced.isEmpty) Observable.empty else Observable.from(Seq(reduced))
-      } yield {
-        nonEmptyReduced
+    val reductionResults:Observable[Future[Option[ReductionResult[K,V,S]]]] = {
+      val windows = data.tumbling(bufferOngoing)
+
+      val initialPrevious:Future[Option[ReductionResult[K,V,S]]] =
+        initialState.map { oldState =>
+          val oldResult = ReductionResult.stateOnly[K, V, S](oldState)
+          Some(oldResult)
+        }
+
+      windows.scan(initialPrevious){ (futurePrevious, window) =>
+
+        val previousState:Future[Option[S]] =
+          futurePrevious.flatMap { optPrevious =>
+            optPrevious match {
+              case Some(reductionResult) => reductionResult.finishState
+              case None                  => Future.successful(None)
+            }
+          }
+
+        val futureOptResult: Future[Option[ReductionResult[K,V,S]]] =
+          previousState.map { optPrevState =>
+            val result = reduceFn(DataStream(window), optPrevState)
+            Some(result)
+          }
+
+        futureOptResult
       }
-      
+    }
+
+    val reducedStream =
+      for {
+        futureOptResults <- reductionResults
+        optResults <- Observable.from(futureOptResults)
+        if optResults.isDefined
+        results = optResults.get
+        arrays <- results.reducedStream.data.toVector
+        if arrays.nonEmpty
+      } yield {
+        // combine so we get one array from each time window
+        val combined = arrays.reduceLeftOption{ (a,b) => a ++ b }
+        combined.getOrElse(DataArray.empty[K, Option[V]])
+      }
+
     new DataStream(reducedStream)
   }
 
@@ -212,3 +247,4 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
 object DataStream {
   def empty[K:TypeTag, V:TypeTag] = DataStream[K,V](Observable.empty)
 }
+

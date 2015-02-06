@@ -21,4 +21,22 @@ object ObservableUtil {
     (head, tail)
   }
 
+  /** like Observable.reduce, but returns an empty observable when passed an empty observable
+    * instead of throwing */
+  def reduceSafe[T](observable:Observable[T])(fn: (T, T) => T):Observable[T] = {
+    val opts = observable.map(Some(_)) :+ None
+    val reducedOpts =
+      opts.reduce { (optA, optB) =>
+        (optA, optB) match {
+          case (Some(a), Some(b)) => Some(fn(a, b))
+          case (Some(a), None) => Some(a)
+          case (None, Some(b)) => Some(b)
+          case (None, None) => None
+        }
+      }
+
+    reducedOpts.flatMap { option => Observable.from(option)}
+  }
+
+
 }

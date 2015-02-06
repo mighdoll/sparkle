@@ -21,7 +21,7 @@ import scala.util.Success
 import akka.actor._
 import com.typesafe.config.Config
 import nest.sparkle.loader.FilesLoader
-import nest.sparkle.store.{ColumnUpdate, DirectoryLoaded, Event, FileLoaded, ListenRegistered, Store, WriteEvent, WriteNotification}
+import nest.sparkle.store._
 import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.util.FutureAwait.Implicits._
 import nest.sparkle.util.RandomUtil.randomAlphaNum
@@ -103,20 +103,30 @@ trait CassandraStoreTestConfig extends SparkleTestConfig {
       (fn: (CassandraReaderWriter, ActorSystem) => T): T = { // format: ON
 
     withTestDb { testDb =>
-      withTestActors { implicit system =>
-        val complete = onLoadComplete(testDb, resourcePath)
-        val loadPath = Resources.filePathString(resourcePath)
-        val loader = new FilesLoader(sparkleConfig, loadPath, resourcePath, testDb, 0)
-        complete.await
-        val result =
-          try {
-            fn(testDb, system)
-          } finally {
-            loader.close()
-          }
-        result
+      withTestActors { implicit actorSystem =>
+        withLoadedResource(resourcePath, testDb) {
+          fn(testDb, actorSystem)
+        }
       }
     }
+  }
+
+  /** run a test function after loading some data into cassandra */
+  def withLoadedResource[T](resourcePath: String, store:ReadWriteStore)
+                           (fn: => T)
+                           (implicit actorSystem: ActorSystem): T = {
+    val complete = onLoadComplete(store, resourcePath)
+    val loadPath = Resources.filePathString(resourcePath)
+    val loader = new FilesLoader(sparkleConfig, loadPath, resourcePath, store, 0)
+    complete.await
+    val result =
+      try {
+        fn
+      } finally {
+        loader.close()
+      }
+    result
+
   }
 
   /** return a future that completes when the loader reports that loading is complete */

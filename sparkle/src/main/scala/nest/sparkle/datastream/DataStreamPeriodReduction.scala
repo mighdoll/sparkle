@@ -1,24 +1,40 @@
 package nest.sparkle.datastream
 
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success}
 
-import org.joda.time.Interval
-import rx.lang.scala.{Observable, Notification}
+import org.joda.time.{Interval => JodaInterval}
+import rx.lang.scala.{Notification, Observable}
+import spire.implicits._
 import spire.math.Numeric
 
 import nest.sparkle.measure.Span
-import nest.sparkle.util.TimeValueString.timeValueToString
+import nest.sparkle.util.BooleanOption._
 import nest.sparkle.util.{Log, PeriodWithZone}
-import org.joda.time.{Interval => JodaInterval}
-import scala.reflect.runtime.universe._
-import spire.implicits._
 
+/** Result of reducing a stream of data. Includes a stream of reduced results and
+  * a state object that can be used to resume the reduction on a subsequent stream. */
+case class PeriodsResult[K,V]
+    ( reducedStream:DataStream[K,Option[V]],
+      override val finishState: Future[Option[FrozenProgress[K,V]]] )
+    extends ReductionResult[K,V,FrozenProgress[K,V]]
+
+/** State to continue the reduction between stream */
+case class FrozenProgress[K, V](periodsIterator: Iterator[JodaInterval],
+                                periodsUsed: Int,
+                                periodStart: K,
+                                periodEnd: K,
+                                currentTotal: Option[V])
+
+/** functions for reducing a DataStream by time period */
 trait DataStreamPeriodReduction[K,V] extends Log {
   self:DataStream[K,V] =>
   implicit def keyTypeTag_ = keyTypeTag
   implicit def valueTypeTag_ = valueTypeTag
 
   val defaultMaxPeriods = 1000
+
   /** Reduce an Observable of DataArrays into a smaller Observable by dividing
     * the pair data into partitions based on joda time period, and reducing
     * each partition's pair data with a supplied reduction function. The keys
@@ -27,74 +43,165 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     * The values for each partition are returned optionally, None is returned
     * for partitions that contain no pair data.
     *
-    * Note that the key data is intepreted as epoch milliseconds. LATER make this configurable.
+    * Note that the key data is interpreted as epoch milliseconds. LATER make this configurable.
     *
     * @param maxPeriods reduce into at most this many time periods
     */
   def reduceByPeriod // format: OFF
-  ( periodWithZone: PeriodWithZone,
-    range: SoftInterval[K],
-    reduction: Reduction[V],
-    maxPeriods: Int = defaultMaxPeriods)
-  ( implicit numericKey: Numeric[K], parentSpan:Span )
-  : DataStream[K, Option[V]] = { // format: ON
+      ( periodWithZone: PeriodWithZone,
+        range: SoftInterval[K],
+        reduction: Reduction[V],
+        maxPeriods: Int = defaultMaxPeriods,
+        optPrevious: Option[FrozenProgress[K, V]] = None)
+      ( implicit numericKey: Numeric[K], parentSpan:Span )
+      : PeriodsResult[K,V] = { // format: ON
 
-    var state = new State(periodWithZone, reduction, range, maxPeriods)
+    val state = new State(periodWithZone, reduction, range, maxPeriods, optPrevious)
+    val finishState = Promise[Option[FrozenProgress[K,V]]]()
     val reduced = data.materialize.flatMap { notification =>
       notification match {
         case Notification.OnNext(dataArray) =>
           val produced = state.processArray(dataArray)
           Observable.from(produced)
         case Notification.OnCompleted =>
+          finishState.complete(Success(Some(state.frozenState)))
           state.remaining match {
-            case Some(remaining) => Observable.from(Seq(remaining))
-            case None            => Observable.empty
+            case Some(remaining) =>
+              Observable.from(Seq(remaining))
+            case None            =>
+              Observable.empty
           }
         case Notification.OnError(err) =>
+          finishState.complete(Failure(err))
           Observable.error(err)
       }
     }
 
-    new DataStream(reduced)
+    val reducedStream = new DataStream(reduced)
+    PeriodsResult(reducedStream, finishState.future)
+  }
+
+  /** tracks progress in iterating through time periods */
+  private case class PeriodProgress ( periodWithZone: PeriodWithZone, maxPeriods:Int, val targetStart:K,
+                              until:Option[K] )
+                            ( implicit numericKey:Numeric[K] ) {
+    var start: K = 0.asInstanceOf[K]
+    var end: K = 0.asInstanceOf[K]
+    var periodsUsed = 0 // total number of time periods visited (to compare against maxPeriods)
+    private var periodsIterator: Iterator[JodaInterval] =      // iterates through time periods
+      PeriodGroups.jodaIntervals(periodWithZone, targetStart)
+
+    /** advance period iteration to the next time period */
+    def toNextPeriod(): Boolean = {
+
+      def clipToRequestedEnd(proposedEnd:K):K = {
+        until match {
+          case Some(untilEnd) if untilEnd < proposedEnd => untilEnd
+          case _                                        => proposedEnd
+        }
+      }
+
+      if (periodsIterator.hasNext && periodsUsed < maxPeriods) {
+        val interval = periodsIterator.next()
+        start = numericKey.fromLong(interval.getStartMillis)
+        end = clipToRequestedEnd(numericKey.fromLong(interval.getEndMillis))
+        periodsUsed += 1
+        true
+      } else {
+        false
+      }
+    }
+
+    /** move period iteration forward until it reaches a period containing the provided key */
+    def advanceTo(key:K): Boolean = {
+      var reachedMax = false
+      while (start < key && !reachedMax) {
+        reachedMax = toNextPeriod()
+      }
+      reachedMax
+    }
+
+    /** return a freeze-dried copy of the current period iteration and total accumulation,
+      * (so that we can reconstruct the current state of progress on a later stream).
+      */
+    def frozen(optTotal:Option[V]):FrozenProgress[K,V] = {
+      FrozenProgress(periodsIterator, periodsUsed, start, end, optTotal)
+    }
+
+    /** return a new PeriodProgress based on the current state combined with a previously frozen one */
+    def applyFrozen(frozenProgress: FrozenProgress[K,V]): PeriodProgress = {
+      val copied = this.copy()
+      copied.start = frozenProgress.periodStart
+      copied.end = frozenProgress.periodEnd
+      copied.periodsUsed = frozenProgress.periodsUsed
+      copied.periodsIterator = frozenProgress.periodsIterator
+      copied
+    }
+  }
+
+
+  /** holds the accumulated reduction results */
+  private class Results {
+    private val keys = ArrayBuffer[K]()
+    private val values = ArrayBuffer[Option[V]]()
+
+    /** store a key,Option[value] pair in the results buffer */
+    def add(key:K, value:Option[V]): Unit = {
+      keys += key
+      values += value
+    }
+
+    def length: Int = keys.length
+
+    def dataArray: Option[DataArray[K,Option[V]]] =
+      (length > 0).toOption.map { _ => DataArray(keys.toArray, values.toArray) }
+
   }
 
   /** Maintains the state while reducing a sequence of data arrays. The caller
     * should call processArray for each block, and then remaining when the sequence
     * is complete to fetch any partially reduced data. */
-  class State( periodWithZone: PeriodWithZone, reduction: Reduction[V],
-               range:SoftInterval[K], maxPeriods: Int )
-             ( implicit numericKey:Numeric[K] ) {
-    var started = false
-    var accumulationStarted = false
-    var currentTotal: V = 0.asInstanceOf[V]
-    var periodStart: K = 0.asInstanceOf[K]
-    var periodEnd: K = 0.asInstanceOf[K]
-    var periodsUsed = 0
-    private var periods: Iterator[JodaInterval] = null
-    private val resultKeys = ArrayBuffer[K]()
-    private val resultValues = ArrayBuffer[Option[V]]()
+  private class State( periodWithZone: PeriodWithZone, reduction: Reduction[V],
+               range: SoftInterval[K], maxPeriods: Int, optPrevious: Option[FrozenProgress[K, V]] )
+             ( implicit numericKey: Numeric[K] ) {
+    var accumulationStarted = false // true if we've started accumulating in this period
+    var currentTotal: V = 0.asInstanceOf[V] // aggregate total in the current period
+    var periods: Option[PeriodProgress] = None
+    var newDataReceived = false // true if we've received new data (not just applied frozen state)
+    private var results = new Results()
 
-    range.start.foreach{key =>
-      startAt(key)
-      toNextPeriod()
+    optPrevious match {
+      case Some(previousProgress) =>
+        val initialProgress = new PeriodProgress(periodWithZone, maxPeriods,
+          previousProgress.periodStart, range.until)
+        val revivedProgress = initialProgress.applyFrozen(previousProgress)
+        periods = Some(revivedProgress)
+        previousProgress.currentTotal.foreach { total =>
+          accumulate(total) // sets initial value
+        }
+      case None =>
+        range.start.foreach { key => startPeriodProgress(key) }
+
     }
 
     /** walk through all of the elements in this DataArray block. As we go,
       * we'll advance the period iterator as necessary. Returns a data array
       * with an optional reduced value for each time period covered by the DataArray.
       */
-    def processArray(dataArray:DataArray[K,V]):Option[DataArray[K, Option[V]]] = {
+    def processArray(dataArray: DataArray[K, V]): Option[DataArray[K, Option[V]]] = {
 
       /** walk through all the elemnts and return the results */
       def processPairs(): Option[DataArray[K, Option[V]]] = {
         dataArray foreachPair processPair
+        if (dataArray.nonEmpty) {
+          newDataReceived = true
+        }
         takeCompleted()
       }
 
-     if (!dataArray.isEmpty) {
-        if (!started) {
-          startAt(dataArray.keys.head)
-          toNextPeriod() match {
+      if (!dataArray.isEmpty) {
+        if (periods.isEmpty) {
+          startPeriodProgress(dataArray.keys.head) match {          
             case true  => processPairs()
             case false => None
           }
@@ -106,70 +213,53 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       }
     }
 
-    /** optionally return the current total from the last period */
-    def remaining:Option[DataArray[K,Option[V]]] = {
-      if (accumulationStarted) {
-        // emit the interim total even though the period didn't complete.
-        // subsequent processing (e.g. from an ongoing data stream) should reuse
-        // this accumulated state, but currently doesn't.
-        // TODO propagate the State between reductions
-        // for now, we're done anyway, so ok to pretend this partial value is complete
-        emit(Some(currentTotal))
-      }
-      range.until.foreach { until =>
-        var done = false
-        while (periodEnd < until && !done) {
-          done = !toNextPeriod()
-          emit(None)
+    /** optionally return the current total from the last period and/or blanks
+      * until the requested range is finished.  The current state (partial total
+      * and period iteration is unaffected. */
+    def remaining: Option[DataArray[K, Option[V]]] = {
+      if (newDataReceived) {
+        val interimResults = new Results()
+        if (accumulationStarted) {
+          // emit the interim total even though the period didn't complete.
+          // subsequent processing will re-emit data at this key
+          interimResults.add(periods.get.start, Some(currentTotal))
         }
-      }
-      takeCompleted()
-    }
+        // get a copy of the period iterator at the same position
+        val interimPeriods =
+          new PeriodProgress(periodWithZone, maxPeriods, periods.get.targetStart, range.until)
+        interimPeriods.toNextPeriod()
+        interimPeriods.advanceTo(periods.get.start)
 
-    /** initialize time period iterator */
-    private def startAt(key: K): Unit = {
-      started = true
-      periods = PeriodGroups.jodaIntervals(periodWithZone, key)
-    }
-
-    /** optionally return a data array containing the reduced total for each time period. */
-    private def takeCompleted():Option[DataArray[K,Option[V]]] = {
-      if (resultKeys.length > 0) {
-        val result = DataArray(resultKeys.toArray, resultValues.toArray)
-        resultKeys.clear()
-        resultValues.clear()
-        Some(result)
+        range.until.foreach { until =>
+          var done = false
+          while (interimPeriods.end < until && !done) {
+            done = !interimPeriods.toNextPeriod()
+            interimResults.add(interimPeriods.start, None)
+          }
+        }
+        interimResults.dataArray
       } else {
         None
       }
     }
 
+    /** return enough state to continue interim processing on a new stream */
+    def frozenState: FrozenProgress[K,V] = {
+      val optTotal = accumulationStarted.toOption.map(_ => currentTotal)
+      periods.get.frozen(optTotal)
+    }
 
-    /** advance period iteration to the next time period */
-    private def toNextPeriod(): Boolean = {
-//      def pastDefinedEnd():Boolean = {
-//        optEnd match {
-//          case None => false
-//          case Some(end) if (end)
-//        }
-//      }
+    /** initialize time period iterator */
+    private def startPeriodProgress(key: K): Boolean = {
+      periods = Some(new PeriodProgress(periodWithZone, maxPeriods, key, range.until))
+      periods.get.toNextPeriod()
+    }
 
-      def clipToRequestedEnd(proposedEnd:K):K = {
-        range.until match {
-          case Some(until) if until < proposedEnd => until
-          case _ => proposedEnd
-        }
-      }
-
-      if (periods.hasNext && periodsUsed < maxPeriods) {
-        val interval = periods.next()
-        periodStart = numericKey.fromLong(interval.getStartMillis)
-        periodEnd = clipToRequestedEnd(numericKey.fromLong(interval.getEndMillis))
-        periodsUsed += 1
-        true
-      } else {
-        false
-      }
+    /** optionally return a data array containing the reduced total for each time period. */
+    private def takeCompleted():Option[DataArray[K,Option[V]]] = {
+      val dataResults = results.dataArray
+      results = new Results
+      dataResults
     }
 
 
@@ -179,21 +269,20 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       * value for periods with no elements via emitUntilKeyInPeriod.
       */
     private def processPair(key:K, value:V): Unit = {
-//      println(s"processPair ${timeValueToString(key.asInstanceOf[Long], value)}")
-      if (key >= periodStart && key < periodEnd) {
+      if (key >= periods.get.start && key < periods.get.end) {
         // accumulate a total for this period until we get to the end of the period
         accumulate(value)
-      } else if (key >= periodEnd) {
+      } else if (key >= periods.get.end) {
         // we're now past the period, so emit a value for the previous period
         // and emit a None value for any gap periods until we get to the period containing the key
         emitUntilKeyInPeriod(key)
 
         // unless we ran out of periods, our key should now be in the period
-        if (key >= periodStart && key < periodEnd) {
+        if (key >= periods.get.start && key < periods.get.end) {
           accumulate(value)
         }
-      } else if (key < periodStart) {
-        log.error(s"processRemainingPairs: unexpected key. bug? $key is < ${periodStart}")
+      } else if (key < periods.get.start) {
+        log.error(s"processRemainingPairs: unexpected key. bug? $key is < ${periods.get.start}")
       }
     }
 
@@ -212,22 +301,16 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       * is the optional aggregate total for the period (None if there were no values).
       */
     private def emitUntilKeyInPeriod(key: K) {
-      assert(key >= periodEnd)  // we're only called if the key is ahead of the period
+      assert(key >= periods.get.end)  // we're only called if the key is ahead of the period
       var done = false
       while (!done) {
         val value = finishAccumulation()
-        emit(value)
-        val nextPeriodExists = toNextPeriod()
-        if (!nextPeriodExists || key < periodEnd) {
+        results.add(periods.get.start, value)
+        val nextPeriodExists = periods.get.toNextPeriod()
+        if (!nextPeriodExists || key < periods.get.end) {
           done = true
         }
       }
-    }
-
-    /** store a key,Option[value] pair in the results buffer */
-    private def emit(optionalValue:Option[V]) {
-      resultKeys += periodStart
-      resultValues += optionalValue
     }
 
     /** complete the accumulation for this period, returning an aggregate total

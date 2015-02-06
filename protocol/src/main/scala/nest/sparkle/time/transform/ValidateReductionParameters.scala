@@ -1,8 +1,10 @@
 package nest.sparkle.time.transform
 
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.{FiniteDuration, Duration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.runtime.universe._
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 import scala.util.control.Exception.nonFatalCatch
 
 import spray.json.{JsObject, JsonFormat}
@@ -10,7 +12,7 @@ import spray.json.{JsObject, JsonFormat}
 import nest.sparkle.time.protocol.SummaryParameters
 import nest.sparkle.time.protocol.TransformParametersJson.SummaryParametersFormat
 import nest.sparkle.time.transform.TransformValidation.{columnsKeyType, rangeExtender, summaryPeriod}
-import nest.sparkle.util.{PeriodWithZone, RecoverJsonFormat, RecoverOrdering}
+import nest.sparkle.util._
 import nest.sparkle.util.TryToFuture.FutureTry
 
 /** validate request parameters for reduction transforms */ 
@@ -30,9 +32,12 @@ import nest.sparkle.util.TryToFuture.FutureTry
       (keyType, keyJson, keyOrdering) <- recoverKeyTypes[K](columnGroups).toFuture
       reductionParameters <- parseParameters(transformParameters)(keyJson).toFuture
     // TODO handle partByCount case here too
-      periodSize <- summaryPeriod(reductionParameters.partBySize, reductionParameters.timeZoneId).toFuture
+      periodSize <- summaryPeriod(reductionParameters.partBySize,
+                                  reductionParameters.timeZoneId).toFuture
+      ongoingDuration <- parseOngoingDuration(reductionParameters.ongoingBufferPeriod).toFuture
     } yield {
-      ValidReductionParameters(keyType, keyJson, keyOrdering, reductionParameters, periodSize)
+      ValidReductionParameters(keyType, keyJson, keyOrdering, reductionParameters, periodSize,
+                               ongoingDuration)
     }
 
   }
@@ -54,6 +59,22 @@ import nest.sparkle.util.TryToFuture.FutureTry
       : Try[SummaryParameters[T]] = { // format: ON
     nonFatalCatch.withTry { transformParameters.convertTo[SummaryParameters[T]] }
   }
+
+  /** parse the ongoingDuration field from the transformParameters */
+  private def parseOngoingDuration(optPeriod:Option[String]): Try[Option[FiniteDuration]] = {
+    optPeriod match {
+      case Some(periodString) =>
+        Period.parse(periodString) match {
+          case Some(period) =>
+            val duration =FiniteDuration(period.utcMillis, TimeUnit.MILLISECONDS)
+            Success(Some(duration))
+          case None =>
+            Failure(new PeriodParseException(periodString))
+        }
+      case None =>
+        Success(None)
+    }
+  }
   
 }
 
@@ -63,5 +84,6 @@ private[transform] case class ValidReductionParameters[K](
   keyJsonFormat: JsonFormat[K],
   ordering: Ordering[K],
   reductionParameters: SummaryParameters[K],
-  periodSize: Option[PeriodWithZone])
+  periodSize: Option[PeriodWithZone],
+  ongoingDuration: Option[FiniteDuration])
 

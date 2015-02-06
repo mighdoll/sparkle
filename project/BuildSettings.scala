@@ -95,6 +95,7 @@ object BuildSettings {
       }
     }
   )
+
   // hopefully this is unnecessary in the current rev of spark, 
   // (if not, we should pick winners/exclusions more carefully)
   lazy val sparkMergeSettings = Seq(

@@ -38,7 +38,7 @@ object Dependencies {
   val scalaReflect          = "org.scala-lang"            %  "scala-reflect"           % V.scala
   val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.1.0"
 
-  val rxScala               = "io.reactivex"              %% "rxscala"                % "0.23.0"
+  val rxScala               = "io.reactivex"              %% "rxscala"                % "0.23.1"
   val sparkCassandra        = ("com.datastax.spark"       %% "spark-cassandra-connector" % "1.1.0" withSources() withJavadoc()
                                 excludeAll(ExclusionRule(organization = "org.apache.spark"))
                               )
@@ -92,7 +92,7 @@ object Dependencies {
                                   exclude("com.sun.jmx", "jmxri")
                               )
 
-  val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.0" 
+  val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.4"
   val nettyAll              = "io.netty"                  %  "netty-all"                    % "4.0.19.Final" 
   
   val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.1_a2.2"
@@ -120,6 +120,9 @@ object Dependencies {
     val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck % "it"
     val sprayTestKit        = "io.spray"                 %  "spray-testkit"          % V.spray      % "it"
     val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       % "it"
+    val tubeSocks           = ("me.lessis"               %% "tubesocks"              % "0.1.0"
+                                exclude("org.slf4j", "slf4j-jdk14")
+                              )
   }
   
   object Kit {

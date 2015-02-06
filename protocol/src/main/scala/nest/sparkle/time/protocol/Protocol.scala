@@ -142,7 +142,8 @@ case class SummaryParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,
   partBySize: Option[String] = None,
   partByCount: Option[Int] = None,
-  timeZoneId: Option[String] = None
+  timeZoneId: Option[String] = None,
+  ongoingBufferPeriod: Option[String] = None
   )
 
 case class IntervalParameters[T](
