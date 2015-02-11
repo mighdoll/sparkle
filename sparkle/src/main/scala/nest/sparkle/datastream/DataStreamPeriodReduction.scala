@@ -181,7 +181,6 @@ trait DataStreamPeriodReduction[K,V] extends Log {
         }
       case None =>
         range.start.foreach { key => startPeriodProgress(key) }
-
     }
 
     /** walk through all of the elements in this DataArray block. As we go,

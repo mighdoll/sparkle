@@ -4,9 +4,8 @@ import scala.concurrent.Promise
 import scala.util.Success
 
 import org.scalatest.{Matchers, FunSuite}
-
-import nest.sparkle.measure.ConfiguredMeasurements
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
+import nest.sparkle.measure.ConfiguredMeasurements
 import nest.sparkle.test.PortsTestFixture.sparklePortsConfig
 import nest.sparkle.time.protocol.TestDataService._
 import nest.sparkle.time.server.DataWebSocket
