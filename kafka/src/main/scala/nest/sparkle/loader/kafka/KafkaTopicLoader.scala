@@ -103,10 +103,10 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   /** Rate of intentionally skipped messages */
   private val skippedMessagesMetric = metrics.meter("skipped-messages", metricPrefix)
 
-  private val batchSizeMetric = metrics.meter(s"store-batch-size", metricPrefix)
+  private val batchSizeMetric = metrics.histogram("event-batch-size", metricPrefix)
   
-  /** Meter for writing to C* for this topic */
-  private val writeMetric = metrics.timer("store-writes", metricPrefix) // TODO: make histogram
+  /** Timer for writing to C* for this topic */
+  private val writeMetric = metrics.timer("store-writes", metricPrefix)
   
   /** Errors writing to C* for this topic */
   private val writeErrorsMetric = metrics.meter("store-write-errors", metricPrefix)
@@ -367,7 +367,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
         log.warn(s"no last key for $columnPath. events empty: ${events.isEmpty}")
         Future.successful(None)
       case Some(event) =>
-        batchSizeMetric.mark(events.size)
+        batchSizeMetric += events.size
         val p = promise[Option[ColumnUpdate[K]]]()
         writeEventsUntilSuccess(events, columnPath, p)
         p.future

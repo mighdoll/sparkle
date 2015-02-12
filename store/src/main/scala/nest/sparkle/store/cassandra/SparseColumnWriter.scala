@@ -30,7 +30,7 @@ object SparseColumnWriter
     extends Instrumented with Log {
   /** All SparseColumnWriters use this metric */
   protected val batchMetric = metrics.timer("store-batch-writes")
-  protected val batchSizeMetric = metrics.meter(s"store-batch-size")
+  protected val batchSizeMetric = metrics.histogram(s"store-batch-size")
 
   /** constructor to create a SparseColumnWriter */
   def apply[T: CanSerialize, U: CanSerialize]( // format: OFF
@@ -177,7 +177,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       val batch = new BatchStatement(batchType)
       batch.setConsistencyLevel(consistencyLevel)
       val statements = insertGroup.toSeq.asJava
-      batchSizeMetric.mark(statements.size)  // measure the size of batches to this table
+      batchSizeMetric += statements.size  // measure the size of batches
       batch.addAll(statements)
       batch
     }
@@ -227,7 +227,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       val batch = new BatchStatement(batchType)
       batch.setConsistencyLevel(consistencyLevel)
       val statements = insertGroup.toSeq.asJava
-      batchSizeMetric.mark(statements.size)  // measure the size of batches to this table
+      batchSizeMetric += statements.size    // measure the size of batches
       batch.addAll(statements)
       batch
     }
