@@ -123,37 +123,37 @@ class TestReductions extends FunSuite with Matchers
       values shouldBe expectedValues
     }
   }
-
-  test("sum five elements, count = 6") {
-    testSimpleByCount(
-      count = 6,
-      expectedKeys = Seq("2014-12-01T00:00:00.000"),
-      expectedValues = Seq(Some(10))
-    )
-  }
-
-  test("sum five elements, count = 5") {
-    testSimpleByCount(
-      count = 5,
-      expectedKeys = Seq("2014-12-01T00:00:00.000"),
-      expectedValues = Seq(Some(10))
-    )
-  }
-
-  test("sum five elements, count = 2") {
-    testSimpleByCount(
-      count = 2,
-      expectedKeys = Seq(
-        "2014-12-01T00:00:00.000",
-        "2014-12-01T00:40:00.000",
-        "2014-12-01T02:00:00.000"
-      ),
-      expectedValues = Seq(
-        Some(4),
-        Some(4),
-        Some(2)
-      )
-    )
-  }
+//
+//  test("sum five elements, count = 6") {
+//    testSimpleByCount(
+//      count = 6,
+//      expectedKeys = Seq("2014-12-01T00:00:00.000"),
+//      expectedValues = Seq(Some(10))
+//    )
+//  }
+//
+//  test("sum five elements, count = 5") {
+//    testSimpleByCount(
+//      count = 5,
+//      expectedKeys = Seq("2014-12-01T00:00:00.000"),
+//      expectedValues = Seq(Some(10))
+//    )
+//  }
+//
+//  test("sum five elements, count = 2") {
+//    testSimpleByCount(
+//      count = 2,
+//      expectedKeys = Seq(
+//        "2014-12-01T00:00:00.000",
+//        "2014-12-01T00:40:00.000",
+//        "2014-12-01T02:00:00.000"
+//      ),
+//      expectedValues = Seq(
+//        Some(4),
+//        Some(4),
+//        Some(2)
+//      )
+//    )
+//  }
 
 }

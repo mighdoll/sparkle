@@ -15,17 +15,17 @@ import nest.sparkle.util.{Log, PeriodWithZone}
 
 /** Result of reducing a stream of data. Includes a stream of reduced results and
   * a state object that can be used to resume the reduction on a subsequent stream. */
-case class PeriodsResult[K,V]
+case class PeriodsResult[K,V,F]
     ( reducedStream:DataStream[K,Option[V]],
-      override val finishState: Future[Option[FrozenProgress[K,V]]] )
-    extends ReductionResult[K,V,FrozenProgress[K,V]]
+      override val finishState: Future[Option[FrozenProgress[K,F]]] )
+    extends ReductionResult[K,V,FrozenProgress[K,F]]
 
 /** State to continue the reduction between stream */
-case class FrozenProgress[K, V](periodsIterator: Iterator[JodaInterval],
+case class FrozenProgress[K, F](periodsIterator: Iterator[JodaInterval],
                                 periodsUsed: Int,
                                 periodStart: K,
                                 periodEnd: K,
-                                currentTotal: Option[V])
+                                reductionProgress: F)
 
 /** functions for reducing a DataStream by time period */
 trait DataStreamPeriodReduction[K,V] extends Log {
@@ -47,17 +47,17 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     *
     * @param maxPeriods reduce into at most this many time periods
     */
-  def reduceByPeriod // format: OFF
+  def reduceByPeriod[F] // format: OFF
       ( periodWithZone: PeriodWithZone,
         range: SoftInterval[K],
-        reduction: Reduction[V],
+        reduction: Reduction[V, F],
         maxPeriods: Int = defaultMaxPeriods,
-        optPrevious: Option[FrozenProgress[K, V]] = None)
+        optPrevious: Option[FrozenProgress[K, F]] = None)
       ( implicit numericKey: Numeric[K], parentSpan:Span )
-      : PeriodsResult[K,V] = { // format: ON
+      : PeriodsResult[K,V,F] = { // format: ON
 
     val state = new State(periodWithZone, reduction, range, maxPeriods, optPrevious)
-    val finishState = Promise[Option[FrozenProgress[K,V]]]()
+    val finishState = Promise[Option[FrozenProgress[K,F]]]()
     val reduced = data.materialize.flatMap { notification =>
       notification match {
         case Notification.OnNext(dataArray) =>
@@ -82,9 +82,12 @@ trait DataStreamPeriodReduction[K,V] extends Log {
   }
 
   /** tracks progress in iterating through time periods */
-  private case class PeriodProgress ( periodWithZone: PeriodWithZone, maxPeriods:Int, val targetStart:K,
-                              until:Option[K] )
-                            ( implicit numericKey:Numeric[K] ) {
+  private case class PeriodProgress[F]
+      ( periodWithZone: PeriodWithZone,
+        maxPeriods:Int,
+        targetStart:K,
+        until:Option[K] )
+      ( implicit numericKey:Numeric[K] ) {
     var start: K = 0.asInstanceOf[K]
     var end: K = 0.asInstanceOf[K]
     var periodsUsed = 0 // total number of time periods visited (to compare against maxPeriods)
@@ -124,13 +127,13 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     /** return a freeze-dried copy of the current period iteration and total accumulation,
       * (so that we can reconstruct the current state of progress on a later stream).
       */
-    def frozen(optTotal:Option[V]):FrozenProgress[K,V] = {
-      FrozenProgress(periodsIterator, periodsUsed, start, end, optTotal)
+    def frozen[F](reductionProgress:F):FrozenProgress[K,F] = {
+      FrozenProgress(periodsIterator, periodsUsed, start, end, reductionProgress)
     }
 
     /** return a new PeriodProgress based on the current state combined with a previously frozen one */
-    def applyFrozen(frozenProgress: FrozenProgress[K,V]): PeriodProgress = {
-      val copied = this.copy()
+    def unfreeze(frozenProgress: FrozenProgress[K,F]): PeriodProgress[F] = {
+      val copied:PeriodProgress[F] = this.copy()
       copied.start = frozenProgress.periodStart
       copied.end = frozenProgress.periodEnd
       copied.periodsUsed = frozenProgress.periodsUsed
@@ -161,24 +164,26 @@ trait DataStreamPeriodReduction[K,V] extends Log {
   /** Maintains the state while reducing a sequence of data arrays. The caller
     * should call processArray for each block, and then remaining when the sequence
     * is complete to fetch any partially reduced data. */
-  private class State( periodWithZone: PeriodWithZone, reduction: Reduction[V],
-               range: SoftInterval[K], maxPeriods: Int, optPrevious: Option[FrozenProgress[K, V]] )
-             ( implicit numericKey: Numeric[K] ) {
-    var accumulationStarted = false // true if we've started accumulating in this period
-    var currentTotal: V = 0.asInstanceOf[V] // aggregate total in the current period
-    var periods: Option[PeriodProgress] = None
+  private class State[F]
+      ( periodWithZone: PeriodWithZone,
+        reduction2: Reduction[V, F],
+        range: SoftInterval[K],
+        maxPeriods: Int,
+        optPrevious: Option[FrozenProgress[K, F]] )
+      ( implicit numericKey: Numeric[K] ) {
+
+    var periods: Option[PeriodProgress[F]] = None
     var newDataReceived = false // true if we've received new data (not just applied frozen state)
     private var results = new Results()
+    var currentReduction = reduction2
 
     optPrevious match {
       case Some(previousProgress) =>
-        val initialProgress = new PeriodProgress(periodWithZone, maxPeriods,
+        val initialProgress = new PeriodProgress[F](periodWithZone, maxPeriods,
           previousProgress.periodStart, range.until)
-        val revivedProgress = initialProgress.applyFrozen(previousProgress)
+        val revivedProgress = initialProgress.unfreeze(previousProgress)
         periods = Some(revivedProgress)
-        previousProgress.currentTotal.foreach { total =>
-          accumulate(total) // sets initial value
-        }
+        currentReduction = reduction2.unfreeze(previousProgress.reductionProgress)
       case None =>
         range.start.foreach { key => startPeriodProgress(key) }
     }
@@ -218,10 +223,12 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     def remaining: Option[DataArray[K, Option[V]]] = {
       if (newDataReceived) {
         val interimResults = new Results()
-        if (accumulationStarted) {
+        val optTotal = currentReduction.currentTotal
+        optTotal.foreach { _ =>
           // emit the interim total even though the period didn't complete.
           // subsequent processing will re-emit data at this key
-          interimResults.add(periods.get.start, Some(currentTotal))
+          interimResults.add(periods.get.start, optTotal)
+
         }
         // get a copy of the period iterator at the same position
         val interimPeriods =
@@ -243,9 +250,8 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     }
 
     /** return enough state to continue interim processing on a new stream */
-    def frozenState: FrozenProgress[K,V] = {
-      val optTotal = accumulationStarted.toOption.map(_ => currentTotal)
-      periods.get.frozen(optTotal)
+    def frozenState: FrozenProgress[K,F] = {
+      periods.get.frozen(currentReduction.freeze()) // TODO should use frozen
     }
 
     /** initialize time period iterator */
@@ -287,12 +293,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
 
     /** merge an a new value into the aggregate total for this period */
     private def accumulate(value: V) {
-      if (accumulationStarted) {
-        currentTotal = reduction.plus(currentTotal, value)
-      } else {
-        accumulationStarted = true
-        currentTotal = value
-      }
+      currentReduction.accumulate(value)
     }
 
     /** Advance through time periods as necessary until we get to the period containing the key.
@@ -316,12 +317,9 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       *  if there is one for this period. Aggregation resets, the next accumulation
       *  will replace the current total with a new value (presumably for a new period).  */
     private def finishAccumulation(): Option[V] = {
-      if (accumulationStarted) {
-        accumulationStarted = false
-        Some(currentTotal)
-      } else {
-        None
-      }
+      val total = currentReduction.currentTotal
+      currentReduction = currentReduction.newInstance
+      total
     }
   }
 

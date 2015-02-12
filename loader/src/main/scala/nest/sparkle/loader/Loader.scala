@@ -38,7 +38,6 @@ object Loader extends Log {
     def transform(source: TaggedBlock): TaggedBlock
   }
 
-
 }
 
 /** an update to a watcher about the latest value loaded */

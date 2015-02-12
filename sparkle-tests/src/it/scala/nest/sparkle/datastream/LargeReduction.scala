@@ -96,8 +96,7 @@ object LargeReduction extends StreamRequestor {
       : DataStream[Long, Long] = {
     var startMillis = start.toMillis
     val untilMillis = until.toMillis
-    
-    
+
     val iter = new Iterator[DataArray[Long,Long]] {
       /** return a data array covering the next time period. Keys are
        *  spaced according to spacing above, and every value is 2 (long). */

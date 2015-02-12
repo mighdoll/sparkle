@@ -69,7 +69,7 @@ class TestLargeKafkaStream
             }
             val writesDone = p.future
 
-            printTime(s"loading $records:") {
+            printTime(s"TestLargeKafkaStream: loading $records from kafka into cassandra: ") {
               loader.start()
               try {
                 Await.ready[Unit](writesDone, 2.minutes)

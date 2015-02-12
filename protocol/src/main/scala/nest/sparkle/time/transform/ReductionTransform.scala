@@ -20,14 +20,18 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
   override type TransformType = MultiTransform
   override def prefix = "reduce"
 
-  lazy val sumTransform = makeNumericTransform[Any]{ ReduceSum()(_) }
-  lazy val minTransform = makeNumericTransform[Any]{ ReduceMin()(_) }
-  lazy val maxTransform = makeNumericTransform[Any]{ ReduceMax()(_) }
+  lazy val sumTransform = makeNumericTransform[Any, Option[Any]]{ ReduceSum()(_) }
+  lazy val meanTransform = makeNumericTransform[Any, ReduceMeanState[Any]] { ReduceMean()(_) }
+  lazy val minTransform = makeNumericTransform[Any, Option[Any]]{ ReduceMin()(_) }
+  lazy val maxTransform = makeNumericTransform[Any, Option[Any]]{ ReduceMax()(_) }
 
-  def makeNumericTransform[V](reduction:Numeric[V] => Reduction[V]): ReduceTransform[V] = {
-    def produceReducer: TypeTag[_] => Try[Reduction[V]] = {typeTag:TypeTag[_] =>
+  def makeNumericTransform[V, F]
+      ( reductionFactory: Numeric[V] => Reduction[V, F] )
+      : ReduceTransform[V, F] = {
+
+    def produceReducer: TypeTag[_] => Try[Reduction[V,F]] = { typeTag:TypeTag[_] =>
       RecoverNumeric.tryNumeric[V](typeTag).map { numericValue =>
-        reduction(numericValue)
+        reductionFactory(numericValue)
       }
     }
 
@@ -36,13 +40,16 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
 
   override def suffixMatch = _ match {
     case "sum" => sumTransform
+    case "mean" => meanTransform
     case "min" => minTransform
     case "max" => maxTransform
+    case "average" => maxTransform
   }
 }
 
-case class ReduceTransform[V](rootConfig: Config, produceReduction: TypeTag[_] => Try[Reduction[V]])
-                          (implicit measurements: Measurements)
+case class ReduceTransform[V, F](rootConfig: Config,
+                                 produceReduction: TypeTag[_] => Try[Reduction[V, F]])
+                                (implicit measurements: Measurements)
   extends MultiTransform with Log {
 
   private val validator = ValidateReductionParameters()
@@ -60,7 +67,7 @@ case class ReduceTransform[V](rootConfig: Config, produceReduction: TypeTag[_] =
         keyType, keyJsonFormat, keyOrdering, reductionParameters, periodSize, ongoingDuration
         ) <- validator.validate[K](futureGroups, transformParameters)
         data <- fetchData[K,V](futureGroups, reductionParameters.ranges, None, Some(span))
-        reduced = reduceOperation[K,V](produceReduction, data, reductionParameters.partByCount,
+        reduced = reduceOperation[K](produceReduction, data, reductionParameters.partByCount,
           periodSize, ongoingDuration)
       } yield {
         reduced.allStreams.map { stream =>
@@ -78,8 +85,8 @@ case class ReduceTransform[V](rootConfig: Config, produceReduction: TypeTag[_] =
 
   /** Perform a reduce operation on all the streams in a group set.
     */
-  def reduceOperation[K, V] // format: OFF
-      ( makeReduction: TypeTag[_] => Try[Reduction[V]],
+  def reduceOperation[K] // format: OFF  
+      ( makeReduction: TypeTag[_] => Try[Reduction[V, F]],
         groupSet: StreamGroupSet[K, V, AsyncWithRange],
         optCount: Option[Int],
         optPeriod: Option[PeriodWithZone],
@@ -107,9 +114,3 @@ case class ReduceTransform[V](rootConfig: Config, produceReduction: TypeTag[_] =
   }
 
 }
-// TODO remove temporary debugging code after the other reductions are implemented
-//      val debugPrinted = reduced.mapStreams { stream =>
-//        stream.doOnEach { pairs =>
-//          pairs.foreachPair { (key, value) => println(s"SumTransform: $key:$value") }
-//        }
-//      }

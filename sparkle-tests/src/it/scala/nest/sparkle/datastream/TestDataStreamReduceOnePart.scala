@@ -17,8 +17,7 @@ class TestDataStreamReduceOnePart extends FunSuite with Matchers with PropertyCh
     (Seq(1 -> 10, 2 -> 11, 3 -> 15, 4 -> 40, 5 -> 50))
   )
   
-  
-  
+
   def testSum(parts:Seq[Seq[(Int,Int)]]):Boolean = {
     val keyValues = parts.reduce(_ ++ _)
     val expectedSum = sumValues(keyValues)      
@@ -26,7 +25,7 @@ class TestDataStreamReduceOnePart extends FunSuite with Matchers with PropertyCh
     implicit val span = DummySpan
     val reduced = stream.reduceToOnePart(ReduceSum[Int]())
     val result = reduced.data.toBlocking.toList
-    result.length shouldBe 1 
+    result.length shouldBe 1
     result.head.values.head shouldBe expectedSum
     true // will throw if tests above fail
   }

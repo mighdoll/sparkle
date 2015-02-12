@@ -1,6 +1,6 @@
 time,seconds:Double
 
-# 8 seconds in the first hour
+# 8 seconds total in the first hour
 2014-12-01T00:00:00.000,1
 2014-12-01T00:10:00.000,3
 2014-12-01T00:40:00.000,2

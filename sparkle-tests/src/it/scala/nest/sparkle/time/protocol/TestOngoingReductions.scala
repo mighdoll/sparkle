@@ -27,8 +27,11 @@ class TestOngoingReductions extends FunSuite with Matchers
     * @tparam T type of the returned data values
     * @return the json string messages over the protocol
     */
-  def withEventsAndMore[T](transformParameters:String = "{}", loadCount:Int = 2)
-                          (fn: Seq[String] => T):T = {
+  def withEventsAndMore[T]
+      ( transformParameters:String = "{}",
+        transform:String = "reduceSum",
+        loadCount:Int = 2 )
+      ( fn: Seq[String] => T): T = {
     var receivedCount = 0
     val received = Vector.newBuilder[String]
     val finished = Promise[Unit]()
@@ -37,7 +40,7 @@ class TestOngoingReductions extends FunSuite with Matchers
       implicit val actorSystem = system
       import system.dispatcher
       withDataWebSocket(rootConfig, store) { port =>
-        val message = stringRequest("simple-events/seconds", "reduceSum", transformParameters)
+        val message = stringRequest("simple-events/seconds", transform, transformParameters)
         tubesocks.Sock.uri(s"ws://localhost:$port/data") {
           case tubesocks.Open(s) =>
             s.send(message)
@@ -78,45 +81,78 @@ class TestOngoingReductions extends FunSuite with Matchers
   }
 
 
-  test("sum with ongoing, no requested range, with 1 hour period") {
+
+  /** run with a fixed set of period parameters and data. Each tests varies the reduction performed */
+  def ongoingNoRangeOneHourTest
+      ( transform:String,
+        expectedInitialValues:Seq[Option[Double]],
+        expectedOngoingValues:Seq[Option[Double]]): Unit = {
+
     val transformParams =
       """ { "partBySize" : "1 hour",
         |   "ongoingBufferPeriod": "3 seconds"
           }
       """.stripMargin
-    withEventsAndMore(transformParams) { responses =>
+
+    val expectedInitialStringKeys = Seq(
+      "2014-12-01T00:00:00.000",
+      "2014-12-01T01:00:00.000",
+      "2014-12-01T02:00:00.000"
+    )
+    val expectedOngoingStringKeys = Seq(
+      "2014-12-01T02:00:00.000",
+      "2014-12-01T03:00:00.000",
+      "2014-12-01T04:00:00.000"
+    )
+    val expectedInitialKeys = expectedInitialStringKeys.map(_.toMillis)
+    val expectedOngoingKeys = expectedOngoingStringKeys.map(_.toMillis)
+
+
+    withEventsAndMore(transformParams, transform) { responses =>
       val initial = longDoubleFromStreams(responses(0))
       initial.length shouldBe 3
-      val keys = initial.map { case (key, _) => key}
-      val values = initial.map { case (_, value) => value}
-      keys shouldBe Seq(
-        "2014-12-01T00:00:00.000Z".toMillis,
-        "2014-12-01T01:00:00.000Z".toMillis,
-        "2014-12-01T02:00:00.000Z".toMillis
-      )
-      values shouldBe Seq(
-        Some(8),
-        None,
-        Some(2)
-      )
+      val (initialKeys, initialValues) = initial.unzip
+      initialKeys shouldBe expectedInitialKeys
+      initialValues shouldBe expectedInitialValues
 
       val ongoing = longDoubleFromUpdate(responses(1))
-      val ongoingKeys = ongoing.map { case (key, _) => key}
-      val ongoingValues = ongoing.map { case (_, value) => value}
       ongoing.length shouldBe 3
-
-      ongoingKeys shouldBe Seq(
-        "2014-12-01T02:00:00.000Z".toMillis,
-        "2014-12-01T03:00:00.000Z".toMillis,
-        "2014-12-01T04:00:00.000Z".toMillis
-      )
-
-      ongoingValues shouldBe Seq(
-        Some(7),
-        None,
-        Some(5)
-      )
+      val (ongoingKeys, ongoingValues) = ongoing.unzip
+      ongoingKeys shouldBe expectedOngoingKeys
+      ongoingValues shouldBe expectedOngoingValues
     }
+
   }
+
+
+
+  test("sum with ongoing, no requested range, with 1 hour period") {
+    ongoingNoRangeOneHourTest("reduceSum",
+      Seq(Some(8),None, Some(2)),
+      Seq(Some(7), None, Some(5))
+    )
+  }
+
+  test("mean with ongoing, no requested range, with 1 hour period") {
+    ongoingNoRangeOneHourTest("reduceMean",
+      Seq(Some(2),None,Some(2)),
+      Seq(Some(3.5),None,Some(5))
+    )
+  }
+
+  test("min with ongoing, no requested range, with 1 hour period") {
+    ongoingNoRangeOneHourTest("reduceMin",
+      Seq(Some(1), None, Some(2)),
+      Seq(Some(2), None, Some(5))
+    )
+  }
+
+  test("max with ongoing, no requested range, with 1 hour period") {
+    ongoingNoRangeOneHourTest("reduceMax",
+      Seq(Some(3),None,Some(2)),
+      Seq(Some(5),None,Some(5))
+    )
+  }
+
 
 }
