@@ -40,11 +40,12 @@ object SparseColumnWriter
         dataSetCatalog: DataSetCatalog, 
         writeNotifier:WriteNotifier,
         preparedSession: PreparedSession,
-        consistencyLevel: ConsistencyLevel
+        consistencyLevel: ConsistencyLevel,
+        batchSize: Int
       ): SparseColumnWriter[T,U] = { // format: ON
 
     new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier,
-      preparedSession, consistencyLevel)
+      preparedSession, consistencyLevel, batchSize)
   }
 
   /** constructor to create a SparseColumnWriter and update the store */
@@ -55,11 +56,12 @@ object SparseColumnWriter
         dataSetCatalog: DataSetCatalog, 
         writeNotifier:WriteNotifier,
         preparedSession: PreparedSession,
-        consistencyLevel: ConsistencyLevel
+        consistencyLevel: ConsistencyLevel,
+        batchSize: Int
       )(implicit execution:ExecutionContext):Future[SparseColumnWriter[T,U]] = { // format: ON
 
     val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier,
-      preparedSession, consistencyLevel)
+      preparedSession, consistencyLevel, batchSize)
     writer.updateCatalog().map { _ => writer}
   }
 
@@ -110,7 +112,8 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     val dataSetName: String, val columnName: String,
     catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog, 
     writeNotifier:WriteNotifier, preparedSession: PreparedSession,
-    consistencyLevel: ConsistencyLevel, unloggedBatches: Boolean = true
+    consistencyLevel: ConsistencyLevel, batchSize: Int,
+    unloggedBatches: Boolean = true
 )
   extends WriteableColumn[T, U] 
   with ColumnSupport 
@@ -207,10 +210,6 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     val deleteAll = preparedSession.statement(DeleteAll(tableName)).bind(Seq[Object](dataSetName, columnName, rowIndex): _*)
     preparedSession.session.executeAsync(deleteAll).toFuture.map { _ => () }
   }
-
-  // Cassandra complains about batches > 5K bytes
-  // see Cassandra-6487 where they recommend a batchSize of about 100. Much slower in my testing though.
-  private val batchSize = 10000
 
   /** write a bunch of column values in a batch */ // format: OFF
   private def writeMany(events:Iterable[Event[T,U]])

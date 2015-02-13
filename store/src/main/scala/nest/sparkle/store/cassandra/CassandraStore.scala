@@ -141,6 +141,7 @@ trait ConfiguredCassandra extends Log
   private lazy val replicationFactor = storeConfig.getInt("replication-factor")
   lazy val cassandraConsistency = CassandraConsistency(ConsistencyLevel.valueOf(storeConfig.getString("read-consistency-level")),
     ConsistencyLevel.valueOf(storeConfig.getString("write-consistency-level")))
+  lazy val writeBatchSize = storeConfig.getInt("write-batch-size")
 
   // TODO use a provided execution context
   implicit def execution: ExecutionContext = ExecutionContext.global
@@ -256,7 +257,8 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     SparseColumnWriter.instance[T, U](
-      dataSetName, columnName, columnCatalog, dataSetCatalog, writeNotifier, preparedSession, cassandraConsistency.write
+      dataSetName, columnName, columnCatalog, dataSetCatalog, writeNotifier, preparedSession,
+      cassandraConsistency.write, writeBatchSize
     )
   }
 
