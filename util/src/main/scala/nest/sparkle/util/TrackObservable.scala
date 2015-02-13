@@ -1,12 +1,11 @@
-package nest.sparkle.time.transform
+package nest.sparkle.util
 
 // TODO move to util .jar
-import rx.lang.scala.Observable
-import scala.concurrent.Promise
-import scala.util.Success
 import scala.collection.mutable
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.Success
+
+import rx.lang.scala.Observable
 
 /** a utility class for tracking when a set of Observables are complete */
 case class TrackObservable() {

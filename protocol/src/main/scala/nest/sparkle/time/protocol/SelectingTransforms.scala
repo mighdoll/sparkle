@@ -5,15 +5,13 @@ import scala.collection.JavaConverters._
 import spray.json._
 import nest.sparkle.store.Column
 import nest.sparkle.time.transform.{ DomainRangeTransform, RawTransform }
-import nest.sparkle.time.transform.SummaryTransform
 import nest.sparkle.time.transform.StandardColumnTransform.{ runTransform, runColumnGroupsTransform, runMultiColumnTransform }
 import com.typesafe.config.Config
 import nest.sparkle.time.transform.CustomTransform
 import nest.sparkle.util.{ Instance, ConfigUtil }
 import nest.sparkle.util.Log
-import nest.sparkle.time.transform.StandardSummaryTransform
-import nest.sparkle.time.transform.StandardObjectTransform
 import nest.sparkle.time.transform.StandardIntervalTransform
+import nest.sparkle.time.transform.StandardObjectTransform
 import nest.sparkle.time.transform.OnOffTransform
 import nest.sparkle.time.transform.ColumnGroup
 import nest.sparkle.measure.TraceId
@@ -48,9 +46,8 @@ trait SelectingTransforms extends Log {
     val allFutureColumns: Future[Seq[Column[_, _]]] = {
       futureColumnGroups.map { groups => groups.flatMap(_.columns)}
     }
+
     val futureStreams = transform match {
-      case StandardSummaryTransform(columnTransform) =>
-        runTransform(allFutureColumns, columnTransform, transformParameters)
       case standardInterval(columnTransform) =>
         runMultiColumnTransform(allFutureColumns, columnTransform, transformParameters)
       case onOffInterval(columnTransform) =>

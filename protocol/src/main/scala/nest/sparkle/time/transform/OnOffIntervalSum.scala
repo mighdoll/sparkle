@@ -9,10 +9,9 @@ import nest.sparkle.time.protocol.{ IntervalParameters, JsonDataStream, JsonEven
 import nest.sparkle.time.transform.ItemStreamTypes._
 import nest.sparkle.time.transform.FetchItems.fetchItems
 import nest.sparkle.time.transform.PeriodPartitioner.timePartitionsFromRequest
-import nest.sparkle.util.{ Period, PeriodWithZone, RecoverJsonFormat, RecoverNumeric, RecoverOrdering }
+import nest.sparkle.util._
 import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.KindCast.castKind
-import nest.sparkle.util.Log
 import nest.sparkle.util.OptionConversion.OptionFuture
 import nest.sparkle.util.TryToFuture.FutureTry
 import rx.lang.scala.Observable
@@ -25,7 +24,6 @@ import spire.math.Numeric
 import spire.implicits._
 import spray.json.{ JsObject, JsonFormat }
 import spray.json.DefaultJsonProtocol._
-import nest.sparkle.util.Instrumented
 import nest.sparkle.measure.TraceId
 import nest.sparkle.measure.Span
 import nest.sparkle.measure.Measurements

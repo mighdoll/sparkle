@@ -13,6 +13,8 @@ import scala.concurrent.Promise
 import scala.util.Success
 import rx.lang.scala.Observable
 
+import nest.sparkle.util.TrackObservable
+
 /** read column data a set of columns, returning data asynchronously in a FetchedGroupSet
   * (A FetchedGroupSet is intended to be a convenient structure for subsequent transformation).
   */
