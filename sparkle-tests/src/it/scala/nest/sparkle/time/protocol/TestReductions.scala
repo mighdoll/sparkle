@@ -2,6 +2,8 @@ package nest.sparkle.time.protocol
 
 import scala.concurrent.duration._
 
+import spray.http.HttpResponse
+
 import org.scalatest.{FunSuite, Matchers}
 
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
@@ -11,6 +13,32 @@ import nest.sparkle.util.StringToMillis.IsoDateString
 
 class TestReductions extends FunSuite with Matchers
     with CassandraStoreTestConfig with StreamRequestor {
+
+
+  def requestWithLoaded
+      ( fileOrDirectory:String, request:String )
+      ( fn: HttpResponse => Unit ):Unit = {
+    withLoadedFile(fileOrDirectory) { (store, system) =>
+      val service = new TestServiceWithCassandra(store, system)
+      val response = service.sendDataMessage(request).await
+      fn(response)
+    }
+  }
+
+  test("toms example") {
+    val message = stringRequest(
+      "66cfb102-1c05-11e4-90dd-7831c1c7ac74/T_02AA0181233YJU/EnergySummary/TotalLeaf",
+      "reduceSum",
+      """{  "partBySize" : "1 month",
+        |   "ranges": [ {
+        |     "start": 1359676800000,
+        |     "until": 1388534400000
+        |  } ]
+        |} """.stripMargin)
+    requestWithLoaded("tom1", message) { response =>
+      println(response)
+    }
+  }
 
   test("sum a few elements with no requested range and no requested period") {
     withLoadedFile("simple-events.csv") { (store, system) =>
@@ -123,6 +151,7 @@ class TestReductions extends FunSuite with Matchers
       values shouldBe expectedValues
     }
   }
+
 //
 //  test("sum five elements, count = 6") {
 //    testSimpleByCount(

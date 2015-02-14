@@ -179,6 +179,7 @@ object SparkleBuild extends Build {
       .dependsOn(protocolTestKit % "it->compile;test->compile")
       .dependsOn(testKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
+      .dependsOn(storeTestKit % "it->compile;test->compile")
       .dependsOn(util)
       .configs(IntegrationTest)
       .settings(sparkleSettings: _*)
