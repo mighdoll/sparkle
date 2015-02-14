@@ -39,11 +39,11 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
   }
 
   override def suffixMatch = _ match {
-    case "sum" => sumTransform
-    case "mean" => meanTransform
-    case "min" => minTransform
-    case "max" => maxTransform
-    case "average" => maxTransform
+    case "sum"      => sumTransform
+    case "mean"     => meanTransform
+    case "average"  => meanTransform
+    case "min"      => minTransform
+    case "max"      => maxTransform
   }
 }
 
