@@ -82,9 +82,34 @@ class TestReductions extends FunSuite with Matchers
         Some(2),
         None
       )
-
     }
   }
+
+  test("sum a few elements with a start = data and end < data, 1 hour period") {
+    val start = "2014-12-01T00:00:00.000Z".toMillis
+    val until = "2014-12-01T02:00:00.000Z".toMillis
+    val message = stringRequest("simple-events/seconds", "reduceSum",
+      s"""{ "partBySize" : "1 hour",
+           |  "ranges": [ {
+           |    "start": $start,
+           |    "until": $until
+           |   } ]
+           |} """.stripMargin)
+    requestWithLoaded("simple-events.csv", message) { response =>
+      val data = longDoubleData(response)
+      val keys = data.map { case (key, _) => key}
+      val values = data.map { case (_, value) => value}
+      keys shouldBe Seq(
+        "2014-12-01T00:00:00.000Z".toMillis,
+        "2014-12-01T01:00:00.000Z".toMillis
+      )
+      values shouldBe Seq(
+        Some(8),
+        None
+      )
+    }
+  }
+
 
   test("sum a few elements with a specified start and no period") {
     val start = "2014-12-01T01:11:00.000Z".toMillis

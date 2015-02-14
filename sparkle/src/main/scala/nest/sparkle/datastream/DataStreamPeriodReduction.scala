@@ -20,12 +20,8 @@ case class PeriodsResult[K,V,F]
       override val finishState: Future[Option[FrozenProgress[K,F]]] )
     extends ReductionResult[K,V,FrozenProgress[K,F]]
 
-/** State to continue the reduction between stream */
-case class FrozenProgress[K, F](periodsIterator: Iterator[JodaInterval],
-                                periodsUsed: Int,
-                                periodStart: K,
-                                periodEnd: K,
-                                reductionProgress: F)
+/** Saved state to continue the reduction between streams */
+case class FrozenProgress[K, F](periodProgress: PeriodProgress[K], reductionProgress: F)
 
 /** functions for reducing a DataStream by time period */
 trait DataStreamPeriodReduction[K,V] extends Log {
@@ -81,68 +77,6 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     PeriodsResult(reducedStream, finishState.future)
   }
 
-  /** tracks progress in iterating through time periods */
-  private case class PeriodProgress[F]
-      ( periodWithZone: PeriodWithZone,
-        maxPeriods:Int,
-        targetStart:K,
-        until:Option[K] )
-      ( implicit numericKey:Numeric[K] ) {
-    var start: K = 0.asInstanceOf[K]
-    var end: K = 0.asInstanceOf[K]
-    var periodsUsed = 0 // total number of time periods visited (to compare against maxPeriods)
-    private var periodsIterator: Iterator[JodaInterval] =      // iterates through time periods
-      PeriodGroups.jodaIntervals(periodWithZone, targetStart)
-
-    /** advance period iteration to the next time period
-      * return true if the iterator was advanced, false if iteration has reached its end */
-    def toNextPeriod(): Boolean = {
-
-      def clipToRequestedEnd(proposedEnd:K):K = {
-        until match {
-          case Some(untilEnd) if untilEnd < proposedEnd => untilEnd
-          case _                                        => proposedEnd
-        }
-      }
-
-      if (periodsIterator.hasNext && periodsUsed < maxPeriods) {
-        val interval = periodsIterator.next()
-        start = numericKey.fromLong(interval.getStartMillis)
-        end = clipToRequestedEnd(numericKey.fromLong(interval.getEndMillis))
-        periodsUsed += 1
-        true
-      } else {
-        false
-      }
-    }
-
-    /** move period iteration forward until it reaches a period containing the provided key
-      * unless iteration is blocked by maxPeriods. returns true if the the advance is successful */
-    def advanceTo(key:K): Boolean = {
-      var unBlocked = true
-      while (start < key && unBlocked) {
-        unBlocked = toNextPeriod()
-      }
-      unBlocked
-    }
-
-    /** return a freeze-dried copy of the current period iteration and total accumulation,
-      * (so that we can reconstruct the current state of progress on a later stream).
-      */
-    def frozen[F](reductionProgress:F):FrozenProgress[K,F] = {
-      FrozenProgress(periodsIterator, periodsUsed, start, end, reductionProgress)
-    }
-
-    /** return a new PeriodProgress based on the current state combined with a previously frozen one */
-    def unfreeze(frozenProgress: FrozenProgress[K,F]): PeriodProgress[F] = {
-      val copied:PeriodProgress[F] = this.copy()
-      copied.start = frozenProgress.periodStart
-      copied.end = frozenProgress.periodEnd
-      copied.periodsUsed = frozenProgress.periodsUsed
-      copied.periodsIterator = frozenProgress.periodsIterator
-      copied
-    }
-  }
 
 
   /** holds the accumulated reduction results */
@@ -174,17 +108,14 @@ trait DataStreamPeriodReduction[K,V] extends Log {
         optPrevious: Option[FrozenProgress[K, F]] )
       ( implicit numericKey: Numeric[K] ) {
 
-    var periods: Option[PeriodProgress[F]] = None
+    var periods: Option[PeriodProgress[K]] = None
     var newDataReceived = false // true if we've received new data (not just applied frozen state)
     private var results = new Results()
     var currentReduction = reduction2
 
     optPrevious match {
       case Some(previousProgress) =>
-        val initialProgress = new PeriodProgress[F](periodWithZone, maxPeriods,
-          previousProgress.periodStart, range.until)
-        val revivedProgress = initialProgress.unfreeze(previousProgress)
-        periods = Some(revivedProgress)
+        periods = Some(previousProgress.periodProgress)
         currentReduction = reduction2.unfreeze(previousProgress.reductionProgress)
       case None =>
         range.start.foreach { key => startPeriodProgress(key) }
@@ -251,9 +182,10 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       }
     }
 
+
     /** return enough state to continue interim processing on a new stream */
     def frozenState: FrozenProgress[K,F] = {
-      periods.get.frozen(currentReduction.freeze()) // TODO should use frozen
+      FrozenProgress(periods.get, currentReduction.freeze())
     }
 
     /** initialize time period iterator */
@@ -279,7 +211,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       if (key >= periods.get.start && key < periods.get.end) {
         // accumulate a total for this period until we get to the end of the period
         accumulate(value)
-      } else if (key >= periods.get.end) {
+      } else if (key >= periods.get.end && !periods.get.complete) {
         // we're now past the period, so emit a value for the previous period
         // and emit a None value for any gap periods until we get to the period containing the key
         emitUntilKeyInPeriod(key)
@@ -326,3 +258,80 @@ trait DataStreamPeriodReduction[K,V] extends Log {
   }
 
 }
+
+/** tracks progress in iterating through time periods */
+case class PeriodProgress[K]
+    ( periodWithZone: PeriodWithZone,
+      maxPeriods:Int,
+      targetStart:K,
+      until:Option[K] )
+    ( implicit numericKey:Numeric[K] ) {
+  var start: K = 0.asInstanceOf[K]
+  var end: K = 0.asInstanceOf[K]
+  var complete = false  // true if iteration has reached 'until' or maxPeriods
+  var periodsUsed = 0 // total number of time periods visited (to compare against maxPeriods)
+  private var periodsIterator: Iterator[JodaInterval] =      // iterates through time periods
+    PeriodGroups.jodaIntervals(periodWithZone, targetStart)
+
+  /** advance period iteration to the next time period
+    * return true if the iterator was advanced, false if iteration has reached its end */
+  def toNextPeriod(): Boolean = {
+
+    def clipToRequestedEnd(proposedEndMillis:Long):K = {
+      val proposedEnd = numericKey.fromLong(proposedEndMillis)
+      until match {
+        case Some(untilEnd) if untilEnd < proposedEnd => untilEnd
+        case _                                        => proposedEnd
+      }
+    }
+
+    def reachedRequestedEnd:Boolean = {
+      until match {
+        case Some(untilEnd) if started && end >= untilEnd  => true
+        case _                                             => false
+      }
+    }
+
+    if (periodsIterator.hasNext && periodsUsed < maxPeriods && !reachedRequestedEnd) {
+      val interval = periodsIterator.next()
+      start = numericKey.fromLong(interval.getStartMillis)
+      end = clipToRequestedEnd(interval.getEndMillis)
+      periodsUsed += 1
+      true
+    } else {
+      complete = true
+      false
+    }
+  }
+
+
+  /** move period iteration forward until it reaches a period containing the provided key
+    * unless iteration is blocked by maxPeriods. returns true if the the advance is successful */
+  def advanceTo(key:K): Boolean = {
+    var unBlocked = true
+    while (start < key && unBlocked) {
+      unBlocked = toNextPeriod()
+    }
+    unBlocked
+  }
+
+  private def started: Boolean = periodsUsed > 0
+
+  //    /** return a freeze-dried copy of the current period iteration and total accumulation,
+  //      * (so that we can reconstruct the current state of progress on a later stream).
+  //      */
+  //    def frozen[F](reductionProgress:F):FrozenProgress[K,F] = {
+  //      FrozenProgress(periodsIterator, periodsUsed, start, end, reductionProgress)
+  //    }
+
+  //    /** return a new PeriodProgress based on the current state combined with a previously frozen one */
+  //    def unfreeze(frozenProgress: FrozenProgress[K,F]): PeriodProgress[F] = {
+  //      val copied:PeriodProgress[F] = this.copy()
+  //      copied.start = frozenProgress.periodStart
+  //      copied.end = frozenProgress.periodEnd
+  //      copied.periodsUsed = frozenProgress.periodsUsed
+  //      copied.periodsIterator = frozenProgress.periodsIterator
+  //      copied
+  //    }
+}
+

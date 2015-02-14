@@ -8,7 +8,7 @@ import nest.sparkle.util.ReflectionUtil
 import spire.math._
 import spire.implicits._
 
-/**
+/** Utilities for generating DataStreams (for tests)
  */
 object StreamGeneration {
   /** split a sequence into three parts, where the part sizes are randomly generated */
@@ -24,7 +24,8 @@ object StreamGeneration {
       Seq(first, second, third)
     }
   }
-  
+
+  /** create a DataStream from a sequence of tuple sequences */
   def createStream[K: TypeTag, V: TypeTag] // format: OFF
       ( blocks: Seq[Seq[(K,V)]] )
       : DataStream[K,V] = { // format: ON

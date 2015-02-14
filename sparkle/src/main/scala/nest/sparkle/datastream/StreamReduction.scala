@@ -14,7 +14,7 @@ trait Reduction[V, F] {
   def currentTotal: Option[V]
 
   /** return a frozen copy of this reduction, suitable for re-instantation with unfreeze */
-  def freeze(): F
+  def freeze(): F // TODO get rid of freeze/unfreeze
 
   /** apply the frozen state */
   def unfreeze(frozen: F): Reduction[V, F]

@@ -33,12 +33,12 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
   }
 
   def reduceSum[K: ClassTag: TypeTag: Numeric, V: ClassTag: TypeTag: Numeric] // format: OFF
-      ( parts: Seq[Seq[(K, V)]], period:String )
+      ( parts: Seq[Seq[(K, V)]], period:String, range: SoftInterval[K] = SoftInterval.empty[K] )
       : DataArray[K,Option[V]] = { // format: ON
     val stream = createStream(parts)
     val periodWithZone = PeriodWithZone(Period.parse(period).get, DateTimeZone.UTC)
     implicit val span = DummySpan
-    val reduced = stream.reduceByPeriod(periodWithZone, SoftInterval.empty, ReduceSum[V]())
+    val reduced = stream.reduceByPeriod(periodWithZone, range, ReduceSum[V]())
     val dataArrays = reduced.reducedStream.data.toBlocking.toList
     dataArrays.reduce (_ ++ _)
   }
@@ -51,7 +51,7 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
     validateSimpleByHour(results)
   }
   
-  def validateSimpleByHour[K,V](data:DataArray[K,Option[V]]):Boolean = {
+  def validateSimpleByHour[K, V](data: DataArray[K, Option[V]]): Boolean = {
     data.length shouldBe 3
     data(0) shouldBe ("2014-12-01T00:00:00.000".toMillis -> Some(8))
     data(1) shouldBe ("2014-12-01T01:00:00.000".toMillis -> None)
@@ -70,6 +70,21 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
     }
     val result = Test.check(prop)(_.withMinSuccessfulTests(5))
     result.status shouldBe Passed
+  }
+
+  test("reduceByPeriod: sum with 30 minute period, many partitions, end < data") {
+    val parts = simpleEvents.map { element => Seq(element)}
+    val range = SoftInterval(None, Some("2014-12-01T01:00:00.000".toMillis))
+    val result = reduceSum(parts, "30 minute", range)
+
+    result.keys shouldBe Seq(
+      "2014-12-01T00:00:00.000".toMillis,
+      "2014-12-01T00:30:00.000".toMillis
+    )
+    result.values shouldBe Seq(
+      Some(4),
+      Some(4)
+    )
   }
 
 }
