@@ -94,7 +94,8 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     private var periodsIterator: Iterator[JodaInterval] =      // iterates through time periods
       PeriodGroups.jodaIntervals(periodWithZone, targetStart)
 
-    /** advance period iteration to the next time period */
+    /** advance period iteration to the next time period
+      * return true if the iterator was advanced, false if iteration has reached its end */
     def toNextPeriod(): Boolean = {
 
       def clipToRequestedEnd(proposedEnd:K):K = {
@@ -115,13 +116,14 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       }
     }
 
-    /** move period iteration forward until it reaches a period containing the provided key */
+    /** move period iteration forward until it reaches a period containing the provided key
+      * unless iteration is blocked by maxPeriods. returns true if the the advance is successful */
     def advanceTo(key:K): Boolean = {
-      var reachedMax = false
-      while (start < key && !reachedMax) {
-        reachedMax = toNextPeriod()
+      var unBlocked = true
+      while (start < key && unBlocked) {
+        unBlocked = toNextPeriod()
       }
-      reachedMax
+      unBlocked
     }
 
     /** return a freeze-dried copy of the current period iteration and total accumulation,
