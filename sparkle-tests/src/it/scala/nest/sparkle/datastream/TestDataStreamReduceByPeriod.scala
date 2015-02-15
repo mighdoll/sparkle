@@ -87,4 +87,27 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
     )
   }
 
+  test("reduceByPeriod: sum with 30 minute period, many partitions, end > data") {
+    val parts = simpleEvents.map { element => Seq(element)}
+    val range = SoftInterval(None, Some("2014-12-01T03:00:00.000".toMillis))
+    val result = reduceSum(parts, "30 minute", range)
+
+    result.keys shouldBe Seq(
+      "2014-12-01T00:00:00.000".toMillis,
+      "2014-12-01T00:30:00.000".toMillis,
+      "2014-12-01T01:00:00.000".toMillis,
+      "2014-12-01T01:30:00.000".toMillis,
+      "2014-12-01T02:00:00.000".toMillis,
+      "2014-12-01T02:30:00.000".toMillis
+    )
+    result.values shouldBe Seq(
+      Some(4),
+      Some(4),
+      None,
+      None,
+      Some(2),
+      None
+    )
+  }
+
 }
