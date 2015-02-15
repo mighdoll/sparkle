@@ -164,10 +164,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
 
         }
         // get a copy of the period iterator at the same position
-        val interimPeriods =
-          new PeriodProgress(periodWithZone, maxPeriods, periods.get.targetStart, range.until)
-        interimPeriods.toNextPeriod()
-        interimPeriods.advanceTo(periods.get.start)
+        val interimPeriods = periods.get.duplicate()
 
         range.until.foreach { until =>
           var done = false
@@ -304,10 +301,18 @@ case class PeriodProgress[K]
     }
   }
 
+  /** return a copy of this PeriodProgress at the same iteration state */
+  def duplicate(): PeriodProgress[K] = {
+    val dup = this.copy()
+    dup.toNextPeriod
+    dup.advanceTo(start)
+    dup
+  }
+
 
   /** move period iteration forward until it reaches a period containing the provided key
     * unless iteration is blocked by maxPeriods. returns true if the the advance is successful */
-  def advanceTo(key:K): Boolean = {
+  private def advanceTo(key:K): Boolean = {
     var unBlocked = true
     while (start < key && unBlocked) {
       unBlocked = toNextPeriod()
@@ -316,6 +321,7 @@ case class PeriodProgress[K]
   }
 
   private def started: Boolean = periodsUsed > 0
+
 
   //    /** return a freeze-dried copy of the current period iteration and total accumulation,
   //      * (so that we can reconstruct the current state of progress on a later stream).
