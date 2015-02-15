@@ -57,6 +57,10 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraStoreTestConf
     testEpochsFile("_ignore/epochs2.csv", "epochs2/count")
   }
 
+  test("load csv file in dir/subdir") {
+    testEpochsFile("dir", "subdir/epochs/count")
+  }
+
   test("load csv file with boolean values, and second resolution timestamps") {
     testLoadFile("booleanSeconds.csv", "booleanSeconds/value") { results: Seq[Event[Long, Boolean]] =>
       results.map(_.value) shouldBe Seq(false, false, true, true)
