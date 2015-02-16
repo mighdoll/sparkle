@@ -128,6 +128,9 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     case false => BatchStatement.Type.LOGGED
   }
 
+  /** overall count of how many values we tried to write to this table */
+  val writeCountMetric = metrics.counter("store-value-writes", tableName)
+
   /** create a catalog entries for this given sparse column */
   protected def updateCatalog(description: String = "no description")(implicit executionContext: ExecutionContext): Future[Unit] = {
     
@@ -148,7 +151,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
   }
 
   /** write a bunch of column values in a batch */ // format: OFF
-  def write(items:Iterable[Event[T,U]])
+  override def write(items:Iterable[Event[T,U]])
       (implicit executionContext:ExecutionContext): Future[Unit] = { // format: ON
     val events = items.toSeq
     val written = writeMany(events)
@@ -181,6 +184,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       batch.setConsistencyLevel(consistencyLevel)
       val statements = insertGroup.toSeq.asJava
       batchSizeMetric += statements.size  // measure the size of batches
+      writeCountMetric += statements.size
       batch.addAll(statements)
       batch
     }
@@ -227,6 +231,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       batch.setConsistencyLevel(consistencyLevel)
       val statements = insertGroup.toSeq.asJava
       batchSizeMetric += statements.size    // measure the size of batches
+      writeCountMetric += statements.size
       batch.addAll(statements)
       batch
     }

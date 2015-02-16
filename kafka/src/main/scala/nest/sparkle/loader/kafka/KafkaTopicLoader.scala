@@ -341,9 +341,9 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
         
         tryResult match {
           case Success(optUpdate) => resultPromise.success(optUpdate)
-          case Failure(err)       => 
-            log.error(s"writeBlocks failed $err")
-            writeErrorsMetric.mark()
+          case Failure(err)       =>
+            // this should never happen because we write until successful
+            log.error(s"got unexpected failure writing events: $err")
             resultPromise.failure(err)
        }
       }
@@ -389,6 +389,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
             p.success(Some(ColumnUpdate[K](columnPath, events.last.argument)))
           case Failure(err) =>
             log.error(s"Retrying writing events for $columnPath. $err")
+            writeErrorsMetric.mark()
             system.scheduler.scheduleOnce(retryDelay) { 
               val nextDelay = retryDelay * 2 match {
                 case n if n >= MaxDelay => MaxDelay
