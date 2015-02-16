@@ -58,10 +58,7 @@ private[transform] object TransformValidation {
   }
 
   /** the default timezone to use for date centric calclucation if none is provided by the caller's request */
-  private val defaultDateTimeZone = {
-    val timeZone = TimeZone.getTimeZone("America/Los_Angeles") // TODO make this .conf settable, default UTC
-    DateTimeZone.forTimeZone(timeZone)
-  }
+  private val defaultDateTimeZone = DateTimeZone.UTC
 
   /** The timezone from the request, or the default timezone if not is specified */
   private def requestedTimeZone(optZone: Option[String]): DateTimeZone = {
