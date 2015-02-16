@@ -14,7 +14,6 @@ import nest.sparkle.util.StringToMillis.IsoDateString
 class TestReductions extends FunSuite with Matchers
     with CassandraStoreTestConfig with StreamRequestor {
 
-
   def requestWithLoaded
       ( fileOrDirectory:String, request:String )
       ( fn: HttpResponse => Unit ):Unit = {
@@ -25,26 +24,9 @@ class TestReductions extends FunSuite with Matchers
     }
   }
 
-  test("toms example") {
-    val message = stringRequest(
-      "66cfb102-1c05-11e4-90dd-7831c1c7ac74/T_02AA0181233YJU/EnergySummary/TotalLeaf",
-      "reduceSum",
-      """{  "partBySize" : "1 month",
-        |   "ranges": [ {
-        |     "start": 1359676800000,
-        |     "until": 1388534400000
-        |  } ]
-        |} """.stripMargin)
-    requestWithLoaded("tom1", message) { response =>
-      println(response)
-    }
-  }
-
   test("sum a few elements with no requested range and no requested period") {
-    withLoadedFile("simple-events.csv") { (store, system) =>
-      val service = new TestServiceWithCassandra(store, system)
-      val message = stringRequest("simple-events/seconds", "reduceSum")
-      val response = service.sendDataMessage(message).await
+    val message = stringRequest("simple-events/seconds", "reduceSum")
+    requestWithLoaded("simple-events.csv", message) { response =>
       val data = longDoubleData(response)
       data.length shouldBe 1
       data.head match {
@@ -56,12 +38,9 @@ class TestReductions extends FunSuite with Matchers
   }
 
   test("sum a few elements with no requested range with a 1 hour period") {
-    withLoadedFile("simple-events.csv") { (store, system) =>
-      val service = new TestServiceWithCassandra(store, system)
-      val message = stringRequest("simple-events/seconds", "reduceSum",
-        """{ "partBySize" : "1 hour" } """)
-      val response = service.sendDataMessage(message).await
-
+    val message = stringRequest("simple-events/seconds", "reduceSum",
+      """{ "partBySize" : "1 hour" } """)
+    requestWithLoaded("simple-events.csv", message) { response =>
       val data = longDoubleData(response)
       data.length shouldBe 3
       val keys = data.map { case (key, _) => key}
@@ -80,19 +59,16 @@ class TestReductions extends FunSuite with Matchers
   }
 
   test("sum a few elements with a specified start and end > data, 1 hour period") {
-    withLoadedFile("simple-events.csv") { (store, system) =>
-      val service = new TestServiceWithCassandra(store, system)
-      val start = "2014-12-01T01:00:00.000Z".toMillis
-      val until = "2014-12-01T04:00:00.000Z".toMillis
-      val message = stringRequest("simple-events/seconds", "reduceSum",
-        s"""{ "partBySize" : "1 hour",
+    val start = "2014-12-01T01:00:00.000Z".toMillis
+    val until = "2014-12-01T04:00:00.000Z".toMillis
+    val message = stringRequest("simple-events/seconds", "reduceSum",
+      s"""{ "partBySize" : "1 hour",
            |  "ranges": [ {
            |    "start": $start,
            |    "until": $until
            |   } ]
            |} """.stripMargin)
-      val response = service.sendDataMessage(message).await
-
+    requestWithLoaded("simple-events.csv", message) { response =>
       val data = longDoubleData(response)
       val keys = data.map { case (key, _) => key}
       val values = data.map { case (_, value) => value}
@@ -111,18 +87,15 @@ class TestReductions extends FunSuite with Matchers
   }
 
   test("sum a few elements with a specified start and no period") {
-    withLoadedFile("simple-events.csv") { (store, system) =>
-      val service = new TestServiceWithCassandra(store, system)
-      val start = "2014-12-01T01:11:00.000Z".toMillis
-      val until = "2014-12-01T04:00:00.000Z".toMillis
-      val message = stringRequest("simple-events/seconds", "reduceSum",
-        s"""{ "ranges": [ {
+    val start = "2014-12-01T01:11:00.000Z".toMillis
+    val until = "2014-12-01T04:00:00.000Z".toMillis
+    val message = stringRequest("simple-events/seconds", "reduceSum",
+      s"""{ "ranges": [ {
            |    "start": $start,
            |    "until": $until
            |   } ]
            |} """.stripMargin)
-      val response = service.sendDataMessage(message).await
-
+    requestWithLoaded("simple-events.csv", message) { response =>
       val data = longDoubleData(response)
       data.length shouldBe 1
       data.head match {
@@ -134,12 +107,9 @@ class TestReductions extends FunSuite with Matchers
   }
 
   def testSimpleByCount(count:Int, expectedKeys:Seq[String], expectedValues:Seq[Option[Double]]): Unit = {
-    withLoadedFile("simple-events.csv") { (store, system) =>
-      val service = new TestServiceWithCassandra(store, system)
-      val message = stringRequest("simple-events/seconds", "reduceSum",
-        s"""{ "partByCount" : $count } """)
-      val response = service.sendDataMessage(message).await
-
+    val message = stringRequest("simple-events/seconds", "reduceSum",
+      s"""{ "partByCount" : $count } """)
+    requestWithLoaded("simple-events.csv", message) { response =>
       val data = longDoubleData(response)
       data.length shouldBe expectedKeys.length
       val keys = data.map { case (key, _) => key}
