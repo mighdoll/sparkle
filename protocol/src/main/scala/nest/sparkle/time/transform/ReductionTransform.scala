@@ -20,25 +20,25 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
   override type TransformType = MultiTransform
   override def prefix = "reduce"
 
-  lazy val sumTransform = makeNumericTransform[Any, Option[Any]]{ ReduceSum()(_) }
-  lazy val meanTransform = makeNumericTransform[Any, ReduceMeanState[Any]] { ReduceMean()(_) }
-  lazy val minTransform = makeNumericTransform[Any, Option[Any]]{ ReduceMin()(_) }
-  lazy val maxTransform = makeNumericTransform[Any, Option[Any]]{ ReduceMax()(_) }
+  lazy val sumTransform = makeNumericTransform { ReduceSum()(_) }
+  lazy val meanTransform = makeNumericTransform { ReduceMean()(_) }
+  lazy val minTransform = makeNumericTransform { ReduceMin()(_) }
+  lazy val maxTransform = makeNumericTransform { ReduceMax()(_) }
 
-  def makeNumericTransform[V, F]
-      ( reductionFactory: Numeric[V] => Reduction[V, F] )
-      : ReduceTransform[V, F] = {
+  def makeNumericTransform
+      ( reductionFactory: Numeric[Any] => Reduction[Any] )
+      : ReduceTransform[_] = {
 
-    def produceReducer: TypeTag[_] => Try[Reduction[V,F]] = { typeTag:TypeTag[_] =>
-      RecoverNumeric.tryNumeric[V](typeTag).map { numericValue =>
+    def produceReducer: TypeTag[_] => Try[Reduction[Any]] = { typeTag:TypeTag[_] =>
+      RecoverNumeric.tryNumeric[Any](typeTag).map { numericValue =>
         reductionFactory(numericValue)
       }
     }
 
-    ReduceTransform(rootConfig, produceReducer)
+    ReduceTransform[Any](rootConfig, produceReducer)
   }
 
-  override def suffixMatch = _ match {
+  override def suffixMatch: PartialFunction[String, TransformType] = _ match {
     case "sum"      => sumTransform
     case "mean"     => meanTransform
     case "average"  => meanTransform
@@ -47,8 +47,8 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
   }
 }
 
-case class ReduceTransform[V, F](rootConfig: Config,
-                                 produceReduction: TypeTag[_] => Try[Reduction[V, F]])
+case class ReduceTransform[V](rootConfig: Config,
+                                 produceReduction: TypeTag[_] => Try[Reduction[V]])
                                 (implicit measurements: Measurements)
   extends MultiTransform with Log {
 
@@ -86,7 +86,7 @@ case class ReduceTransform[V, F](rootConfig: Config,
   /** Perform a reduce operation on all the streams in a group set.
     */
   def reduceOperation[K] // format: OFF  
-      ( makeReduction: TypeTag[_] => Try[Reduction[V, F]],
+      ( makeReduction: TypeTag[_] => Try[Reduction[V]],
         groupSet: StreamGroupSet[K, V, AsyncWithRange],
         optCount: Option[Int],
         optPeriod: Option[PeriodWithZone],

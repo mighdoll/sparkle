@@ -26,8 +26,8 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
     * is the optionally provided reduceKey, or the first key of original stream if
     * no reduceKey is provided.
     */
-  def reduceToOnePart[F]
-      ( reduction: Reduction[V,F], reduceKey:Option[K] = None)
+  def reduceToOnePart
+      ( reduction: Reduction[V], reduceKey:Option[K] = None)
       ( implicit parentSpan:Span )
       : DataStream[K, Option[V]] = {
 

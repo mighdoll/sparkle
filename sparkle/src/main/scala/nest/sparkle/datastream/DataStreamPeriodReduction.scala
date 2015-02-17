@@ -15,13 +15,13 @@ import nest.sparkle.util.{Log, PeriodWithZone}
 
 /** Result of reducing a stream of data. Includes a stream of reduced results and
   * a state object that can be used to resume the reduction on a subsequent stream. */
-case class PeriodsResult[K,V,F]
+case class PeriodsResult[K,V]
     ( reducedStream:DataStream[K,Option[V]],
-      override val finishState: Future[Option[FrozenProgress[K,F]]] )
-    extends ReductionResult[K,V,FrozenProgress[K,F]]
+      override val finishState: Future[Option[FrozenProgress[K,V]]] )
+    extends ReductionResult[K,V,FrozenProgress[K,V]]
 
 /** Saved state to continue the reduction between streams */
-case class FrozenProgress[K, F](periodProgress: PeriodProgress[K], reductionProgress: F)
+case class FrozenProgress[K, V](periodProgress: PeriodProgress[K], reductionProgress: Reduction[V])
 
 /** functions for reducing a DataStream by time period */
 trait DataStreamPeriodReduction[K,V] extends Log {
@@ -43,17 +43,17 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     *
     * @param maxPeriods reduce into at most this many time periods
     */
-  def reduceByPeriod[F] // format: OFF
+  def reduceByPeriod // format: OFF
       ( periodWithZone: PeriodWithZone,
         range: SoftInterval[K],
-        reduction: Reduction[V, F],
+        reduction: Reduction[V],
         maxPeriods: Int = defaultMaxPeriods,
-        optPrevious: Option[FrozenProgress[K, F]] = None)
+        optPrevious: Option[FrozenProgress[K, V]] = None)
       ( implicit numericKey: Numeric[K], parentSpan:Span )
-      : PeriodsResult[K,V,F] = { // format: ON
+      : PeriodsResult[K,V] = { // format: ON
 
     val state = new State(periodWithZone, reduction, range, maxPeriods, optPrevious)
-    val finishState = Promise[Option[FrozenProgress[K,F]]]()
+    val finishState = Promise[Option[FrozenProgress[K,V]]]()
     val reduced = data.materialize.flatMap { notification =>
       notification match {
         case Notification.OnNext(dataArray) =>
@@ -100,12 +100,12 @@ trait DataStreamPeriodReduction[K,V] extends Log {
   /** Maintains the state while reducing a sequence of data arrays. The caller
     * should call processArray for each block, and then remaining when the sequence
     * is complete to fetch any partially reduced data. */
-  private class State[F]
+  private class State
       ( periodWithZone: PeriodWithZone,
-        reduction2: Reduction[V, F],
+        reduction2: Reduction[V],
         range: SoftInterval[K],
         maxPeriods: Int,
-        optPrevious: Option[FrozenProgress[K, F]] )
+        optPrevious: Option[FrozenProgress[K, V]] )
       ( implicit numericKey: Numeric[K] ) {
 
     var periods: Option[PeriodProgress[K]] = None
@@ -116,7 +116,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     optPrevious match {
       case Some(previousProgress) =>
         periods = Some(previousProgress.periodProgress)
-        currentReduction = reduction2.unfreeze(previousProgress.reductionProgress)
+        currentReduction = previousProgress.reductionProgress
       case None =>
         range.start.foreach { key => startPeriodProgress(key) }
     }
@@ -181,8 +181,8 @@ trait DataStreamPeriodReduction[K,V] extends Log {
 
 
     /** return enough state to continue interim processing on a new stream */
-    def frozenState: FrozenProgress[K,F] = {
-      FrozenProgress(periods.get, currentReduction.freeze())
+    def frozenState: FrozenProgress[K,V] = {
+      FrozenProgress(periods.get, currentReduction)
     }
 
     /** initialize time period iterator */

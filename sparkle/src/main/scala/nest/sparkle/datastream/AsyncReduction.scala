@@ -24,10 +24,10 @@ trait AsyncReduction[K,V] extends Log {
     * to select the appropriate stream reductions, and manage the initial/ongoing
     * parts of this TwoPartStream.
     */
-  def flexibleReduce[F] // format: OFF
+  def flexibleReduce // format: OFF
       ( optPeriod: Option[PeriodWithZone],
         optCount: Option[Int],
-        reduction: Reduction[V, F],
+        reduction: Reduction[V],
         maxParts: Int,
         ongoingDuration: Option[FiniteDuration] )
       ( implicit execution: ExecutionContext, parentSpan:Span )
@@ -59,9 +59,9 @@ trait AsyncReduction[K,V] extends Log {
     * The ongoing portion of the stream is reduced to periods periodically
     * (every 5 seconds by default).
     */
-  private def reduceByPeriod[F] // format: OFF
+  private def reduceByPeriod // format: OFF
       ( periodWithZone: PeriodWithZone,
-        reduction: Reduction[V, F],
+        reduction: Reduction[V],
         optBufferOngoing: Option[FiniteDuration] = None,
         maxParts: Int )
       ( implicit executionContext:ExecutionContext, parentSpan:Span )
@@ -88,8 +88,8 @@ trait AsyncReduction[K,V] extends Log {
   /** reduce the initial part of the stream to a single value, and reduce the ongoing
     * stream to a single value every 5 seconds.
     */
-  private def reduceToOnePart[F] // format: OFF
-        ( reduction: Reduction[V,F], reduceKey: Option[K] = None,
+  private def reduceToOnePart // format: OFF
+        ( reduction: Reduction[V], reduceKey: Option[K] = None,
           optBufferOngoing: Option[FiniteDuration] = None )
         ( implicit executionContext:ExecutionContext, parentSpan: Span)
         : AsyncWithRange[K, Option[V]] = { // format: ON
