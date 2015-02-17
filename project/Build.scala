@@ -30,7 +30,6 @@ object SparkleBuild extends Build {
       .settings(sparkleSettings: _*)
       .settings(
         libraryDependencies ++= logbackTest ++ Seq(
-          nettyAll,
           unfiltered,
           metricsScala
         )
