@@ -45,6 +45,7 @@ class WebSocketServer(rootConfig:Config) extends Log {
   }
 
   def start() {
+    log.info(s"starting websocket listeners on ports ${http.ports}")
     http.start()
   }
 
