@@ -13,7 +13,7 @@ import nest.sparkle.util.ReflectionUtil
 /** Functions for reducing an Observable of array pairs to smaller DataArrays
   */
 case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
-    extends DataStreamPeriodReduction[K,V] {
+    extends DataStreamPeriodReduction[K,V] with DataStreamCountReduction[K,V] {
 
   implicit lazy val keyClassTag = ReflectionUtil.classTag[K](typeTag[K])
   implicit lazy val valueClassTag = ReflectionUtil.classTag[V](typeTag[V])

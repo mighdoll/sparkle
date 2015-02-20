@@ -62,10 +62,8 @@ trait DataStreamPeriodReduction[K,V] extends Log {
         case Notification.OnCompleted =>
           finishState.complete(Success(Some(state.frozenState)))
           state.remaining match {
-            case Some(remaining) =>
-              Observable.from(Seq(remaining))
-            case None            =>
-              Observable.empty
+            case Some(remaining) => Observable.from(Seq(remaining))
+            case None            => Observable.empty
           }
         case Notification.OnError(err) =>
           finishState.complete(Failure(err))

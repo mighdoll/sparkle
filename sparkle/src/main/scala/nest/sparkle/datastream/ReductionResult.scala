@@ -4,7 +4,7 @@ import scala.concurrent.Future
 import scala.reflect.runtime.universe._
 
 
-/** Asynchronous results from reducing a data stream. Includes state to propogate between reduction
+/** Asynchronous results from reducing a data stream. Includes state to propagate between reduction
   * runs. Passing state between reduction runs allows multiple streams to be stitched to together
   * into one logical reduction. */
 trait ReductionResult[K,V,S] {

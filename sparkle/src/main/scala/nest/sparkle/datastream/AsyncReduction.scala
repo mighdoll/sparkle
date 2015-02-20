@@ -42,8 +42,7 @@ trait AsyncReduction[K,V] extends Log {
       case (None, None, None) =>
         reduceToOnePart(reduction, optBufferOngoing = ongoingDuration)
       case (Some(count), None, _) =>
-        val err = ReductionParameterError("byCount reductions not yet supported")
-        AsyncWithRange.error(err, self.requestRange)
+        reduceByElementCount(count, reduction, maxParts)
       case (Some(_), Some(_), _) =>
         val err = ReductionParameterError("both count and period specified")
         AsyncWithRange.error(err, self.requestRange)
@@ -77,7 +76,7 @@ trait AsyncReduction[K,V] extends Log {
           maxParts, optPrevious = None)
         val prevStateFuture = initialResult.finishState
         val reducedOngoing =
-          self.ongoing.tumblingReduce(bufferOngoing, prevStateFuture) { (buffer, optState) =>
+          ongoing.tumblingReduce(bufferOngoing, prevStateFuture) { (buffer, optState) =>
             buffer.reduceByPeriod(periodWithZone, range, reduction, maxParts, optState)
           }
         AsyncWithRange(initialResult.reducedStream, reducedOngoing, self.requestRange)
@@ -86,13 +85,13 @@ trait AsyncReduction[K,V] extends Log {
   }
 
   /** reduce the initial part of the stream to a single value, and reduce the ongoing
-    * stream to a single value every 5 seconds.
+    * stream to a single value periodically.
     */
   private def reduceToOnePart // format: OFF
-        ( reduction: Reduction[V], reduceKey: Option[K] = None,
-          optBufferOngoing: Option[FiniteDuration] = None )
-        ( implicit executionContext:ExecutionContext, parentSpan: Span)
-        : AsyncWithRange[K, Option[V]] = { // format: ON
+      ( reduction: Reduction[V], reduceKey: Option[K] = None,
+        optBufferOngoing: Option[FiniteDuration] = None )
+      ( implicit executionContext:ExecutionContext, parentSpan: Span)
+      : AsyncWithRange[K, Option[V]] = { // format: ON
 
     val bufferOngoing = optBufferOngoing getOrElse defaultBufferOngoing
 
@@ -107,4 +106,25 @@ trait AsyncReduction[K,V] extends Log {
     AsyncWithRange(initialReduced, ongoingReduced, self.requestRange)
   }
 
+
+  /**
+    */
+  private def reduceByElementCount // format: OFF
+      ( targetCount: Int, reduction: Reduction[V], maxParts: Int,
+        optBufferOngoing: Option[FiniteDuration] = None )
+      ( implicit executionContext:ExecutionContext, parentSpan: Span)
+      : AsyncWithRange[K, Option[V]] = { // format: ON
+
+    val bufferOngoing = optBufferOngoing getOrElse defaultBufferOngoing
+
+    val initialResult = initial.reduceByElementCount(targetCount, reduction, maxParts)
+
+    val prevStateFuture = initialResult.finishState
+    val ongoingReduced =
+      ongoing.tumblingReduce(bufferOngoing, prevStateFuture) { (buffer, optState) =>
+        buffer.reduceByElementCount(targetCount, reduction.newInstance(), maxParts, optState)
+      }
+
+    AsyncWithRange(initialResult.reducedStream, ongoingReduced, self.requestRange)
+  }
 }
