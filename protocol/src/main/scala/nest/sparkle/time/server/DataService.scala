@@ -17,9 +17,9 @@ package nest.sparkle.time.server
 import scala.concurrent.ExecutionContext
 
 import spray.http.StatusCodes.NotFound
-import spray.httpx.marshalling.ToResponseMarshallable.isMarshallable
-import spray.routing.Directive.pimpApply
 import spray.routing.Route
+import nest.sparkle.time.server.JsServiceConfigJson.JsServiceConfigFormat
+import spray.httpx.SprayJsonSupport._
 
 import nest.sparkle.http.{HttpLogging, StaticContent}
 import nest.sparkle.time.protocol.DataServiceV1
@@ -29,17 +29,28 @@ import nest.sparkle.util.Log
 trait DataService extends StaticContent with DataServiceV1 with HttpLogging with Log {
   implicit def executionContext: ExecutionContext
 
-  /** Subsclasses can override customRoutes to provide additional routes.  The resulting
+  /** Subclasses can override customRoutes to provide additional routes.  The resulting
     * routes have priority and can replace any built in routes.
     */
   def customRoutes: Iterable[Route] = List()
 
-  private def externalRoutes: Route = customRoutes.reduceLeftOption{ (a, b) => a ~ b } getOrElse reject()
+  private def externalRoutes: Route =
+    customRoutes.reduceLeftOption{ (a, b) => a ~ b } getOrElse reject()
   
   private val health: Route = {
     path("health") {
       dynamic {
         complete("ok")
+      }
+    }
+  }
+
+  lazy val jsConfig = JsServiceConfig(rootConfig.getInt("sparkle.web-socket.port"))
+
+  private lazy val jsServiceConfig: Route = {
+    get {
+      path("serverConfig") {
+        complete(jsConfig)
       }
     }
   }
@@ -55,6 +66,7 @@ trait DataService extends StaticContent with DataServiceV1 with HttpLogging with
       v1protocol ~
       get {
         staticContent ~
+        jsServiceConfig ~
         health ~
         notFound
       }

@@ -15,6 +15,14 @@
 define(["lib/when/monitor/console", "sg/request", "sg/util"], 
     function(_console, request) {
 
+   var webSocketUriWhen =
+     request.jsonWhen("serverConfig")
+      .then(function(serverConfig) {
+         var host = parseUrl(document.documentURL).hostname;
+         var port = serverConfig.webSocketPort;
+         return "ws://" + host + ":" + port + "/data";
+       });
+
    // these need to be unique per session/socket..
    // (but it doesn't hurt to make them unique across all connectons)
    var nextRequestId = 0; 
@@ -50,25 +58,30 @@ define(["lib/when/monitor/console", "sg/request", "sg/util"],
     //console.log("columnRequestSocket called for:", dataSet, column, transform, transformParameters);
     var sourceSelector = [dataSet + "/" + column];
 
-    var socket = new WebSocket("ws://localhost:3333/data"); // TODO don't hardcode data endpoint
-    var receivedHead = false;
-    socket.onmessage = function(messageEvent) {
-      //console.log("columnRequestSocket got message:", messageEvent.data);
-      if (!receivedHead) {
-        var data = streamsResponse(messageEvent.data);
-        receivedHead = true;
-        dataFn(data);
-      } else {
-        var data = updateResponse(messageEvent.data);
-        dataFn(data);
-      }
-    };
+    webSocketUriWhen.then( function(uri) {
+      var socket = new WebSocket(uri);
+      var receivedHead = false;
 
-    socket.onopen = function() {
-      var message = streamRequestMessage(sourceSelector, transform, transformParameters);
-      //console.log("columnRequestSocket sending message:", message);
-      socket.send(message);
-    };
+      socket.onmessage = function(messageEvent) {
+        //console.log("columnRequestSocket got message:", messageEvent.data);
+        if (!receivedHead) {
+          var data = streamsResponse(messageEvent.data);
+          receivedHead = true;
+          dataFn(data);
+        } else {
+          var data = updateResponse(messageEvent.data);
+          dataFn(data);
+        }
+      };
+
+      socket.onopen = function() {
+        var message = streamRequestMessage(sourceSelector, transform, transformParameters);
+        //console.log("columnRequestSocket sending message:", message);
+        socket.send(message);
+      };
+    });
+
+
   }
 
 /** Fetch data items from the server. Return a When that completes with the raw data 

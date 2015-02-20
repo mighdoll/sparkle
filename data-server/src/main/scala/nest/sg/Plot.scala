@@ -39,14 +39,15 @@ trait PlotConsole extends Log {
     plotEvents(events, name, dashboard, title, units, false)
   }
 
-  def plotEvents[T: TypeTag, U: TypeTag](events: Iterable[Event[T, U]], name: String = nowString(), dashboard: String = "",
-    title: Opt[String] = None, units: Opt[String] = None, timeSeries: Boolean = true) {
+  def plotEvents[T: TypeTag, U: TypeTag]
+      ( events: Iterable[Event[T, U]], name: String = nowString(), dashboard: String = "",
+        title: Opt[String] = None, units: Opt[String] = None, timeSeries: Boolean = true) {
     val stored =
       for {
         a <- storeEvents(events, name)
         b <- storeParameters(name, title, units, timeSeries)
       } yield {
-        launchBrowser(dashboard)
+        printDashboardUrl(dashboard)
       }
 
     stored.failed.foreach{ failure =>
@@ -54,30 +55,38 @@ trait PlotConsole extends Log {
     }
   }
 
-  def plotStream[T: TypeTag](observable: Observable[T], name: String = nowString(), dashboard: String = "",
-    title: Opt[String] = None, units: Opt[String] = None) {
+  def printDashboardUrl(dashboard:String): Unit = {
+    val webPort = server.webPort
+    println(s"http://localhost:$webPort/$sessionParameter")
+  }
+
+  def plotStream[T: TypeTag]
+      ( observable: Observable[T], name: String = nowString(), dashboard: String = "",
+        title: Opt[String] = None, units: Opt[String] = None) {
 
     val events = observable.timestamp.map { case (time, value) => Event(time, value) }
     plotEventStream(events, name, dashboard, title, units, false)
-    println(s"http://localhost:2323?sessionId=$sessionId")
   }
+
+  private def sessionParameter = s"?sessionId=$sessionId"
 
   def launchBrowser(dashboard: String) {
     if (!launched) {
       launched = true
-      server.launchDesktopBrowser(dashboard + s"?sessionId=$sessionId")
+      server.launchDesktopBrowser(dashboard + sessionParameter)
     }
   }
 
-  def plotEventStream[T: TypeTag, U: TypeTag](events: Observable[Event[T, U]], name: String = nowString(), dashboard: String = "",
-    title: Opt[String] = None, units: Opt[String] = None, timeSeries: Boolean = true) {
+  def plotEventStream[T: TypeTag, U: TypeTag]
+      ( events: Observable[Event[T, U]], name: String = nowString(), dashboard: String = "",
+        title: Opt[String] = None, units: Opt[String] = None, timeSeries: Boolean = true) {
     val storing = storeEventStream(events, name)
     for {
       _ <- storing.head.toFutureSeq
       _ <- storeParameters(name, title, units, timeSeries)
     } {
       storing.subscribe() // pull the remainder of the events into storage
-      launchBrowser(dashboard)
+      printDashboardUrl(dashboard)
     }
   }
 

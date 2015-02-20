@@ -518,4 +518,18 @@ function urlParameters(url) {
   return arrayToObject(keyValues);
 }
 
+/** parse a url string. return the hostname, port, etc. */
+function parseUrl(urlString) {
+  var parser = document.createElement('a');
+  parser.href = urlString;
+  return {
+    protocol: parser.protocol,
+    hostname: parser.hostname,
+    port: parser.port,
+    pathname: parser.pathname,
+    search: parser.search,
+    parameters: urlParameters(parser.search)
+  };
+}
+
 
