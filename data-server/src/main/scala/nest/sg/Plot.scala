@@ -23,10 +23,10 @@ import rx.lang.scala.Observable
 
 case class PlotParameterError(msg: String) extends RuntimeException
 
-/** Interim work on supporting the launching of graph from the repl..
+/** Supporting launching a graph from the repl.
   */
 trait PlotConsole extends Log {
-  def server:SparkleAPIServer
+  def server: SparkleAPIServer
   def writeStore = server.readWriteStore
   implicit lazy val dispatcher = server.system.dispatcher
   val sessionId = RandomUtil.randomAlphaNum(5)
@@ -44,20 +44,29 @@ trait PlotConsole extends Log {
         title: Opt[String] = None, units: Opt[String] = None, timeSeries: Boolean = true) {
     val stored =
       for {
-        a <- storeEvents(events, name)
-        b <- storeParameters(name, title, units, timeSeries)
-      } yield {
-        printDashboardUrl(dashboard)
-      }
+        a <- writeEvents(events, name)
+        b <- triggerBrowser(name, title, units, timeSeries)
+      } yield ()
 
     stored.failed.foreach{ failure =>
       log.error("unable to store data for plotting", failure)
     }
   }
 
-  def printDashboardUrl(dashboard:String): Unit = {
-    val webPort = server.webPort
-    println(s"http://localhost:$webPort/$sessionParameter")
+  var printedUrl = false  // true if we've already shown the url in this session
+
+  /** show the browser url, so that the user can copy and paste from the console */
+  def printDashboardUrl(): Unit = {
+    if (!printedUrl) {
+      val webPort = server.webPort
+      println(s"http://localhost:$webPort/$sessionParameter")
+      printedUrl = true
+    }
+  }
+
+
+  def plotColumn(plotParameters: PlotParameters, dashboard: String = ""): Future[Unit] = {
+    triggerBrowserParameters(plotParameters)
   }
 
   def plotStream[T: TypeTag]
@@ -80,17 +89,16 @@ trait PlotConsole extends Log {
   def plotEventStream[T: TypeTag, U: TypeTag]
       ( events: Observable[Event[T, U]], name: String = nowString(), dashboard: String = "",
         title: Opt[String] = None, units: Opt[String] = None, timeSeries: Boolean = true) {
-    val storing = storeEventStream(events, name)
+    val storing = writeEventStream(events, name)
     for {
       _ <- storing.head.toFutureSeq
-      _ <- storeParameters(name, title, units, timeSeries)
+      _ <- triggerBrowser(name, title, units, timeSeries)
     } {
       storing.subscribe() // pull the remainder of the events into storage
-      printDashboardUrl(dashboard)
     }
   }
 
-  def storeEventStream[T: TypeTag, U: TypeTag](events: Observable[Event[T, U]], name: String = nowString()): Observable[Unit] = {
+  def writeEventStream[T: TypeTag, U: TypeTag](events: Observable[Event[T, U]], name: String = nowString()): Observable[Unit] = {
     val optSerializers =
       for {
         serializeKey <- RecoverCanSerialize.optCanSerialize[T](typeTag[T])
@@ -117,7 +125,7 @@ trait PlotConsole extends Log {
     }
   }
 
-  def storeEvents[T: TypeTag, U: TypeTag](events: Iterable[Event[T, U]], name: String = nowString()): Future[Unit] = {
+  def writeEvents[T: TypeTag, U: TypeTag](events: Iterable[Event[T, U]], name: String = nowString()): Future[Unit] = {
     val optSerializers =
       for {
         serializeKey <- RecoverCanSerialize.optCanSerialize[T](typeTag[T])
@@ -143,25 +151,33 @@ trait PlotConsole extends Log {
     }
   }
 
-  def store[T: TypeTag](iterable: Iterable[T], name: String = nowString()): Future[Unit] = {
+  def write[T: TypeTag](iterable: Iterable[T], name: String = nowString()): Future[Unit] = {
     val events = iterable.zipWithIndex.map { case (value, index) => Event(index.toLong, value) }
-    storeEvents[Long, T](events, name)
+    writeEvents[Long, T](events, name)
   }
 
   private def nameToPath(name: String): String = s"plot/$sessionId/$name"
   private val plotParametersPath = "_plotParameters"
+  private val parametersColumnPath = s"plot/$sessionId/$plotParametersPath"
 
-  private def storeParameters(name: String, title: Option[String], unitsLabel: Option[String],
-    timeSeries: Boolean): Future[Unit] = {
-    val parametersColumnPath = s"plot/$sessionId/$plotParametersPath"
+  /** Write plotParameters to a well known column. The browser watches this column and
+    * updates its display on demand when it changes. */
+  private def triggerBrowser(name: String, title: Option[String], unitsLabel: Option[String],
+      timeSeries: Boolean): Future[Unit] = {
     val source = PlotSource(nameToPath(name), name)
     val timeSeriesOpt = if (timeSeries) Some(true) else None
     val plotParameters = PlotParameters(Array(source), title, unitsLabel, timeSeriesOpt)
+    triggerBrowserParameters(plotParameters)
+  }
+
+  private def triggerBrowserParameters(plotParameters: PlotParameters): Future[Unit] = {
+    printDashboardUrl()
+
     val plotParametersJson: JsValue = plotParameters.toJson
     val futureColumn = writeStore.writeableColumn[Long, JsValue](parametersColumnPath)
     val entry = Event(System.currentTimeMillis, plotParametersJson)
 
-    log.trace(s"storeParameters: $plotParametersJson")
+    log.trace(s"triggerBrowser: $plotParametersJson")
     futureColumn.flatMap { column =>
       column.write(List(entry))
     }

@@ -18,6 +18,7 @@ ChartData
     ?.timeSeries:Boolean       -- x axis is in epoch milliseconds, display as time strings 
     ?.xScale:d3.scale          -- scale to use for the xAxis, (utc time by default)
     ?.showAxis:Boolean         -- display the x axis at the bottom of the chart (true by default)
+    ?.transformName:String     -- transform to use to summarize data to fit to display (Raw by default)
 
 SeriesGroup 
    .label: String              
