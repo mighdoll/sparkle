@@ -140,8 +140,10 @@ case class RangeInterval[T](
 /** transformParameters for SummaryTransforms */
 case class SummaryParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,
-  partBySize: Option[String] = None,
+  partBySize: Option[String] = None,  // TODO change to partByDuration
   partByCount: Option[Int] = None,
+  intoCountedParts: Option[Int] = None,
+  intoDurationParts: Option[Int] = None,
   timeZoneId: Option[String] = None,
   ongoingBufferPeriod: Option[String] = None
   )

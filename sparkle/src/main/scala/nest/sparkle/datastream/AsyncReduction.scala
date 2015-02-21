@@ -9,48 +9,73 @@ import rx.lang.scala.Observable
 import nest.sparkle.measure.Span
 import nest.sparkle.util.{Log, PeriodWithZone, RecoverNumeric}
 
-case class ReductionParameterError(msg:String) extends RuntimeException(msg)
+
+/** how to group items for a redution operation */
+case class ReductionGrouping(
+  maxParts: Int,
+  grouping: Option[GroupingType]
+)
+
+sealed trait GroupingType
+case class ByDuration(duration:PeriodWithZone) extends GroupingType
+case class ByCount(count:Int) extends GroupingType
+case class IntoCountedParts(count:Int) extends GroupingType
+case class IntoDurationParts(count:Int) extends GroupingType
+
+
 
 // TODO specialize for efficiency
-trait AsyncReduction[K,V] extends Log {
-  self: AsyncWithRange[K,V] =>
+trait AsyncReduction[K, V] extends Log {
+  self: AsyncWithRange[K, V] =>
 
   val defaultBufferOngoing = 5.seconds
 
   implicit def _keyType = keyType
+
   implicit def _valueType = valueType
+
   /** Reduce a stream piecewise, based a partitioning and a reduction function.
     * The main work of reduction is done on each DataStream, this classes' job is
     * to select the appropriate stream reductions, and manage the initial/ongoing
     * parts of this TwoPartStream.
     */
   def flexibleReduce // format: OFF
-      ( optPeriod: Option[PeriodWithZone],
-        optCount: Option[Int],
+      ( group: ReductionGrouping,
         reduction: Reduction[V],
-        maxParts: Int,
         ongoingDuration: Option[FiniteDuration] )
-      ( implicit execution: ExecutionContext, parentSpan:Span )
+      ( implicit execution: ExecutionContext, parentSpan: Span )
       : TwoPartStream[K, Option[V], AsyncWithRange] = { // format: ON
 
+    val bufferOngoing = ongoingDuration getOrElse defaultBufferOngoing
+
     // depending on the request parameters, summarize the stream appropriately
-    (optCount, optPeriod, self.requestRange) match {
-      case (None, Some(periodWithZone), _) =>
-        reduceByPeriod(periodWithZone, reduction, ongoingDuration, maxParts = maxParts)
-      case (None, None, Some(rangeInterval)) =>
-        reduceToOnePart(reduction, rangeInterval.start, optBufferOngoing = ongoingDuration)
-      case (None, None, None) =>
-        reduceToOnePart(reduction, optBufferOngoing = ongoingDuration)
-      case (Some(count), None, _) =>
-        reduceByElementCount(count, reduction, maxParts)
-      case (Some(_), Some(_), _) =>
-        val err = ReductionParameterError("both count and period specified")
-        AsyncWithRange.error(err, self.requestRange)
-      case _ => ???
+    group.grouping match {
+      case None =>
+        val start = self.requestRange.flatMap(_.start)
+        reduceToOnePart(reduction, start, bufferOngoing)
+      case Some(ByDuration(periodWithZone)) =>
+        reduceByPeriod(periodWithZone, reduction, group.maxParts, bufferOngoing)
+      case Some(ByCount(count)) =>
+        reduceByElementCount(count, reduction, group.maxParts, bufferOngoing)
+      case Some(IntoCountedParts(count)) => ???
+      case Some(IntoDurationParts(count)) => ???
     }
+//      case (Some(_), Some(_), _) =>
+//        val err = ReductionParameterError("both count and period specified")
+//        AsyncWithRange.error(err, self.requestRange)
   }
 
-  /** Partition the key range by period, starting with the rounded time of the first key
+  private def intoCountedParts  // format: OFF
+      ( count: Int,
+        bufferOngoing: FiniteDuration )
+      ( implicit executionContext:ExecutionContext, parentSpan:Span )
+      : AsyncWithRange[K, Option[V]] = { // format: ON
+
+    ???
+  }
+
+
+    /** Partition the key range by period, starting with the rounded time of the first key
     * in the stream. Return a reduced stream, with the values in each partition
     * reduced by a provided function. The keys in the reduced stream are set to
     * the start of each time partition.
@@ -61,12 +86,10 @@ trait AsyncReduction[K,V] extends Log {
   private def reduceByPeriod // format: OFF
       ( periodWithZone: PeriodWithZone,
         reduction: Reduction[V],
-        optBufferOngoing: Option[FiniteDuration] = None,
-        maxParts: Int )
+        maxParts: Int,
+        bufferOngoing: FiniteDuration )
       ( implicit executionContext:ExecutionContext, parentSpan:Span )
-      : TwoPartStream[K, Option[V], AsyncWithRange] = { // format: ON
-
-    val bufferOngoing = optBufferOngoing getOrElse defaultBufferOngoing
+      : AsyncWithRange[K, Option[V]] = { // format: ON
 
     RecoverNumeric.tryNumeric[K](keyType) match {
       case Success(numericKey) =>
@@ -79,7 +102,7 @@ trait AsyncReduction[K,V] extends Log {
           ongoing.tumblingReduce(bufferOngoing, prevStateFuture) { (buffer, optState) =>
             buffer.reduceByPeriod(periodWithZone, range, reduction, maxParts, optState)
           }
-        AsyncWithRange(initialResult.reducedStream, reducedOngoing, self.requestRange)
+        new AsyncWithRange(initialResult.reducedStream, reducedOngoing, self.requestRange)
       case Failure(err) => AsyncWithRange.error(err, self.requestRange)
     }
   }
@@ -89,21 +112,19 @@ trait AsyncReduction[K,V] extends Log {
     */
   private def reduceToOnePart // format: OFF
       ( reduction: Reduction[V], reduceKey: Option[K] = None,
-        optBufferOngoing: Option[FiniteDuration] = None )
+        bufferOngoing: FiniteDuration )
       ( implicit executionContext:ExecutionContext, parentSpan: Span)
       : AsyncWithRange[K, Option[V]] = { // format: ON
-
-    val bufferOngoing = optBufferOngoing getOrElse defaultBufferOngoing
 
     val initialReduced = initial.reduceToOnePart(reduction, reduceKey)
 
     val ongoingReduced =
-      ongoing.tumblingReduce(bufferOngoing) { (buffer, optState:Option[_]) =>
+      ongoing.tumblingReduce(bufferOngoing) { (buffer, optState: Option[_]) =>
         val reducedStream = buffer.reduceToOnePart(reduction.newInstance(), None)
         ReductionResult.simple(reducedStream)
       }
 
-    AsyncWithRange(initialReduced, ongoingReduced, self.requestRange)
+    new AsyncWithRange(initialReduced, ongoingReduced, self.requestRange)
   }
 
 
@@ -111,11 +132,9 @@ trait AsyncReduction[K,V] extends Log {
     */
   private def reduceByElementCount // format: OFF
       ( targetCount: Int, reduction: Reduction[V], maxParts: Int,
-        optBufferOngoing: Option[FiniteDuration] = None )
+        bufferOngoing: FiniteDuration )
       ( implicit executionContext:ExecutionContext, parentSpan: Span)
       : AsyncWithRange[K, Option[V]] = { // format: ON
-
-    val bufferOngoing = optBufferOngoing getOrElse defaultBufferOngoing
 
     val initialResult = initial.reduceByElementCount(targetCount, reduction, maxParts)
 
@@ -125,6 +144,6 @@ trait AsyncReduction[K,V] extends Log {
         buffer.reduceByElementCount(targetCount, reduction.newInstance(), maxParts, optState)
       }
 
-    AsyncWithRange(initialResult.reducedStream, ongoingReduced, self.requestRange)
+    new AsyncWithRange(initialResult.reducedStream, ongoingReduced, self.requestRange)
   }
 }

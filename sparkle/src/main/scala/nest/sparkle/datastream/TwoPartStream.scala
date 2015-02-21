@@ -124,7 +124,7 @@ case class StreamGroupSet[K, V, S[_, _]] // format: OFF
     mapStreams(_.mapData(fn))
   }
 
-  /** */
+  /** Apply a function to each contained stream, potentially returning a new stream type */
   def mapStreams[A, B, T[_, _]] // format: OFF
         (fn: TwoPartStream[K, V, S] => TwoPartStream[A, B, T])
         : StreamGroupSet[A, B, T] = { // format: ON

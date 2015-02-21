@@ -11,11 +11,11 @@ import nest.sparkle.util.ReflectionUtil
   * The TwoPartStream bundles the range interval request that produced this data for further
   * downstream processing.
   */
-case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
-    ( initial: DataStream[K,V], 
-      ongoing: DataStream[K,V],
-      requestRange: Option[SoftInterval[K]] ) 
-    extends TwoPartStream[K,V,AsyncWithRange] 
+class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
+    ( val initial: DataStream[K,V],
+      val ongoing: DataStream[K,V],
+      val requestRange: Option[SoftInterval[K]] )
+    extends TwoPartStream[K,V,AsyncWithRange]
       with RequestRange[K] with AsyncReduction[K,V] { // format: ON
 
   def mapData[B: TypeTag] // format: OFF
@@ -24,7 +24,7 @@ case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
       : AsyncWithRange[K,B] = { // format: ON
     val newInitial = DataStream(initial.data.map(fn))
     val newOngoing = DataStream(ongoing.data.map(fn))
-    AsyncWithRange(newInitial, newOngoing, requestRange)
+    new AsyncWithRange(newInitial, newOngoing, requestRange)
   }
 
   override def keyType = typeTag[K]
@@ -37,15 +37,16 @@ case class AsyncWithRange[K: TypeTag, V: TypeTag] // format: OFF
   override def mapOngoing[A](fn: DataArray[K, V] => A): Observable[A] = ongoing.data map fn
 
   override def doOnEach(fn: DataArray[K, V] => Unit): AsyncWithRange[K, V] = {
-    copy(
+    new AsyncWithRange(
       initial = DataStream(initial.data doOnEach fn),
-      ongoing = DataStream(ongoing.data doOnEach fn)
+      ongoing = DataStream(ongoing.data doOnEach fn),
+      requestRange = requestRange
     )
   }
 
   override def plus(other: TwoPartStream[K, V, AsyncWithRange]) // format: OFF
     : TwoPartStream[K, V, AsyncWithRange] = { // format: ON
-    AsyncWithRange(
+    new AsyncWithRange(
       initial = DataStream(initial.data ++ other.self.initial.data),
       ongoing = DataStream(ongoing.data ++ other.self.ongoing.data),
       requestRange = requestRange
@@ -60,7 +61,7 @@ object AsyncWithRange {
   def error[K: TypeTag, V: TypeTag] // format: OFF
       ( err: Throwable, requestRange: Option[SoftInterval[K]] = None)
       : AsyncWithRange[K, V] = { // format: ON
-    AsyncWithRange[K, V](
+    new AsyncWithRange[K, V](
         initial = DataStream[K,V](Observable.error(err)), 
         ongoing = DataStream[K,V](Observable.error(err)),
         requestRange = requestRange)

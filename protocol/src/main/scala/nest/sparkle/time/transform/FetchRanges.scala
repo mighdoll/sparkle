@@ -31,7 +31,7 @@ object FetchRanges {
     val initial = DataStream(ongoingData.initial)
     val ongoing = DataStream(ongoingData.ongoing)
     val softInterval = optRange.map (_.softInterval)
-    AsyncWithRange(initial, ongoing, softInterval)
+    new AsyncWithRange(initial, ongoing, softInterval)
   }
 
 }

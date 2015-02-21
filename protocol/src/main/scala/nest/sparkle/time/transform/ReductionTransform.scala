@@ -9,7 +9,7 @@ import scala.reflect.runtime.universe._
 import com.typesafe.config.Config
 import spray.json.JsObject
 import nest.sparkle.measure.{Measurements, Span, TraceId}
-import nest.sparkle.time.protocol.{JsonDataStream, JsonEventWriter, KeyValueType}
+import nest.sparkle.time.protocol.{SummaryParameters, JsonDataStream, JsonEventWriter, KeyValueType}
 import nest.sparkle.time.transform.FetchStreams.fetchData
 import nest.sparkle.util.{Log, PeriodWithZone, RecoverNumeric}
 import nest.sparkle.datastream._
@@ -47,9 +47,10 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
   }
 }
 
-case class ReduceTransform[V](rootConfig: Config,
-                                 produceReduction: TypeTag[_] => Try[Reduction[V]])
-                                (implicit measurements: Measurements)
+case class ReduceTransform[V]
+    ( rootConfig: Config,
+      produceReduction: TypeTag[_] => Try[Reduction[V]] )
+    ( implicit measurements: Measurements )
   extends MultiTransform with Log {
 
   private val validator = ValidateReductionParameters()
@@ -64,11 +65,10 @@ case class ReduceTransform[V](rootConfig: Config,
     def withFixedKeyType[K]: Future[Seq[JsonDataStream]] = {
       for {
         ValidReductionParameters(
-        keyType, keyJsonFormat, keyOrdering, reductionParameters, periodSize, ongoingDuration
+          keyType, keyJsonFormat, keyOrdering, reductionParameters, grouping, ongoingDuration
         ) <- validator.validate[K](futureGroups, transformParameters)
         data <- fetchData[K,V](futureGroups, reductionParameters.ranges, None, Some(span))
-        reduced = reduceOperation[K](produceReduction, data, reductionParameters.partByCount,
-          periodSize, ongoingDuration)
+        reduced = reduceOperation[K](produceReduction, data, grouping, ongoingDuration)
       } yield {
         reduced.allStreams.map { stream =>
           val json = JsonEventWriter.fromDataStream(stream, span)
@@ -83,13 +83,28 @@ case class ReduceTransform[V](rootConfig: Config,
     withFixedKeyType[Any]
   }
 
+  def fetchBoundsIfNecessary[K]
+      ( streams: StreamGroupSet[K, V, AsyncWithRange], groupingType: GroupingType, futureGroups:Future[Seq[ColumnGroup]] )
+      ( implicit execution: ExecutionContext, traceId: TraceId)
+      : Future[GroupingType] = {
+    groupingType match {
+      case IntoCountedParts(count) =>
+        streams.mapStreams { stream =>
+          stream
+        }
+//        futureGroups
+//        ByCount(elementCount)
+      case _ =>
+    }
+    ???
+  }
+
   /** Perform a reduce operation on all the streams in a group set.
     */
   def reduceOperation[K] // format: OFF  
       ( makeReduction: TypeTag[_] => Try[Reduction[V]],
         groupSet: StreamGroupSet[K, V, AsyncWithRange],
-        optCount: Option[Int],
-        optPeriod: Option[PeriodWithZone],
+        reductionGrouping: Option[GroupingType],
         ongoingDuration: Option[FiniteDuration] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
       : StreamGroupSet[K, Option[V], AsyncWithRange] = { // format: ON
@@ -102,7 +117,11 @@ case class ReduceTransform[V](rootConfig: Config,
         for {
           reduction <- makeReduction(valueType)
         } yield {
-          stream.self.flexibleReduce(optPeriod, optCount, reduction, maxParts, ongoingDuration)
+          val grouping = ReductionGrouping(
+            maxParts = maxParts,
+            grouping = reductionGrouping
+          )
+          stream.self.flexibleReduce(grouping, reduction, ongoingDuration)
         }
       }
 
