@@ -45,7 +45,8 @@ require( ["lib/when/when", "lib/d3", "sg/dashboard", "sg/sideAxis",
       { title: plotParameters.title,
         timeSeries: plotParameters.timeSeries,
         xScale: plotParameters.timeSeries ? d3.time.scale.utc() : d3.scale.linear(),
-        showXAxis: plotParameters.timeSeries,
+        showXAxis: plotParameters.showXAxis,
+        transformName: plotParameters.zoomTransform,
         padding:[5, 5],    // padding so that marks can extend past the edge of the plot area
         groups: [
           { label: plotParameters.units,

@@ -13,14 +13,13 @@
    limitations under the License.  */
 
 package nest.sparkle.util
-
 import scala.language.implicitConversions
 
 /** A wrapper for an optional parameter to a function or method.
   * Implicit conversions allow the caller to use a raw value _or_ an Option for the parameter.  The
   * function implementation uses the parameter as an option.
   */
-class Opt[T] private (val option: Option[T])
+case class Opt[T] (val option: Option[T]) extends AnyVal
 
 // from: http://stackoverflow.com/questions/4199393/are-options-and-named-default-arguments-like-oil-and-water-in-a-scala-api
 object Opt {
