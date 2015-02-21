@@ -81,7 +81,7 @@ trait CassandraStoreTestConfig extends SparkleTestConfig {
         complete.await(4.seconds)
 
         val column = testDb.column[U, V](columnPath).await
-        val read = column.readRange(None, None)
+        val read = column.readRangeOld(None, None)
         val results = read.initial.toBlocking.toList
         fn(results)
       }

@@ -12,12 +12,12 @@ object FetchStreams {
 
   /** Read column data from a set of columns, returning data asynchronously in a StreamGroupSet.
     */
-  def fetchData[K, V]( // format: OFF
-        futureGroups: Future[Seq[ColumnGroup]],
+  def fetchData[K, V] // format: OFF
+      ( futureGroups: Future[Seq[ColumnGroup]],
         optRequestRanges: Option[Seq[RangeInterval[K]]],
         rangeExtend: Option[ExtendRange[K]],
-        parentSpan:Option[Span]
-      )(implicit execution: ExecutionContext)
+        parentSpan:Option[Span] )
+      ( implicit execution: ExecutionContext )
       : Future[StreamGroupSet[K, V, AsyncWithRange]] = { // format: ON
 
     case class RangeAndExtended(range: RangeInterval[K], extended: RangeInterval[K])

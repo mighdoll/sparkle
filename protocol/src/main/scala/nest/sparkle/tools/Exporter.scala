@@ -72,7 +72,7 @@ trait Exporter extends Log {
   private def fetchAndCompositeRows(columns: Seq[Column[_, _]]): Future[Seq[Row]] = {
     val events = columns.map { column =>
       val castColumn = column.asInstanceOf[Column[Any, Any]]
-      castColumn.readRange().initial.toFutureSeq
+      castColumn.readRangeOld().initial.toFutureSeq
     }
 
     Future.sequence(events).map { allEvents =>

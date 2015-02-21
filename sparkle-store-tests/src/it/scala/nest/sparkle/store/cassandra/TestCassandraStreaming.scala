@@ -25,7 +25,7 @@ class TestCassandraStreaming extends FunSuite with Matchers with CassandraStoreT
           for {
             writeColumn <- store.writeableColumn[Long, Long](columnPath)
             readColumn <- store.column[Long, Long](columnPath)
-            read = readColumn.readRange()
+            read = readColumn.readRangeOld()
             initial <- read.initial.toFutureSeq // wait for initial read to complete, all writes should appear in ongoing
           } yield {
             initial.isEmpty shouldBe true

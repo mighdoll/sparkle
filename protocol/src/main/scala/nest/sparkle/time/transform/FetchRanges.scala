@@ -22,7 +22,7 @@ object FetchRanges {
       val start = optRange.flatMap(_.start)
       val until = optRange.flatMap(_.until)
       val limit = optRange.flatMap(_.limit)
-      column.readRangeA(start, until, limit, parentSpan)
+      column.readRange(start, until, limit, parentSpan)
     }
 
     implicit val keyType: TypeTag[K] = castKind(column.keyType)

@@ -81,7 +81,7 @@ trait EncodedRecordLoaderFixture extends CassandraStoreTestConfig {
           loader.start()
           storeWrite.take(records).toBlocking.head // await completion of write to store.  
           val readColumn = testStore.column[T, U](loadColumnPath).await
-          val read = readColumn.readRange(None, None)
+          val read = readColumn.readRangeOld(None, None)
           val results = read.initial.toBlocking.toList
           fn(results)
         } finally {

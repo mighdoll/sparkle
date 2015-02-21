@@ -120,7 +120,7 @@ class TestStreamLoadEncodedKafka
     // verify matching data in cassandra
     generatedRecords.foreach { generated =>
       val column = testStore.column[Long, Double](expectedPath(generated.id1, generated.id2)).await
-      val results = column.readRange(None, None).initial.toBlocking.toList
+      val results = column.readRangeOld(None, None).initial.toBlocking.toList
       results.length shouldBe 1 //is it possible that the same id1/id2 combos was randomly generated more than once?
       generated.key shouldBe results(0).argument
       generated.value shouldBe results(0).value

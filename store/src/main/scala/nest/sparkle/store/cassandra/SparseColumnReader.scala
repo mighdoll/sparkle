@@ -90,7 +90,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
   val tableName = serialInfo.tableName
 
   /** read a slice of events from the column */      // format: OFF
-  override def readRange(start:Option[T] = None, end:Option[T] = None, limit:Option[Long] = None, parentSpan:Option[Span])
+  override def readRangeOld(start:Option[T] = None, end:Option[T] = None, limit:Option[Long] = None, parentSpan:Option[Span])
       (implicit execution: ExecutionContext): OngoingEvents[T,U] = { // format: ON
     (start, end) match {
       case (None, None)             => readAll(parentSpan)
@@ -101,15 +101,13 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
   }
 
   /** read a slice of events from the column */
-  // format: OFF
-  override def readRangeA(
-    start: Option[T] = None,
-    end: Option[T] = None,
-    limit: Option[Long] = None,
-    parentSpan: Option[Span]
-  )(implicit execution: ExecutionContext): OngoingData[T, U] =
-  {
-    // format: ON
+  override def readRange  // format: OFF
+      ( start: Option[T] = None,
+        end: Option[T] = None,
+        limit: Option[Long] = None,
+        parentSpan: Option[Span] )
+      ( implicit execution: ExecutionContext)
+      : OngoingData[T, U] = { // format: ON
     (start, end) match {
       case (None, None)               => readAllA(parentSpan)
       case (Some(startT), Some(endT)) => readBoundedRangeA(startT, endT, parentSpan)

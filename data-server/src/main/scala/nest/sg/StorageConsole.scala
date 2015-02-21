@@ -43,7 +43,7 @@ trait StorageConsole extends Log {
 
           val futureEvents = futureColumns.flatMap { columns =>
             val seqFutureEvents = columns.map { column =>
-              column.readRange(None, None).initial.toFutureSeq
+              column.readRangeOld(None, None).initial.toFutureSeq
             }
 
             Future.sequence(seqFutureEvents)
@@ -70,7 +70,7 @@ trait StorageConsole extends Log {
     val futureEvents =
       for {
         column <- store.column[Long, Double](columnPath)
-        events <- column.readRange(None, None).initial.toFutureSeq
+        events <- column.readRangeOld(None, None).initial.toFutureSeq
       } yield {
         events
       }
@@ -105,7 +105,7 @@ trait StorageConsole extends Log {
   private def futureColumnData[T:ClassTag](columnPath:String):Future[DataArray[Long,T]] = {
     for {
       column <- store.column[Long, T](columnPath)
-      dataSeq <- column.readRangeA(parentSpan = Some(DummySpan)).initial.toFutureSeq
+      dataSeq <- column.readRange(parentSpan = Some(DummySpan)).initial.toFutureSeq
     } yield {
       dataSeq.reduceLeft(_ ++ _)
     }

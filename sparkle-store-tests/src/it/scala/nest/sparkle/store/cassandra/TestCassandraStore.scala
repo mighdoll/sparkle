@@ -57,7 +57,7 @@ class TestCassandraStore
         writeColumn.write(event :: Nil).await
 
         val readColumn = store.column[T, U](testColumnPath).await
-        val read = readColumn.readRange(None, None)
+        val read = readColumn.readRangeOld(None, None)
         val results = read.initial.toBlocking.single
         results shouldBe event
       }
@@ -80,7 +80,7 @@ class TestCassandraStore
         implicit val valueClass = ClassTag[U](valueType.mirror.runtimeClass(valueType.tpe))
         val pair = DataArray[T, U](Array[T](event.argument), Array[U](event.value))
 
-        val read = readColumn.readRangeA(parentSpan = Some(DummySpan))
+        val read = readColumn.readRange(parentSpan = Some(DummySpan))
         val results = read.initial.toBlocking.single
         results should have length 1
       }
@@ -155,7 +155,7 @@ class TestCassandraStore
           }.toIterable
 
           writeColumn.write(events).await
-          val read = readColumn.readRange(None, None)
+          val read = readColumn.readRangeOld(None, None)
           val results = read.initial.toBlocking.toList
           results.length shouldBe rowCount
           results.zipWithIndex.foreach { case (item, index) =>
@@ -183,7 +183,7 @@ class TestCassandraStore
           }
 
           writeColumn.write(events).await
-          val read = readColumn.readRangeA(parentSpan = Some(DummySpan))
+          val read = readColumn.readRange(parentSpan = Some(DummySpan))
           val resultParts = read.initial.toBlocking.toList
 
           val resultArray = resultParts.reduce(_ ++ _)

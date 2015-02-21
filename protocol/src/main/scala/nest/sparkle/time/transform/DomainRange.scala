@@ -37,7 +37,7 @@ object DomainRangeTransform extends ColumnTransform {
         (column: Column[T, U], transformParameters: JsObject) 
         (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
 
-    val events = column.readRange() // all events, TODO take a range from the transform parameters
+    val events = column.readRangeOld() // all events, TODO take a range from the transform parameters
 
     implicit val keyOrdering = RecoverOrdering.ordering[T](column.keyType)
     implicit val valueOrdering = RecoverOrdering.ordering[U](column.valueType)

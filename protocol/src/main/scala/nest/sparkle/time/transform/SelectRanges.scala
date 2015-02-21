@@ -26,13 +26,13 @@ object SelectRanges {
 
     def readAllIntervals(intervals: Seq[RangeInterval[T]]): Seq[IntervalAndEvents[T, U]] = {
       intervals.map { interval =>
-        val events = column.readRange(interval.start, interval.until, interval.limit, parentSpan)
+        val events = column.readRangeOld(interval.start, interval.until, interval.limit, parentSpan)
         IntervalAndEvents(Some(interval), events)
       }
     }
 
     ranges match {
-      case None            => Seq(IntervalAndEvents(None, column.readRange(None, None, None, parentSpan)))
+      case None            => Seq(IntervalAndEvents(None, column.readRangeOld(None, None, None, parentSpan)))
       case Some(intervals) => readAllIntervals(intervals)
     }
   }
@@ -46,9 +46,9 @@ object SelectRanges {
 
     val ongoingEvents =
       optRange.map { range =>
-        column.readRange(range.start, range.until, range.limit, parentSpan)
+        column.readRangeOld(range.start, range.until, range.limit, parentSpan)
       }.getOrElse {
-        column.readRange(None, None, None, parentSpan)
+        column.readRangeOld(None, None, None, parentSpan)
       }
       
     val keyType: TypeTag[K] = castKind(column.keyType)

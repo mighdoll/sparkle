@@ -19,25 +19,23 @@ trait Column[T, U]
 
   def valueType: TypeTag[_]
 
+  /** Obsolete, use ReadRange. */
+  def readRangeOld   // format: OFF
+      ( start: Option[T] = None,
+        end: Option[T] = None,
+        limit: Option[Long] = None,
+        parentSpan: Option[Span] = None )
+      ( implicit execution: ExecutionContext): OngoingEvents[T, U] // format: ON
+  
   /** read a slice of events from the column, inclusive of the start and ends.
     * If start is missing, read from the first element in the column.  If end is missing
     * read from the last element in the column.  */
-  // format: OFF
-  def readRange(
-    start: Option[T] = None,
-    end: Option[T] = None,
-    limit: Option[Long] = None,
-    parentSpan: Option[Span] = None
-  )(implicit execution: ExecutionContext): OngoingEvents[T, U]
-  // format: ON
-  
-  // format: OFF
-  def readRangeA(
-    start: Option[T] = None,
-    end: Option[T] = None,
-    limit: Option[Long] = None,
-    parentSpan: Option[Span] = None
-  )(implicit execution: ExecutionContext): OngoingData[T, U] // format: ON
+  def readRange // format: OFF
+      ( start: Option[T] = None,
+        end: Option[T] = None,
+        limit: Option[Long] = None,
+        parentSpan: Option[Span] = None )
+      ( implicit execution: ExecutionContext): OngoingData[T, U] // format: ON
   
   // LATER add authorization hook, to validate permission to read a range
 }
@@ -46,12 +44,11 @@ trait Column[T, U]
 // . a sequence?  values:Seq[V].  e.g. if we want to store:  [1:[123, 134], 2:[100]]
 // . an hlist?  e.g. if we want to store a csv file with multiple separately typed columns per row
 // . possibly a typeclass that covers all single, sequence, and typed list cases?
-// TODO name this something else: Item?  Datum?
-// TODO rename argument to key, for consistency with other key-value terminology
 /** an single item in the datastore, e.g. a timestamp and value */
+// Obsolete, DataArrays are the new black.
 case class Event[T, V](argument: T, value: V)
 
-object Event
-{
+// TODO get rid of Event in favor of DataArray
+object Event {
   type Events[T, U] = Seq[Event[T, U]]
 }

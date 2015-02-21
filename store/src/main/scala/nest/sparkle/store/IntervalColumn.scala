@@ -39,7 +39,7 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]], earlyRead: 
   implicit val numeric = RecoverNumeric.optNumeric[T](keyType).get // TODO how to pass error back up?
   implicit val keyOrdering = RecoverOrdering.ordering[T](keyType)
 
-  override def readRange // format: OFF
+  override def readRangeOld // format: OFF
       (start: Option[T] = None, end: Option[T] = None, limit: Option[Long] = None, parentSpan:Option[Span])
       (implicit execution: ExecutionContext): OngoingEvents[T,T] = { // format: ON
 
@@ -50,20 +50,19 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]], earlyRead: 
         specifiedStart - earlyAdjust
       }
 
-    val reads = sourceColumns.map { column => column.readRange(modifiedStart, end, limit) }
+    val reads = sourceColumns.map { column => column.readRangeOld(modifiedStart, end, limit) }
     val allIntervals = reads.map { ongoingEvents => toInterval(ongoingEvents.initial) }
     val initial = compositeIntervals(allIntervals) // TODO this should be a separate transform
     val ongoing: Observable[Event[T, T]] = Observable.empty // LATER handle ongoing events too, for now we only handle the initial set
     OngoingEvents(initial, ongoing)
   }
 
-  override def readRangeA(
-    start: Option[T] = None,
-    end: Option[T] = None,
-    limit: Option[Long] = None,
-    parentSpan: Option[Span]
-  )(implicit execution: ExecutionContext): OngoingData[T, T] =
-  {
+  override def readRange
+      ( start: Option[T] = None,
+        end: Option[T] = None,
+        limit: Option[Long] = None,
+        parentSpan: Option[Span] )
+      ( implicit execution: ExecutionContext): OngoingData[T, T] = {
     ???
   }
 

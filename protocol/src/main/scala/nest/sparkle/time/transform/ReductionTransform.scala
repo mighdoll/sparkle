@@ -89,9 +89,9 @@ case class ReduceTransform[V]
       : Future[GroupingType] = {
     groupingType match {
       case IntoCountedParts(count) =>
-        streams.mapStreams { stream =>
-          stream
-        }
+//        streams.mapStreams { stream =>
+//          FetchRanges.fetchRange()
+//        }
 //        futureGroups
 //        ByCount(elementCount)
       case _ =>
