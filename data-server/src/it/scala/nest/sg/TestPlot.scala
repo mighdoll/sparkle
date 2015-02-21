@@ -31,7 +31,10 @@ class TestPlot extends FunSuite with Matchers with SparkleConsoleFixture {
   ignore("load some data and plot") {
     withSparkleConsole { console =>
       console.loadFiles(measuresDirectory)
-      console.plotColumn("spans/duration")
+      val plot = ("spans/duration":PlotParameters).copy(
+          zoomTransform = "reduceMax", showXAxis=true, timeSeries = true
+        )
+      console.plotColumn(plot)
       Thread.sleep(1000*60*60)
     }
   }
