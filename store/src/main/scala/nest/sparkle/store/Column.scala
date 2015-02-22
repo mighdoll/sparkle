@@ -1,6 +1,6 @@
 package nest.sparkle.store
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Future, ExecutionContext}
 import scala.reflect.runtime.universe._
 import rx.lang.scala.Observable
 
@@ -36,7 +36,17 @@ trait Column[T, U]
         limit: Option[Long] = None,
         parentSpan: Option[Span] = None )
       ( implicit execution: ExecutionContext): OngoingData[T, U] // format: ON
-  
+
+
+  /** optionally return the last key in the column */
+  def lastKey()(implicit execution: ExecutionContext, parentSpan: Span): Future[Option[T]] = ???
+
+  /** optionally return the first key in the column */
+  def firstKey()(implicit execution: ExecutionContext, parentSpan: Span): Future[Option[T]] = ???
+
+  /** return a count of the items in the column, or zero if it is empty */
+  def countItems()(implicit execution: ExecutionContext, parentSpan: Span): Future[Long] = ???
+
   // LATER add authorization hook, to validate permission to read a range
 }
 

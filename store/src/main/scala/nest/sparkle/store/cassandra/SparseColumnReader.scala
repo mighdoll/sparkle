@@ -68,12 +68,12 @@ object SparseColumnReader extends Log {
 
 
 /** read only access to a cassandra source event column */
-class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF 
+class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     val dataSetName: String, 
     val columnName: String, 
     catalog: ColumnCatalog, 
     writeListener:WriteListener, 
-    prepared: PreparedSession)
+    prepared: PreparedSession )
       extends Column[T, U] with ColumnSupport { // format: ON
   
   import SparseColumnReader.log
@@ -112,20 +112,48 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
 
   /** get the last items in the column. Typically for fetching the single last item in the column
     * to report the range of keys.  */
-  private def readLastKey()
+  override def lastKey()
+      ( implicit execution: ExecutionContext, parentSpan: Span ) : Future[Option[T]] = {
+    readOneKey("lastKey", ReadLastKey.apply)
+  }
+
+  /** get the last items in the column. Typically for fetching the single last item in the column
+    * to report the range of keys.  */
+  override def firstKey()
+      ( implicit execution: ExecutionContext, parentSpan: Span ) : Future[Option[T]] = {
+    readOneKey("firstKey", ReadFirstKey.apply)
+  }
+
+  override def countItems()(implicit execution: ExecutionContext, parentSpan: Span): Future[Long] = {
+    import nest.sparkle.store.cassandra.ObservableResultSetA._
+    val span = Span.start("countItems", parentSpan)
+
+    val statement = prepared.statement(CountItems(tableName)).bind(
+      Seq[AnyRef](dataSetName, columnName, rowIndex): _*
+    )
+    val obsRows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)
+    obsRows.toFutureSeq.map { rows:Seq[Seq[Row]] =>
+      val optRow = rows.headOption.flatMap(_.headOption)
+      val result = optRow.map(_.getLong(0)).getOrElse(0L)
+      result
+    }
+  }
+
+  private def readOneKey(spanName:String, makeTableOperation: String => TableOperation)
       ( implicit execution: ExecutionContext, parentSpan: Span ) : Future[Option[T]] = {
     import nest.sparkle.store.cassandra.ObservableResultSetA._
-    val span = Span.start("readLastKey", parentSpan)
+    val span = Span.start(spanName, parentSpan)
 
-    val statement = prepared.statement(ReadLastKey(tableName)).bind(
-        Seq[AnyRef](dataSetName, columnName, rowIndex): _*
-      )
+    val statement = prepared.statement(makeTableOperation(tableName)).bind(
+      Seq[AnyRef](dataSetName, columnName, rowIndex): _*
+    )
     val obsRows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)
     obsRows.toFutureSeq.map { rows:Seq[Seq[Row]] =>
       val optRow = rows.headOption.flatMap(_.headOption)
       optRow map { row => keySerializer.fromRow(row, 0)}
     }
   }
+
 
   /** read all the column values from the column */
   private def readAll()  // format: OFF

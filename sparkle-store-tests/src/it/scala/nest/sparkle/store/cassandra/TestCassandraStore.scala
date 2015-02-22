@@ -14,6 +14,7 @@ import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 import nest.sparkle.util.FutureAwait.Implicits._
+import nest.sparkle.util.StringToMillis._
 
 class TestCassandraStore
   extends FunSuite
@@ -300,11 +301,31 @@ class TestCassandraStore
     }
   }
 
-//  test("read from end") {
-//    withLoadedFile("simple-events.csv") { (store, system) =>
-//      val column = store.column[Long,Double]("simple-events/seconds").await
-//      column.readRange(end)
-//    }
-//  }
+  test("read first key in column") {
+    withLoadedFile("simple-events.csv") { (store, system) =>
+      val column = store.column[Long,Double]("simple-events/seconds").await
+      implicit val span = DummySpan
+      val lastKey = column.firstKey().await
+      lastKey shouldBe Some("2014-12-01T00:00:00.000".toMillis)
+    }
+  }
+
+  test("read last key in column") {
+    withLoadedFile("simple-events.csv") { (store, system) =>
+      val column = store.column[Long,Double]("simple-events/seconds").await
+      implicit val span = DummySpan
+      val key = column.lastKey().await
+      key shouldBe Some("2014-12-01T02:00:00.000".toMillis)
+    }
+  }
+
+  test("read count of items in column") {
+    withLoadedFile("simple-events.csv") { (store, system) =>
+      val column = store.column[Long,Double]("simple-events/seconds").await
+      implicit val span = DummySpan
+      val count = column.countItems().await
+      count shouldBe 5
+    }
+  }
 
 }
