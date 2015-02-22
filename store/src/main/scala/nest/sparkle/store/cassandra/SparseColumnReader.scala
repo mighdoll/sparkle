@@ -89,17 +89,6 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
   val serialInfo = ColumnTypes.serializationInfo()(keySerializer, valueSerializer)
   val tableName = serialInfo.tableName
 
-  /** read a slice of events from the column */      // format: OFF
-  override def readRangeOld(start:Option[T] = None, end:Option[T] = None, limit:Option[Long] = None, parentSpan:Option[Span])
-      (implicit execution: ExecutionContext): OngoingEvents[T,U] = { // format: ON
-    implicit val span = parentSpan.getOrElse(DummySpan)
-    (start, end) match {
-      case (None, None)             => readAll()
-      case (Some(start), Some(end)) => readBoundedRange(start, end)
-      case (Some(start), None)      => readFromStart(start)
-      case _                        => ???
-    }
-  }
 
   /** read a slice of events from the column */
   override def readRange  // format: OFF
@@ -113,49 +102,39 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     implicit val span = parentSpan.getOrElse(DummySpan) // TODO pass a nonOptional span to readRange
 
     (optStart, optEnd) match {
-      case (None, None)             => readAllA()
-      case (Some(start), Some(end)) => readBoundedRangeA(start, end)
-      case (Some(start), None)      => readFromStartA(start)
-      case (None, Some(end))        => readFromEnd(end)
+      case (None, None)             => readAll()
+      case (Some(start), Some(end)) => readBoundedRange(start, end)
+      case (Some(start), None)      => readFromStart(start)
+      case (None, Some(end))        => readFromEnd(end, optLimit)
     }
   }
 
-  private def readFromEnd
-      ( end:T )
-      ( implicit execution: ExecutionContext, parentSpan: Span ): OngoingData[T, U] = {
-    ???
-  }
-
-
-  /** read all the column values from the column */
-  private def readAll() // format: OFF
-    ( implicit executionContext: ExecutionContext, parentSpan:Span): OngoingEvents[T, U] = { // format: ON
-    log.trace(s"readAll from $tableName $columnPath")
-    val readStatement = prepared.statement(ReadAll(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
-
-    OngoingEvents(initial = readEventRows(readStatement), ongoing = ongoingRead())
+  private def readFromEnd(end:T, optLimit:Option[Long])    // for now we assume that reading from end means just read one end key
+      ( implicit execution: ExecutionContext, parentSpan: Span ) : OngoingData[T, U] = {
+    optLimit match {
+      case Some(limit) =>
+        val statement = prepared.statement(ReadFromEndWithLimit(tableName)).bind(
+          Seq[AnyRef](dataSetName, columnName, rowIndex, limit.asInstanceOf[AnyRef]): _*
+        )
+      OngoingData(initial = readEventRows(statement), ongoing = Observable.empty)
+      case _ => ???
+    }
   }
 
   /** read all the column values from the column */
-  private def readAllA()  // format: OFF
+  private def readAll()  // format: OFF
     ( implicit executionContext: ExecutionContext, parentSpan:Span )
     : OngoingData[T, U] = { // format: ON
     log.trace(s"readAll from $tableName $columnPath")
     val readStatement = prepared.statement(ReadAll(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
 
-    OngoingData(initial = readEventRowsA(readStatement), ongoing = ongoingReadA())
+    OngoingData(initial = readEventRows(readStatement), ongoing = ongoingRead())
   }
 
   private def readFromStart(start: T) // format: OFF
-      ( implicit execution:ExecutionContext, parentSpan:Span): OngoingEvents[T,U] = { // format: ON
-    OngoingEvents(readFromStartCurrent(start), ongoingRead())
-  }
-
-  private def readFromStartA(start: T) // format: OFF
       (implicit execution:ExecutionContext, parentSpan:Span): OngoingData[T,U] = { // format: ON
-    OngoingData(readFromStartCurrentA(start), ongoingReadA())
+    OngoingData(readFromStartCurrent(start), ongoingRead())
   }
 
   /** read the data at or after a given start key,
@@ -163,7 +142,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     * from C*
     */
   private def readFromStartCurrent(start: T) // format: OFF
-      (implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T,U]] = { // format: ON
+      ( implicit execution:ExecutionContext, parentSpan: Span): Observable[DataArray[T,U]] = { // format: ON
     log.trace(s"readFromStartCurrent from $tableName $columnPath $start")
     val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
@@ -171,37 +150,18 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     readEventRows(readStatement)
   }
 
-  /** read the data at or after a given start key,
-    * returning an Observable that completes with a single read of row data
-    * from C*
-    */
-  private def readFromStartCurrentA(start: T) // format: OFF
-      ( implicit execution:ExecutionContext, parentSpan: Span): Observable[DataArray[T,U]] = { // format: ON
-    log.trace(s"readFromStartCurrentA from $tableName $columnPath $start")
-    val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex,
-        start.asInstanceOf[AnyRef]): _*)
-    readEventRowsA(readStatement)
-  }
-
   private def handleColumnUpdate(columnUpdate: ColumnUpdate[T]) // format: OFF
-      ( implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T,U]] = { // format: ON
+      ( implicit execution:ExecutionContext, parentSpan: Span): Observable[DataArray[T,U]] = { // format: ON
     log.trace(s"handleColumnUpdate received $columnUpdate")
     readFromStartCurrent(columnUpdate.start)
   }
 
-  private def handleColumnUpdateA(columnUpdate: ColumnUpdate[T]) // format: OFF
-      ( implicit execution:ExecutionContext, parentSpan: Span): Observable[DataArray[T,U]] = { // format: ON
-    log.trace(s"handleColumnUpdateA received $columnUpdate")
-    readFromStartCurrentA(columnUpdate.start)
-  }
-
   /** listen for writes, and trigger a read each time new data is available.
-    * Return an observable that never completes (except if there's an error). */
+    * Return an observable that never completes (except if there's an error).  */
   // TODO the read should only triggered if the caller subscribes to the returned observable.
   private def ongoingRead()
-      ( implicit executionContext: ExecutionContext, parentSpan:Span): Observable[Event[T, U]] = {
-    writeListener.listen(columnPath).flatMap { written:WriteEvent  =>
+      ( implicit executionContext: ExecutionContext, parentSpan:Span): Observable[DataArray[T, U]] = {
+    writeListener.listen(columnPath).flatMap { written:WriteEvent =>
       written match { 
         case columnUpdate:ColumnUpdate[T] => handleColumnUpdate(columnUpdate)
         case _                            => Observable.empty
@@ -209,48 +169,19 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     }
   }
 
-  /** listen for writes, and trigger a read each time new data is available.
-    * Return an observable that never completes (except if there's an error).  */
-  // TODO the read should only triggered if the caller subscribes to the returned observable.
-  private def ongoingReadA()
-      ( implicit executionContext: ExecutionContext, parentSpan:Span): Observable[DataArray[T, U]] = {
-    writeListener.listen(columnPath).flatMap { written:WriteEvent =>
-      written match { 
-        case columnUpdate:ColumnUpdate[T] => handleColumnUpdateA(columnUpdate)
-        case _                            => Observable.empty
-      }
-    }
-  }
-
   private def readBoundedRange(start: T, end: T) // format: OFF
-      ( implicit execution:ExecutionContext, parentSpan: Span ): OngoingEvents[T, U] = { // format: ON
-    log.trace(s"readRange from $tableName $columnPath $start $end")
-    val readStatement = prepared.statement(ReadRange(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex,
-        start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
-
-    OngoingEvents(readEventRows(readStatement), Observable.empty)
-  }
-
-  private def readBoundedRangeA(start: T, end: T) // format: OFF
       ( implicit execution:ExecutionContext, parentSpan: Span): OngoingData[T, U] = { // format: ON
-    log.trace(s"readBoundedRangeA from $tableName $columnPath $start $end")
+    log.trace(s"readBoundedRange from $tableName $columnPath $start $end")
     val readStatement = prepared.statement(ReadRange(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
 
-    OngoingData(readEventRowsA(readStatement), Observable.empty)
+    OngoingData(readEventRows(readStatement), Observable.empty)
   }
 
-  private def rowDecoder(row: Row): Event[T, U] = {
-    log.trace(s"rowDecoder: $row")
-    val argument = keySerializer.fromRow(row, 0)
-    val value = valueSerializer.fromRow(row, 1)
-    Event(argument.asInstanceOf[T], value.asInstanceOf[U])
-  }
 
   private def rowsDecoder(rows: Seq[Row]): DataArray[T, U] = {
-    log.trace(s"rowDecoderA: $rows")
+    log.trace(s"rowsDecoder: $rows")
     val size = rows.size
     val arguments = new Array[T](size)
     val values    = new Array[U](size)
@@ -262,23 +193,102 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     DataArray(arguments, values)
   }
 
-  private def readEventRows(statement: BoundStatement) // format: OFF
-      (implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T, U]] = { // format: ON
-    import nest.sparkle.store.cassandra.ObservableResultSet._
-
-    val span = Span.start("readEventRows", parentSpan)
-    val rows = prepared.session.executeAsync(statement).observerableRows(Option(span))
-    rows map rowDecoder
-  }
-
-  private def readEventRowsA
-      ( statement: BoundStatement ) // format: OFF
+  private def readEventRows( statement: BoundStatement ) // format: OFF
       ( implicit execution:ExecutionContext, parentSpan: Span ): Observable[DataArray[T, U]] = { // format: ON
     import nest.sparkle.store.cassandra.ObservableResultSetA._
 
-    val span = Span.start("readEventRowsA", parentSpan)
+    val span = Span.start("readEventRows", parentSpan)
     val rows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)
     rows map rowsDecoder
+  }
+
+  //
+  // old Event-based code path below, to be removed
+  //
+
+  /** read a slice of events from the column */      // format: OFF
+  override def readRangeOld(start:Option[T] = None, end:Option[T] = None, limit:Option[Long] = None, parentSpan:Option[Span])
+                           (implicit execution: ExecutionContext): OngoingEvents[T,U] = { // format: ON
+  implicit val span = parentSpan.getOrElse(DummySpan)
+    (start, end) match {
+      case (None, None)             => readAllOld()
+      case (Some(start), Some(end)) => readBoundedRangeOld(start, end)
+      case (Some(start), None)      => readFromStartOld(start)
+      case _                        => ???
+    }
+  }
+
+  /** read all the column values from the column */
+  private def readAllOld() // format: OFF
+                        ( implicit executionContext: ExecutionContext, parentSpan:Span): OngoingEvents[T, U] = { // format: ON
+    log.trace(s"readAll from $tableName $columnPath")
+    val readStatement = prepared.statement(ReadAll(tableName)).bind(
+      Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
+
+    OngoingEvents(initial = readEventRowsOld(readStatement), ongoing = ongoingReadOld())
+  }
+
+  private def rowDecoder(row: Row): Event[T, U] = {
+    log.trace(s"rowDecoder: $row")
+    val argument = keySerializer.fromRow(row, 0)
+    val value = valueSerializer.fromRow(row, 1)
+    Event(argument.asInstanceOf[T], value.asInstanceOf[U])
+  }
+
+
+  private def readFromStartOld(start: T) // format: OFF
+                              ( implicit execution:ExecutionContext, parentSpan:Span): OngoingEvents[T,U] = { // format: ON
+    OngoingEvents(readFromStartCurrentOld(start), ongoingReadOld())
+  }
+
+  /** listen for writes, and trigger a read each time new data is available.
+    * Return an observable that never completes (except if there's an error). */
+  // TODO the read should only triggered if the caller subscribes to the returned observable.
+  private def ongoingReadOld()
+                            ( implicit executionContext: ExecutionContext, parentSpan:Span): Observable[Event[T, U]] = {
+    writeListener.listen(columnPath).flatMap { written:WriteEvent  =>
+      written match {
+        case columnUpdate:ColumnUpdate[T] => handleColumnUpdateOld(columnUpdate)
+        case _                            => Observable.empty
+      }
+    }
+  }
+
+  private def readBoundedRangeOld(start: T, end: T) // format: OFF
+                                 ( implicit execution:ExecutionContext, parentSpan: Span ): OngoingEvents[T, U] = { // format: ON
+    log.trace(s"readRange from $tableName $columnPath $start $end")
+    val readStatement = prepared.statement(ReadRange(tableName)).bind(
+      Seq[AnyRef](dataSetName, columnName, rowIndex,
+        start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
+
+    OngoingEvents(readEventRowsOld(readStatement), Observable.empty)
+  }
+
+  /** read the data at or after a given start key,
+    * returning an Observable that completes with a single read of row data
+    * from C*
+    */
+  private def readFromStartCurrentOld(start: T) // format: OFF
+                                     (implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T,U]] = { // format: ON
+    log.trace(s"readFromStartCurrentOld from $tableName $columnPath $start")
+    val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
+      Seq[AnyRef](dataSetName, columnName, rowIndex,
+        start.asInstanceOf[AnyRef]): _*)
+    readEventRowsOld(readStatement)
+  }
+  private def handleColumnUpdateOld(columnUpdate: ColumnUpdate[T]) // format: OFF
+                                   ( implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T,U]] = { // format: ON
+    log.trace(s"handleColumnUpdateOld received $columnUpdate")
+    readFromStartCurrentOld(columnUpdate.start)
+  }
+
+  private def readEventRowsOld(statement: BoundStatement) // format: OFF
+                              (implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T, U]] = { // format: ON
+    import nest.sparkle.store.cassandra.ObservableResultSet._
+
+    val span = Span.start("readEventRowsOld", parentSpan)
+    val rows = prepared.session.executeAsync(statement).observerableRows(Option(span))
+    rows map rowDecoder
   }
 
 }

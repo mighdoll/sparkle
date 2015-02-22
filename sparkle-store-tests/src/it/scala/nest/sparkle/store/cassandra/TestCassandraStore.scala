@@ -19,8 +19,7 @@ class TestCassandraStore
   extends FunSuite
           with Matchers
           with PropertyChecks
-          with CassandraStoreTestConfig
-{
+          with CassandraStoreTestConfig {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -34,9 +33,7 @@ class TestCassandraStore
   
   
   def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStoreWriter) // format: OFF
-      (fn: (WriteableColumn[T, U], String) => Unit): Boolean =
-  {
-    // format: ON
+      (fn: (WriteableColumn[T, U], String) => Unit): Boolean = { // format: ON
     val testColumn = s"latency.p99.${randomAlphaNum(3)}"
     val testId = "server1"
     val testColumnPath = s"$testId/$testColumn"
@@ -302,5 +299,12 @@ class TestCassandraStore
       result.failed.await shouldBe DataSetNotFound("foo does not exist")
     }
   }
+
+//  test("read from end") {
+//    withLoadedFile("simple-events.csv") { (store, system) =>
+//      val column = store.column[Long,Double]("simple-events/seconds").await
+//      column.readRange(end)
+//    }
+//  }
 
 }
