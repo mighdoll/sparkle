@@ -452,16 +452,25 @@ function chart() {
       dataSeries.map(function(series) {
         var fetched = when.defer();
 
-        var transformParams = {
+        var partsControl = { intoCountedParts: maxResults };
+        if (timeSeries) {
+          partsControl = {
+            intoDurationParts: maxResults,
+            timeZoneId: "UTC"  // TODO allow override of timezone
+          };
+        }
+
+        var rangeParams = {
             ranges: [
               { start: domain[0],
                 until: domain[1]  
               }
             ],
-            partByCount: maxResults
           };
 
-        // LATER tranform should be adjustable per dataset..
+        var transformParams = combineProperties(rangeParams, partsControl);
+
+        // LATER transform should be adjustable per dataset..
         dataApi.columnRequestSocket(series.transformName, transformParams, series.set, series.name, received);
         function received(data) {
           var translatedData;

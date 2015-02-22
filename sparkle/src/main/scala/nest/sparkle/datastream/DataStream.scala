@@ -115,5 +115,18 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
 
 object DataStream {
   def empty[K:TypeTag, V:TypeTag] = DataStream[K,V](Observable.empty)
+
+  /** Unwrap a Future context around a stream, by combining the asynchronous future
+    * with the asynchronous observable within the DataStream. return the DataStream
+    * not wrapped in a future. */
+  def flattenFutureStream[K:TypeTag,V:TypeTag](futureStream: Future[DataStream[K,V]])
+      ( implicit executionContext: ExecutionContext)
+      : DataStream[K,V] = {
+
+    val obsStream = Observable.from(futureStream)
+    val obsDataArray = obsStream.flatMap(_.data) // flatMap is the key move
+    DataStream(obsDataArray)
+  }
+
 }
 

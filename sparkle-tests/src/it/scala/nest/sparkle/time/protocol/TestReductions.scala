@@ -180,4 +180,18 @@ class TestReductions extends FunSuite with Matchers
     )
   }
 
+  test("intoCountedParts, 2 parts") {
+        val message = stringRequest("simple-events/seconds", "reduceSum",
+      """{ "intoCountedParts" : 2 } """)
+    requestWithLoaded("simple-events.csv", message) { response =>
+      val data = longDoubleData(response)
+      data.length shouldBe 2
+      data shouldBe Seq(
+        "2014-12-01T00:00:00.000".toMillis -> Some(6),
+        "2014-12-01T00:50:00.000".toMillis -> Some(4)
+      )
+    }
+  }
+
+
 }

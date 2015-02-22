@@ -18,7 +18,7 @@ object FetchStreams {
         rangeExtend: Option[ExtendRange[K]],
         parentSpan:Option[Span] )
       ( implicit execution: ExecutionContext )
-      : Future[StreamGroupSet[K, V, AsyncWithRange]] = { // format: ON
+      : Future[StreamGroupSet[K, V, AsyncWithRangeColumn]] = { // format: ON
 
     case class RangeAndExtended(range: RangeInterval[K], extended: RangeInterval[K])
 
@@ -35,7 +35,7 @@ object FetchStreams {
       }
 
     /** return an stream for each requested range in the provided column */
-    def streamPerRange(column: Column[_, _]): Vector[AsyncWithRange[K, V]] = {
+    def streamPerRange(column: Column[_, _]): Vector[AsyncWithRangeColumn[K, V]] = {
       val typedColumn = column.asInstanceOf[Column[K, V]]
       optRangeAndExtendeds match {
         case Some(rangeAndExtendeds) =>
@@ -54,24 +54,34 @@ object FetchStreams {
     }
 
     /** copy a data stream, replacing the requestRange */
-    def replaceRange(dataStream:AsyncWithRange[K,V], range:RangeInterval[K]): AsyncWithRange[K,V] = {
+    def replaceRange(dataStream:AsyncWithRangeColumn[K,V], range:RangeInterval[K]): AsyncWithRangeColumn[K,V] = {
       implicit val keyType = dataStream.keyType
       implicit val valueType = dataStream.valueType
-      new AsyncWithRange(
+      new AsyncWithRangeColumn(
         initial = dataStream.initial,
         ongoing = dataStream.ongoing,
-        requestRange = Some(range.softInterval)
+        requestRange = Some(range.softInterval),
+        column = dataStream.column
       )
     }
 
-    val result: Future[StreamGroupSet[K, V, AsyncWithRange]] =
+    val result: Future[StreamGroupSet[K, V, AsyncWithRangeColumn]] =
       futureGroups.map { columnGroups =>
-        val fetchedGroups: Vector[StreamGroup[K, V, AsyncWithRange]] =
+        val fetchedGroups: Vector[StreamGroup[K, V, AsyncWithRangeColumn]] =
           columnGroups.toVector.map { columnGroup =>
-            val streamStacks: Vector[StreamStack[K, V, AsyncWithRange]] =
+            val streamStacks: Vector[StreamStack[K, V, AsyncWithRangeColumn]] =
               columnGroup.columns.toVector.map { column =>
-                val streams = streamPerRange(column)
-                StreamStack(streams)
+                val streams:Vector[AsyncWithRangeColumn[K, V]] = streamPerRange(column)
+                // SCALA this is a flaw with our current encoding of TwoPartStream
+                // the problem is that TwoPartStream takes a stream implementation type parameter
+                // AsyncWithRangeColumn extends AsyncWithRange which in turn extends TwoPartStream
+                // AsyncWithRange sets the stream implementation type in TwoPartStream
+                // but really we want the subtype AsyncWithRangeColumn to set the stream
+                // implementation type.
+                //
+                // for now, we cast our way out.
+                val stackWrongType:StreamStack[K,V,AsyncWithRange] = StreamStack(streams)
+                stackWrongType.asInstanceOf[StreamStack[K, V, AsyncWithRangeColumn]]
               }
 
             StreamGroup(columnGroup.name, streamStacks)

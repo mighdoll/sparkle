@@ -1,6 +1,6 @@
 package nest.sparkle.datastream
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success}
 
@@ -40,26 +40,30 @@ trait AsyncReduction[K, V] extends Log {
     * parts of this TwoPartStream.
     */
   def flexibleReduce // format: OFF
-      ( group: ReductionGrouping,
+      ( futureGrouping: Future[ReductionGrouping],
         reduction: Reduction[V],
         ongoingDuration: Option[FiniteDuration] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
-      : TwoPartStream[K, Option[V], AsyncWithRange] = { // format: ON
+      : Future[AsyncWithRange[K,Option[V]]] = { // format: ON
 
     val bufferOngoing = ongoingDuration getOrElse defaultBufferOngoing
 
-    // depending on the request parameters, summarize the stream appropriately
-    group.grouping match {
-      case None =>
-        val start = self.requestRange.flatMap(_.start)
-        reduceToOnePart(reduction, start, bufferOngoing)
-      case Some(ByDuration(periodWithZone)) =>
-        reduceByPeriod(periodWithZone, reduction, group.maxParts, bufferOngoing)
-      case Some(ByCount(count)) =>
-        reduceByElementCount(count, reduction, group.maxParts, bufferOngoing)
-      case Some(IntoCountedParts(count)) => ???
-      case Some(IntoDurationParts(count)) => ???
-    }
+    val futureStream =
+      futureGrouping.map { group =>
+        // depending on the request parameters, summarize the stream appropriately
+        group.grouping match {
+          case None =>
+            val start = self.requestRange.flatMap(_.start)
+            reduceToOnePart(reduction, start, bufferOngoing)
+          case Some(ByDuration(periodWithZone)) =>
+            reduceByPeriod(periodWithZone, reduction, group.maxParts, bufferOngoing)
+          case Some(ByCount(count)) =>
+            reduceByElementCount(count, reduction, group.maxParts, bufferOngoing)
+          case Some(IntoCountedParts(count)) => ???
+          case Some(IntoDurationParts(count)) => ???
+        }
+      }
+    futureStream
 //      case (Some(_), Some(_), _) =>
 //        val err = ReductionParameterError("both count and period specified")
 //        AsyncWithRange.error(err, self.requestRange)

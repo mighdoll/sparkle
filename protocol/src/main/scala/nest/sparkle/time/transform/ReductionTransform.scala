@@ -8,6 +8,8 @@ import scala.reflect.runtime.universe._
 
 import com.typesafe.config.Config
 import spray.json.JsObject
+import rx.lang.scala.Observable
+
 import nest.sparkle.measure.{Measurements, Span, TraceId}
 import nest.sparkle.time.protocol.{SummaryParameters, JsonDataStream, JsonEventWriter, KeyValueType}
 import nest.sparkle.time.transform.FetchStreams.fetchData
@@ -68,7 +70,8 @@ case class ReduceTransform[V]
           keyType, keyJsonFormat, keyOrdering, reductionParameters, grouping, ongoingDuration
         ) <- validator.validate[K](futureGroups, transformParameters)
         data <- fetchData[K,V](futureGroups, reductionParameters.ranges, None, Some(span))
-        reduced = reduceOperation[K](produceReduction, data, grouping, ongoingDuration)
+        dataWithReduction = attachReduction(data, grouping )
+        reduced = reduceOperation[K](produceReduction, dataWithReduction, ongoingDuration)
       } yield {
         reduced.allStreams.map { stream =>
           val json = JsonEventWriter.fromDataStream(stream, span)
@@ -83,28 +86,35 @@ case class ReduceTransform[V]
     withFixedKeyType[Any]
   }
 
-  def fetchBoundsIfNecessary[K]
-      ( streams: StreamGroupSet[K, V, AsyncWithRange], groupingType: GroupingType, futureGroups:Future[Seq[ColumnGroup]] )
-      ( implicit execution: ExecutionContext, traceId: TraceId)
-      : Future[GroupingType] = {
-    groupingType match {
-      case IntoCountedParts(count) =>
-//        streams.mapStreams { stream =>
-//          FetchRanges.fetchRange()
-//        }
-//        futureGroups
-//        ByCount(elementCount)
-      case _ =>
+  def attachReduction[K]
+      ( streams: StreamGroupSet[K, V, AsyncWithRangeColumn], grouping: Option[GroupingType] )
+      ( implicit execution: ExecutionContext, parentSpan:Span )
+      : StreamGroupSet[K, V, AsyncWithRangeReduction] = {
+    grouping match {
+      case Some(IntoCountedParts(count)) =>
+        streams.mapStreams { stream =>
+          import stream.keyType
+          import stream.valueType
+          val futureGrouping =
+            stream.self.column.countItems().map { totalCount =>
+              val countPerPart = math.ceil(totalCount.toDouble / count).toInt
+              ReductionGrouping(maxParts, Some(ByCount(countPerPart)))
+            }
+          val newStream = new AsyncWithRangeReduction(stream.self.initial, stream.self.ongoing,
+            stream.self.requestRange, futureGrouping
+          )
+          newStream.asInstanceOf[TwoPartStream[K,V, AsyncWithRangeReduction]] // SCALA ?
+        }
+      case _ => ???
     }
-    ???
   }
 
+  import nest.sparkle.util.TryToFuture._
   /** Perform a reduce operation on all the streams in a group set.
     */
   def reduceOperation[K] // format: OFF  
       ( makeReduction: TypeTag[_] => Try[Reduction[V]],
-        groupSet: StreamGroupSet[K, V, AsyncWithRange],
-        reductionGrouping: Option[GroupingType],
+        groupSet: StreamGroupSet[K, V, AsyncWithRangeReduction],
         ongoingDuration: Option[FiniteDuration] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
       : StreamGroupSet[K, Option[V], AsyncWithRange] = { // format: ON
@@ -113,22 +123,15 @@ case class ReduceTransform[V]
       implicit val keyType = stream.keyType
       implicit val valueType = stream.valueType
 
-      val reduced: Try[TwoPartStream[K, Option[V], AsyncWithRange]] = {
+      val reduced: Future[AsyncWithRange[K,Option[V]]] = {
         for {
-          reduction <- makeReduction(valueType)
+          reduction <- makeReduction(valueType).toFuture
+          reduced <- stream.self.flexibleReduce(stream.self.reductionGrouping, reduction, ongoingDuration)
         } yield {
-          val grouping = ReductionGrouping(
-            maxParts = maxParts,
-            grouping = reductionGrouping
-          )
-          stream.self.flexibleReduce(grouping, reduction, ongoingDuration)
+          reduced
         }
       }
-
-      reduced match {
-        case Success(reducedStream) => reducedStream
-        case Failure(err) => AsyncWithRange.error[K, Option[V]](err, stream.self.requestRange)
-      }
+      AsyncWithRange.flattenFutureAsyncWithRange(reduced, stream.self.requestRange)
     }
   }
 

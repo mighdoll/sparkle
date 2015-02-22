@@ -7,10 +7,10 @@ import rx.lang.scala.Observable
 import scala.{ specialized => spec }
 
 // format: OFF
-// TODO revise this for the new version
+// TODO revise this documentation to match the current code
 /** The data transformations specified by protocol requests work on data from Columns in the Store. 
   * Transforms may operate on multiple slices of data from one column, on multiple columns, and on 
-  * multiple groups of columns. The containers of the data are organized heirarchically, as follows: 
+  * multiple groups of columns. The containers of the data are organized hierarchically, as follows:
   *
   * StreamGroupSet - data from multiple groups of columns
   *   StreamGroup - data from multiple columns
@@ -80,8 +80,8 @@ import scala.{ specialized => spec }
 trait TwoPartStream[K, V, StreamImpl[_, _]] {
   me: StreamImpl[K, V] =>
     
-  def keyType: TypeTag[K]
-  def valueType: TypeTag[V]
+  implicit def keyType: TypeTag[K]
+  implicit def valueType: TypeTag[V]
   
   /** return the TwoPartStream implementation type */
   def self: StreamImpl[K, V] = me
