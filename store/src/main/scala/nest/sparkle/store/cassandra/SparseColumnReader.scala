@@ -27,6 +27,7 @@ import nest.sparkle.store.{Column, ColumnUpdate, WriteListener, WriteEvent, Writ
 import nest.sparkle.store.cassandra.SparseColumnReaderStatements._
 import nest.sparkle.measure.{DummySpan, Span}
 import nest.sparkle.util.Log
+import nest.sparkle.util.ObservableFuture._
 
 object SparseColumnReader extends Log {
   def instance[T, U](dataSetName: String, columnName: String, catalog: ColumnCatalog, // format: OFF
@@ -105,19 +106,24 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
       case (None, None)             => readAll()
       case (Some(start), Some(end)) => readBoundedRange(start, end)
       case (Some(start), None)      => readFromStart(start)
-      case (None, Some(end))        => readFromEnd(end, optLimit)
+      case _                        => ???
     }
   }
 
-  private def readFromEnd(end:T, optLimit:Option[Long])    // for now we assume that reading from end means just read one end key
-      ( implicit execution: ExecutionContext, parentSpan: Span ) : OngoingData[T, U] = {
-    optLimit match {
-      case Some(limit) =>
-        val statement = prepared.statement(ReadFromEndWithLimit(tableName)).bind(
-          Seq[AnyRef](dataSetName, columnName, rowIndex, limit.asInstanceOf[AnyRef]): _*
-        )
-      OngoingData(initial = readEventRows(statement), ongoing = Observable.empty)
-      case _ => ???
+  /** get the last items in the column. Typically for fetching the single last item in the column
+    * to report the range of keys.  */
+  private def readLastKey()
+      ( implicit execution: ExecutionContext, parentSpan: Span ) : Future[Option[T]] = {
+    import nest.sparkle.store.cassandra.ObservableResultSetA._
+    val span = Span.start("readLastKey", parentSpan)
+
+    val statement = prepared.statement(ReadLastKey(tableName)).bind(
+        Seq[AnyRef](dataSetName, columnName, rowIndex): _*
+      )
+    val obsRows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)
+    obsRows.toFutureSeq.map { rows:Seq[Seq[Row]] =>
+      val optRow = rows.headOption.flatMap(_.headOption)
+      optRow map { row => keySerializer.fromRow(row, 0)}
     }
   }
 

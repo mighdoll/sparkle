@@ -6,7 +6,7 @@ object SparseColumnReaderStatements extends PerTablePrepared {
   case class ReadRange(override val tableName: String) extends TableOperation
   case class ReadFromStart(override val tableName: String) extends TableOperation
   case class ReadFromStartWithLimit(override val tableName: String) extends TableOperation
-  case class ReadFromEndWithLimit(override val tableName: String) extends TableOperation
+  case class ReadLastKey(override val tableName: String) extends TableOperation
   case class CountItems(override val tableName: String) extends TableOperation
 
   val toPrepare = Seq(
@@ -14,7 +14,7 @@ object SparseColumnReaderStatements extends PerTablePrepared {
     ReadRange -> readRangeStatement _,
     ReadFromStart -> readFromStartStatement _,
     ReadFromStartWithLimit -> readFromStartWithLimit _,
-    ReadFromEndWithLimit -> readFromEndWithLimit _,
+    ReadLastKey -> readLastKeyStatement _,
     CountItems -> countItemsStatement _
   )
 
@@ -33,13 +33,13 @@ object SparseColumnReaderStatements extends PerTablePrepared {
       WHERE dataSet = ? AND column = ? AND rowIndex = ? AND argument >= ? 
       """
 
-  private def readFromEndWithLimit(tableName: String):String = s"""
+  private def readLastKeyStatement(tableName: String):String = s"""
       SELECT argument FROM $tableName
       WHERE dataSet = ? AND column = ? AND rowIndex = ? ORDER BY argument DESC LIMIT ?
       """
 
   private def readFromStartWithLimit(tableName: String):String = s"""
-      SELECT argument FROM $tableName
+      SELECT argument, value FROM $tableName
       WHERE dataSet = ? AND column = ? AND rowIndex = ? ORDER BY argument ASC LIMIT ?
       """
 
