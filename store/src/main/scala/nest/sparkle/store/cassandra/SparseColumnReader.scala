@@ -25,7 +25,7 @@ import nest.sparkle.core.OngoingData
 import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.{Column, ColumnUpdate, WriteListener, WriteEvent, WriteNotifier, Event, OngoingEvents}
 import nest.sparkle.store.cassandra.SparseColumnReaderStatements._
-import nest.sparkle.measure.Span
+import nest.sparkle.measure.{DummySpan, Span}
 import nest.sparkle.util.Log
 
 object SparseColumnReader extends Log {
@@ -92,142 +92,154 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
   /** read a slice of events from the column */      // format: OFF
   override def readRangeOld(start:Option[T] = None, end:Option[T] = None, limit:Option[Long] = None, parentSpan:Option[Span])
       (implicit execution: ExecutionContext): OngoingEvents[T,U] = { // format: ON
+    implicit val span = parentSpan.getOrElse(DummySpan)
     (start, end) match {
-      case (None, None)             => readAll(parentSpan)
-      case (Some(start), Some(end)) => readBoundedRange(start, end, parentSpan)
-      case (Some(start), None)      => readFromStart(start, parentSpan)
+      case (None, None)             => readAll()
+      case (Some(start), Some(end)) => readBoundedRange(start, end)
+      case (Some(start), None)      => readFromStart(start)
       case _                        => ???
     }
   }
 
   /** read a slice of events from the column */
   override def readRange  // format: OFF
-      ( start: Option[T] = None,
-        end: Option[T] = None,
-        limit: Option[Long] = None,
+      ( optStart: Option[T] = None,
+        optEnd: Option[T] = None,
+        optLimit: Option[Long] = None,
         parentSpan: Option[Span] )
       ( implicit execution: ExecutionContext)
       : OngoingData[T, U] = { // format: ON
-    (start, end) match {
-      case (None, None)               => readAllA(parentSpan)
-      case (Some(startT), Some(endT)) => readBoundedRangeA(startT, endT, parentSpan)
-      case (Some(startT), None)       => readFromStartA(startT, parentSpan)
-      case _                          => ???
+
+    implicit val span = parentSpan.getOrElse(DummySpan) // TODO pass a nonOptional span to readRange
+
+    (optStart, optEnd) match {
+      case (None, None)             => readAllA()
+      case (Some(start), Some(end)) => readBoundedRangeA(start, end)
+      case (Some(start), None)      => readFromStartA(start)
+      case (None, Some(end))        => readFromEnd(end)
     }
   }
 
+  private def readFromEnd
+      ( end:T )
+      ( implicit execution: ExecutionContext, parentSpan: Span ): OngoingData[T, U] = {
+    ???
+  }
+
+
   /** read all the column values from the column */
-  private def readAll(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): OngoingEvents[T, U] = { // format: ON
+  private def readAll() // format: OFF
+    ( implicit executionContext: ExecutionContext, parentSpan:Span): OngoingEvents[T, U] = { // format: ON
     log.trace(s"readAll from $tableName $columnPath")
     val readStatement = prepared.statement(ReadAll(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
 
-    OngoingEvents(initial = readEventRows(readStatement, parentSpan), ongoing = ongoingRead(parentSpan))
+    OngoingEvents(initial = readEventRows(readStatement), ongoing = ongoingRead())
   }
 
   /** read all the column values from the column */
-  private def readAllA(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): OngoingData[T, U] = { // format: ON
+  private def readAllA()  // format: OFF
+    ( implicit executionContext: ExecutionContext, parentSpan:Span )
+    : OngoingData[T, U] = { // format: ON
     log.trace(s"readAll from $tableName $columnPath")
     val readStatement = prepared.statement(ReadAll(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
 
-    OngoingData(initial = readEventRowsA(readStatement, parentSpan), ongoing = ongoingReadA(parentSpan))
+    OngoingData(initial = readEventRowsA(readStatement), ongoing = ongoingReadA())
   }
 
-  private def readFromStart(start: T, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): OngoingEvents[T,U] = { // format: ON
-    OngoingEvents(readFromStartCurrent(start, parentSpan), ongoingRead(parentSpan))
+  private def readFromStart(start: T) // format: OFF
+      ( implicit execution:ExecutionContext, parentSpan:Span): OngoingEvents[T,U] = { // format: ON
+    OngoingEvents(readFromStartCurrent(start), ongoingRead())
   }
 
-  private def readFromStartA(start: T, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): OngoingData[T,U] = { // format: ON
-    OngoingData(readFromStartCurrentA(start, parentSpan), ongoingReadA(parentSpan))
+  private def readFromStartA(start: T) // format: OFF
+      (implicit execution:ExecutionContext, parentSpan:Span): OngoingData[T,U] = { // format: ON
+    OngoingData(readFromStartCurrentA(start), ongoingReadA())
   }
 
   /** read the data at or after a given start key,
     * returning an Observable that completes with a single read of row data
     * from C*
     */
-  private def readFromStartCurrent(start: T, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): Observable[Event[T,U]] = { // format: ON
+  private def readFromStartCurrent(start: T) // format: OFF
+      (implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T,U]] = { // format: ON
     log.trace(s"readFromStartCurrent from $tableName $columnPath $start")
     val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef]): _*)
-    readEventRows(readStatement, parentSpan)
+    readEventRows(readStatement)
   }
 
   /** read the data at or after a given start key,
     * returning an Observable that completes with a single read of row data
     * from C*
     */
-  private def readFromStartCurrentA(start: T, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): Observable[DataArray[T,U]] = { // format: ON
+  private def readFromStartCurrentA(start: T) // format: OFF
+      ( implicit execution:ExecutionContext, parentSpan: Span): Observable[DataArray[T,U]] = { // format: ON
     log.trace(s"readFromStartCurrentA from $tableName $columnPath $start")
     val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef]): _*)
-    readEventRowsA(readStatement, parentSpan)
+    readEventRowsA(readStatement)
   }
 
-  private def handleColumnUpdate(columnUpdate: ColumnUpdate[T], parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): Observable[Event[T,U]] = { // format: ON
+  private def handleColumnUpdate(columnUpdate: ColumnUpdate[T]) // format: OFF
+      ( implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T,U]] = { // format: ON
     log.trace(s"handleColumnUpdate received $columnUpdate")
-    readFromStartCurrent(columnUpdate.start, parentSpan)
+    readFromStartCurrent(columnUpdate.start)
   }
 
-  private def handleColumnUpdateA(columnUpdate: ColumnUpdate[T], parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): Observable[DataArray[T,U]] = { // format: ON
+  private def handleColumnUpdateA(columnUpdate: ColumnUpdate[T]) // format: OFF
+      ( implicit execution:ExecutionContext, parentSpan: Span): Observable[DataArray[T,U]] = { // format: ON
     log.trace(s"handleColumnUpdateA received $columnUpdate")
-    readFromStartCurrentA(columnUpdate.start, parentSpan)
+    readFromStartCurrentA(columnUpdate.start)
   }
 
   /** listen for writes, and trigger a read each time new data is available.
-    * Return an observable that never completes (except if there's an error).
-    * 
-    * TODO the read should only triggered if the caller subscribes to the returned observable.
-    */
-  private def ongoingRead(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[Event[T, U]] = {
+    * Return an observable that never completes (except if there's an error). */
+  // TODO the read should only triggered if the caller subscribes to the returned observable.
+  private def ongoingRead()
+      ( implicit executionContext: ExecutionContext, parentSpan:Span): Observable[Event[T, U]] = {
     writeListener.listen(columnPath).flatMap { written:WriteEvent  =>
       written match { 
-        case columnUpdate:ColumnUpdate[T] => handleColumnUpdate(columnUpdate, parentSpan)
+        case columnUpdate:ColumnUpdate[T] => handleColumnUpdate(columnUpdate)
         case _                            => Observable.empty
       }
     }
   }
 
   /** listen for writes, and trigger a read each time new data is available.
-    * Return an observable that never completes (except if there's an error).
-    * 
-    * TODO the read should only triggered if the caller subscribes to the returned observable.
-    */
-  private def ongoingReadA(parentSpan:Option[Span])(implicit executionContext: ExecutionContext): Observable[DataArray[T, U]] = {
+    * Return an observable that never completes (except if there's an error).  */
+  // TODO the read should only triggered if the caller subscribes to the returned observable.
+  private def ongoingReadA()
+      ( implicit executionContext: ExecutionContext, parentSpan:Span): Observable[DataArray[T, U]] = {
     writeListener.listen(columnPath).flatMap { written:WriteEvent =>
       written match { 
-        case columnUpdate:ColumnUpdate[T] => handleColumnUpdateA(columnUpdate, parentSpan)
+        case columnUpdate:ColumnUpdate[T] => handleColumnUpdateA(columnUpdate)
         case _                            => Observable.empty
       }
     }
   }
 
-  private def readBoundedRange(start: T, end: T, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): OngoingEvents[T, U] = { // format: ON
+  private def readBoundedRange(start: T, end: T) // format: OFF
+      ( implicit execution:ExecutionContext, parentSpan: Span ): OngoingEvents[T, U] = { // format: ON
     log.trace(s"readRange from $tableName $columnPath $start $end")
     val readStatement = prepared.statement(ReadRange(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
 
-    OngoingEvents(readEventRows(readStatement, parentSpan), Observable.empty)
+    OngoingEvents(readEventRows(readStatement), Observable.empty)
   }
 
-  private def readBoundedRangeA(start: T, end: T, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): OngoingData[T, U] = { // format: ON
+  private def readBoundedRangeA(start: T, end: T) // format: OFF
+      ( implicit execution:ExecutionContext, parentSpan: Span): OngoingData[T, U] = { // format: ON
     log.trace(s"readBoundedRangeA from $tableName $columnPath $start $end")
     val readStatement = prepared.statement(ReadRange(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
 
-    OngoingData(readEventRowsA(readStatement, parentSpan), Observable.empty)
+    OngoingData(readEventRowsA(readStatement), Observable.empty)
   }
 
   private def rowDecoder(row: Row): Event[T, U] = {
@@ -250,21 +262,22 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize]( // format: OFF
     DataArray(arguments, values)
   }
 
-  private def readEventRows(statement: BoundStatement, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): Observable[Event[T, U]] = { // format: ON
+  private def readEventRows(statement: BoundStatement) // format: OFF
+      (implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T, U]] = { // format: ON
     import nest.sparkle.store.cassandra.ObservableResultSet._
 
-    val span = parentSpan.map { parent => Span.start("readEventRows", parent) }
-    val rows = prepared.session.executeAsync(statement).observerableRows(span)
+    val span = Span.start("readEventRows", parentSpan)
+    val rows = prepared.session.executeAsync(statement).observerableRows(Option(span))
     rows map rowDecoder
   }
 
-  private def readEventRowsA(statement: BoundStatement, parentSpan:Option[Span]) // format: OFF
-      (implicit execution:ExecutionContext): Observable[DataArray[T, U]] = { // format: ON
+  private def readEventRowsA
+      ( statement: BoundStatement ) // format: OFF
+      ( implicit execution:ExecutionContext, parentSpan: Span ): Observable[DataArray[T, U]] = { // format: ON
     import nest.sparkle.store.cassandra.ObservableResultSetA._
 
-    val span = Span.start("readEventRowsA", parentSpan.get)
-    val rows = prepared.session.executeAsync(statement).observerableRowsA(span)
+    val span = Span.start("readEventRowsA", parentSpan)
+    val rows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)
     rows map rowsDecoder
   }
 

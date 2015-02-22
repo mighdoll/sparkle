@@ -25,9 +25,8 @@ object ObservableResultSetA {
   implicit class WrappedResultSet(val resultSetFuture: ResultSetFuture) extends Log {
 
     /** return an Observable[Row] for the Future[ResultSet].  */
-    def observerableRowsA // format: OFF
-        ( parentSpan: StartedSpan )
-        ( implicit executionContext: ExecutionContext )
+    def observerableRowsA() // format: OFF
+        ( implicit executionContext: ExecutionContext, parentSpan: StartedSpan )
         : Observable[Seq[Row]] = { // format: ON
 
       def nextFetch() = Span.start("fetchBlock", parentSpan)
