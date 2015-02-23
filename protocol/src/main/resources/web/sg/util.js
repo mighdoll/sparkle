@@ -363,6 +363,7 @@ function copyDefined(src) {
   return copy;
 } 
 
+// TODO rename to merge
 function copyPropertiesExcept(target, src, _notProperties) {
   var notProperties = [];
   for (var i = 2; i < arguments.length; i++) {
@@ -375,6 +376,20 @@ function copyPropertiesExcept(target, src, _notProperties) {
   }
   return target;
 }
+
+function mergePropertiesInto(target, src) {
+  return copyPropertiesExcept(target, src);
+}
+
+/** copy the properties of multiple objects into a single merged object */
+function combineProperties(_obj1, _obj2, etc) {
+  var result = {};
+  for (var i = 0; i < arguments.length; i++) {
+    mergePropertiesInto(result, arguments[i]);
+  }
+  return result;
+}
+
 
 /** Make a deepClone of an object, optionally calling string.replace on each string in the new object.
  *
