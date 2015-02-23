@@ -29,6 +29,7 @@ trait SparkleConsole
   )
 
   val rootConfig = modifiedConfig(ConfigFactory.load(), configOverrides: _*)
+  ConfigUtil.dumpConfigToFile(rootConfig)
   LogUtil.configureLogging(rootConfig)
 
   val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
