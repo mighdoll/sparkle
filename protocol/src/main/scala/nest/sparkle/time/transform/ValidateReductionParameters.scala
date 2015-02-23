@@ -46,7 +46,7 @@ private[transform] case class ValidateReductionParameters() {
     * Only one of byElementCount, intoDurationParts, etc. may be specified in a legal client
     * message, and any provided duration strings must be parseable. */
   private def validateGrouping[K](reductionParameters:SummaryParameters[K])
-     : Try[Option[GroupingType]] = {
+     : Try[Option[RequestGrouping]] = {
     val allVariants =
       reductionParameters.intoCountedParts ++
         reductionParameters.intoDurationParts ++
@@ -54,9 +54,9 @@ private[transform] case class ValidateReductionParameters() {
         reductionParameters.partBySize
 
     /** return the first GroupingType we find that parses successfully */
-    def firstGrouping:Try[Option[GroupingType]] = {
+    def firstGrouping:Try[Option[RequestGrouping]] = {
       import reductionParameters._
-      val basicOptions:Option[GroupingType] =
+      val basicOptions:Option[RequestGrouping] =
         intoCountedParts.map {
           IntoCountedParts(_)
         } orElse {
@@ -129,6 +129,6 @@ private[transform] case class ValidReductionParameters[K](
   keyJsonFormat: JsonFormat[K],
   ordering: Ordering[K],
   reductionParameters: SummaryParameters[K],
-  grouping: Option[GroupingType],
+  grouping: Option[RequestGrouping],
   ongoingDuration: Option[FiniteDuration])
 

@@ -10,18 +10,28 @@ import nest.sparkle.measure.Span
 import nest.sparkle.util.{Log, PeriodWithZone, RecoverNumeric}
 
 
-/** how to group items for a redution operation */
-case class ReductionGrouping(
+/** client requestable ways to to group items for a reduction operation */
+case class RequestedGrouping (
   maxParts: Int,
-  grouping: Option[GroupingType]
+  grouping: Option[RequestGrouping]
 )
 
-sealed trait GroupingType
-case class ByDuration(duration:PeriodWithZone) extends GroupingType
-case class ByCount(count:Int) extends GroupingType
-case class IntoCountedParts(count:Int) extends GroupingType
-case class IntoDurationParts(count:Int) extends GroupingType
+/** requested group items for a reduction operation */
+case class StreamGrouping (
+  maxParts: Int,
+  grouping: Option[ReductionGrouping]
+)
 
+
+/** groupings that are processed by the reduction code */
+sealed trait ReductionGrouping
+
+/** permitted groupings that may be requested for reductions */
+sealed trait RequestGrouping
+case class ByDuration(duration:PeriodWithZone) extends RequestGrouping with ReductionGrouping
+case class ByCount(count:Int) extends RequestGrouping with ReductionGrouping
+case class IntoCountedParts(count:Int) extends RequestGrouping
+case class IntoDurationParts(count:Int) extends RequestGrouping
 
 
 // TODO specialize for efficiency
@@ -40,7 +50,7 @@ trait AsyncReduction[K, V] extends Log {
     * parts of this TwoPartStream.
     */
   def flexibleReduce // format: OFF
-      ( futureGrouping: Future[ReductionGrouping],
+      ( futureGrouping: Future[StreamGrouping],
         reduction: Reduction[V],
         ongoingDuration: Option[FiniteDuration] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
@@ -59,25 +69,10 @@ trait AsyncReduction[K, V] extends Log {
             reduceByPeriod(periodWithZone, reduction, group.maxParts, bufferOngoing)
           case Some(ByCount(count)) =>
             reduceByElementCount(count, reduction, group.maxParts, bufferOngoing)
-          case Some(IntoCountedParts(count)) => ???
-          case Some(IntoDurationParts(count)) => ???
         }
       }
     futureStream
-//      case (Some(_), Some(_), _) =>
-//        val err = ReductionParameterError("both count and period specified")
-//        AsyncWithRange.error(err, self.requestRange)
   }
-
-  private def intoCountedParts  // format: OFF
-      ( count: Int,
-        bufferOngoing: FiniteDuration )
-      ( implicit executionContext:ExecutionContext, parentSpan:Span )
-      : AsyncWithRange[K, Option[V]] = { // format: ON
-
-    ???
-  }
-
 
     /** Partition the key range by period, starting with the rounded time of the first key
     * in the stream. Return a reduced stream, with the values in each partition
