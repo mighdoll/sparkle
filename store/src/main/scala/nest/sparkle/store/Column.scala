@@ -5,7 +5,7 @@ import scala.reflect.runtime.universe._
 import rx.lang.scala.Observable
 
 import nest.sparkle.core.OngoingData
-import nest.sparkle.measure.Span
+import nest.sparkle.measure.{Span, DummySpan}
 
 case class OngoingEvents[T, U](initial: Observable[Event[T, U]], ongoing: Observable[Event[T, U]])
 
@@ -46,7 +46,7 @@ trait Column[T, U]
 
   /** return a count of the items in the column, or zero if it is empty */
   def countItems(start: Option[T] = None, end: Option[T] = None)
-      ( implicit execution: ExecutionContext, parentSpan: Span ): Future[Long] = ???
+      ( implicit execution: ExecutionContext, parentSpan: Span = DummySpan): Future[Long] = ???
 
   // LATER add authorization hook, to validate permission to read a range
 }

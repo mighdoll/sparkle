@@ -133,14 +133,16 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     val statement =
       (optStart, optEnd) match {
         case (None,None) =>
-          prepared.statement(CountAllItems(tableName)).bind(
+          prepared.statement(CountAll(tableName)).bind(
             Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
         case (Some(start:AnyRef), Some(end:AnyRef)) =>
-          prepared.statement(CountRangeItems(tableName)).bind(
+          prepared.statement(CountRange(tableName)).bind(
             Seq[AnyRef](dataSetName, columnName, rowIndex, start, end): _*)
+        case (Some(start:AnyRef), None) =>
+          prepared.statement(CountFromStart(tableName)).bind(
+            Seq[AnyRef](dataSetName, columnName, rowIndex, start): _*)
         case x =>
-          NYI(s"countItems range $x")
-          ???
+          NYI(s"countItems range variant $x")
        }
 
     val obsRows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)

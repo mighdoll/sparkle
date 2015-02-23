@@ -319,12 +319,30 @@ class TestCassandraStore
     }
   }
 
-  test("read count of items in column") {
+  test("read count of all items in column") {
     withLoadedFile("simple-events.csv") { (store, system) =>
       val column = store.column[Long,Double]("simple-events/seconds").await
-      implicit val span = DummySpan
       val count = column.countItems().await
       count shouldBe 5
+    }
+  }
+
+  test("read count of items in column with start") {
+    withLoadedFile("simple-events.csv") { (store, system) =>
+      val column = store.column[Long,Double]("simple-events/seconds").await
+      val start = "2014-12-01T00:40:00.000".toMillis
+      val count = column.countItems(start = Some(start)).await
+      count shouldBe 3
+    }
+  }
+
+  test("read count of items in column with start and end") {
+    withLoadedFile("simple-events.csv") { (store, system) =>
+      val column = store.column[Long,Double]("simple-events/seconds").await
+      val start = "2014-12-01T00:40:00.000".toMillis
+      val end = "2014-12-01T02:00:00.000".toMillis
+      val count = column.countItems(start = Some(start), end = Some(end)).await
+      count shouldBe 2
     }
   }
 
