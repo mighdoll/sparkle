@@ -8,7 +8,8 @@ object SparseColumnReaderStatements extends PerTablePrepared {
   case class ReadFromStartWithLimit(override val tableName: String) extends TableOperation
   case class ReadLastKey(override val tableName: String) extends TableOperation
   case class ReadFirstKey(override val tableName: String) extends TableOperation
-  case class CountItems(override val tableName: String) extends TableOperation
+  case class CountAllItems(override val tableName: String) extends TableOperation
+  case class CountRangeItems(override val tableName: String) extends TableOperation
 
   val toPrepare = Seq(
     ReadAll -> readAllStatement _,
@@ -17,7 +18,8 @@ object SparseColumnReaderStatements extends PerTablePrepared {
     ReadFromStartWithLimit -> readFromStartWithLimit _,
     ReadFirstKey -> readFirstKeyStatement _,
     ReadLastKey -> readLastKeyStatement _,
-    CountItems -> countItemsStatement _
+    CountAllItems -> countAllItemsStatement _,
+    CountRangeItems -> countRangeItemsStatement _
   )
 
   private def readAllStatement(tableName: String): String = s"""
@@ -50,8 +52,14 @@ object SparseColumnReaderStatements extends PerTablePrepared {
       WHERE dataSet = ? AND column = ? AND rowIndex = ? ORDER BY argument ASC LIMIT ?
       """
 
-  private def countItemsStatement(tableName: String):String = s"""
+  private def countAllItemsStatement(tableName: String):String = s"""
       SELECT COUNT(*) FROM $tableName
       WHERE dataSet = ? AND column = ? AND rowIndex = ?
       """
+
+  private def countRangeItemsStatement(tableName: String):String = s"""
+      SELECT COUNT(*) FROM $tableName
+      WHERE dataSet = ? AND column = ? AND rowIndex = ? AND argument >= ? AND argument < ?
+      """
+
 }
