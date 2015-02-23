@@ -26,6 +26,7 @@ import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.{Column, ColumnUpdate, WriteListener, WriteEvent, WriteNotifier, Event, OngoingEvents}
 import nest.sparkle.store.cassandra.SparseColumnReaderStatements._
 import nest.sparkle.measure.{DummySpan, Span}
+import nest.sparkle.util.Exceptions.NYI
 import nest.sparkle.util.Log
 import nest.sparkle.util.ObservableFuture._
 
@@ -124,13 +125,24 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     readOneKey("firstKey", ReadFirstKey.apply)
   }
 
-  override def countItems()(implicit execution: ExecutionContext, parentSpan: Span): Future[Long] = {
+  override def countItems(optStart: Option[T] = None, optEnd: Option[T] = None)
+      ( implicit execution: ExecutionContext, parentSpan: Span ): Future[Long] = {
     import nest.sparkle.store.cassandra.ObservableResultSetA._
     val span = Span.start("countItems", parentSpan)
 
-    val statement = prepared.statement(CountItems(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex): _*
-    )
+    val statement =
+      (optStart, optEnd) match {
+        case (None,None) =>
+          prepared.statement(CountAllItems(tableName)).bind(
+            Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
+        case (Some(start:AnyRef), Some(end:AnyRef)) =>
+          prepared.statement(CountRangeItems(tableName)).bind(
+            Seq[AnyRef](dataSetName, columnName, rowIndex, start, end): _*)
+        case x =>
+          NYI(s"countItems range $x")
+          ???
+       }
+
     val obsRows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)
     obsRows.toFutureSeq.map { rows:Seq[Seq[Row]] =>
       val optRow = rows.headOption.flatMap(_.headOption)
@@ -163,7 +175,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     val readStatement = prepared.statement(ReadAll(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
 
-    OngoingData(initial = readEventRows(readStatement), ongoing = ongoingRead())
+    OngoingData(initial = readDataRows(readStatement), ongoing = ongoingRead())
   }
 
   private def readFromStart(start: T) // format: OFF
@@ -181,7 +193,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef]): _*)
-    readEventRows(readStatement)
+    readDataRows(readStatement)
   }
 
   private def handleColumnUpdate(columnUpdate: ColumnUpdate[T]) // format: OFF
@@ -210,9 +222,19 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
 
-    OngoingData(readEventRows(readStatement), Observable.empty)
+    OngoingData(readDataRows(readStatement), Observable.empty)
   }
 
+
+  private def readDataRows( statement: BoundStatement ) // format: OFF
+      ( implicit execution:ExecutionContext, parentSpan: Span ): Observable[DataArray[T, U]] = { // format: ON
+    import nest.sparkle.store.cassandra.ObservableResultSetA._
+
+    val span = Span.start("readDataRows", parentSpan)
+    println(statement.toString)
+    val rows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)
+    rows map rowsDecoder
+  }
 
   private def rowsDecoder(rows: Seq[Row]): DataArray[T, U] = {
     log.trace(s"rowsDecoder: $rows")
@@ -227,14 +249,6 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     DataArray(arguments, values)
   }
 
-  private def readEventRows( statement: BoundStatement ) // format: OFF
-      ( implicit execution:ExecutionContext, parentSpan: Span ): Observable[DataArray[T, U]] = { // format: ON
-    import nest.sparkle.store.cassandra.ObservableResultSetA._
-
-    val span = Span.start("readEventRows", parentSpan)
-    val rows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)
-    rows map rowsDecoder
-  }
 
   //
   // old Event-based code path below, to be removed
@@ -255,9 +269,10 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
   /** read all the column values from the column */
   private def readAllOld() // format: OFF
                         ( implicit executionContext: ExecutionContext, parentSpan:Span): OngoingEvents[T, U] = { // format: ON
-    log.trace(s"readAll from $tableName $columnPath")
-    val readStatement = prepared.statement(ReadAll(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
+    log.trace(s"readAllOld from $tableName $columnPath")
+    val baseStatement = prepared.statement(ReadAll(tableName))
+    val args =  Seq[AnyRef](dataSetName, columnName, rowIndex)
+    val readStatement = baseStatement.bind(args: _*)
 
     OngoingEvents(initial = readEventRowsOld(readStatement), ongoing = ongoingReadOld())
   }
@@ -290,7 +305,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
 
   private def readBoundedRangeOld(start: T, end: T) // format: OFF
                                  ( implicit execution:ExecutionContext, parentSpan: Span ): OngoingEvents[T, U] = { // format: ON
-    log.trace(s"readRange from $tableName $columnPath $start $end")
+    log.trace(s"readBoundedRangeOld from $tableName $columnPath $start $end")
     val readStatement = prepared.statement(ReadRange(tableName)).bind(
       Seq[AnyRef](dataSetName, columnName, rowIndex,
         start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
@@ -321,6 +336,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     import nest.sparkle.store.cassandra.ObservableResultSet._
 
     val span = Span.start("readEventRowsOld", parentSpan)
+    println(statement.toString)
     val rows = prepared.session.executeAsync(statement).observerableRows(Option(span))
     rows map rowDecoder
   }

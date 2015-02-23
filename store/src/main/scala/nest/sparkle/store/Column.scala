@@ -45,7 +45,8 @@ trait Column[T, U]
   def firstKey()(implicit execution: ExecutionContext, parentSpan: Span): Future[Option[T]] = ???
 
   /** return a count of the items in the column, or zero if it is empty */
-  def countItems()(implicit execution: ExecutionContext, parentSpan: Span): Future[Long] = ???
+  def countItems(start: Option[T] = None, end: Option[T] = None)
+      ( implicit execution: ExecutionContext, parentSpan: Span ): Future[Long] = ???
 
   // LATER add authorization hook, to validate permission to read a range
 }

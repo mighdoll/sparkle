@@ -159,7 +159,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       items.headOption.foreach { head =>
         val start = head.argument
         val end = items.last.argument
-        log.trace(s"wrote events: $events")
+        log.trace(s"wrote events to $columnPath: $events")
         writeNotifier.columnUpdate(columnPath, ColumnUpdate(start, end))
       }
     }

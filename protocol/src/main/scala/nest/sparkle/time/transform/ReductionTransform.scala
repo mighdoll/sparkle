@@ -105,7 +105,8 @@ case class ReduceTransform[V]
           )
           newStream.asInstanceOf[TwoPartStream[K,V, AsyncWithRangeReduction]] // SCALA ?
         }
-      case _ => ???
+      case x => println(s"attachReduction. grouping $x not yet implemented")
+        ???
     }
   }
 
