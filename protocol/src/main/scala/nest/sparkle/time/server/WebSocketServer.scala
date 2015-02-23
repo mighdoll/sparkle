@@ -30,7 +30,7 @@ class WebSocketServer(rootConfig:Config) extends Log {
           log.info("/data: open socket")
           sendToSubscribers(open)
         case message@Message(s, Text(m)) =>
-          log.info(s"/data: received message: $m")
+          log.trace(s"/data: received message: $m")
           sendToSubscribers(message)
       }
     }
