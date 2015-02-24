@@ -6,6 +6,11 @@ import org.joda.time.DurationFieldType
 
 import nest.sparkle.measure.Milliseconds
 
+/** utility for converting to millisecond intervals to human friendly rounded periods.
+  * e.g. when creating a bar chart that has room for 5 bars, this routine will round
+  * a target time duration for each bar to a reasonable size. See the code for details
+  * of what's reasonable. For example, hours and minutes are considered reasonably
+  * divisible only into 1,15,30 or 60 minute sizes. */
 object IntervalToPeriod {
   private val second = 1000L
   private val minute = second * 60
