@@ -38,7 +38,7 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
     val stream = createStream(parts)
     val periodWithZone = PeriodWithZone(Period.parse(period).get, DateTimeZone.UTC)
     implicit val span = DummySpan
-    val reduced = stream.reduceByPeriod(periodWithZone, range, ReduceSum[V]())
+    val reduced = stream.reduceByPeriod(periodWithZone, range, ReduceSum[V](), true)
     val dataArrays = reduced.reducedStream.data.toBlocking.toList
     dataArrays.reduce (_ ++ _)
   }

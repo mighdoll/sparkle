@@ -28,10 +28,11 @@ sealed trait ReductionGrouping
 
 /** permitted groupings that may be requested for reductions */
 sealed trait RequestGrouping
-case class ByDuration(duration:PeriodWithZone) extends RequestGrouping with ReductionGrouping
+case class ByDuration(duration:PeriodWithZone, emitEmpties:Boolean)
+  extends RequestGrouping with ReductionGrouping
 case class ByCount(count:Int) extends RequestGrouping with ReductionGrouping
 case class IntoCountedParts(count:Int) extends RequestGrouping
-case class IntoDurationParts(count:Int) extends RequestGrouping
+case class IntoDurationParts(count:Int, emitEmpties:Boolean) extends RequestGrouping
 
 
 // TODO specialize for efficiency
@@ -65,8 +66,8 @@ trait AsyncReduction[K, V] extends Log {
           case None =>
             val start = self.requestRange.flatMap(_.start)
             reduceToOnePart(reduction, start, bufferOngoing)
-          case Some(ByDuration(periodWithZone)) =>
-            reduceByPeriod(periodWithZone, reduction, group.maxParts, bufferOngoing)
+          case Some(ByDuration(periodWithZone, emitEmpties)) =>
+            reduceByPeriod(periodWithZone, reduction, emitEmpties, group.maxParts, bufferOngoing)
           case Some(ByCount(count)) =>
             reduceByElementCount(count, reduction, group.maxParts, bufferOngoing)
         }
@@ -85,6 +86,7 @@ trait AsyncReduction[K, V] extends Log {
   private def reduceByPeriod // format: OFF
       ( periodWithZone: PeriodWithZone,
         reduction: IncrementalReduction[V],
+        emitEmpties: Boolean,
         maxParts: Int,
         bufferOngoing: FiniteDuration )
       ( implicit executionContext:ExecutionContext, parentSpan:Span )
@@ -95,11 +97,11 @@ trait AsyncReduction[K, V] extends Log {
         implicit val _ = numericKey
         val range = requestRange.getOrElse(SoftInterval(None, None))
         val initialResult = self.initial.reduceByPeriod(periodWithZone, range, reduction,
-          maxParts, optPrevious = None)
+          emitEmpties, maxParts, optPrevious = None)
         val prevStateFuture = initialResult.finishState
         val reducedOngoing =
           ongoing.tumblingReduce(bufferOngoing, prevStateFuture) { (buffer, optState) =>
-            buffer.reduceByPeriod(periodWithZone, range, reduction, maxParts, optState)
+            buffer.reduceByPeriod(periodWithZone, range, reduction, emitEmpties, maxParts, optState)
           }
         new AsyncWithRange(initialResult.reducedStream, reducedOngoing, self.requestRange)
       case Failure(err) => AsyncWithRange.error(err, self.requestRange)

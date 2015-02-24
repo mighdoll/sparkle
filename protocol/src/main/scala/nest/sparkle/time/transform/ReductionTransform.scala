@@ -138,7 +138,7 @@ case class ReduceTransform[V]
     requestGrouping match {
       case Some(grouping@ByCount(count)) =>
         Future.successful(StreamGrouping(maxParts, Some(grouping)))
-      case Some(grouping@ByDuration(duration)) =>
+      case Some(grouping@ByDuration(_, _)) =>
         Future.successful(StreamGrouping(maxParts, Some(grouping)))
       case None =>
         Future.successful(noGrouping)
@@ -146,9 +146,9 @@ case class ReduceTransform[V]
         countedPartsToByCount(count, requestRange, column).map { byCount =>
           StreamGrouping(maxParts, Some(byCount))
         }
-      case Some(IntoDurationParts(count)) =>
+      case Some(IntoDurationParts(count, emitEmpties)) =>
         RecoverNumeric.tryNumeric[K](typeTag[K]).toFuture.flatMap { implicit numericKey =>
-          durationPartsToByDuration(count, requestRange, column).map { byDuration =>
+          durationPartsToByDuration(count, emitEmpties, requestRange, column).map { byDuration =>
             StreamGrouping(maxParts, Some(byDuration))
           }
         }
@@ -177,7 +177,8 @@ case class ReduceTransform[V]
     * The approach is to request the total duration from the database and then issue a ByDuration
     * reduction request with the appropriately rounded time duration. */
   private def durationPartsToByDuration[K: Numeric]
-      ( intoParts:Long, requestRange:Option[SoftInterval[K]], column:Column[K,V] )
+      ( intoParts:Long, emitEmpties:Boolean,
+        requestRange:Option[SoftInterval[K]], column:Column[K,V] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
       : Future[ByDuration] = {
 
@@ -217,7 +218,7 @@ case class ReduceTransform[V]
 
     futureDuration.map{ period =>
       val periodWithZone = PeriodWithZone(period, DateTimeZone.UTC)
-      ByDuration(periodWithZone)
+      ByDuration(periodWithZone, emitEmpties)
     }
   }
 

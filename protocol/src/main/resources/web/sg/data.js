@@ -149,6 +149,7 @@ define(["lib/when/monitor/console", "sg/request", "sg/util"],
       sendUpdates: false, // TODO fix for websockets
       requestMore: 1000,
       transform: transform,
+      emitEmptyPeriods: false,
       transformParameters: copyDefined(transformParameters)
     };
 

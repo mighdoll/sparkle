@@ -44,8 +44,8 @@ object ObservableResultSetA {
           asScalaFuture.foreach { resultSet =>
             /** Iterate through the rows as they arrive from the network, calling observer.onNext for each row.
               *
-              * rowChunk() is called once for each available group ('chunk') of resultSet rows.  It
-              * recursively calls itself to process the next fetched set of rows until there are now more rows left.
+              * rowChunk() is called once for each available group ('chunk') of resultSet rows.
+              * If rows remain, it chains a call to itself to process the next fetched set of rows.
               */
             def rowChunk(): Unit = {
               if (!subscriber.isUnsubscribed) {

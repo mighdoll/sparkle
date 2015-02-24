@@ -31,7 +31,7 @@ object LargeReduction extends StreamRequestor {
       : DataArray[Long, Option[Long]] = {
     val stream = generateDataStream(spacing)
     val periodWithZone = PeriodWithZone(Period.parse(summaryPeriod).get, DateTimeZone.UTC)
-    val reduced = stream.reduceByPeriod(periodWithZone, SoftInterval.empty, ReduceSum[Long]())
+    val reduced = stream.reduceByPeriod(periodWithZone, SoftInterval.empty, ReduceSum[Long](), true)
     val arrays = reduced.reducedStream.data.toBlocking.toList
     Span("reduce").time {
       arrays.reduce(_ ++ _)

@@ -228,6 +228,21 @@ class TestReductions extends FunSuite with Matchers
     }
   }
 
+  test("intoDurationParts, 2 parts, noEmpties") {
+    val message = stringRequest("simple-events/seconds", "reduceSum",
+      """{ "intoDurationParts" : 2,
+        |  "emitEmptyPeriods" : false
+        |} """.stripMargin)
+    requestWithLoaded("simple-events.csv", message) { response =>
+      val data = longDoubleData(response)
+      data.length shouldBe 2
+      data shouldBe Seq(
+        "2014-12-01T00:00:00.000".toMillis -> Some(8),
+        "2014-12-01T02:00:00.000".toMillis -> Some(2)
+      )
+    }
+  }
+
   test("intoDurationParts, 2 parts with range") {
     val start = "2014-12-01T00:10:00.000".toMillis
     val until = "2014-12-01T02:00:00.000".toMillis

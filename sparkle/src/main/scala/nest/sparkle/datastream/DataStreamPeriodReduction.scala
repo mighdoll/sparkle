@@ -47,12 +47,13 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       ( periodWithZone: PeriodWithZone,
         range: SoftInterval[K],
         reduction: IncrementalReduction[V],
+        emitEmpties: Boolean,
         maxPeriods: Int = defaultMaxPeriods,
         optPrevious: Option[FrozenProgress[K, V]] = None)
       ( implicit numericKey: Numeric[K], parentSpan:Span )
       : PeriodsResult[K,V] = { // format: ON
 
-    val state = new State(periodWithZone, reduction, range, maxPeriods, optPrevious)
+    val state = new State(periodWithZone, reduction, range, maxPeriods, optPrevious, emitEmpties)
     val finishState = Promise[Option[FrozenProgress[K,V]]]()
     val reduced = data.materialize.flatMap { notification =>
       notification match {
@@ -103,7 +104,8 @@ trait DataStreamPeriodReduction[K,V] extends Log {
         reduction2: IncrementalReduction[V],
         range: SoftInterval[K],
         maxPeriods: Int,
-        optPrevious: Option[FrozenProgress[K, V]] )
+        optPrevious: Option[FrozenProgress[K, V]],
+        emitEmptyPeriods: Boolean)
       ( implicit numericKey: Numeric[K] ) {
 
     var periods: Option[PeriodProgress[K]] = None
@@ -164,11 +166,13 @@ trait DataStreamPeriodReduction[K,V] extends Log {
         // get a copy of the period iterator at the same position
         val interimPeriods = periods.get.duplicate()
 
-        range.until.foreach { until =>
-          var done = false
-          while (interimPeriods.end < until && !done) {
-            done = !interimPeriods.toNextPeriod()
-            interimResults.add(interimPeriods.start, None)
+        if (emitEmptyPeriods) {
+          range.until.foreach { until =>
+            var done = false
+            while (interimPeriods.end < until && !done) {
+              done = !interimPeriods.toNextPeriod()
+              interimResults.add(interimPeriods.start, None)
+            }
           }
         }
         interimResults.dataArray
@@ -209,7 +213,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       } else if (key >= periods.get.end && !periods.get.complete) {
         // we're now past the period, so emit a value for the previous period
         // and emit a None value for any gap periods until we get to the period containing the key
-        emitUntilKeyInPeriod(key)
+        advanceUntilPeriodContains(key)
 
         // unless we ran out of periods, our key should now be in the period
         if (key >= periods.get.start && key < periods.get.end) {
@@ -229,12 +233,14 @@ trait DataStreamPeriodReduction[K,V] extends Log {
       * For each complete period, emit a value into the results buffer. The value
       * is the optional aggregate total for the period (None if there were no values).
       */
-    private def emitUntilKeyInPeriod(key: K) {
+    private def advanceUntilPeriodContains(key: K) {
       assert(key >= periods.get.end)  // we're only called if the key is ahead of the period
       var done = false
       while (!done) {
         val value = finishAccumulation()
-        results.add(periods.get.start, value)
+        if (value.nonEmpty || emitEmptyPeriods) {
+          results.add(periods.get.start, value)
+        }
         val nextPeriodExists = periods.get.toNextPeriod()
         if (!nextPeriodExists || key < periods.get.end) {
           done = true

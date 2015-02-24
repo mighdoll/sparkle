@@ -15,7 +15,7 @@
 package nest.sparkle.time.protocol
 
 import spray.json._
-import nest.sparkle.util.LogUtil.optionLog
+
 import nest.sparkle.datastream.SoftInterval
 
 /** spray json converters for json objects we send or receive */
@@ -74,8 +74,7 @@ case class StreamRequestMessage(requestId: Option[Long], realm: Option[RealmToSe
 
 /** a version of the StreamRequestMessage that doesn't include realm id and auth */
 object LoggableStreamRequestMessage extends DefaultJsonProtocol {
-  import RequestJson.LoggableRealmToServerFormat
-  import RequestJson.StreamRequestFormat
+  import nest.sparkle.time.protocol.RequestJson.{LoggableRealmToServerFormat, StreamRequestFormat}
   implicit val format: RootJsonFormat[LoggableStreamRequestMessage] = jsonFormat5(LoggableStreamRequestMessage.apply)
 }
 
@@ -144,6 +143,7 @@ case class SummaryParameters[T](
   partByCount: Option[Int] = None,
   intoCountedParts: Option[Int] = None,
   intoDurationParts: Option[Int] = None,
+  emitEmptyPeriods: Option[Boolean] = None,
   timeZoneId: Option[String] = None,
   ongoingBufferPeriod: Option[String] = None
   )

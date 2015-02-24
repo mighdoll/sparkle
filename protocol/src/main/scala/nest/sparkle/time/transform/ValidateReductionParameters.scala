@@ -60,7 +60,9 @@ private[transform] case class ValidateReductionParameters() {
         intoCountedParts.map {
           IntoCountedParts(_)
         } orElse {
-          intoDurationParts.map(IntoDurationParts(_))
+          intoDurationParts.map{ parts =>
+            IntoDurationParts(parts, reductionParameters.emitEmptyPeriods.getOrElse(false))
+          }
         } orElse {
           partByCount.map(ByCount(_))
         }
@@ -69,7 +71,7 @@ private[transform] case class ValidateReductionParameters() {
         val periodTry = summaryPeriod(partBySize, timeZoneId)
         periodTry map { optPeriod =>
           optPeriod.map { period =>
-            ByDuration(period)
+            ByDuration(period, reductionParameters.emitEmptyPeriods.getOrElse(false))
           }
         }
       }
@@ -78,7 +80,6 @@ private[transform] case class ValidateReductionParameters() {
         case Some(grouping) => Success(Some(grouping))
         case _              => periodOption
       }
-
     }
 
     allVariants.size match {
