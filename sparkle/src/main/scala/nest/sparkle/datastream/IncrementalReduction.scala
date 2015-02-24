@@ -5,20 +5,20 @@ import spire.math._
 import nest.sparkle.util.BooleanOption._
 
 
-/** implements an incremental reduction that can freeze and unfreeze its state */
-trait Reduction[V] {
+/** implements an reduction operation controlled by external iteration */
+trait IncrementalReduction[V] {
   /** add one more value to the reduction */
   def accumulate(value: V): Unit
 
-  /** optionally return the current reduced sum */
-  def currentTotal: Option[V]
+  /** optionally return the current reduced combined value */ 
+  def currentTotal: Option[V]  
 
   /** make a new instance of this type */ // probably put in a companion typeclass SCALA
-  def newInstance(): Reduction[V]
+  def newInstance(): IncrementalReduction[V]
 }
 
 /** accumulate by choosing the larger value */
-case class ReduceMax[V: Numeric]() extends Reduction[V] {
+case class ReduceMax[V: Numeric]() extends IncrementalReduction[V] {
   private var max: Option[V] = None
 
   override def accumulate(value: V): Unit = {
@@ -35,7 +35,7 @@ case class ReduceMax[V: Numeric]() extends Reduction[V] {
 }
 
 /** accumulate by choosing the larger value */// TODO DRY with Sum and Max
-case class ReduceMin[V: Numeric]() extends Reduction[V] {
+case class ReduceMin[V: Numeric]() extends IncrementalReduction[V] {
   private var min: Option[V] = None
 
   override def accumulate(value: V): Unit = {
@@ -53,7 +53,7 @@ case class ReduceMin[V: Numeric]() extends Reduction[V] {
 
 
 /** accumulate by summing the values */
-case class ReduceSum[V: Numeric]() extends Reduction[V] {
+case class ReduceSum[V: Numeric]() extends IncrementalReduction[V] {
   private var total = implicitly[Numeric[V]].zero
   private var started = false
 
@@ -71,7 +71,7 @@ case class ReduceSum[V: Numeric]() extends Reduction[V] {
 
 
 /** accumulate by calculating the numeric mean of the values */
-case class ReduceMean[V: Numeric]() extends Reduction[V] {
+case class ReduceMean[V: Numeric]() extends IncrementalReduction[V] {
   private var total = implicitly[Numeric[V]].zero
   private var started = false
   private var count = 0
