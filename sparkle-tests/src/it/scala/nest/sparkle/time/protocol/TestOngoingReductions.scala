@@ -53,7 +53,7 @@ class TestOngoingReductions extends FunSuite with Matchers
               case n if n > loadCount  => ??? // shouldn't happen
             }
         }
-        finished.future.await(45.seconds)
+        finished.future.await(90.seconds)
         fn(received.result)
       }
     }
