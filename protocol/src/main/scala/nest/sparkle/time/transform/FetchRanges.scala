@@ -37,6 +37,9 @@ object FetchRanges {
 }
 
 
+/** an Async stream with a request range and the Column attached so that subsequent
+  * processing can make additional requests of the column (e.g. to fetch first and last key)
+  */
 class AsyncWithRangeColumn[K: TypeTag, V: TypeTag] // format: OFF
     ( initial: DataStream[K,V],
       ongoing: DataStream[K,V],

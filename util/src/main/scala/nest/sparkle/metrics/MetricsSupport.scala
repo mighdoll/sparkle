@@ -30,8 +30,6 @@ object MetricsSupport {
 
   /**
    * Build and start a Graphite reporter.
-   * @param graphiteConfig chisel.metrics.graphite config object
-   * @return
    */
   def startGraphiteReporter(graphiteConfig: Config): Option[Closeable] = {
     if (graphiteConfig.getBoolean("reporter.enable")) {
@@ -45,7 +43,6 @@ object MetricsSupport {
 
   /**
    * Start a spray http server to return metrics when requested.
-   * @param graphiteConfig chisel.metrics.graphite config object
    */
   def startHttpServer(graphiteConfig: Config)(implicit system: ActorSystem): Future[Any] = {
     if (graphiteConfig.getBoolean("http.enable")) {

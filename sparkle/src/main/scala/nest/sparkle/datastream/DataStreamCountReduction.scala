@@ -8,7 +8,7 @@ import rx.lang.scala.{Observable, Notification}
 
 import nest.sparkle.util.ReflectionUtil
 
-case class CountProgress[K, V](count:Int, key:Option[K], reductionState:Reduction[V])
+case class CountProgress[K, V](count:Int, key:Option[K], reductionState:IncrementalReduction[V])
 case class CountResult[K,V]
     ( reducedStream:DataStream[K,Option[V]],
       override val finishState: Future[Option[CountProgress[K,V]]] )
@@ -21,7 +21,7 @@ trait DataStreamCountReduction[K,V] {
   iterate through elements, accumulating count items into the state
    */
   def reduceByElementCount
-      ( targetCount:Int, reduction: Reduction[V], maxParts:Int,
+      ( targetCount:Int, reduction: IncrementalReduction[V], maxParts:Int,
         optPrevious: Option[CountProgress[K, V]] = None)
       : CountResult[K, V] = {
     val finishState = Promise[Option[CountProgress[K, V]]]()
@@ -47,7 +47,7 @@ trait DataStreamCountReduction[K,V] {
 
   /** counting state */
   case class CountState
-      ( targetCount: Int, reduction:Reduction[V], maxParts:Int,
+      ( targetCount: Int, reduction:IncrementalReduction[V], maxParts:Int,
         optPrevious: Option[CountProgress[K, V]]) {
     var count = optPrevious.map(_.count).getOrElse(0)
     var currentReduction = optPrevious.map(_.reductionState).getOrElse(reduction)

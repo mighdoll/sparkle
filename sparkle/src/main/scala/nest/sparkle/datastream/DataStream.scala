@@ -27,7 +27,7 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
     * no reduceKey is provided.
     */
   def reduceToOnePart
-      ( reduction: Reduction[V], reduceKey:Option[K] = None)
+      ( reduction: IncrementalReduction[V], reduceKey:Option[K] = None)
       ( implicit parentSpan:Span )
       : DataStream[K, Option[V]] = {
 

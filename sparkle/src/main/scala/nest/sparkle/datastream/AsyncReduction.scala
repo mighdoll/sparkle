@@ -51,7 +51,7 @@ trait AsyncReduction[K, V] extends Log {
     */
   def flexibleReduce // format: OFF
       ( futureGrouping: Future[StreamGrouping],
-        reduction: Reduction[V],
+        reduction: IncrementalReduction[V],
         ongoingDuration: Option[FiniteDuration] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
       : Future[AsyncWithRange[K,Option[V]]] = { // format: ON
@@ -84,7 +84,7 @@ trait AsyncReduction[K, V] extends Log {
     */
   private def reduceByPeriod // format: OFF
       ( periodWithZone: PeriodWithZone,
-        reduction: Reduction[V],
+        reduction: IncrementalReduction[V],
         maxParts: Int,
         bufferOngoing: FiniteDuration )
       ( implicit executionContext:ExecutionContext, parentSpan:Span )
@@ -110,7 +110,7 @@ trait AsyncReduction[K, V] extends Log {
     * stream to a single value periodically.
     */
   private def reduceToOnePart // format: OFF
-      ( reduction: Reduction[V], reduceKey: Option[K] = None,
+      ( reduction: IncrementalReduction[V], reduceKey: Option[K] = None,
         bufferOngoing: FiniteDuration )
       ( implicit executionContext:ExecutionContext, parentSpan: Span)
       : AsyncWithRange[K, Option[V]] = { // format: ON
@@ -127,10 +127,15 @@ trait AsyncReduction[K, V] extends Log {
   }
 
 
-  /**
+  /** Reduce the stream into partitions with the same number of elements.
+    * The final partition of the initial portion of the stream may have fewer elements,
+    * so that visualization clients will can display all the data that is available.
+    * The ongoing stream will only contain reductions of the target number of elements,
+    * i.e. it will wait until the requisite number of elements show up before producing
+    * a reduction.
     */
   private def reduceByElementCount // format: OFF
-      ( targetCount: Int, reduction: Reduction[V], maxParts: Int,
+      ( targetCount: Int, reduction: IncrementalReduction[V], maxParts: Int,
         bufferOngoing: FiniteDuration )
       ( implicit executionContext:ExecutionContext, parentSpan: Span)
       : AsyncWithRange[K, Option[V]] = { // format: ON

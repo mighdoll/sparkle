@@ -21,7 +21,7 @@ case class PeriodsResult[K,V]
     extends ReductionResult[K,V,FrozenProgress[K,V]]
 
 /** Saved state to continue the reduction between streams */
-case class FrozenProgress[K, V](periodProgress: PeriodProgress[K], reductionProgress: Reduction[V])
+case class FrozenProgress[K, V](periodProgress: PeriodProgress[K], reductionProgress: IncrementalReduction[V])
 
 /** functions for reducing a DataStream by time period */
 trait DataStreamPeriodReduction[K,V] extends Log {
@@ -46,7 +46,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
   def reduceByPeriod // format: OFF
       ( periodWithZone: PeriodWithZone,
         range: SoftInterval[K],
-        reduction: Reduction[V],
+        reduction: IncrementalReduction[V],
         maxPeriods: Int = defaultMaxPeriods,
         optPrevious: Option[FrozenProgress[K, V]] = None)
       ( implicit numericKey: Numeric[K], parentSpan:Span )
@@ -100,7 +100,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     * is complete to fetch any partially reduced data. */
   private class State
       ( periodWithZone: PeriodWithZone,
-        reduction2: Reduction[V],
+        reduction2: IncrementalReduction[V],
         range: SoftInterval[K],
         maxPeriods: Int,
         optPrevious: Option[FrozenProgress[K, V]] )

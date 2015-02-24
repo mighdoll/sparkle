@@ -3,12 +3,11 @@ package nest.sparkle.time.transform
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 import scala.reflect.runtime.universe._
 
 import com.typesafe.config.Config
 import spray.json.JsObject
-import rx.lang.scala.Observable
 
 import nest.sparkle.measure.{Measurements, Span, TraceId}
 import nest.sparkle.time.protocol.{SummaryParameters, JsonDataStream, JsonEventWriter, KeyValueType}
@@ -18,7 +17,7 @@ import nest.sparkle.datastream._
 import nest.sparkle.util.TryToFuture._
 import spire.math.Numeric
 
-/** support protocol "transform" field matching for the reduction transforms */ 
+/** support for matching the "transform" field in protocol requests for the reduction transforms */
 case class ReductionTransform(rootConfig: Config)(implicit measurements: Measurements) extends TransformMatcher {
   override type TransformType = MultiTransform
   override def prefix = "reduce"
@@ -28,11 +27,12 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
   lazy val minTransform = makeNumericTransform { ReduceMin()(_) }
   lazy val maxTransform = makeNumericTransform { ReduceMax()(_) }
 
+  /** create a ReduceTransform for a particular numeric reduction operation */
   def makeNumericTransform
-      ( reductionFactory: Numeric[Any] => Reduction[Any] )
+      ( reductionFactory: Numeric[Any] => IncrementalReduction[Any] )
       : ReduceTransform[_] = {
 
-    def produceReducer: TypeTag[_] => Try[Reduction[Any]] = { typeTag:TypeTag[_] =>
+    def produceReducer: TypeTag[_] => Try[IncrementalReduction[Any]] = { typeTag:TypeTag[_] =>
       RecoverNumeric.tryNumeric[Any](typeTag).map { numericValue =>
         reductionFactory(numericValue)
       }
@@ -50,9 +50,10 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
   }
 }
 
+/** Support for executing a reduction transform (e.g. Sum or Mean). */
 case class ReduceTransform[V]
     ( rootConfig: Config,
-      produceReduction: TypeTag[_] => Try[Reduction[V]] )
+      produceReduction: TypeTag[_] => Try[IncrementalReduction[V]] )
     ( implicit measurements: Measurements )
   extends MultiTransform with Log {
 
@@ -123,7 +124,7 @@ case class ReduceTransform[V]
     ???
   }
 
-    /** attach a StreamGrouping to all the streams in a StreamGroupSet */
+  /** attach a StreamGrouping to all the streams in a StreamGroupSet */
   private def attachReductionToAllStreams[K]
       ( streams: StreamGroupSet[K, V, AsyncWithRangeColumn], grouping: StreamGrouping )
       ( implicit execution: ExecutionContext, parentSpan:Span )
@@ -163,13 +164,11 @@ case class ReduceTransform[V]
       )
       newStream.asInstanceOf[TwoPartStream[K,V, AsyncWithRangeReduction]] // SCALA ?
     }
-
   }
 
-    /** Perform a reduce operation on all the streams in a group set.
-    */
-  def reduceOperation[K] // format: OFF  
-      ( makeReduction: TypeTag[_] => Try[Reduction[V]],
+  /** Perform a reduce operation on all the streams in a group set.  */
+  private def reduceOperation[K] // format: OFF
+      ( makeReduction: TypeTag[_] => Try[IncrementalReduction[V]],
         groupSet: StreamGroupSet[K, V, AsyncWithRangeReduction],
         ongoingDuration: Option[FiniteDuration] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
