@@ -1,6 +1,6 @@
 package nest.sparkle.time.transform
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
 import scala.util.Try
@@ -9,14 +9,17 @@ import scala.reflect.runtime.universe._
 import com.typesafe.config.Config
 import spray.json.JsObject
 
-import nest.sparkle.measure.{Measurements, Span, TraceId}
+import org.joda.time.{DateTimeZone, DurationFieldType}
+
+import nest.sparkle.measure.{Milliseconds, Measurements, Span, TraceId}
 import nest.sparkle.store.Column
 import nest.sparkle.time.protocol.{SummaryParameters, JsonDataStream, JsonEventWriter, KeyValueType}
 import nest.sparkle.time.transform.FetchStreams.fetchData
-import nest.sparkle.util.{Log, PeriodWithZone, RecoverNumeric}
+import nest.sparkle.util._
 import nest.sparkle.datastream._
 import nest.sparkle.util.TryToFuture._
-import spire.math.Numeric
+import spire.math._
+import spire.implicits._
 
 /** support for matching the "transform" field in protocol requests for the reduction transforms */
 case class ReductionTransform(rootConfig: Config)(implicit measurements: Measurements) extends TransformMatcher {
@@ -126,7 +129,7 @@ case class ReduceTransform[V]
     * only supports two groupings: by date and by count. This routine converts the more complex
     * groupings that require extra fetches from the database (such as IntoCountedParts) into
     * simpler ones e.g. ByCount.  */
-  private def streamGrouping[K]
+  private def streamGrouping[K: TypeTag]
       ( requestGrouping:Option[RequestGrouping],
         requestRange: Option[SoftInterval[K]],
         column:Column[K,V] )
@@ -144,8 +147,10 @@ case class ReduceTransform[V]
           StreamGrouping(maxParts, Some(byCount))
         }
       case Some(IntoDurationParts(count)) =>
-        durationPartsToByDuration(count, requestRange, column).map { byDuration =>
-          StreamGrouping(maxParts, Some(byDuration))
+        RecoverNumeric.tryNumeric[K](typeTag[K]).toFuture.flatMap { implicit numericKey =>
+          durationPartsToByDuration(count, requestRange, column).map { byDuration =>
+            StreamGrouping(maxParts, Some(byDuration))
+          }
         }
     }
   }
@@ -171,14 +176,49 @@ case class ReduceTransform[V]
   /** Convert IntoDurationParts into a ByDuration reduction and attach it to the streams.
     * The approach is to request the total duration from the database and then issue a ByDuration
     * reduction request with the appropriately rounded time duration. */
-  private def durationPartsToByDuration[K]
+  private def durationPartsToByDuration[K: Numeric]
       ( intoParts:Long, requestRange:Option[SoftInterval[K]], column:Column[K,V] )
       ( implicit execution: ExecutionContext, parentSpan: Span )
       : Future[ByDuration] = {
 
-    val optStart = requestRange.flatMap(_.start)
-    val optUntil = requestRange.flatMap(_.until)
-    ???
+    val requestStart = requestRange.flatMap(_.start)
+    val requestUntil = requestRange.flatMap(_.until)
+
+    // if no range is specified, and the column doesn't have two keys use this as byDuration
+    val defaultDuration = Period(1, DurationFieldType.minutes)
+
+    // get start and until, fetching from db if not provided by the request
+    val futureStart:Future[Option[K]] = requestStart.map{ start =>
+      Future.successful(Some(start))
+    }.getOrElse {
+      column.firstKey
+    }
+    val futureUntil:Future[Option[K]] = requestUntil.map{ until =>
+      Future.successful(Some(until))
+    }.getOrElse {
+      column.lastKey.map { lastKey => lastKey.map (_ + 1)} // until is one past the last key
+    }
+
+    val futureDuration:Future[Period] =
+      for {
+        optStart <- futureStart
+        optUntil <- futureUntil
+      } yield {
+        (optStart, optUntil) match {
+          case (Some(start), Some(until)) =>
+            val intervalMillis = until.toLong - start.toLong
+            val partMillis = intervalMillis / intoParts
+            val result = IntervalToPeriod.millisToRoundedPeriod(Milliseconds(partMillis))
+            result
+          case _ =>
+            defaultDuration
+        }
+      }
+
+    futureDuration.map{ period =>
+      val periodWithZone = PeriodWithZone(period, DateTimeZone.UTC)
+      ByDuration(periodWithZone)
+    }
   }
 
 

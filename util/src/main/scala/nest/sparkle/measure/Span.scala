@@ -167,6 +167,7 @@ object EpochMicroseconds {
 
 /** milliseconds since midnight January 1, 1970 UTC */
 case class EpochMilliseconds(value: Long) extends AnyVal
+case class Milliseconds(value: Long) extends AnyVal
 
 /** The id for a single top level request (typically a request initiated by an external client into our distributed system) */
 case class TraceId(value: String) extends AnyVal

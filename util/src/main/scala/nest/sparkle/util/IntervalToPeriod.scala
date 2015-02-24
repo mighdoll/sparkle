@@ -4,7 +4,7 @@ import scala.collection.SortedSet
 
 import org.joda.time.DurationFieldType
 
-import nest.sparkle.measure.EpochMilliseconds
+import nest.sparkle.measure.Milliseconds
 
 object IntervalToPeriod {
   private val second = 1000L
@@ -16,17 +16,17 @@ object IntervalToPeriod {
 
   /** return the nearest 'round' time period smaller than this millisecond interval.
     * e.g. '5 minutes' or '30 seconds'.  */
-  def millisToRoundedPeriod(millis: EpochMilliseconds): Period = {
+  def millisToRoundedPeriod(millis: Milliseconds): Period = {
     millis.value match {
-      case v if v < second =>
+      case v if v <= second =>
         Period(roundValue(v, SortedSet(1,5,10,25,50,100,250,500)), DurationFieldType.millis)
-      case v if v < minute =>
+      case v if v <= minute =>
         Period(roundValue(v/second, SortedSet(1,15,30,60)), DurationFieldType.seconds)
-      case v if v < hour =>
+      case v if v <= hour =>
         Period(roundValue(v/minute, SortedSet(1,15,30,60)), DurationFieldType.minutes)
-      case v if v < day =>
+      case v if v <= day =>
         Period(roundValue(v/hour, SortedSet(1,2,6,12,24)), DurationFieldType.hours)
-      case v if v < week =>
+      case v if v <= week =>
         Period(roundValue(v/day, SortedSet(1)), DurationFieldType.days)
       case v if v < year =>
         Period(roundValue(v/week, SortedSet(1)), DurationFieldType.weeks)
