@@ -18,9 +18,9 @@ import scala.util.{Success, Failure}
 
 /**
  * Reads Avro data files and maps them into TaggedBlocks using a SparkAvroColumnDecoder
- * @param decoder
  */
-class SparkAvroEventReader(decoder: SparkAvroColumnDecoder) extends EventReader[AvroKey[GenericRecord], NullWritable] with Log {
+class SparkAvroEventReader(decoder: SparkAvroColumnDecoder)
+    extends EventReader[AvroKey[GenericRecord], NullWritable] with Log {
 
   override def events(input: String,
                       sc: SparkContext) : RDD[TaggedBlock2] = {
@@ -38,6 +38,7 @@ class SparkAvroEventReader(decoder: SparkAvroColumnDecoder) extends EventReader[
           throw new Exception(s"error reading from $input")
         }
       }
+      ???
     }
   }
 }

@@ -7,8 +7,8 @@ import scala.reflect.runtime.universe._
 import rx.lang.scala.{Notification, Observable}
 
 import nest.sparkle.measure.Span
-import nest.sparkle.util.ObservableUtil.reduceSafe
-import nest.sparkle.util.ReflectionUtil
+import nest.sparkle.util.ObservableUtil._
+import nest.sparkle.util.{ObservableUtil, ReflectionUtil}
 
 /** Functions for reducing an Observable of array pairs to smaller DataArrays
   */
@@ -75,7 +75,6 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
         }
 
       windows.scan(initialPrevious){ (futurePrevious, window) =>
-
         val previousState:Future[Option[S]] =
           futurePrevious.flatMap { optPrevious =>
             optPrevious match {
@@ -92,6 +91,7 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
 
         futureOptResult
       }
+
     }
 
     val reducedStream =
@@ -109,6 +109,13 @@ case class DataStream[K: TypeTag, V: TypeTag](data: Observable[DataArray[K,V]])
       }
 
     new DataStream(reducedStream)
+  }
+
+  /** (for debugging) return a copy of this DataStream that prints stream activity
+    * to the console. */
+  def debugTapped(debugName:String):DataStream[K,V] = {
+    val tappedData = ObservableUtil.debugTapped(data, debugName)
+    this.copy ( data = tappedData)
   }
 
 }

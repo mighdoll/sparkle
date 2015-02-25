@@ -55,6 +55,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
 
     val state = new State(periodWithZone, reduction, range, maxPeriods, optPrevious, emitEmpties)
     val finishState = Promise[Option[FrozenProgress[K,V]]]()
+
     val reduced = data.materialize.flatMap { notification =>
       notification match {
         case Notification.OnNext(dataArray) =>
@@ -326,22 +327,5 @@ case class PeriodProgress[K]
 
   private def started: Boolean = periodsUsed > 0
 
-
-  //    /** return a freeze-dried copy of the current period iteration and total accumulation,
-  //      * (so that we can reconstruct the current state of progress on a later stream).
-  //      */
-  //    def frozen[F](reductionProgress:F):FrozenProgress[K,F] = {
-  //      FrozenProgress(periodsIterator, periodsUsed, start, end, reductionProgress)
-  //    }
-
-  //    /** return a new PeriodProgress based on the current state combined with a previously frozen one */
-  //    def unfreeze(frozenProgress: FrozenProgress[K,F]): PeriodProgress[F] = {
-  //      val copied:PeriodProgress[F] = this.copy()
-  //      copied.start = frozenProgress.periodStart
-  //      copied.end = frozenProgress.periodEnd
-  //      copied.periodsUsed = frozenProgress.periodsUsed
-  //      copied.periodsIterator = frozenProgress.periodsIterator
-  //      copied
-  //    }
 }
 

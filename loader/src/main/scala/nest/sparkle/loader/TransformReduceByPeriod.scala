@@ -101,8 +101,8 @@ class TransformReduceByPeriod(rootConfig: Config, transformerConfig: Config)
     : Try[DataArray[T, U]] = {
 
     RecoverNumeric.tryNumeric[T](keyType).flatMap { keyNumeric =>
-      val keyClassTag: ClassTag[T] = ReflectionUtil.classTag[T](keyType)
-      val valueClassTag: ClassTag[U] = ReflectionUtil.classTag[U](valueType)
+      implicit val keyClassTag: ClassTag[T] = ReflectionUtil.classTag[T](keyType)
+      implicit val valueClassTag: ClassTag[U] = ReflectionUtil.classTag[U](valueType)
 
       val reducedDataArray = reduceByPeriod(dataArray, periodWithZone, reduction)(keyType,
         keyNumeric, valueType, DummySpan)
@@ -110,11 +110,10 @@ class TransformReduceByPeriod(rootConfig: Config, transformerConfig: Config)
       // we shouldn't have any None values since DataStreamPeriodReduction.reduceByPeriod
       // is called with emitEmpties = false
       val flattenedPairs = reducedDataArray.mapToArray { (key, value) =>
-        assert(value.isDefined)
         (key, value.get)
       }
 
-      Success(DataArray.fromPairs(flattenedPairs)(keyClassTag, valueClassTag))
+      Success(DataArray.fromPairs(flattenedPairs))
     }
   }
 

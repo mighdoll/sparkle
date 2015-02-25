@@ -53,7 +53,7 @@ class TestOngoingReductions extends FunSuite with Matchers
               case n if n > loadCount  => ??? // shouldn't happen
             }
         }
-        finished.future.await(90.seconds)
+        finished.future.await(45.seconds)
         fn(received.result)
       }
     }
@@ -80,8 +80,6 @@ class TestOngoingReductions extends FunSuite with Matchers
     }
   }
 
-
-
   /** run with a fixed set of period parameters and data. Each tests varies the reduction performed */
   def ongoingNoRangeOneHourTest
       ( transform:String,
@@ -90,7 +88,8 @@ class TestOngoingReductions extends FunSuite with Matchers
 
     val transformParams =
       """ { "partBySize" : "1 hour",
-        |   "ongoingBufferPeriod": "3 seconds"
+        |   "ongoingBufferPeriod": "3 seconds",
+        |   "emitEmptyPeriods": true
           }
       """.stripMargin
 
@@ -106,7 +105,6 @@ class TestOngoingReductions extends FunSuite with Matchers
     )
     val expectedInitialKeys = expectedInitialStringKeys.map(_.toMillis)
     val expectedOngoingKeys = expectedOngoingStringKeys.map(_.toMillis)
-
 
     withEventsAndMore(transformParams, transform) { responses =>
       val initial = longDoubleFromStreams(responses(0))
@@ -127,28 +125,28 @@ class TestOngoingReductions extends FunSuite with Matchers
 
   // TODO these are temporarily disabled due to occasional failures on the build agent
 
-  ignore("sum with ongoing, no requested range, with 1 hour period") {
+  test("sum with ongoing, no requested range, with 1 hour period") {
     ongoingNoRangeOneHourTest("reduceSum",
       Seq(Some(8),None, Some(2)),
       Seq(Some(7), None, Some(5))
     )
   }
 
-  ignore("mean with ongoing, no requested range, with 1 hour period") {
+  test("mean with ongoing, no requested range, with 1 hour period") {
     ongoingNoRangeOneHourTest("reduceMean",
       Seq(Some(2),None,Some(2)),
       Seq(Some(3.5),None,Some(5))
     )
   }
 
-  ignore("min with ongoing, no requested range, with 1 hour period") {
+  test("min with ongoing, no requested range, with 1 hour period") {
     ongoingNoRangeOneHourTest("reduceMin",
       Seq(Some(1), None, Some(2)),
       Seq(Some(2), None, Some(5))
     )
   }
 
-  ignore("max with ongoing, no requested range, with 1 hour period") {
+  test("max with ongoing, no requested range, with 1 hour period") {
     ongoingNoRangeOneHourTest("reduceMax",
       Seq(Some(3),None,Some(2)),
       Seq(Some(5),None,Some(5))

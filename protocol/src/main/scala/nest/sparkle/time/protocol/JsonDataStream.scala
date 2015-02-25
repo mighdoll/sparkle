@@ -18,7 +18,7 @@ import rx.lang.scala.Observable
 import spray.json._
 
 /** Contains an observable stream of json encoded arrays suitable for use in a protocol json data stream.  */
-case class JsonDataStream(
+case class JsonDataStream( // format: OFF
   /** An observable that produces json encoded data to send in Streams or Update messages
     * Each JsArray corresponds to one Datum, ready to serialize to a protocol message.
     * Each Seq is normally sent in separate protocol message. The first Seq is sent
@@ -30,7 +30,7 @@ case class JsonDataStream(
   streamType: JsonStreamType,
 
   /** Optional name for the stream so that transforms that return multiple streams can label each stream */
-  metadata: Option[String] = None // format: OFF
+  metadata: Option[String] = None
 ) // format: ON
 
 object JsonDataStream {

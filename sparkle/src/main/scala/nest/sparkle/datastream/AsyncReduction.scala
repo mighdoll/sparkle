@@ -99,6 +99,7 @@ trait AsyncReduction[K, V] extends Log {
         val initialResult = self.initial.reduceByPeriod(periodWithZone, range, reduction,
           emitEmpties, maxParts, optPrevious = None)
         val prevStateFuture = initialResult.finishState
+
         val reducedOngoing =
           ongoing.tumblingReduce(bufferOngoing, prevStateFuture) { (buffer, optState) =>
             buffer.reduceByPeriod(periodWithZone, range, reduction, emitEmpties, maxParts, optState)

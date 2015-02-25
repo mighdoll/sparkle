@@ -1,17 +1,3 @@
-/* Copyright 2014  Nest Labs
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.  */
-
 package nest.sparkle.time.protocol
 
 import scala.concurrent.duration.DurationInt
@@ -21,9 +7,10 @@ import scala.util.{Failure, Success, Try}
 import nest.sparkle.datastream.{DataArray, TwoPartStream}
 import nest.sparkle.measure.{Detail, DummySpan, Span}
 import nest.sparkle.store.Event
-import nest.sparkle.util.RecoverJsonFormat
+import nest.sparkle.util.{ObservableUtil, RecoverJsonFormat}
 import rx.lang.scala.Observable
 import spray.json._
+
 
 /** returns an observable that produces one sequence of json arrays when the provided event stream completes */
 object JsonEventWriter {
@@ -77,10 +64,12 @@ object JsonEventWriter {
        : Observable[Array[JsArray]] = { // format: ON
       val initialCombined = {
         val initialJsons = dataStream.mapInitial { toJsArray(_) }
-        initialJsons.reduce { (a, b) => a ++ b }
+        ObservableUtil.reduceSafe(initialJsons) { (a, b) => a ++ b }
       }
+      // deliver empty array if initial result doesn't produce a value
+      val initialEmptyIfNone = initialCombined.headOrElse(Array())
       val ongoingJsons = dataStream.mapOngoing { toJsArray(_) }
-      initialCombined ++ ongoingJsons
+      initialEmptyIfNone ++ ongoingJsons
     }
 
     jsonWriters(dataStream) match {

@@ -253,8 +253,7 @@ class TestReductions extends FunSuite with Matchers
     }
   }
 
-  // TODO fix pending in lee/time-reduction-2 branch
-  ignore("intoDurationParts, 2 parts with range") {
+  test("intoDurationParts, 2 parts with range") {
     val start = "2014-12-01T00:10:00.000".toMillis
     val until = "2014-12-01T02:00:00.000".toMillis
     val message = stringRequest("simple-events/seconds", "reduceSum",
@@ -270,8 +269,8 @@ class TestReductions extends FunSuite with Matchers
       val data = longDoubleData(response)
       data.length shouldBe 2
       data shouldBe Seq(
-        start -> Some(7),
-        start + 1.hour.toMillis -> None
+        "2014-12-01T00:00:00.000".toMillis -> Some(7),
+        "2014-12-01T01:00:00.000".toMillis -> None
       )
     }
   }
@@ -284,8 +283,7 @@ class TestReductions extends FunSuite with Matchers
          |    "start": $start,
          |    "until": $until
          |  } ],
-         |  "intoDurationParts" : 2,
-         |  "emitEmptyPeriods": true
+         |  "intoDurationParts" : 2
          |} """.stripMargin)
 
     requestWithLoaded("simple-events.csv", message) { response =>
@@ -293,5 +291,6 @@ class TestReductions extends FunSuite with Matchers
       data.length shouldBe 0
     }
   }
+
 
 }

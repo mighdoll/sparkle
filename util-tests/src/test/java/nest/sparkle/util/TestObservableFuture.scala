@@ -14,11 +14,14 @@
 
 package nest.sparkle.util
 
+import rx.lang.scala.Observable
+
 import nest.sparkle.util.ObservableFuture._
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Try}
+import nest.sparkle.util.FutureAwait.Implicits._
 
 class TestObservableFuture extends FunSuite with Matchers {
 
@@ -44,5 +47,8 @@ class TestObservableFuture extends FunSuite with Matchers {
     observable.toBlocking.single shouldBe "foo"
   }
 
+  test("empty observable to empty Seq") {
+    Observable.empty.toFutureSeq.await shouldBe Seq()
+  }
 
 }

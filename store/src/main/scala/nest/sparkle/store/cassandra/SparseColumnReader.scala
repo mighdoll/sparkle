@@ -209,7 +209,11 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
   // TODO the read should only triggered if the caller subscribes to the returned observable.
   private def ongoingRead()
       ( implicit executionContext: ExecutionContext, parentSpan:Span): Observable[DataArray[T, U]] = {
-    writeListener.listen(columnPath).flatMap { written:WriteEvent =>
+    val notices = writeListener.listen(columnPath)
+    log.trace(s"ongoingRead on listening on $columnPath on $writeListener  $notices")
+
+    notices.flatMap { written:WriteEvent =>
+      log.trace(s"ongoingRead on $columnPath got notification: $written ")
       written match { 
         case columnUpdate:ColumnUpdate[T] => handleColumnUpdate(columnUpdate)
         case _                            => Observable.empty

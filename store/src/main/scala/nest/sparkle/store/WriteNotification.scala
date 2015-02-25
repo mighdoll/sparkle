@@ -45,11 +45,10 @@ class WriteNotification() extends WriteListenNotify with Log {
 
   override def listen(columnPath: String): Observable[WriteEvent] = {
     val subject = Subject[WriteEvent]()
-    val castSubject = subject.asInstanceOf[Subject[WriteEvent]]
-    val initialSet = mutable.Set(castSubject)
+    log.trace(s"registered listen for $columnPath via $subject")
+    val initialSet = mutable.Set(subject)
     val alreadySet = subjects.putIfAbsent(columnPath, initialSet)
-    alreadySet.foreach { set => set += castSubject}
-    // TODO emit UpdateRegistered 
+    alreadySet.foreach { set => set += subject}
     subject
   }
 
@@ -59,8 +58,10 @@ class WriteNotification() extends WriteListenNotify with Log {
   
   def notifyListeners[T](name:String, writeEvent:WriteEvent) {
     subjects.get(name).foreach { set =>
-      log.trace(s"notifying $name listeners of $writeEvent")
-      set.foreach { subject => subject.onNext(writeEvent) }
+      set.foreach { subject =>
+        log.trace(s"notifying one $name listener of $writeEvent")
+        subject.onNext(writeEvent)
+      }
     }
   }
   
@@ -72,12 +73,14 @@ class WriteNotification() extends WriteListenNotify with Log {
   override def directoryLoaded(directory:String) {
     val loaded = DirectoryLoaded(directory)
     notifyListeners(directory, loaded)
-    
   }
 
-  // TODO enable collection (and deletion from the map) of the subscribed/subjects 
+  // LATER enable collection (and deletion from the map) of the subscribed/subjects
   // if they are unused. ..Perhaps a timeout and a Subject wrapper that reports whether
   // there are active subscriptions..
-  
-  // TODO route listen/notify remotely, probably over kafka
+
+  // LATER emit UpdateRegistered after the listen is started, so that clients can know they're
+  // not missing anything after that point
+
+  // LATER route listen/notify remotely, probably over kafka
 }

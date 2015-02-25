@@ -18,6 +18,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 import com.typesafe.config.Config
 import spray.json._
 import nest.sparkle.store.Store
+import nest.sparkle.util.Log
 import nest.sparkle.util.ObservableFuture._
 import rx.lang.scala.Observable
 import akka.actor.ActorSystem
@@ -25,6 +26,7 @@ import akka.actor.ActorRefFactory
 import unfiltered.netty.websockets.WebSocket
 import nest.sparkle.time.protocol.ResponseJson._
 import io.netty.channel.ChannelFuture
+import nest.sparkle.util.ObservableUtil
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.TryToFuture._
 import nest.sparkle.util.ObservableUtil
@@ -36,7 +38,7 @@ import nest.sparkle.measure.Measurements
 /** Handle transformation requests from a v1 protocol StreamRequest. */
 case class StreamRequestApi(val store: Store, val rootConfig: Config) // format: OFF
     (implicit actorFactory:ActorRefFactory, override val measurements:Measurements)
-    extends SelectingSources with SelectingTransforms { // format: ON
+    extends SelectingSources with SelectingTransforms with Log { // format: ON
   val authProvider = AuthProvider.instantiate(rootConfig)
 
   /** handle a StreamRequestMessage over a websocket */
@@ -50,11 +52,12 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
     // read first block off each output stream, and send as part of Streams
     val streamsSent = sendStreams(request, futureOutputStreams, socket)
 
-    // send subsequent data blocks as Update messages
-    val updatesToo = streamsSent.flatMap { remaining =>
+    // after Streams messages are sent, send subsequent data blocks as Update messages
+    streamsSent.flatMap { remaining =>
       sendUpdates(request, remaining, socket)
-    }
-    updatesToo.subscribe() // don't forget to kick lazy observables into action
+    }.doOnError { error =>
+      log.error(s"StreamRequestAPI, error processing stream: $error")
+    }.subscribe() // don't forget to kick lazy observables into action
   }
 
   /** send an initial Streams response over a weboscket */
@@ -68,7 +71,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
         seqJson <- futureOutputStreams.toObservable
         jsonStream <- Observable.from(seqJson)
         (dataHead, dataTail) = ObservableUtil.headTail(jsonStream.dataStream)
-        first <- dataHead
+        first <- dataHead.single
       } yield {
         val remaining = jsonStream.copy(dataStream = dataTail)
         StreamDataRemaining(jsonStream, first, remaining)
@@ -96,10 +99,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
         socket.send(streamsMessage.toJson.prettyPrint)
         remaining
       }
-//    (streamsSent
-//      .doOnSubscribe { println(s"StreamRequestApi: got subscribe")}
-//      .doOnEach { elem => println(s"StreamRequestApi $elem")}
-//    )
+
     streamsSent
   }
 

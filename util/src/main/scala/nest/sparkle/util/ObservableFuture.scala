@@ -41,15 +41,16 @@ object ObservableFuture {
       }
 
       def onError(error: Throwable): Unit = {
-        error match {
-          case e:NoSuchElementException =>
-            promise.complete(Success(Seq()))
-          case _ =>
-            promise.complete(Failure(error))
+         promise.complete(Failure(error))
+      }
+
+      def onCompleted(): Unit = {
+        if (!promise.isCompleted) {
+          promise.complete(Success(Seq()))
         }
       }
 
-      observable.toSeq.subscribe(onNext _, onError _)
+      observable.toSeq.subscribe(onNext _, onError _, onCompleted _)
       promise.future
     }
   }
