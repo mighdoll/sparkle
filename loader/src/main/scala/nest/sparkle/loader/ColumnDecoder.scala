@@ -13,13 +13,16 @@
    limitations under the License.  */
 package nest.sparkle.loader
 
-import nest.sparkle.loader.Loader._
-import nest.sparkle.util.KindCast._
-
 import scala.reflect.runtime.universe._
 import scala.language.existentials
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
+
+import nest.sparkle.datastream.DataArray
+import nest.sparkle.loader.Loader._
+import nest.sparkle.store.Event
+import nest.sparkle.util.KindCast._
+import nest.sparkle.util.ReflectionUtil
 
 /** contains the event decoder and meta data decoders to convert a stream of
   * of records into a stream of sparkle data events.
@@ -76,7 +79,7 @@ object KeyValueColumnConverter {
    * with ColumnPathNotDeterminable if the column path cannot be determined.
    */
   def convertMessage(decoder: KeyValueColumn,
-                     record: ArrayRecordColumns): Try[TaggedBlock] = {
+                     record: ArrayRecordColumns): Try[TaggedBlock2] = {
     // Wrap a try/catch around the whole method so no error crashes the loader.
     try {
       val columnPathIds = {
@@ -100,7 +103,12 @@ object KeyValueColumnConverter {
             val typedEvents = taggedColumn.events.asInstanceOf[Events[T, U]]
             val keyType: TypeTag[T] = castKind(taggedColumn.keyType)
             val valueType: TypeTag[U] = castKind(taggedColumn.valueType)
-            TaggedSlice[T, U](columnPath, typedEvents)(keyType, valueType)
+            val pairs = typedEvents.map { event =>
+              Event.unapply(event).get
+            }
+            val dataArray = DataArray.fromPairs(pairs)(ReflectionUtil.classTag[T](keyType),
+              ReflectionUtil.classTag[U](valueType))
+            TaggedSlice2[T, U](columnPath, dataArray)(keyType, valueType)
           }
           withFixedTypes[Any, Any]()
         }
@@ -117,7 +125,6 @@ object KeyValueColumnConverter {
     }
   }
 }
-
 /** Indicates a decoding issue */
 case class ColumnDecoderException(cause: Throwable) extends RuntimeException(cause)
 

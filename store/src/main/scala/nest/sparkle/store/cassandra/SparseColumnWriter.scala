@@ -204,7 +204,12 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
       }
 
     allDone.map { _ =>
-      log.trace(s"writeData wrote ${dataArray.length} elements to $columnPath")
+      dataArray.headOption.foreach { head =>
+        val start = head._1
+        val end = dataArray.last._1
+        log.trace(s"writeData wrote ${dataArray.length} elements to $columnPath: $dataArray")
+        writeNotifier.columnUpdate(columnPath, ColumnUpdate(start, end))
+      }
     }
   }
 

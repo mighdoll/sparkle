@@ -30,8 +30,8 @@ object StreamGeneration {
       ( blocks: Seq[Seq[(K,V)]] )
       : DataStream[K,V] = { // format: ON
     
-    implicit lazy val keyClassTag = ReflectionUtil.classTag[K](typeTag[K])
-    implicit lazy val valueClassTag = ReflectionUtil.classTag[V](typeTag[V])
+    implicit val keyClassTag = ReflectionUtil.classTag[K](typeTag[K])
+    implicit val valueClassTag = ReflectionUtil.classTag[V](typeTag[V])
 
     val arrays = blocks.map { keyValues =>
       DataArray.fromPairs(keyValues)

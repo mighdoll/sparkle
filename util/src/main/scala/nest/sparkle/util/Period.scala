@@ -27,22 +27,29 @@ case class Period(value: Int, durationType: DurationFieldType) {
     }
   }
 
-  /** return a DateTime at or before date that starts on an even boundary of time with the same resolution as this period
-    * e.g. round to the nearest month if the period is months.
+  /** Return a DateTime at or before date that starts on an even boundary of time per this period,
+    * e.g. round to the nearest month if the period is 1 month, round to the nearest 15 minutes if
+    * the period is 15 minutes, etc. Only works if this period is less than the next duration type
+    * (e.g. only works for minutes if the value is less than 60, only works for hours if the value
+    * is less than 24), otherwise, we only round to the the same resolution as this period.
     */
-  def roundDate(date: DateTime): DateTime = { // TODO should round to the nearest modulus of even values too (e.g. 3hr boundaries)
+  def roundDate(date: DateTime): DateTime = {
     import nest.sparkle.util.FieldTypes._
     durationType match {
-      case `millis`  => date
-      case `seconds` => date.withMillisOfSecond(0)
-      case `minutes` => date.withMillisOfSecond(0).withSecond(0)
-      case `hours`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0)
+      case `millis`  => date.withMillisOfSecond(roundedValue(date.getMillisOfSecond))
+      case `seconds` => date.withMillisOfSecond(0).withSecond(roundedValue(date.getSecondOfMinute))
+      case `minutes` => date.withMillisOfSecond(0).withSecond(0).withMinute(roundedValue(date.getMinuteOfHour))
+      case `hours`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(roundedValue(date.getHourOfDay))
       case `days`    => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
       case `weeks`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0)
-      case `months`  => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1)
+      case `months`  => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withMonth(roundedValue(date.getMonthOfYear))
       case `years`   => date.withMillisOfSecond(0).withSecond(0).withMinute(0).withHour(0).withDay(1).withMonth(1)
       case _         => ???
     }
+  }
+
+  private def roundedValue(input : Int): Int = {
+    (input / value) * value
   }
 
   private def epochZero = new DateTime(0L)

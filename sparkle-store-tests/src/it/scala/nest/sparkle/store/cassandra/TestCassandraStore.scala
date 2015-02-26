@@ -69,14 +69,14 @@ class TestCassandraStore
         val eventMaker = ArbitraryColumn.arbitraryEvent[T, U]
         val event = eventMaker.arbitrary.sample.get
 
-        writeColumn.write(event :: Nil).await
-        val readColumn = store.column[T, U](testColumnPath).await
-
         val keyType = implicitly[CanSerialize[T]].typedTag
         implicit val keyClass = ClassTag[T](keyType.mirror.runtimeClass(keyType.tpe))
         val valueType = implicitly[CanSerialize[U]].typedTag
         implicit val valueClass = ClassTag[U](valueType.mirror.runtimeClass(valueType.tpe))
         val pair = DataArray[T, U](Array[T](event.argument), Array[U](event.value))
+
+        writeColumn.writeData(pair).await
+        val readColumn = store.column[T, U](testColumnPath).await
 
         val read = readColumn.readRange(parentSpan = Some(DummySpan))
         val results = read.initial.toBlocking.single
@@ -180,7 +180,7 @@ class TestCassandraStore
             DataArray(keys,values)
           }
 
-          writeColumn.write(events).await
+          writeColumn.writeData(testArray).await
           val read = readColumn.readRange(parentSpan = Some(DummySpan))
           val resultParts = read.initial.toBlocking.toList
 

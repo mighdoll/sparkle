@@ -13,15 +13,11 @@
    limitations under the License.  */
 package nest.sparkle.loader
 
-import nest.sparkle.store.Event
-import nest.sparkle.util.KindCast._
-import nest.sparkle.util.Log
-
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
-
-import scala.reflect.runtime.universe._
 import scala.language.existentials
+import scala.util.Try
+
+import nest.sparkle.store.Event
+import nest.sparkle.util.Log
 
 object Loader extends Log {
   /** a segment of every column in a record */
@@ -30,12 +26,15 @@ object Loader extends Log {
   /** a segment of events from multiple columns, along with their types  */
   type TaggedBlock = Seq[TaggedSlice[_, _]]
 
+  /** a segment of events (in DataArray format) from multiple columns, along with their types */
+  type TaggedBlock2 = Seq[TaggedSlice2[_, _]]
+
   /** thrown if the source schema specifies an unimplemented key or value type */
   case class UnsupportedColumnType(msg: String) extends RuntimeException(msg)
 
   /** transform a source column slice into a potentially different slice */
   trait LoadingTransformer {
-    def transform(source: TaggedBlock): TaggedBlock
+    def transform(source: TaggedBlock2): Try[TaggedBlock2]
   }
 
 }

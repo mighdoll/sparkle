@@ -12,18 +12,18 @@ import scala.util.{Try, Success, Failure}
 import scala.util.control.NonFatal
 import scala.util.control.Exception.nonFatalCatch
 
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigFactory}
 
 import akka.actor.ActorSystem
 
 import kafka.consumer.ConsumerTimeoutException
 
 import nest.sparkle.loader._
-import nest.sparkle.loader.Loader.{Events, LoadingTransformer, TaggedBlock}
-import nest.sparkle.store.{Event, WriteableStore}
+import nest.sparkle.loader.Loader._
+import nest.sparkle.datastream.DataArray
+import nest.sparkle.store.WriteableStore
 import nest.sparkle.store.cassandra.{WriteableColumn, CanSerialize, RecoverCanSerialize}
 import nest.sparkle.util.{Instrumented, Log, Instance, ConfigUtil, Watched}
-import nest.sparkle.util.KindCast.castKind
 import nest.sparkle.util.TryToFuture.FutureTry
 
 /**
@@ -48,11 +48,11 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
   
   val reader = KafkaReader(topic, rootConfig, None)(decoder)
-  
-  val transformer = makeTransformer()
+
+  val transformers = makeTransformers()
   
   /** Current Kafka iterator */
-  private var currentIterator: Option[Iterator[Try[TaggedBlock]]] = None
+  private var currentIterator: Option[Iterator[Try[TaggedBlock2]]] = None
   
   /** Maximum time between C* write retries */
   private val MaxDelay = 1 minute
@@ -195,20 +195,30 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     shutdownFuture  // this is public but convenient to return to caller
   }
 
-  /** Create the transformer, if any, for this topic.
+  /** Create the transformers, if any, for this topic.
     * The first pattern to match is used.
     */
-  private def makeTransformer(): Option[LoadingTransformer] = {
+  private def makeTransformers(): Option[Seq[LoadingTransformer]] = {
     val transformerList = loaderConfig.getConfigList("transformers").asScala.toSeq
     val transformerConfig = transformerList find { configEntry =>
       val regex = configEntry.getString("match").r
       regex.pattern.matcher(topic).matches()
     }
-    
+
     transformerConfig.map { configEntry =>
-      val className = configEntry.getString("transformer")
-      val transformer: LoadingTransformer = Instance.byName(className)(rootConfig)
-      transformer
+      val topicTransformerList = configEntry.getConfigList("topic-transformers").asScala.toSeq
+      for {
+        topicTransformerConfig <- topicTransformerList
+      } yield {
+        val className = topicTransformerConfig.getString("transformer")
+        val transformerConfig = {
+          if (topicTransformerConfig.hasPath("transformer-config"))
+            topicTransformerConfig.getConfig("transformer-config")
+          else ConfigFactory.empty
+        }
+        val transformer: LoadingTransformer = Instance.byName(className)(rootConfig, transformerConfig)
+        transformer
+      }
     }
   }
 
@@ -220,7 +230,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
    * 
    * @return iterator
    */
-  private def iterator: Iterator[Try[TaggedBlock]] = {
+  private def iterator: Iterator[Try[TaggedBlock2]] = {
     currentIterator.getOrElse {
       val kafkaIterator = KafkaIterator[ArrayRecordColumns](reader)(decoder)
       
@@ -231,7 +241,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
       }
       
       // Use transformer if one exists
-      val iter = transformer map { _ =>
+      val iter = transformers map { _ =>
         decodeIterator map {tryBlock => 
           tryBlock flatMap {block => transform(block)}
         }
@@ -268,13 +278,13 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   /** Indicates there's an issue transforming a block */
   case class TransformException(cause: Throwable) extends RuntimeException(cause)
 
-  /** Transform the block. Only called if transformer is not None */
-  private def transform(block: TaggedBlock): Try[TaggedBlock] = {
-    try {
-      Success(transformer.get.transform(block))
-    } catch {
-      case NonFatal(err) => Failure(TransformException(err))
-    }
+  /** Transform the block. Only called if transformers is not None */
+  private def transform(block: TaggedBlock2): Try[TaggedBlock2] = {
+    val transformedBlock =
+      transformers.get.foldLeft(Success(block) : Try[TaggedBlock2]) { (transformedBlock, transformer) =>
+        transformedBlock.flatMap(transformer.transform(_))
+      }
+    transformedBlock.transform(s => Success(s), e => Failure(TransformException(e)))
   }
   
   /** 
@@ -289,16 +299,16 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
 
   /** Write the block to the Store. Update watchers when complete
     *  
-    * @param block TaggedBlock from a Kafka message.
+    * @param block TaggedBlock2 from a Kafka message.
     */
-  private def writeMessage(block: TaggedBlock): Unit = {
+  private def writeMessage(block: TaggedBlock2): Unit = {
     val sliceFutures = block map writeSlice
 
     val allDone = Future.sequence(sliceFutures).map { updates => 
         val flattened = updates.flatten // remove Nones
         flattened
       }
-    
+
     allDone.value.map { 
       case Success(updates) =>
         recordComplete(updates)
@@ -312,14 +322,14 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
    * 
    * @return a future that completes when the data has been written. 
    */
-  private def writeSlice(slice: TaggedSlice[_,_])
+  private def writeSlice(slice: TaggedSlice2[_,_])
       (implicit keyType: TypeTag[K]): Future[Option[ColumnUpdate[K]]] = 
   {
     val resultPromise = promise[Option[ColumnUpdate[K]]]()
     
     def withFixedType[U](): Unit = {
       implicit val valueType = slice.valueType
-      log.trace(s"loading ${slice.events.length} events to column: ${slice.columnPath}  keyType: $keyType  valueType: $valueType")
+      log.trace(s"loading ${slice.dataArray.length} events to column: ${slice.columnPath}  keyType: $keyType  valueType: $valueType")
 
       writesInProcess.acquire()  // running in loader thread here
       log.trace(s"got permit ${Thread.currentThread.getId} ${writesInProcess.availablePermits}")
@@ -328,7 +338,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
       val result =
         for {
           valueSerialize <- RecoverCanSerialize.tryCanSerialize[U](valueType).toFuture
-          castEvents: Events[K, U] = castKind(slice.events)
+          castEvents = slice.dataArray.asInstanceOf[DataArray[K, U]]
           update <- writeEvents(castEvents, slice.columnPath)(valueSerialize)
         } yield {
           update
@@ -359,7 +369,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
    * @return a future with the updates to use for write notifications
    */
   private def writeEvents[U: CanSerialize](
-    events: Iterable[Event[K, U]], columnPath: String
+    events: DataArray[K, U], columnPath: String
   ): Future[Option[ColumnUpdate[K]]] =
   {
     events.lastOption match {
@@ -378,15 +388,15 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
    * write some typed Events to storage. Completes the passed Promise on success.
    */
   private def writeEventsUntilSuccess[U: CanSerialize](
-    events: Iterable[Event[K, U]], columnPath: String, p: Promise[Option[ColumnUpdate[K]]]
+    events: DataArray[K, U], columnPath: String, p: Promise[Option[ColumnUpdate[K]]]
   ): Unit =
   {
     val futureColumn = writeableColumn[U](columnPath)
     futureColumn map { column =>
       def doWrite(retryDelay: FiniteDuration): Unit = {
-        column.write(events) onComplete { 
+        column.writeData(events) onComplete {
           case Success(_) =>
-            p.success(Some(ColumnUpdate[K](columnPath, events.last.argument)))
+            p.success(Some(ColumnUpdate[K](columnPath, events.last._1)))
           case Failure(err) =>
             log.error(s"Retrying writing events for $columnPath. $err")
             writeErrorsMetric.mark()

@@ -13,6 +13,7 @@
    limitations under the License.  */
 package nest.sparkle.loader
 
+import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.Event
 import scala.language.existentials
 import scala.reflect.runtime.universe._
@@ -51,6 +52,17 @@ case class TaggedSlice[T: TypeTag, U: TypeTag](columnPath: String, events: Seq[E
   def valueType = implicitly[TypeTag[U]]
   def shortPrint(maxEvents: Int): String = {
     val eventsString = events.take(maxEvents).map { case Event(k, v) => s"($k, $v)" }.mkString(", ")
+    s"columnPath:$columnPath  events: $eventsString"
+  }
+}
+
+// TODO: convert all code to use TaggedSlice2 and then get rid of the "2" suffix
+/** a chunk of data (in DataArray format) to load into the store into one column */
+case class TaggedSlice2[T: TypeTag, U: TypeTag](columnPath: String, dataArray: DataArray[T, U]) {
+  def keyType = implicitly[TypeTag[T]]
+  def valueType = implicitly[TypeTag[U]]
+  def shortPrint(maxEvents: Int): String = {
+    val eventsString = dataArray.take(maxEvents).map { case (k, v) => s"($k, $v)" }.mkString(", ")
     s"columnPath:$columnPath  events: $eventsString"
   }
 }

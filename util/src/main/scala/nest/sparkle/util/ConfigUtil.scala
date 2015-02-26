@@ -23,6 +23,9 @@ import scala.collection.JavaConverters.{asJavaIterableConverter, asScalaBufferCo
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 
+/** Indicates there's an issue with the .conf file */
+case class ConfigurationError(msg: String) extends RuntimeException
+
 /** utility functions for working with the typesafe Config library */
 object ConfigUtil {
 

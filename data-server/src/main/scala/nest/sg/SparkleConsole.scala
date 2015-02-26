@@ -6,9 +6,9 @@ import com.typesafe.config.{Config, ConfigFactory}
 import akka.actor.ActorSystem
 
 import nest.sparkle.store.{ReadWriteStore, WriteNotification, Store}
-import nest.sparkle.time.server.{SparkleAPIServer, ConfigurationError}
+import nest.sparkle.time.server.SparkleAPIServer
 import nest.sparkle.util.ConfigUtil._
-import nest.sparkle.util.{ConfigUtil, LogUtil, InitializeReflection}
+import nest.sparkle.util.{ConfigurationError, ConfigUtil, LogUtil, InitializeReflection}
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 
 /** a collection of handy functions useful from the repl console */
