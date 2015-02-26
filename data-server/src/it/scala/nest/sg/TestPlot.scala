@@ -20,21 +20,29 @@ class TestPlot extends FunSuite with Matchers with SparkleConsoleFixture {
     }
   }
 
-
   ignore("plot a list of items") {
     withSparkleConsole { console =>
-      console.plot(List(1,2,3))
+      console.plotCollection[Int](List(10,11,12))
       Thread.sleep(1000*60*60)
     }
   }
 
-  ignore("load some data and plot") {
+  ignore("load some data and plot, with time and reduceMax") {
     withSparkleConsole { console =>
       console.loadFiles(measuresDirectory)
-      val plot = ("spans/duration":PlotParameters).copy(
-          zoomTransform = "reduceMax", showXAxis=true, timeSeries = true
-        )
+      val plot = PlotParameters("spans/duration")
+        .withZoomTransform("reduceMax")
+        .withXAxis(true)
+        .withTime(true)
       console.plotColumn(plot)
+      Thread.sleep(1000*60*60)
+    }
+  }
+
+  ignore("load some data and plot, simple") {
+    withSparkleConsole { console =>
+      console.loadFiles(measuresDirectory)
+      console.plotColumn("spans/duration")
       Thread.sleep(1000*60*60)
     }
   }

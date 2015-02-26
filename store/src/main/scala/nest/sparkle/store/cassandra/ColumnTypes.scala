@@ -2,10 +2,12 @@ package nest.sparkle.store.cassandra
 
 import scala.reflect.runtime.universe._
 import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.util.TaggedKeyValueExtractor
+import nest.sparkle.util.{Log, TaggedKeyValueExtractor}
 import spray.json.JsValue
+import nest.sparkle.util.OptionConversion._
+import scala.util.Try
 
-object ColumnTypes {
+object ColumnTypes extends Log {
   /** the column types in the store are currently fixed, so that we can prepare CQL statement
     * variants for each type of column
     */
@@ -28,8 +30,12 @@ object ColumnTypes {
 
     val found = supportedColumnTypes.find{ info =>
       info.domain == keySerialize && info.range == valueSerialize
-    } orElse { throw UnsupportedColumnType(keySerialize, valueSerialize) }
-    found.get.asInstanceOf[SerializeInfo[T, U]]
+    }.getOrElse {
+      val err = UnsupportedColumnType(keySerialize, valueSerialize)
+      log.error(s"serializationInfo not found", err)
+    }
+
+    found.asInstanceOf[SerializeInfo[T, U]]
   }
 
   /** return some serialization info for the types provided */

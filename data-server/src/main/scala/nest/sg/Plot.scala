@@ -3,6 +3,7 @@ package nest.sg
 import scala.reflect.runtime.universe.typeTag
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.{WriteableStore, Event}
 import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.store.cassandra.serializers._
@@ -12,10 +13,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import nest.sparkle.time.server.SparkleAPIServer
 import nest.sparkle.util.OptionConversion.OptionFuture
 import nest.sparkle.util.ObservableFuture._
-import nest.sparkle.util.Log
+import nest.sparkle.util.{ReflectionUtil, Log, RandomUtil, Opt}
 import spray.json.DefaultJsonProtocol
-import nest.sparkle.util.RandomUtil
-import nest.sparkle.util.Opt
 import spray.json._
 import PlotParametersJson._
 import nest.sparkle.store.cassandra.CanSerialize
@@ -32,41 +31,62 @@ trait PlotConsole extends Log {
   val sessionId = RandomUtil.randomAlphaNum(5)
   var launched = false
 
-  def plot[T: TypeTag](iterable: Iterable[T], name: String = nowString(), dashboard: String = "",
-    title: Opt[String] = None, units: Opt[String] = None) {
+  /** load a collection of values into the store and plot them. The keys for the values
+    * will be the indices in the collection. */
+  def plotCollection[V: TypeTag]
+      ( iterable: Iterable[V], name: String = nowString(),
+        plotParameters: Opt[PlotParameters] = None )
+      : Future[Unit] = {
 
-    val events = iterable.zipWithIndex.map { case (value, index) => Event(index.toLong, value) }
-    plotEvents(events, name, dashboard, title, units, false)
+    val pairs = iterable.zipWithIndex.map { case (value, index) => index.toLong -> value }
+    plotPairs(pairs, name, plotParameters)
   }
 
-  def plotEvents[T: TypeTag, U: TypeTag]
-      ( events: Iterable[Event[T, U]], name: String = nowString(), dashboard: String = "",
-        title: Opt[String] = None, units: Opt[String] = None, timeSeries: Boolean = true) {
-    val stored =
-      for {
-        a <- writeEvents(events, name)
-        b <- triggerBrowser(name, title, units, timeSeries)
-      } yield ()
+  /** load a collection pairs into the store and plot them. */
+  def plotPairs[K:TypeTag, V:TypeTag]
+      ( pairs:Iterable[(K,V)], name: String = nowString(),
+        plotParameters: Opt[PlotParameters] = None )
+      : Future[Unit] = {
+    implicit val keyClassTag = ReflectionUtil.classTag[K](typeTag[K])
+    implicit val valueClassTag = ReflectionUtil.classTag[V](typeTag[V])
+    val dataArray = DataArray.fromPairs(pairs)(keyClassTag, valueClassTag)
+    plotDataArray(dataArray, name, plotParameters)
+  }
 
-    stored.failed.foreach{ failure =>
-      log.error("unable to store data for plotting", failure)
+  /** load a DataArray into the store and plot it */
+  def plotDataArray[K:TypeTag, V:TypeTag]
+      ( dataArray:DataArray[K,V], name:String = nowString(),
+        optParameters:Opt[PlotParameters])
+      : Future[Unit] = {
+
+    val plotParameters = {
+      optParameters.option match {
+        case Some(params) => params.withSources(Seq(PlotSource(nameToPath(name), name)))
+        case None         => PlotParameters(nameToPath(name))
+      }
     }
+
+    for {
+      _ <- writeDataArray(dataArray, name)
+      _ <- triggerBrowserParameters(plotParameters)
+    } yield Unit
   }
+
+  /** plot a column from the store */
+  def plotColumn(plotParameters: PlotParameters): Future[Unit] = {
+    triggerBrowserParameters(plotParameters)
+  }
+
 
   var printedUrl = false  // true if we've already shown the url in this session
 
   /** show the browser url, so that the user can copy and paste from the console */
-  def printDashboardUrl(): Unit = {
-    if (!printedUrl) {
+  def printUrl(forcePrint:Boolean = true): Unit = {
+    if (!printedUrl || forcePrint) {
       val webPort = server.webPort
       println(s"http://localhost:$webPort/$sessionParameter")
       printedUrl = true
     }
-  }
-
-
-  def plotColumn(plotParameters: PlotParameters, dashboard: String = ""): Future[Unit] = {
-    triggerBrowserParameters(plotParameters)
   }
 
   def plotStream[T: TypeTag]
@@ -125,35 +145,34 @@ trait PlotConsole extends Log {
     }
   }
 
-  def writeEvents[T: TypeTag, U: TypeTag](events: Iterable[Event[T, U]], name: String = nowString()): Future[Unit] = {
+  /** write a dataArray to the store, returning a Future that completes when writing is complete */
+  def writeDataArray[K:TypeTag,V:TypeTag](dataArray:DataArray[K,V], name:String = nowString()): Future[Unit] = {
     val optSerializers =
       for {
-        serializeKey <- RecoverCanSerialize.optCanSerialize[T](typeTag[T])
-        serializeValue <- RecoverCanSerialize.optCanSerialize[U](typeTag[U])
+        serializeKey <- RecoverCanSerialize.optCanSerialize[K](typeTag[K])
+        serializeValue <- RecoverCanSerialize.optCanSerialize[V](typeTag[V])
       } yield {
         (serializeKey, serializeValue)
       }
 
-    val futureSerializers = optSerializers.toFutureOr(PlotParameterError("can't serialize types: ${typeTag[T]} ${typeTag[U]} "))
+    val futureSerializers = optSerializers.toFutureOr {
+      PlotParameterError("can't serialize types: ${typeTag[T]} ${typeTag[U]} ")
+    }
+
     futureSerializers.flatMap {
       case (serializeKey, serializeValue) =>
         val columnPath = nameToPath(name)
-        val futureColumn = writeStore.writeableColumn[T, U](columnPath)(serializeKey, serializeValue)
+        val futureColumn = writeStore.writeableColumn[K,V](columnPath)(serializeKey, serializeValue)
         val columnWritten: Future[Unit] =
           for {
             column <- futureColumn
-            written <- column.write(events)
+            written <- column.writeData(dataArray)
           } yield {
-            log.debug(s"wrote ${events.size} items to column: $columnPath")
+            log.debug(s"wrote ${dataArray.size} items to column: $columnPath")
             written
           }
         columnWritten
     }
-  }
-
-  def write[T: TypeTag](iterable: Iterable[T], name: String = nowString()): Future[Unit] = {
-    val events = iterable.zipWithIndex.map { case (value, index) => Event(index.toLong, value) }
-    writeEvents[Long, T](events, name)
   }
 
   private def nameToPath(name: String): String = s"plot/$sessionId/$name"
@@ -171,7 +190,7 @@ trait PlotConsole extends Log {
   }
 
   private def triggerBrowserParameters(plotParameters: PlotParameters): Future[Unit] = {
-    printDashboardUrl()
+    printUrl(forcePrint = false)
 
     val plotParametersJson: JsValue = plotParameters.toJson
     val futureColumn = writeStore.writeableColumn[Long, JsValue](parametersColumnPath)

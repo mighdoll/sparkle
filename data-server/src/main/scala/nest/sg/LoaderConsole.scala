@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 import akka.actor.ActorSystem
 
 import nest.sparkle.loader.FilesLoader
-import nest.sparkle.store.{DirectoryLoaded, Store, WriteableStore}
+import nest.sparkle.store.{FileLoaded, DirectoryLoaded, Store, WriteableStore}
 import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.FutureAwait.Implicits._
 
@@ -23,17 +23,6 @@ trait LoaderConsole {
 
   private lazy val sparkleConfig = configForSparkle(rootConfig)
 
-  private def awaitWrite(path:String)(fn: =>Unit):Unit = {
-    val written = Promise[Unit]()
-    store.writeListener.listen(path).subscribe {
-        _ match {
-        case DirectoryLoaded(`path`) => written.complete(Success(Unit))
-        case _ =>
-      }
-    }
-    fn
-    written.future.await(45.seconds)
-  }
 
   def loadFiles(path:String): Unit = { // LATER clean up on quit
     awaitWrite(path) {
@@ -49,6 +38,24 @@ trait LoaderConsole {
 
   def close():Unit = {
     loaders.foreach { loader => loader.close() }
+  }
+
+  /** call a loader function and wait for notification that loading has succeeded */
+  private def awaitWrite
+      ( path:String, waitTime:FiniteDuration = 10.seconds )
+      ( loaderFn: => Unit ): Unit = {
+    val written = Promise[Unit]()
+    def done():Unit = if (!written.isCompleted) written.complete(Success(Unit))
+
+    store.writeListener.listen(path).subscribe {
+      _ match {
+        case DirectoryLoaded(`path`) => done()
+        case FileLoaded(`path`)      => done()
+        case _ =>
+      }
+    }
+    loaderFn
+    written.future.await(waitTime)
   }
 
 }

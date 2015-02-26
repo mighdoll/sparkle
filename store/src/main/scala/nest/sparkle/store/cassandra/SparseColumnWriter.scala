@@ -62,7 +62,9 @@ object SparseColumnWriter
 
     val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier,
       preparedSession, consistencyLevel, batchSize)
-    writer.updateCatalog().map { _ => writer}
+    writer.updateCatalog().map { _ =>
+      writer
+    }
   }
 
   /** create columns for default data types */
@@ -144,7 +146,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
         _ <- catalog.writeCatalogEntry(entry)
         // TODO figure out what to do with the dataset catalog
         //_ <- dataSetCatalog.addColumnPath(entry.columnPath)
-      } yield { () }
+      } yield { }
 
     result.onFailure { case error => log.error("create column failed", error) }
     result

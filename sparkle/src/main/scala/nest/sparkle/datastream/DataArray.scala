@@ -20,7 +20,9 @@ object DataArray {
 
   def newBuilder[K: ClassTag, V: ClassTag] = new DataArrayBuilder[K,V]
  
-  implicit def canBuildFrom[K: ClassTag, V: ClassTag]: CanBuildFrom[DataArray[K, V], (K, V), DataArray[K, V]] =
+  implicit def canBuildFrom[K: ClassTag, V: ClassTag]
+      : CanBuildFrom[DataArray[K, V], (K, V), DataArray[K, V]] =
+
     new CanBuildFrom[DataArray[K, V], (K, V), DataArray[K, V]] {
       override def apply(): Builder[(K, V), DataArray[K, V]] = newBuilder
       override def apply(from: DataArray[K, V]): Builder[(K, V), DataArray[K, V]] = newBuilder
@@ -34,8 +36,9 @@ object DataArray {
  * Both arrays must be contain the same number of elements.
  */
 // LATER use HList instead of two arrays
+// LATER use TypeTags, so we don't need to keep converting to class tags
 case class DataArray[K: ClassTag, V: ClassTag](keys: Array[K], values: Array[V])
-  extends IndexedSeq[(K, V)] with IndexedSeqLike[(K, V), DataArray[K, V]] {
+    extends IndexedSeq[(K, V)] with IndexedSeqLike[(K, V), DataArray[K, V]] {
   self =>
 
   require(keys.length == values.length)
