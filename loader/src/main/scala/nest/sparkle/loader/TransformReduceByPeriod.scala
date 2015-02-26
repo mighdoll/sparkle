@@ -41,12 +41,12 @@ class TransformReduceByPeriod(rootConfig: Config, transformerConfig: Config)
     }
   }.toMap
 
-  override def transform(sourceBlock: TaggedBlock2): Try[TaggedBlock2] = {
+  override def transform(sourceBlock: TaggedBlock): Try[TaggedBlock] = {
     val transformedBlock =
-      sourceBlock.iterator.map { eventSlice: TaggedSlice2[_, _] =>
+      sourceBlock.iterator.map { eventSlice: TaggedSlice[_, _] =>
 
         /** name the existential _ key and value type parameters in the eventSlice as T and U so that we can keep them constant */
-        def withFixedType[T, U](): Try[TaggedSlice2[T, U]] = {
+        def withFixedType[T, U](): Try[TaggedSlice[T, U]] = {
           val keyType: TypeTag[T] = castKind(eventSlice.keyType)
           val valueType: TypeTag[U] = castKind(eventSlice.valueType)
           val dataArray = eventSlice.dataArray.asInstanceOf[DataArray[T, U]]
@@ -63,7 +63,7 @@ class TransformReduceByPeriod(rootConfig: Config, transformerConfig: Config)
               log.warn(s"unknown field $field, skipping reduce")
               Success(dataArray)
             }
-          reducedDataArray.map(TaggedSlice2[T, U](eventSlice.columnPath, _)(keyType, valueType))
+          reducedDataArray.map(TaggedSlice[T, U](eventSlice.columnPath, _)(keyType, valueType))
         }
         withFixedType()
       }

@@ -79,7 +79,7 @@ object KeyValueColumnConverter {
    * with ColumnPathNotDeterminable if the column path cannot be determined.
    */
   def convertMessage(decoder: KeyValueColumn,
-                     record: ArrayRecordColumns): Try[TaggedBlock2] = {
+                     record: ArrayRecordColumns): Try[TaggedBlock] = {
     // Wrap a try/catch around the whole method so no error crashes the loader.
     try {
       val columnPathIds = {
@@ -108,7 +108,7 @@ object KeyValueColumnConverter {
             }
             val dataArray = DataArray.fromPairs(pairs)(ReflectionUtil.classTag[T](keyType),
               ReflectionUtil.classTag[U](valueType))
-            TaggedSlice2[T, U](columnPath, dataArray)(keyType, valueType)
+            TaggedSlice[T, U](columnPath, dataArray)(keyType, valueType)
           }
           withFixedTypes[Any, Any]()
         }

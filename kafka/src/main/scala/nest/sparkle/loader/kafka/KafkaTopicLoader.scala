@@ -52,7 +52,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   val transformers = makeTransformers()
   
   /** Current Kafka iterator */
-  private var currentIterator: Option[Iterator[Try[TaggedBlock2]]] = None
+  private var currentIterator: Option[Iterator[Try[TaggedBlock]]] = None
   
   /** Maximum time between C* write retries */
   private val MaxDelay = 1 minute
@@ -230,7 +230,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
    * 
    * @return iterator
    */
-  private def iterator: Iterator[Try[TaggedBlock2]] = {
+  private def iterator: Iterator[Try[TaggedBlock]] = {
     currentIterator.getOrElse {
       val kafkaIterator = KafkaIterator[ArrayRecordColumns](reader)(decoder)
       
@@ -279,9 +279,9 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   case class TransformException(cause: Throwable) extends RuntimeException(cause)
 
   /** Transform the block. Only called if transformers is not None */
-  private def transform(block: TaggedBlock2): Try[TaggedBlock2] = {
+  private def transform(block: TaggedBlock): Try[TaggedBlock] = {
     val transformedBlock =
-      transformers.get.foldLeft(Success(block) : Try[TaggedBlock2]) { (transformedBlock, transformer) =>
+      transformers.get.foldLeft(Success(block) : Try[TaggedBlock]) { (transformedBlock, transformer) =>
         transformedBlock.flatMap(transformer.transform(_))
       }
     transformedBlock.transform(s => Success(s), e => Failure(TransformException(e)))
@@ -301,7 +301,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     *  
     * @param block TaggedBlock2 from a Kafka message.
     */
-  private def writeMessage(block: TaggedBlock2): Unit = {
+  private def writeMessage(block: TaggedBlock): Unit = {
     val sliceFutures = block map writeSlice
 
     val allDone = Future.sequence(sliceFutures).map { updates => 
@@ -322,7 +322,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
    * 
    * @return a future that completes when the data has been written. 
    */
-  private def writeSlice(slice: TaggedSlice2[_,_])
+  private def writeSlice(slice: TaggedSlice[_,_])
       (implicit keyType: TypeTag[K]): Future[Option[ColumnUpdate[K]]] = 
   {
     val resultPromise = promise[Option[ColumnUpdate[K]]]()

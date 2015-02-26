@@ -1,6 +1,6 @@
 package nest.sparkle.loader.spark.avro
 
-import nest.sparkle.loader.Loader.TaggedBlock2
+import nest.sparkle.loader.Loader.TaggedBlock
 import nest.sparkle.util.Log
 
 import org.apache.avro.generic.GenericRecord
@@ -23,7 +23,7 @@ class SparkAvroEventReader(decoder: SparkAvroColumnDecoder)
     extends EventReader[AvroKey[GenericRecord], NullWritable] with Log {
 
   override def events(input: String,
-                      sc: SparkContext) : RDD[TaggedBlock2] = {
+                      sc: SparkContext) : RDD[TaggedBlock] = {
     sc.newAPIHadoopFile[AvroKey[GenericRecord], NullWritable, AvroKeyInputFormat[GenericRecord]] (input)
     .map { tuple =>
       val (key, value) = tuple

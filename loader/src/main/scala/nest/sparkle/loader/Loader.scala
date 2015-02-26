@@ -23,18 +23,15 @@ object Loader extends Log {
   /** a segment of every column in a record */
   type Events[T, U] = Seq[Event[T, U]]
 
-  /** a segment of events from multiple columns, along with their types  */
-  type TaggedBlock = Seq[TaggedSlice[_, _]]
-
   /** a segment of events (in DataArray format) from multiple columns, along with their types */
-  type TaggedBlock2 = Seq[TaggedSlice2[_, _]]
+  type TaggedBlock = Seq[TaggedSlice[_, _]]
 
   /** thrown if the source schema specifies an unimplemented key or value type */
   case class UnsupportedColumnType(msg: String) extends RuntimeException(msg)
 
   /** transform a source column slice into a potentially different slice */
   trait LoadingTransformer {
-    def transform(source: TaggedBlock2): Try[TaggedBlock2]
+    def transform(source: TaggedBlock): Try[TaggedBlock]
   }
 
 }

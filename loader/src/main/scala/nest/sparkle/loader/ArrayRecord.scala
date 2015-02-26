@@ -47,18 +47,8 @@ case class ArrayRecordColumns(
 /** a chunk of column of data to load into the store, along with its name and type meta data */ // TODO get rid of this in favor of TaggedSlice
 case class TaggedColumn(name: String, keyType: TypeTag[_], valueType: TypeTag[_], events: Seq[Event[_, _]])
 
-/** a chunk of data to load into the store into one column */
-case class TaggedSlice[T: TypeTag, U: TypeTag](columnPath: String, events: Seq[Event[T, U]]) {
-  def valueType = implicitly[TypeTag[U]]
-  def shortPrint(maxEvents: Int): String = {
-    val eventsString = events.take(maxEvents).map { case Event(k, v) => s"($k, $v)" }.mkString(", ")
-    s"columnPath:$columnPath  events: $eventsString"
-  }
-}
-
-// TODO: convert all code to use TaggedSlice2 and then get rid of the "2" suffix
 /** a chunk of data (in DataArray format) to load into the store into one column */
-case class TaggedSlice2[T: TypeTag, U: TypeTag](columnPath: String, dataArray: DataArray[T, U]) {
+case class TaggedSlice[T: TypeTag, U: TypeTag](columnPath: String, dataArray: DataArray[T, U]) {
   def keyType = implicitly[TypeTag[T]]
   def valueType = implicitly[TypeTag[U]]
   def shortPrint(maxEvents: Int): String = {
