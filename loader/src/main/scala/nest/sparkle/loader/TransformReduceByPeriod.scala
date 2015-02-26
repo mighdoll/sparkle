@@ -107,10 +107,12 @@ class TransformReduceByPeriod(rootConfig: Config, transformerConfig: Config)
       val reducedDataArray = reduceByPeriod(dataArray, periodWithZone, reduction)(keyType,
         keyNumeric, valueType, DummySpan)
 
-      // get rid of None values and the corresponding keys
+      // we shouldn't have any None values since DataStreamPeriodReduction.reduceByPeriod
+      // is called with emitEmpties = false
       val flattenedPairs = reducedDataArray.mapToArray { (key, value) =>
-        value.map(Some(key, _)).getOrElse(None)
-      }.flatten.toSeq
+        assert(value.isDefined)
+        (key, value.get)
+      }
 
       Success(DataArray.fromPairs(flattenedPairs)(keyClassTag, valueClassTag))
     }
