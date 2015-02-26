@@ -2,10 +2,10 @@ package nest.sparkle.loader.spark
 
 import com.typesafe.config.Config
 
-import nest.sparkle.loader.Loader.TaggedBlock
+import nest.sparkle.loader.Loader.TaggedBlock2
 import nest.sparkle.shell.SparkConnection
 import nest.sparkle.store.WriteableStore
-import nest.sparkle.util.{Instance, ConfigUtil, Log}
+import nest.sparkle.util.{ConfigUtil, Log}
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd._
@@ -32,12 +32,12 @@ class SparkLoader[K: TypeTag, V](rootConfig: Config,
   val sparkConnection = new SparkConnection(rootConfig)
 
   //get intput files
-  def createSparkApp: RDD[TaggedBlock] ={
-    val empty = sparkConnection.sparkContext.emptyRDD[TaggedBlock]
+  def createSparkApp: RDD[TaggedBlock2] ={
+    val empty = sparkConnection.sparkContext.emptyRDD[TaggedBlock2]
 
     val rdds = for (event <- eventsToLoad)
       yield sourceReader.events(event, sparkConnection.sparkContext)
 
-    rdds.foldLeft(empty.asInstanceOf[RDD[TaggedBlock]])((rdd1,rdd2) => rdd1 ++ rdd2)
+    rdds.foldLeft(empty.asInstanceOf[RDD[TaggedBlock2]])((rdd1,rdd2) => rdd1 ++ rdd2)
   }
 }
