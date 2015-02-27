@@ -77,6 +77,9 @@ object Store {
 /** Used when a data set cannot be found in the store */
 case class DataSetNotFound(name: String) extends RuntimeException(name)
 
+/** the dataset subsystem is disabled */
+case class DataSetNotEnabled() extends RuntimeException
+
 /** Used when a column path cannot be found in the store */
 case class ColumnNotFound(columnPath: String) extends RuntimeException(columnPath)
 

@@ -20,8 +20,13 @@ import nest.sparkle.store.{ReadWriteStore, Store, WriteNotification}
 import nest.sparkle.util._
 import nest.sparkle.measure.ConfiguredMeasurements
 
+/** A server that supports the sparkle api over both http and websocket,
+  * over separate ports, and an admin web service on a third port.
+  * Configuration comes from the .conf file settings via rootConfig
+  * Data is served from the provided readWriteStore.
+  */
 class SparkleAPIServer // format: OFF
-    ( rootConfig: Config, val readWriteStore:ReadWriteStore )
+    ( rootConfig: Config, val readWriteStore: ReadWriteStore )
     ( implicit val system: ActorSystem ) extends Log { // format: ON
   import system.dispatcher
   val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
@@ -37,7 +42,7 @@ class SparkleAPIServer // format: OFF
       name = "sparkle-server"
     )
   
-  AdminService.start(rootConfig, store, measurements).await(10.seconds)
+  DataAdminService.start(rootConfig, store, measurements).await(10.seconds)
 
   /* Note that nothing may be specified to be auto-start but we started an
    * actor system so the main process will not end. This will disappear when

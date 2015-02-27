@@ -13,10 +13,8 @@ case class ResourceLocation(location: String) extends FileOrResourceLocation
   * static content comes from the web resource and optionally also from a configurable
   * webRoot directory. The directory can be on the file system or in a classpath resource folder.
   */
-trait StaticContent
-    extends HttpService
-    with Log 
-{
+trait StaticContent extends HttpService with Log {
+
   /** Subclasses set this to the default web page to display (e.g. the dashboard) */
   def webRoot: Option[FileOrResourceLocation] = None
 
@@ -33,14 +31,12 @@ trait StaticContent
     }
   }
 
-  private lazy val indexHtml: Route = { // return index.html from custom folder if web-root is provided, otherwise use built in default page
-    pathSingleSlash {
-      webRoot.map {
-        case FileLocation(path)     => getFromFile(path + "/index.html")
-        case ResourceLocation(path) => getFromResource(path + "/index.html")
-      } getOrElse {
-        getFromResource("web/index.html")
-      }
+  lazy val indexHtml: Route = { // return index.html from custom folder if web-root is provided, otherwise use built in default page
+    webRoot.map {
+      case FileLocation(path)     => getFromFile(path + "/index.html")
+      case ResourceLocation(path) => getFromResource(path + "/index.html")
+    } getOrElse {
+      getFromResource("web/index.html")
     }
   }
 
@@ -48,7 +44,7 @@ trait StaticContent
     * configured webRoot
     */
   lazy val staticContent: Route = get { // format: OFF
-    indexHtml ~
+    pathSingleSlash { indexHtml } ~
     staticBuiltIn ~
     webRootRoute
   } // format: ON

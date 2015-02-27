@@ -20,6 +20,7 @@ import rx.lang.scala.Observable
 
 import nest.sparkle.store.DataSet
 import nest.sparkle.store.Column
+import nest.sparkle.util.TryToFuture._
 
 case class CassandraDataSet(store: CassandraStoreReader, name: String) extends DataSet {
   implicit def execution: ExecutionContext = store.execution
@@ -35,8 +36,7 @@ case class CassandraDataSet(store: CassandraStoreReader, name: String) extends D
    * @return Observable of full path of any child columns of this DataSet.
    */
   def childColumns: Observable[String] = {
-    val entries = store.dataSetCatalog.childrenOfParentPath(name)
-    entries.filter(_.isColumn).map(_.childPath)
+    childEntries.filter(_.isColumn).map(_.childPath)
   }
 
   /**
@@ -45,7 +45,13 @@ case class CassandraDataSet(store: CassandraStoreReader, name: String) extends D
    * @return Observable of any child DataSets of this DataSet.
    */
   def childDataSets: Observable[DataSet] = {
-    val entries = store.dataSetCatalog.childrenOfParentPath(name)
-    entries.filter(! _.isColumn).map{entry => CassandraDataSet(store, entry.childPath)}
+    childEntries.filter(! _.isColumn).map{entry => CassandraDataSet(store, entry.childPath)}
+  }
+
+  private def childEntries: Observable[DataSetCatalogEntry] = {
+    for {
+      catalog <- Observable.from(store.tryDataSetCatalog.toFuture)
+      entries <- catalog.childrenOfParentPath(name)
+    } yield entries
   }
 }

@@ -53,7 +53,7 @@ object Main
     }
   })
   
-  KafkaLoaderAdminService.start(system, measurements, rootConfig)
+  KafkaLoaderBaseAdminService.start(system, measurements, rootConfig)
   
   while (keepRunning) {
     Thread.sleep(5.seconds.toMillis)

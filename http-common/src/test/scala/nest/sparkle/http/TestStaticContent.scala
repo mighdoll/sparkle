@@ -10,24 +10,10 @@ abstract class TestStaticContent
   extends FunSuite
     with Matchers
     with ScalatestRouteTest
-    with StaticContent
-{
-  /** Set actor reference */
+    with StaticContent  {
+
   override def actorRefFactory: ActorRefFactory = system
   
-  /** Test that body is the default page */
-  protected def defaultPage(value: String) = {
-    value.startsWith("<!DOCTYPE html>") && value.contains("Default common static page!")
-  }
-}
-
-class TestStaticContentBuiltIn extends TestStaticContent {
-  test("load the default index page from resources") {
-    Get() ~> staticContent ~> check {
-      handled shouldBe true
-      defaultPage(body.asString) shouldBe true
-    }
-  }
 }
 
 abstract class TestStaticContentCustomFolder extends TestStaticContent {

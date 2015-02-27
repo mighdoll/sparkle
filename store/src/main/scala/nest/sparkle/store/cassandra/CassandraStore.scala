@@ -28,6 +28,8 @@ import nest.sparkle.util.Log
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.TryToFuture._
 import nest.sparkle.util.FutureAwait.Implicits._
+import nest.sparkle.util.BooleanOption._
+import nest.sparkle.util.OptionConversion._
 
 import com.datastax.driver.core.{ConsistencyLevel, Cluster, Row, Session}
 
@@ -146,7 +148,10 @@ trait ConfiguredCassandra extends Log
   // TODO use a provided execution context
   implicit def execution: ExecutionContext = ExecutionContext.global
   lazy val columnCatalog = ColumnCatalog(config, session, cassandraConsistency)
-  lazy val dataSetCatalog = DataSetCatalog(session, cassandraConsistency)
+  lazy val tryDataSetCatalog =
+    storeConfig.getBoolean("dataset-catalog-enabled").toOption.map { _ =>
+      DataSetCatalog(session, cassandraConsistency)
+    }.toTryOr(DataSetNotEnabled())
 
   /** current cassandra session.  (Currently we use one session for this CassandraStore) */
   implicit lazy val session: Session = {
@@ -251,13 +256,11 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements, cassandraConsistency.write)
 
   /** return a column from a fooSet/barSet/columnName path */
-  def writeableColumn[T: CanSerialize, U: CanSerialize](
-    columnPath: String
-  ): Future[WriteableColumn[T, U]] =
-  {
+  def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String)
+      : Future[WriteableColumn[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     SparseColumnWriter.instance[T, U](
-      dataSetName, columnName, columnCatalog, dataSetCatalog, writeNotifier, preparedSession,
+      dataSetName, columnName, columnCatalog, tryDataSetCatalog, writeNotifier, preparedSession,
       cassandraConsistency.write, writeBatchSize
     )
   }
@@ -309,25 +312,33 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
     * A check is made that the dataSet exists. If not the Future is failed with
     * a DataSetNotFound returned. */
   def dataSet(dataSetPath: String): Future[DataSet] = {
-    // Check there are any entries with this path as the parent.
-    val future = dataSetCatalog.childrenOfParentPath(dataSetPath).toFutureSeq
-    future.flatMap { children => {
+    def childrenToDataSet(children:Seq[DataSetCatalogEntry]):Future[DataSet] = {
       children.size match {
         case n if n > 0 => Future.successful(CassandraDataSet(this, dataSetPath))
         case _          => Future.failed(DataSetNotFound(s"$dataSetPath does not exist"))
       }
     }
+
+    for {
+      catalog <- tryDataSetCatalog.toFuture
+      children <- catalog.childrenOfParentPath(dataSetPath).toFutureSeq
+      dataSet <- childrenToDataSet(children)
+    } yield {
+      dataSet
     }
+
   }
 
   /** return a column from a fooSet/barSet/columnName path */
   def column[T, U](columnPath: String): Future[Column[T, U]] = {
-    for {(dataSetName, columnName) <- nonFatalCatch
-      .withTry {Store.setAndColumn(columnPath)}
-      .toFuture
-         futureColumn <- SparseColumnReader.instance[T, U](
-           dataSetName, columnName, columnCatalog, writeListener, preparedSession
-         )} yield futureColumn
+    for {
+      (dataSetName, columnName) <- nonFatalCatch
+                                      .withTry { Store.setAndColumn(columnPath) }
+                                      .toFuture
+       futureColumn <- SparseColumnReader.instance[T, U](
+         dataSetName, columnName, columnCatalog, writeListener, preparedSession
+       )
+    } yield futureColumn
   }
 
 }

@@ -25,7 +25,10 @@ trait Exporter extends Log {
 
   /** return a table of data from all the columns in a dataSet */
   protected def folderData(leafFolder: String): Future[Tabular] = {
-    store.dataSet(leafFolder).flatMap { dataSet => exportRows(dataSet) }
+    // TODO this needs to be redone, now that dataSet catalog is going away
+    store.dataSet(leafFolder).flatMap { dataSet =>
+      exportRows(dataSet)
+    }
   }
 
   /** return a table of data from all the columns in a dataSet */

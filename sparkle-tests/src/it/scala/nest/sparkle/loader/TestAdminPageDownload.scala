@@ -22,14 +22,16 @@ import spray.testkit.ScalatestRouteTest
 import nest.sparkle.measure.MeasurementToTsvFile
 import nest.sparkle.store.Store
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
-import nest.sparkle.time.server.AdminService
-import nest.sparkle.time.server.ConcreteAdminService
+import nest.sparkle.time.server.{DataAdminService, DataAdminService$, ConcreteBaseDataAdminService}
 import nest.sparkle.time.protocol.ExportData
 import nest.sparkle.time.protocol.AdminProtocol.ExportDataFormat
 import nest.sparkle.util.ExpectHeader
 
 class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTestConfig
     with ExpectHeader with RequestBuilding {
+
+  override def configOverrides = super.configOverrides :+ (
+      "sparkle.sparkle-store-cassandra.dataset-catalog-enabled" -> true )
 
   def epochTest(headers: HttpHeader*) {
     epochRequestWithHeaders(headers: _*) { implicit response =>
@@ -46,7 +48,7 @@ class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTe
   
   def requestWithLoadedEpochs(request:HttpRequest)(fn: HttpResponse => Unit) {
     withLoadedFile("epochs.csv") { (store, system) =>
-      val admin = new AdminTestService(store, rootConfig)(system)
+      val admin = new DataAdminTestService(store, rootConfig)(system)
       admin.fetchRequest(request) {
         response =>
           fn(response)
@@ -55,17 +57,17 @@ class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTe
   }
 
   // TODO figure out what to do with the dataset catalog
-//  test("download a .tsv file via the web admin interface, no Accept headers") {
-//    epochTest()
-//  }
-//
-//  test("download a .tsv file via the web admin interface, Accept */*") {
-//    epochTest(Accept(`*/*`))
-//  }
-//
-//  test("download a .tsv file via the web admin interface, Accept text/tab-separated-values") {
-//    epochTest(Accept(`text/tab-separated-values`))
-//  }
+  test("download a .tsv file via the web admin interface, no Accept headers") {
+    epochTest()
+  }
+
+  test("download a .tsv file via the web admin interface, Accept */*") {
+    epochTest(Accept(`*/*`))
+  }
+
+  test("download a .tsv file via the web admin interface, Accept text/tab-separated-values") {
+    epochTest(Accept(`text/tab-separated-values`))
+  }
   
   test("download a .tsv file via the web admin interface, Accept text/csv should fail") {
     epochRequestWithHeaders(Accept(`text/csv`)) { response =>
@@ -81,8 +83,8 @@ class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTe
 
 }
 
-class AdminTestService(override val store: Store, override val rootConfig: Config)(implicit override val system: ActorSystem)
-    extends FunSuite with AdminService with ScalatestRouteTest with Matchers {
+class DataAdminTestService(override val store: Store, override val rootConfig: Config)(implicit override val system: ActorSystem)
+    extends FunSuite with DataAdminService with ScalatestRouteTest with Matchers {
 
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   implicit def executionContext = system.dispatcher

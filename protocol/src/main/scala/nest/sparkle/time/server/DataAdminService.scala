@@ -5,6 +5,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 import com.typesafe.config.Config
 
+import spray.http.StatusCodes
+
 import akka.actor.{Actor, ActorRefFactory, ActorSystem, Props}
 import akka.io.IO
 import akka.pattern.ask
@@ -15,7 +17,7 @@ import spray.http.HttpHeaders.`Content-Disposition`
 import spray.routing.Directive.pimpApply
 import spray.routing.{Directives, Route}
 
-import nest.sparkle.http.{ResourceLocation, AdminServiceActor, AdminService => HttpAdminService}
+import nest.sparkle.http.{BaseAdminService$ => HttpAdminService, BaseAdminService, ResourceLocation, BaseAdminServiceActor}
 import nest.sparkle.store.Store
 import nest.sparkle.tools.DownloadExporter
 import nest.sparkle.util.ConfigUtil.configForSparkle
@@ -23,15 +25,18 @@ import nest.sparkle.util.Log
 import nest.sparkle.measure.Measurements
 
 // TODO DRY with DataService
+// TODO rename
 /** a web api for serving an administrative page about data stored in sparkle: downlaod .tsv files, etc. */
-trait AdminService extends HttpAdminService with RichComplete {
+trait DataAdminService extends BaseAdminService with RichComplete {
   implicit def system: ActorSystem
   def store: Store
   implicit def executionContext: ExecutionContext
 
-  lazy val exporter = DownloadExporter(rootConfig, store)(system.dispatcher)
 
-  override lazy val webRoot = Some(ResourceLocation("web/admin"))
+  override lazy val indexHtml: Route =
+    redirect("/admin/index.html", StatusCodes.MovedPermanently)
+
+  lazy val exporter = DownloadExporter(rootConfig, store)(system.dispatcher)
 
   lazy val fetch: Route =
     get {
@@ -54,19 +59,19 @@ trait AdminService extends HttpAdminService with RichComplete {
 }
 
 /** an AdminService inside an actor (the trait can be used for testing */
-class ConcreteAdminService(system: ActorSystem, val store: Store, rootConfig: Config, measurements: Measurements) 
-  extends AdminServiceActor(system, measurements, rootConfig) 
-  with AdminService 
+class ConcreteBaseDataAdminService(system: ActorSystem, val store: Store, rootConfig: Config, measurements: Measurements)
+  extends BaseAdminServiceActor(system, measurements, rootConfig)
+  with DataAdminService
 {
 }
 
 /** start an admin service */
-object AdminService {
+object DataAdminService {
   def start(rootConfig: Config, store: Store, measurements: Measurements)
     (implicit system: ActorSystem): Future[Unit] = 
   {
     val serviceActor = system.actorOf(
-      Props(new ConcreteAdminService(system, store, rootConfig, measurements)),
+      Props(new ConcreteBaseDataAdminService(system, store, rootConfig, measurements)),
       "admin-server"
     )
     val port = configForSparkle(rootConfig).getInt("admin.port")

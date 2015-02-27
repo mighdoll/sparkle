@@ -14,11 +14,11 @@ import nest.sparkle.measure.MeasurementToTsvFile
 import nest.sparkle.util.kafka.{KafkaTestSuite, KafkaBroker, KafkaTopic, KafkaGroupOffsets}
 import nest.sparkle.util.kafka.KafkaJsonProtocol._
 
-class TestKafkaLoaderAdminService
+class TestKafkaLoaderBaseAdminService
   extends KafkaTestSuite
     with ScalatestRouteTest
     with KafkaTestConfig 
-    with KafkaLoaderAdminService
+    with KafkaLoaderBaseAdminService
 {
   override def actorRefFactory: ActorRefFactory = system
   implicit def executionContext = system.dispatcher

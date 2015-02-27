@@ -16,7 +16,7 @@ import nest.sparkle.store.Store
 import nest.sparkle.util.FutureAwait.Implicits._
 import nest.sparkle.util.{ConfigurationError, ConfigUtil, Log}
 
-/** An actor serving data DataRegistry data via a spray based REST api.  The
+/** An actor serving data via a the sparkle protocol over the http api.  The
   * server is configured with user provided extensions extracted from the config file.
   */
 class ConfiguredDataServer // format: OFF

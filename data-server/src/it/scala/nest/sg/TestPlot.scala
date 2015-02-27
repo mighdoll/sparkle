@@ -7,6 +7,11 @@ import rx.lang.scala.Observable
 
 import nest.sparkle.util.Resources
 
+/** These are currently development jigs, manually uncommented and run one a time
+  * rather than as part of a test infrastructure.
+  *
+  * TODO make these into integration tests.
+  */
 class TestPlot extends FunSuite with Matchers with SparkleConsoleFixture {
   val measuresDirectory = Resources.filePathString("sample-measures")
 
@@ -43,6 +48,13 @@ class TestPlot extends FunSuite with Matchers with SparkleConsoleFixture {
     withSparkleConsole { console =>
       console.loadFiles(measuresDirectory)
       console.plotColumn("spans/duration")
+      Thread.sleep(1000*60*60)
+    }
+  }
+
+  ignore("start console and do nothing") {
+    withSparkleConsole { console =>
+      console.loadFiles(measuresDirectory)
       Thread.sleep(1000*60*60)
     }
   }

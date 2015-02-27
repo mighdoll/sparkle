@@ -28,7 +28,7 @@ return function(data) {
     return data[position][0];
   }
 
-  /** pop the head of the stream, returning the value at the head of the stream */
+  /** pop the head of the stream, returniapng the value at the head of the stream */
   function popValue() {
     if (position >= data.length) {
       return undefined;

@@ -21,7 +21,7 @@ import nest.sparkle.measure.Measurements
 import nest.sparkle.util.ConfigUtil.configForSparkle
 
 /** a web api for serving an administrative page */
-trait AdminService 
+trait BaseAdminService
   extends HttpService
     with TimingDirectives
     with StaticContent 
@@ -31,10 +31,9 @@ trait AdminService
   implicit def measurements: Measurements
   
   def rootConfig: Config
+
   lazy val sparkleConfig = configForSparkle(rootConfig)
-  
-  override lazy val webRoot = Some(ResourceLocation("web/admin"))
-  
+
   /** Subclasses override this with specific admin routes */
   lazy val routes: Route = health
 
@@ -45,7 +44,7 @@ trait AdminService
       }
     }
 
-  lazy val allRoutes: Route = {// format: OFF
+  lazy val allRoutes: Route = { // format: OFF
     withRequestResponseLog {
       routes ~
       configRoutes ~
@@ -57,17 +56,16 @@ trait AdminService
 }
 
 /** an AdminService inside an actor (the trait can be used for testing. */
-class AdminServiceActor(val system: ActorSystem, val measurements: Measurements, val rootConfig: Config) 
-  extends Actor 
-          with AdminService 
-{
+class BaseAdminServiceActor
+    ( val system: ActorSystem, val measurements: Measurements, val rootConfig: Config )
+    extends Actor with BaseAdminService {
   override def actorRefFactory: ActorRefFactory = context
   def receive: Receive = runRoute(allRoutes)
   def executionContext = context.dispatcher
 }
 
 /** start an admin service */
-object AdminService {
+object BaseAdminService {
   def start(rootConfig: Config, actorRef: ActorRef)(implicit system: ActorSystem): Future[Unit] = {
     val sparkleConfig = configForSparkle(rootConfig)
     val port = sparkleConfig.getInt("admin.port")

@@ -15,7 +15,7 @@ import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
 import spray.routing._
 
-import nest.sparkle.http.{ResourceLocation, AdminServiceActor, AdminService}
+import nest.sparkle.http.{BaseAdminService, ResourceLocation, BaseAdminServiceActor, BaseAdminService$}
 import nest.sparkle.measure._
 import nest.sparkle.util.kafka.KafkaStatus
 import nest.sparkle.util.kafka._
@@ -26,7 +26,7 @@ import nest.sparkle.util.kafka.KafkaJsonProtocol._
  *
  * Contains the specific routes for the Kafka loader's admin pages.
  */
-trait KafkaLoaderAdminService extends AdminService
+trait KafkaLoaderBaseAdminService extends BaseAdminService
 {
   override lazy val webRoot = Some(ResourceLocation("web/admin/loader"))
   
@@ -146,17 +146,17 @@ trait KafkaLoaderAdminService extends AdminService
   }
 }
 
-class KafkaLoaderAdminServiceActor(system: ActorSystem, measurements: Measurements, rootConfig: Config)
-  extends AdminServiceActor(system, measurements, rootConfig)
-  with KafkaLoaderAdminService
+class KafkaLoaderBaseAdminServiceActor(system: ActorSystem, measurements: Measurements, rootConfig: Config)
+  extends BaseAdminServiceActor(system, measurements, rootConfig)
+  with KafkaLoaderBaseAdminService
 {
   private lazy val statusThreadPool = Executors.newCachedThreadPool()
   lazy val kafkaStatusContext = ExecutionContext.fromExecutor(statusThreadPool)
 }
 
-object KafkaLoaderAdminService {
+object KafkaLoaderBaseAdminService {
   def start(system: ActorSystem, measurements: Measurements, rootConfig: Config): Future[Unit] = {
-    val serviceActor = system.actorOf(Props(new KafkaLoaderAdminServiceActor(system, measurements, rootConfig)),"admin-server")
-    AdminService.start(rootConfig, serviceActor)(system)
+    val serviceActor = system.actorOf(Props(new KafkaLoaderBaseAdminServiceActor(system, measurements, rootConfig)),"admin-server")
+    BaseAdminService.start(rootConfig, serviceActor)(system)
   }
 }

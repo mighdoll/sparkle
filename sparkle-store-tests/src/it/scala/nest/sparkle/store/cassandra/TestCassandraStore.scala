@@ -10,7 +10,7 @@ import org.scalacheck.{Test, Prop, Arbitrary, Gen}
 import nest.sparkle.datastream.DataArray
 import nest.sparkle.measure.DummySpan
 import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.store.{ColumnNotFound, DataSetNotFound, Event}
+import nest.sparkle.store.{DataSetNotEnabled, ColumnNotFound, DataSetNotFound, Event}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 import nest.sparkle.util.FutureAwait.Implicits._
@@ -294,10 +294,10 @@ class TestCassandraStore
     }
   }
 
-  test("Non-existant dataset returns DateSetNotFound") {
+  test("DataSet catalog is currently disabled") {
     withTestDb { store =>
       val result = store.dataSet("foo")
-      result.failed.await shouldBe DataSetNotFound("foo does not exist")
+      result.failed.await shouldBe DataSetNotEnabled()
     }
   }
 

@@ -16,15 +16,18 @@ package nest.sparkle.store.cassandra
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.{Failure, Success, Try}
 
+import akka.dispatch.sysmsg.Failed
 import com.datastax.driver.core.{ConsistencyLevel, BatchStatement, Session}
 
 import nest.sparkle.datastream.DataArray
-import nest.sparkle.store.{Event, ColumnUpdate, WriteNotifier}
+import nest.sparkle.store.{DataSetNotEnabled, Event, ColumnUpdate, WriteNotifier}
 import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
 import nest.sparkle.store.cassandra.SparseColumnWriterStatements._
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.{ Instrumented, Log }
+import nest.sparkle.util.TryToFuture._
 
 object SparseColumnWriter
     extends Instrumented with Log {
@@ -36,15 +39,15 @@ object SparseColumnWriter
   def apply[T: CanSerialize, U: CanSerialize]( // format: OFF
         dataSetName: String, 
         columnName: String, 
-        catalog: ColumnCatalog, 
-        dataSetCatalog: DataSetCatalog, 
+        catalog: ColumnCatalog,
+        tryDataSetCatalog: Try[DataSetCatalog],
         writeNotifier:WriteNotifier,
         preparedSession: PreparedSession,
         consistencyLevel: ConsistencyLevel,
         batchSize: Int
       ): SparseColumnWriter[T,U] = { // format: ON
 
-    new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier,
+    new SparseColumnWriter[T, U](dataSetName, columnName, catalog, tryDataSetCatalog, writeNotifier,
       preparedSession, consistencyLevel, batchSize)
   }
 
@@ -53,14 +56,14 @@ object SparseColumnWriter
         dataSetName: String, 
         columnName: String, 
         catalog: ColumnCatalog, 
-        dataSetCatalog: DataSetCatalog, 
+        tryDataSetCatalog: Try[DataSetCatalog],
         writeNotifier:WriteNotifier,
         preparedSession: PreparedSession,
         consistencyLevel: ConsistencyLevel,
         batchSize: Int
       )(implicit execution:ExecutionContext):Future[SparseColumnWriter[T,U]] = { // format: ON
 
-    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, dataSetCatalog, writeNotifier,
+    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, tryDataSetCatalog, writeNotifier,
       preparedSession, consistencyLevel, batchSize)
     writer.updateCatalog().map { _ =>
       writer
@@ -112,7 +115,7 @@ import nest.sparkle.store.cassandra.SparseColumnWriter._
   */
 protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
     val dataSetName: String, val columnName: String,
-    catalog: ColumnCatalog, dataSetCatalog: DataSetCatalog, 
+    catalog: ColumnCatalog, tryDataSetCatalog: Try[DataSetCatalog],
     writeNotifier:WriteNotifier, preparedSession: PreparedSession,
     consistencyLevel: ConsistencyLevel, batchSize: Int,
     unloggedBatches: Boolean = true
@@ -144,12 +147,21 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     val result =
       for {
         _ <- catalog.writeCatalogEntry(entry)
-        // TODO figure out what to do with the dataset catalog
-        //_ <- dataSetCatalog.addColumnPath(entry.columnPath)
+        _ <- updateDataSetCatalog(columnPath)
       } yield { }
 
     result.onFailure { case error => log.error("create column failed", error) }
     result
+  }
+
+  // TODO figure out what to do with the dataset catalog
+  private def updateDataSetCatalog(columnPath:String)
+       ( implicit executionContext: ExecutionContext ): Future[Unit] = {
+    tryDataSetCatalog match {
+      case Success(catalog)                      => catalog.addColumnPath(columnPath)
+      case Failure(noteEnable:DataSetNotEnabled) => Future.successful(Unit) // ignore write if no dataset configured
+      case failure@Failure(err)                  => failure.map(_ =>()).toFuture
+    }
   }
 
   /** write a bunch of column values in a batch */ // format: OFF
