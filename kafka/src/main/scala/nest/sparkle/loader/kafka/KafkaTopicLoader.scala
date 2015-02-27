@@ -2,6 +2,8 @@ package nest.sparkle.loader.kafka
 
 import java.util.concurrent.Semaphore
 
+import com.google.common.util.concurrent.RateLimiter
+
 import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
@@ -59,13 +61,16 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   
   /** Initial delay between C* write retries */
   private val InitialDelay = 1 second
-  
+
+  /** For limiting the number of kafka messages read per second */
+  val messageReadRateLimiter = readRateLimiter()
+
   /** The number of Kafka messages to process before committing */
   val messageCommitLimit = loaderConfig.getInt("message-commit-limit")
   
   /** The maximum number of concurrent Kafka messages being written simultaneously */
   val maxConcurrentWrites = loaderConfig.getInt("max-concurrent-writes")
-  
+
   /** Number of events to write to the log when tracing writes */
   val NumberOfEventsToTrace = 3
 
@@ -144,6 +149,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
       }
 
       while (keepRunning) {
+        messageReadRateLimiter.acquire()
         iterator.next() match {
           case Success(block) =>
             processMessage() { writeMessage(block) }
@@ -195,12 +201,32 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     shutdownFuture  // this is public but convenient to return to caller
   }
 
+  /**
+   * Creates a RateLimiter to limit the number of kafka messages read per second.
+   * If a topic specific read rate is configured, that's used, otherwise the default
+   * configured read rate is used.
+   */
+  private def readRateLimiter(): RateLimiter = {
+    val topicList = loaderConfig.getConfigList("message-read-rate.topic-read-rates").asScala.toSeq
+    val topicConfig = topicList.find { configEntry =>
+      val regex = configEntry.getString("match").r
+      regex.pattern.matcher(topic).matches()
+    }
+
+    val rate = topicConfig.map { configEntry =>
+      configEntry.getDouble("topic-read-rate")
+    }.getOrElse(loaderConfig.getDouble("message-read-rate.default-read-rate"))
+
+    log.info(s"limiting read rate for topic $topic to: $rate messages per second")
+    RateLimiter.create(rate)
+  }
+
   /** Create the transformers, if any, for this topic.
     * The first pattern to match is used.
     */
   private def makeTransformers(): Option[Seq[LoadingTransformer]] = {
     val transformerList = loaderConfig.getConfigList("transformers").asScala.toSeq
-    val transformerConfig = transformerList find { configEntry =>
+    val transformerConfig = transformerList.find { configEntry =>
       val regex = configEntry.getString("match").r
       regex.pattern.matcher(topic).matches()
     }
