@@ -2,8 +2,6 @@ package nest.sparkle.loader
 
 import scala.concurrent.duration._
 
-import spray.testkit.RouteResultComponent.RouteTestTimeout
-
 import org.scalatest.{ FunSuite, Matchers }
 
 import com.typesafe.config.Config
