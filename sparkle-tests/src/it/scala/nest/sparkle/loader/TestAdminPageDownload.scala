@@ -2,6 +2,8 @@ package nest.sparkle.loader
 
 import scala.concurrent.duration._
 
+import spray.testkit.RouteResultComponent.RouteTestTimeout
+
 import org.scalatest.{ FunSuite, Matchers }
 
 import com.typesafe.config.Config
@@ -83,11 +85,15 @@ class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTe
 
 }
 
-class DataAdminTestService(override val store: Store, override val rootConfig: Config)(implicit override val system: ActorSystem)
+class DataAdminTestService
+    ( override val store: Store, override val rootConfig: Config )
+    ( implicit override val system: ActorSystem)
     extends FunSuite with DataAdminService with ScalatestRouteTest with Matchers {
 
   def actorRefFactory = system // connect the DSL to the test ActorSystem
   implicit def executionContext = system.dispatcher
+
+  implicit val routeTimeout: RouteTestTimeout = RouteTestTimeout(7.seconds)
 
   implicit override val measurements =
     new MeasurementToTsvFile("/tmp/sparkle-admin-tests")(executionContext)
