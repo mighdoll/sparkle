@@ -22,7 +22,7 @@ object BackgroundService {
     startSolo := startSoloTask.value,
     stopSolo := stopSoloTask.value,
     status := Revolver.reStatus.value,
-    healthCheckFn := { () => Success(true) }, // TODO instead check the health port by default
+    healthCheckFn := { () => Success(false) }, // TODO instead check the health port by default
     healthCheck := healthCheckTask.value,
     waitUntilHealthy := waitUntilHealthyTask.value,
     Revolver.reLogTag := name.value,
