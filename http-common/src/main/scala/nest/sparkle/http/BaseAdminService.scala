@@ -24,7 +24,8 @@ import nest.sparkle.util.ConfigUtil.configForSparkle
 trait BaseAdminService
   extends HttpService
     with TimingDirectives
-    with StaticContent 
+    with StaticContent
+    with HealthService
     with DisplayConfig
     with HttpLogging 
 {
@@ -36,13 +37,6 @@ trait BaseAdminService
 
   /** Subclasses override this with specific admin routes */
   lazy val routes: Route = health
-
-  lazy val health: Route =
-    get {
-      path("health") {
-        complete("ok")
-      }
-    }
 
   lazy val allRoutes: Route = { // format: OFF
     withRequestResponseLog {

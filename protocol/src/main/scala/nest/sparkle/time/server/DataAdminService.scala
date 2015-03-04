@@ -24,11 +24,9 @@ import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.Log
 import nest.sparkle.measure.Measurements
 
-// TODO DRY with DataService
-// TODO rename
 /** a web api for serving an administrative page about data stored in sparkle: downlaod .tsv files, etc. */
-trait DataAdminService extends BaseAdminService with RichComplete {
-  implicit def system: ActorSystem
+trait DataAdminService extends BaseAdminService with DataService {
+  implicit def actorSystem: ActorSystem
   def store: Store
   implicit def executionContext: ExecutionContext
 
@@ -36,7 +34,7 @@ trait DataAdminService extends BaseAdminService with RichComplete {
   override lazy val indexHtml: Route =
     redirect("/admin/index.html", StatusCodes.MovedPermanently)
 
-  lazy val exporter = DownloadExporter(rootConfig, store)(system.dispatcher)
+  lazy val exporter = DownloadExporter(rootConfig, store)(actorSystem.dispatcher)
 
   lazy val fetch: Route =
     get {
@@ -53,14 +51,18 @@ trait DataAdminService extends BaseAdminService with RichComplete {
     }
 
   override lazy val routes: Route = {// format: OFF
-      fetch
+      fetch ~
+      v1protocol ~
+      get {
+        jsServiceConfig
+      }
   } // format: ON
 
 }
 
 /** an AdminService inside an actor (the trait can be used for testing */
-class ConcreteBaseDataAdminService(system: ActorSystem, val store: Store, rootConfig: Config, measurements: Measurements)
-  extends BaseAdminServiceActor(system, measurements, rootConfig)
+class ConcreteBaseDataAdminService(val actorSystem: ActorSystem, val store: Store, rootConfig: Config, measurements: Measurements)
+  extends BaseAdminServiceActor(actorSystem, measurements, rootConfig)
   with DataAdminService
 {
 }
@@ -68,16 +70,16 @@ class ConcreteBaseDataAdminService(system: ActorSystem, val store: Store, rootCo
 /** start an admin service */
 object DataAdminService {
   def start(rootConfig: Config, store: Store, measurements: Measurements)
-    (implicit system: ActorSystem): Future[Unit] = 
+    (implicit actorSystem: ActorSystem): Future[Unit] =
   {
-    val serviceActor = system.actorOf(
-      Props(new ConcreteBaseDataAdminService(system, store, rootConfig, measurements)),
+    val serviceActor = actorSystem.actorOf(
+      Props(new ConcreteBaseDataAdminService(actorSystem, store, rootConfig, measurements)),
       "admin-server"
     )
     val port = configForSparkle(rootConfig).getInt("admin.port")
     val interface = configForSparkle(rootConfig).getString("admin.interface")
 
-    import system.dispatcher
+    import actorSystem.dispatcher
     implicit val timeout = Timeout(10.seconds)
     val started = IO(Http) ? Http.Bind(serviceActor, interface = interface, port = port)
     started.map { _ => () }

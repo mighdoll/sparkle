@@ -85,11 +85,11 @@ class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTe
 
 class DataAdminTestService
     ( override val store: Store, override val rootConfig: Config )
-    ( implicit override val system: ActorSystem)
+    ( implicit override val actorSystem: ActorSystem)
     extends FunSuite with DataAdminService with ScalatestRouteTest with Matchers {
 
-  def actorRefFactory = system // connect the DSL to the test ActorSystem
-  implicit def executionContext = system.dispatcher
+  def actorRefFactory = actorSystem // connect the DSL to the test ActorSystem
+  implicit def executionContext = actorSystem.dispatcher
 
   implicit val routeTimeout: RouteTestTimeout = RouteTestTimeout(7.seconds)
 

@@ -15,8 +15,9 @@ import nest.sparkle.util.ExpectHeaders
 class TestDataAdminService extends FunSuite with Matchers
     with ScalatestRouteTest with DataAdminService with SparkleTestConfig with ExpectHeaders {
 
-  override def actorRefFactory: ActorRefFactory = system
-  def executionContext = system.dispatcher
+  override def actorSystem = system
+  override def actorRefFactory: ActorRefFactory = actorSystem
+  def executionContext = actorSystem.dispatcher
   val measurements = DummyMeasurements
   override def store:Store = null // we don't need a store for this test
 

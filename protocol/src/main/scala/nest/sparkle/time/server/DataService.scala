@@ -21,12 +21,12 @@ import spray.routing.Route
 import nest.sparkle.time.server.JsServiceConfigJson.JsServiceConfigFormat
 import spray.httpx.SprayJsonSupport._
 
-import nest.sparkle.http.{HttpLogging, StaticContent}
+import nest.sparkle.http.{HealthService, HttpLogging, StaticContent}
 import nest.sparkle.time.protocol.DataServiceV1
 import nest.sparkle.util.Log
 
 /** http API for serving data and static web content */
-trait DataService extends StaticContent with DataServiceV1 with HttpLogging with Log {
+trait DataService extends StaticContent with HealthService with DataServiceV1 with HttpLogging with Log {
   implicit def executionContext: ExecutionContext
 
   /** Subclasses can override customRoutes to provide additional routes.  The resulting
@@ -37,17 +37,10 @@ trait DataService extends StaticContent with DataServiceV1 with HttpLogging with
   private def externalRoutes: Route =
     customRoutes.reduceLeftOption{ (a, b) => a ~ b } getOrElse reject()
   
-  private val health: Route = {
-    path("health") {
-      dynamic {
-        complete("ok")
-      }
-    }
-  }
 
   lazy val jsConfig = JsServiceConfig(rootConfig.getInt("sparkle.web-socket.port"))
 
-  private lazy val jsServiceConfig: Route = {
+  lazy val jsServiceConfig: Route = {
     get {
       path("serverConfig") {
         complete(jsConfig)
