@@ -1,17 +1,3 @@
-/* Copyright 2013  Nest Labs
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.  */
-
 define (["lib/d3", "sg/util"], function(_d3, _util) {
 
 /** Make an svg box resizable by dragging on a resize widget.  
@@ -50,7 +36,7 @@ function resizable() {
   /** Return an array containing the height and width attributes of a single
    * element selection.  */
   function widthHeight(model) {
-    if (model.datum().size) {
+    if (model.datum() && model.datum().size) {
       return model.datum().size;
     } else {
       return [model.attr("width") * 1, 

@@ -16,7 +16,7 @@ define(["lib/when/monitor/console", "sg/request", "sg/util"],
     function(_console, request) {
 
    var webSocketUriWhen =
-     request.jsonWhen("serverConfig")
+     request.jsonWhen("/serverConfig")
       .then(function(serverConfig) {
          var host = parseUrl(document.documentURL).hostname;
          var port = serverConfig.webSocketPort;

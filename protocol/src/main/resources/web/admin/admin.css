@@ -9,16 +9,25 @@ div.title {
   margin-bottom: 15px;
 }
 
-div.download {
+div.column_or_entity {
   margin-top: 15px;
-}
-
-#DownloadFolderInput {
   margin-left: 5px;
-  width: 600px;
+}
+
+.column_or_entity div.label {
+  margin-bottom: 7px;
+}
+
+#ColumnOrEntityInput {
+  width: 200px;
   font-size: 15px;
 }
 
-#DownloadFolderForm {
+#ColumnOrEntityForm {
   font-size: 15px;
+}
+
+#charts {
+  margin-top: 50px;
+  margin-left: 50px;
 }
