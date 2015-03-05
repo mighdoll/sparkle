@@ -10,6 +10,7 @@ import com.typesafe.config.Config
 import org.joda.time.DateTimeZone
 import rx.lang.scala.Observable
 import spire.math.Numeric
+import spire.implicits._
 
 import nest.sparkle.datastream._
 import nest.sparkle.loader.Loader._
@@ -131,7 +132,9 @@ class TransformReduceByPeriod(rootConfig: Config, transformerConfig: Config)
     implicit val keyClassTag = ReflectionUtil.classTag[K](typeTag[K])
     implicit val valueClassTag = ReflectionUtil.classTag[V](typeTag[V])
 
-    val dataStream = DataStream(Observable.from(Seq(dataArray)))
+    // DataStream's reduceByPeriod API needs the data to be sorted
+    val sortedDataArray = dataArray.sortWith { case ((key1,_), (key2,_)) => key1 < key2 }
+    val dataStream = DataStream(Observable.from(Seq(sortedDataArray)))
     val periodResult = dataStream.reduceByPeriod(periodWithZone, SoftInterval.empty, reduction, false)
     // it's okay to block here because we're working with a fixed DataArray
     val reducedDataArrays = periodResult.reducedStream.data.toBlocking.toList
