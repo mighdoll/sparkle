@@ -10,3 +10,4 @@ eclipse-target/
 *.log
 .idea/
 .idea_modules/
+*.DS_Store
