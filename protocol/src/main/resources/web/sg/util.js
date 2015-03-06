@@ -521,6 +521,14 @@ function arrayToObject(array) {
   return obj;
 }
 
+/** return a copy of the array with certain elements removed */
+function arrayClean(array, remove) {
+  var cleaned = array.filter(function(elem) {
+    return elem != remove;
+  });
+  return cleaned;
+}
+
 /** return an hash of the query parameters in a url */
 function urlParameters(url) {
   var parameters = url.slice(1).split('&');

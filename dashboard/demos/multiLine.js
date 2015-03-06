@@ -6,7 +6,7 @@ require( ["lib/d3", "sg/dashboard", "sg/sideAxis", "sg/palette", "sg/linePlot" ]
 
   var multiLine = { 
     title: "Database Server Response Time",
-    transformName: "SummarizeMax",
+    transformName: "ReduceMax",
     groups: [
       { label: "seconds",
         axis: sideAxis(),

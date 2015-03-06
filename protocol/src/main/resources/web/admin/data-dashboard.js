@@ -1,12 +1,12 @@
 require(["lib/d3", "sg/downloadFile",  "sg/dashboard", "sg/sideAxis", "sg/palette",
-         "sg/scatter", "sg/data", "sg/util" ],
+         "sg/scatter", "sg/data", "sg/util", "admin/chartControlPanel"],
 
-function (_, downloadFile, dashboard, sideAxis, palette, scatter, data, _util) {
-  var board = dashboard().size([900,600]);
+function (_d3, downloadFile, dashboard, sideAxis, palette, scatter, data, _util, _app) {
+
+  var board = dashboard().size([600,400]);
   var charts = [  // TODO allow most of this stuff to be edited from the UI
     { title: "untitled",
       timeSeries: true,
-      xScale: d3.time.scale.utc(),
       showXAxis: true,
       margin: { top: 20, right: 50, bottom: 50, left: 75 },
       transformName: "reduceMax",
@@ -48,14 +48,10 @@ function (_, downloadFile, dashboard, sideAxis, palette, scatter, data, _util) {
 
   /** add selected column to the current plot */
   function addToPlot(enteredValue) {
-    console.log("plot");
-
+    // for now, we just add columns to the first group
     charts[0].groups[0].named.push({name: enteredValue});
     draw();
   }
-
-  //      <select> <option name="foo">one</option> <option name="two">two </option> </select>
-
 
   /** return the last part of a columnPath. (for choosing the name of the file to download) */
   function lastComponent(path) {
@@ -73,5 +69,6 @@ function (_, downloadFile, dashboard, sideAxis, palette, scatter, data, _util) {
   }
 
   bindToUI();
+  draw();
 
 });

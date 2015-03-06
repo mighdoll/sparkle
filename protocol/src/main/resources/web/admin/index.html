@@ -2,21 +2,39 @@
 <html>
   <head>
     <meta charset="utf-8">
+    <link rel="stylesheet" href="../css/angular_material/0.8.2/angular-material.css">
     <link rel="stylesheet" href="../css/graph.css">
-    <link rel="stylesheet" href="admin.css">
-    <link href='http://fonts.googleapis.com/css?family=Oxygen' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="data-dashboard.css">
+    <link href='/font/Oxygen.css' rel='stylesheet' type='text/css'>
     <script>
       var require = {
-        baseUrl: ".."
+          baseUrl: "..",
+          paths: {
+              'angular': 'lib/angular/1.3.6/angular.min',
+              'angular-route': 'lib/angular/1.3.6/angular-route.min',
+              'angular-animate': "lib/angular/1.3.6/angular-animate.min",
+              'angular-aria': "lib/angular/1.3.5/angular-aria.min",
+              'angular-material': "lib/angular_material/0.8.2/angular-material.min",
+              'angularAMD': 'lib/angularAMD-0.2.1.min',
+              'ngload': 'lib/ngload.min'
+          },
+
+          // Add angular modules that does not support AMD out of the box, put it in a shim
+          shim: {
+              'angularAMD': ['angular'],
+              'ngload': ['angularAMD'],
+              'angular-route': ['angular'],
+              'angular-aria': ['angular'],
+              'angular-animate': ['angular'],
+              'angular-material': ['angular-animate', 'angular-aria', 'angular']
+          }
       };
     </script>
-    <script data-main="admin/admin.js" src="../lib/require.js"></script>
+    <script data-main="admin/data-dashboard.js" src="../lib/require.js"></script>
   </head>
-<body>
-  <div class=title>
-  Data Dashboard
-  </div>
 
+<body ng-cloak>
+  <div class=page-title> Data Dashboard </div>
 
   <div class="column_or_entity">
     <form id=ColumnOrEntityForm>
@@ -26,7 +44,120 @@
     </form>
   </div>
 
-  <div id="charts" />
+  <div id="charts"></div>
+
+
+  <div ng-controller="ChartControlPanel" class="chart-control-panel">
+    <md-button class="md-primary md-hue-1" ng-click="showPanel = ! showPanel" aria-label="show panel">
+        <md-icon md-svg-src="/img/icons/ic_settings_24px.svg"></md-icon>
+    </md-button>
+    <div ng-show="showPanel" class="panel">
+      <!--
+      -->
+      <md-input-container>
+        <label>Chart Title</label>
+        <input ng-model="chart.title">
+      </md-input-container>
+
+      <!-- settings for all charts. NG move to partial? -->
+
+      <md-select ng-model="chart.chartType" placeholder="{{chartTypes[0]}}">
+        <md-option ng-value="chartType" ng-repeat="chartType in chartTypes">{{chartType}}</md-option>
+      </md-select>
+      chartType
+
+      <md-switch ng-model="chart.showXAxis" class="md-primary" aria-label="Show X Axis">
+        X Axis
+      </md-switch>
+      <md-switch ng-model="chart.timeSeries" class="md-primary" aria-label="Time Series">
+        Time Series
+      </md-switch>
+
+    </div>
+
+  </div>
+
+
+  <!--
+
+  <div id="seriesPanelTemplate" class="panel">
+    <span class="name">seriesNameReplaceMe</span>
+    <div class="aggregation">
+      <span class="label">Aggregation:</span>
+      <select>
+        <option name="max">max</option>
+        <option name="min">min</option>
+        <option name="mean">mean</option>
+        <option name="count">count</option>
+        <option name="sum">sum</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="lineOptionsTemplate" class="panel">
+    <div class="line-interpolation">
+      <span class="label">Line Interpolation:</span>
+      <select>
+        <option name="linear">linear</option>
+        <option name="step">step</option>
+        <option name="monotone">monotone</option>
+        <option name="basis">basis</option>
+        <option name="cardinal">cardinal</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="strokeOptionsTemplate" class="panel">
+    <div class="stroke-options">
+      <span class="label">Stroke Width:</span>
+      <select>
+        <option name="0.25">0.25</option>
+        <option name="0.5">0.5</option>
+        <option name="1">1</option>
+        <option name="2">2</option>
+        <option name="3">3</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="symbolOptionsTemplate" class="panel">
+    <div class="symbol-options">
+      <span class="label">Symbol Shape:</span>
+      <select>
+        <option name="square">square</option>
+        <option name="circle">circle</option>
+        <option name="diamond">diamond</option>
+        <option name="triangle-down">triangle down</option>
+        <option name="triangle-up">triangle up</option>
+      </select>
+      <span class="label">Symbol Size:</span>
+      <select>
+        <option name="1">1</option>
+        <option name="2">2</option>
+        <option name="3">3</option>
+        <option name="4">4</option>
+        <option name="5">5</option>
+        <option name="6">6</option>
+        <option name="7">7</option>
+        <option name="8">8</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="colorOptionsTemplate" class="panel">
+    <div class="color-options">
+      <span class="label">Color:</span>
+      <select>
+        <option name="red">red</option>
+        <option name="blue">blue</option>
+        <option name="yellow">yellow</option>
+        <option name="green">green</option>
+        <option name="black">black</option>
+      </select>
+    </div>
+  </div>
+
+-->
 
 </body>
 </html>

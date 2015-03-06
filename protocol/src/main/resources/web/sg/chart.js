@@ -36,7 +36,7 @@ function chart() {
       _dataApi = sgData,  
       _showXAxis = true,  
       _transformName = "Raw",  
-      _xScale = d3.time.scale.utc(),
+      _xScale = null,
       _timeSeries = true,  
       emptyGroups = [{label:"", series:[]}];
 
@@ -74,52 +74,63 @@ function chart() {
                     paddedPlotSize[1] - (2 * padding[1])],
         titleMargin = chartData.titleMargin || _titleMargin,
         groups = chartData.groups || emptyGroups,
-        allSeries = collectSeries(groups),
         timeSeries = ("timeSeries" in chartData) ? chartData.timeSeries : _timeSeries,
         showXAxis = ("showXAxis" in chartData) ? chartData.showXAxis: _showXAxis,
-        xScale = chartData.xScale || _xScale,
+        xScale = chartData.xScale || _xScale || timeSeries ? d3.time.scale.utc() : d3.scale.linear(),
         chartId = domCache.saveIfEmpty(node, "chartId", function() {
             return randomAlphaNum(8);
           });
 
-    // title
-    showTitle(title, selection, plotSize[0], margin, titleMargin);
-
-    // errors
-    if (displayErrors(groups, allSeries, selection, outerSize)) return;
 
     // data driven css styling of the chart
     if (chartData.styles) { selection.classed(chartData.styles, true); }
 
-    var domain = chartData.displayDomain || initializeDomain(chartData, allSeries);
+    // title
+    showTitle(title, selection, plotSize[0], margin, titleMargin);
+
+    namedSeriesMetaData(groups, dataApi)
+      .then(seriesMetaDataLoaded);
 
     selection.on("resize", resize);
 
     var redraw = function() { bind.call(node, chartData); };
-    
-    var requestUntil = domain[1] == chartData.maxDomain[1] ? 
-        undefined        // unspecified end (half bounded range) if selection is max range
-        : domain[1] + 1; // +1 to be inclusive of last element 
-    var requestDomain = [ domain[0], requestUntil ];
 
-    allSeries.forEach(function (series) {    
-      series.transformName = series.transformName ? series.transformName : transformName;
-    });
-    var fetched = fetchData(dataApi, allSeries, requestDomain, timeSeries, plotSize[0], moreData);
-    fetched.then(dataReady).otherwise(rethrow);
+    function seriesMetaDataLoaded() {
+      var allSeries = collectSeries(groups);
 
+      var errors = displayErrors(groups, allSeries, selection, outerSize);
+
+      if (!errors) {
+        if (allSeries.length > 0) {
+          trackMaxDomain(chartData, allSeries);
+
+          var requestUntil = chartData.displayDomain[1] == chartData.maxDomain[1] ?
+              undefined        // unspecified end (half bounded range) if selection is max range
+              : chartData.displayDomain[1] + 1; // +1 to be inclusive of last element
+          var requestDomain = [ chartData.displayDomain[0], requestUntil ];
+
+          allSeries.forEach(function (series) {
+            series.transformName = series.transformName ? series.transformName : transformName;
+          });
+          var fetched = fetchData(dataApi, allSeries, requestDomain, timeSeries, plotSize[0], moreData);
+          fetched.then( function(){dataReady(allSeries);} ).otherwise(rethrow);
+        }
+      }
+    }
+
+    /** Update chart meta data and re-plot based on new data received from the server. */
     function moreData(series, data) {
-      if (data.length) {
+      if (data.length) {  // TODO try trackMaxDomain here
         var lastKey = data[data.length-1][0];
-        var newEnd = Math.max(lastKey, domain[1]);
-        var newDomain = [domain[0], newEnd];
+        var newEnd = Math.max(lastKey, chartData.displayDomain[1]);
         series.data = series.data.concat(data); // TODO overwrite existing keys not just append
-        chartData.displayDomain = newDomain;  
+        chartData.displayDomain[1] = newEnd;
         transitionRedraw();
       }
     }
 
-    function dataReady() {
+    /** Plot the chart now that the data has been received from the server. */
+    function dataReady(allSeries) {
       var transition = useTransition(inheritedTransition);
       // data plot drawing area
       var plotSelection = attachByClass("g", selection, "plotArea")
@@ -134,7 +145,7 @@ function chart() {
       var xAxisSpot = [plotSpot[0], 
                        plotSpot[1] + plotSize[1] + padding[1]];
       
-      keyAxis(transition, domain, timeSeries, xAxisSpot, plotSize[0], xScale, showXAxis);
+      keyAxis(transition, chartData.displayDomain, timeSeries, xAxisSpot, plotSize[0], xScale, showXAxis);
 
       attachSideAxes(groups, transition, plotSize, paddedPlotSize, margin);
       selection.on("toggleMaxLock", transitionRedraw);
@@ -143,14 +154,14 @@ function chart() {
       // setup clip so we can draw lines that extend a bit past the edge 
       // or animate clip if we're in a transition
       timeClip(plotSelection, plotClipId, paddedPlotSize, [-padding[0], -padding[1]],
-               domain, xScale);
+               chartData.displayDomain, xScale);
 
       // copy some handy information into the series object
       allSeries.forEach(function (series) {    
         series.xScale = xScale;
         series.plotSize = deepClone(plotSize);
         series.labelLayer = labelLayer;
-        series.displayDomain = domain;
+        series.displayDomain = chartData.displayDomain;
       });
 
       // draw data plot
@@ -262,12 +273,12 @@ function chart() {
   }
 
 
-  /** If the caller didn't provide some overall time domain, set it now */
-  function initializeDomain(chartData, series) {
-    domain = keyRange(series);
-    chartData.displayDomain = chartData.displayDomain || domain;
-    chartData.maxDomain = chartData.maxDomain || domain;
-    return domain;
+  /** Adjust the max domain based on the current series. Set the display domain if it
+    * isn't already set */
+  function trackMaxDomain(chartData, series) {
+    var maxDomain = keyRange(series);
+    chartData.maxDomain = maxDomain;
+    chartData.displayDomain = chartData.displayDomain || maxDomain;
   }
 
   function bindResizer(svg) {
@@ -571,6 +582,110 @@ function chart() {
   function rawLabel(displayAxis) {
     return displayAxis.domain()[0];
   }
+
+  /** Fetch the extent of each 'named' series from the server. Update the
+    * the chartData with the extent of the series.
+    *
+    * (this is so things like zooming
+    * will know their maximum extent, as well as for convenience so that the first
+    * plot can set its displayed range to the extent of the data)
+    *
+    * Fetching is protected by 'namedFetched' latch - it only happens the first time.
+    * Return a when that completes the fetching is done. */
+  function namedSeriesMetaData(groups, dataApi) {
+    var whens = [];
+
+    groups.forEach(function(group) {
+      var groupWhens = [];
+
+      if (group.series == undefined) group.series = [];
+
+      if (group.named) {
+        var futureSeries = fetchNamedSeries(dataApi, group.named).then(function(seriesArray) {
+          if (seriesArray) {
+            group.series = group.series.concat(seriesArray);
+          }
+        });
+        groupWhens.push(futureSeries);
+      }
+
+      if (group.plot && group.plot.named) {
+        var futureSeries = fetchNamedSeries(group.plot.named).then(function(seriesArray) {
+          group.plot.series = seriesArray;
+          group.series = group.series.concat(seriesArray);
+        });
+        groupWhens.push(futureSeries);
+      }
+
+      whens = whens.concat(groupWhens);
+    });
+
+    return when.all(whens);
+  }
+
+  /** Fetch series metadata from the server.
+    * Returns a promise that completes with an array of the new Series objects, or a special error Series
+    * if the call returned with an error.
+    * Call on an array of NamedSeries */
+  function fetchNamedSeries(dataApi, named) {
+
+    /** return a 'fake' Series with an error property set */
+    function errorSeries(err) {
+      return {
+        error: err.statusText + ": " + err.responseText
+      };
+    }
+
+    var futures =
+      named.map(function(namedSeries) {
+        if (namedSeries.fetched) {
+          return when.resolve();
+        } else {
+          var promisedSeries = fetchSeriesInfo(dataApi, namedSeries);
+          namedSeries.fetched = true;
+          return promisedSeries.otherwise(errorSeries);
+        }
+      });
+
+    function skipUndefined(array) {
+      return arrayClean(array, undefined);
+    }
+
+    return when.all(futures).then(skipUndefined);
+  }
+
+  /** Fetch a namedSeries from the server via the /column REST api.
+   *  Returns a promise that completes with a Series object.  */
+  function fetchSeriesInfo(dataApi, namedSeries) {
+    var setAndColumn = namedSeries.name,
+        lastSlash = setAndColumn.lastIndexOf("/"),
+        dataSetName = setAndColumn.slice(0, lastSlash),
+        column = setAndColumn.slice(lastSlash+1, setAndColumn.length),
+        futureDomainRange = dataApi.columnRequestHttp("DomainRange", {},
+          dataSetName, column);
+
+    /** plotter that will be used to plot this series */
+    function plotter() {
+      return namedSeries.plot && namedSeries.plot.plotter || chart().plotter();
+    }
+
+    /** now that we have the series metadata from the server, fill in the Series */
+    function received(data) {
+      var domainRange = arrayToObject(data);
+      var series = {
+        set: dataSetName,
+        name: column,
+        range: domainRange.range,
+        domain: domainRange.domain
+      };
+
+      copyPropertiesExcept(series, namedSeries, "name");
+      return series;
+    }
+
+    return futureDomainRange.then(received).otherwise(rethrow);
+  }
+
 
   //
   //  accessor functions (most of these are overridable in the bound chartData)

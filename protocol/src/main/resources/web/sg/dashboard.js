@@ -51,11 +51,6 @@ function dashboard() {
       .attr("class", "chart")
       .call(setSizeWithDefault, _size);
 
-    /** update meta data for all named series in charts from the server, then draw/redraw the charts */
-    chartsMetaData(dataApi, charts).then(function() {
-      redraw(update, transitionTime, dataApi);
-    }).otherwise(rethrow);  // (rethrow for debugging)
-
     exit.remove();
 
     selection.on("chartZoom", function() { 
@@ -68,6 +63,8 @@ function dashboard() {
     saveHistory(charts);
     selection.on("resize", function() { saveHistory(charts); });
     window.onpopstate = function(event) { historyChange(event, update, charts, transitionTime, dataApi) };
+
+    redraw(update, transitionTime, dataApi);
   }
 
   /** Called when the user navigates the browser back button (or foward button) */
@@ -210,121 +207,6 @@ function setSizeWithDefault(selection, defaultSize) {
   });
 
   setSize(selection);
-}
-
-/** Loads chart and series metadata from the server for all charts. 
- *  Return a promise that completes when the chart is loaded */
-function chartsMetaData(dataApi, charts) {
-  var whens = [];
-
-  charts.forEach(function(chartData) {
-    chartData.groups.forEach(function(group) {
-      var groupWhens = [];
-
-      group.series = [];
-
-      if (group.named) {
-        var futureSeries = fetchNamedSeries(dataApi, group.named).then(function(seriesArray) {
-          group.series = group.series.concat(seriesArray);
-        });
-        groupWhens.push(futureSeries);
-      } 
-
-      if (group.plot && group.plot.named) {
-        var futureSeries = fetchNamedSeries(group.plot.named).then(function(seriesArray) {
-          group.plot.series = seriesArray;
-          group.series = group.series.concat(seriesArray);
-        });
-        groupWhens.push(futureSeries);
-      }
-
-      if (groupWhens.length > 0) {
-        whens = whens.concat(groupWhens);
-      } else {
-        whens.push(noNamesError(group));
-      }
-    });
-  });
-
-  return when.all(whens);
-
-  function noNamesError(group) {
-    var error = "no named series specified.  Did you forget a .named property?";
-    
-     // allow caller to prespecify an error (to pass a custom message to the error reporting UI)
-     if (group && group.error) {
-       error = group.error;
-     }
-     return when.resolve([{
-       error:error  // a 'fake' Series with error property.  Chart will dispaly an error message
-     }]);
-  }
-}
-
-/** Fetch series metadata from the server.  
-  * Returns a promise that completes with an array of the new Series objects, or a special error Series
-  * if the call returned with an error.
-  * Call on an array of NamedSeries */
-function fetchNamedSeries(dataApi, named) {
-
-  /** return a 'fake' Series with an error property set */
-  function errorSeries(err) {
-    return {  
-      error: err.statusText + ": " + err.responseText
-    };
-  }
-
-  var futures =
-    named.map(function(namedSeries) {
-      var promisedSeries = fetchSeriesInfo(dataApi, namedSeries);
-      return promisedSeries.otherwise(errorSeries);
-    });
-
-  return when.all(futures);
-}
-
-/** Fetch a namedSeries from the server via the /column REST api.
- *  Returns a promise that completes with a Series object.  */
-function fetchSeriesInfo(dataApi, namedSeries) {
-  var setAndColumn = namedSeries.name,
-      lastSlash = setAndColumn.lastIndexOf("/"),
-      dataSetName = setAndColumn.slice(0, lastSlash),
-      column = setAndColumn.slice(lastSlash+1, setAndColumn.length),
-      futureDomainRange = dataApi.columnRequestHttp("DomainRange", {}, 
-        dataSetName, column);
-
-  /** plotter that will be used to plot this series */
-  function plotter() {
-    return namedSeries.plot && namedSeries.plot.plotter || chart().plotter();
-  }
-
-  /** now that we have the series metadata from the server, fill in the Series */
-  function received(data) {
-    var domainRange = arrayToObject(data); 
-    var series = {
-      set: dataSetName,
-      name: column,
-      range: domainRange.range,
-      domain: domainRange.domain
-    };
-
-    /** LATER support unique value coding via server transform
-    if (columnInfo.uniqueValues) {
-      if (namedSeries.valueCodes) {
-        series.categories = columnInfo.uniqueValues.map(function(code) {
-          return namedSeries.valueCodes[code]; 
-        });
-      } else {
-        series.categories = columnInfo.uniqueValues;
-      }
-    }
-    */
-
-    copyPropertiesExcept(series, namedSeries, "name");
-    return series;
-  }
-
-  return futureDomainRange.then(received).otherwise(rethrow);
 }
 
 

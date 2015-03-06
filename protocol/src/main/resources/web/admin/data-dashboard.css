@@ -3,7 +3,7 @@ body {
   font-family: 'Oxygen', sans-serif;  
 } 
 
-div.title {
+div.page-title {
   text-align: center;
   font-size: 20px;
   margin-bottom: 15px;
@@ -25,9 +25,24 @@ div.column_or_entity {
 
 #ColumnOrEntityForm {
   font-size: 15px;
+  margin-bottom: 20px;
 }
 
 #charts {
-  margin-top: 50px;
+  margin-top: 20px;
   margin-left: 50px;
+  float: left;
+}
+
+[ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak], .ng-cloak, .x-ng-cloak {
+  display: none !important;
+}
+
+.panel .label {
+  font-size: 15px;
+}
+
+div.chart-control-panel {
+  margin-top: 20px;
+  float:left;
 }

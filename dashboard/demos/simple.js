@@ -3,7 +3,7 @@ require( ["sg/dashboard", "sg/sideAxis"],
 
   var basicChart = {
     title: "90th Percentile Request Time",
-    transformName: "SummarizeMax",
+    transformName: "ReduceMax",
     groups: [ { 
       label: "seconds",
       axis: sideAxis(),
