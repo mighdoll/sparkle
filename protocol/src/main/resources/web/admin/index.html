@@ -34,13 +34,12 @@
   </head>
 
 <body ng-cloak>
-  <div class=page-title> Data Dashboard </div>
+  <div class=page-title> Data Dash </div>
 
   <div class="column_or_entity">
     <form id=ColumnOrEntityForm>
-      <div class="label"> Column: </div>
       <input type='text' id='ColumnOrEntityInput'/>
-      <button> plot </button>
+      <md-button> plot </md-button>
     </form>
   </div>
 
@@ -52,112 +51,61 @@
         <md-icon md-svg-src="/img/icons/ic_settings_24px.svg"></md-icon>
     </md-button>
     <div ng-show="showPanel" class="panel">
-      <!--
-      -->
       <md-input-container>
         <label>Chart Title</label>
         <input ng-model="chart.title">
       </md-input-container>
 
-      <!-- settings for all charts. NG move to partial? -->
-
-      <md-select ng-model="chart.chartType" placeholder="{{chartTypes[0]}}">
+      <md-select ng-model="chart.chartType" placeholder="Chart Type">
         <md-option ng-value="chartType" ng-repeat="chartType in chartTypes">{{chartType}}</md-option>
       </md-select>
-      chartType
 
-      <md-switch ng-model="chart.showXAxis" class="md-primary" aria-label="Show X Axis">
-        X Axis
-      </md-switch>
-      <md-switch ng-model="chart.timeSeries" class="md-primary" aria-label="Time Series">
-        Time Series
-      </md-switch>
+      <div class='sub-selection' ng-show="chart.chartType == 'line'">
+        <md-select ng-model="chart.lineInterpolate" placeholder="Line Style">
+          <md-option ng-value="interpolate" ng-repeat="interpolate in lineInterpolate">
+            {{interpolate}}
+          </md-option>
+        </md-select>
+        <div class="strokeWidth">
+          <md-select ng-model="chart.strokeWidth" placeholder="Stroke">
+            <md-option ng-value="strokeWidth" ng-repeat="strokeWidth in strokeWidths">{{strokeWidth}}</md-option>
+          </md-select>
+        </div>
+      </div>
+
+      <div class='sub-selection' ng-show="chart.chartType == 'scatter'">
+        <md-select ng-model="chart.symbol" placeholder="Symbol">
+          <md-option ng-value="symbol" ng-repeat="symbol in symbols">{{symbol}}</md-option>
+        </md-select>
+        <md-select ng-model="chart.symbolSize" placeholder="size">
+          <md-option ng-value="size" ng-repeat="size in symbolSizes">{{size}}</md-option>
+        </md-select>
+      </div>
+
+      <div class="palette">
+        <md-select ng-model="chart.palette" placeholder="Colors">
+          <md-option ng-value="palette" ng-repeat="palette in palettes">{{palette}}</md-option>
+        </md-select>
+      </div>
+
+      <div class="aggregation">
+        <md-select ng-model="chart.aggregation" placeholder="Aggregation">
+          <md-option ng-value="aggregation" ng-repeat="aggregation in aggregations">{{aggregation}}</md-option>
+        </md-select>
+      </div>
+
+      <div class="x-axis-controls">
+        <md-switch ng-model="chart.showXAxis" class="md-primary" aria-label="Show X Axis">
+          X Axis
+        </md-switch>
+        <md-switch ng-model="chart.timeSeries" class="md-primary" aria-label="Time Series">
+          Time Series
+        </md-switch>
+      </div>
 
     </div>
 
   </div>
-
-
-  <!--
-
-  <div id="seriesPanelTemplate" class="panel">
-    <span class="name">seriesNameReplaceMe</span>
-    <div class="aggregation">
-      <span class="label">Aggregation:</span>
-      <select>
-        <option name="max">max</option>
-        <option name="min">min</option>
-        <option name="mean">mean</option>
-        <option name="count">count</option>
-        <option name="sum">sum</option>
-      </select>
-    </div>
-  </div>
-
-  <div id="lineOptionsTemplate" class="panel">
-    <div class="line-interpolation">
-      <span class="label">Line Interpolation:</span>
-      <select>
-        <option name="linear">linear</option>
-        <option name="step">step</option>
-        <option name="monotone">monotone</option>
-        <option name="basis">basis</option>
-        <option name="cardinal">cardinal</option>
-      </select>
-    </div>
-  </div>
-
-  <div id="strokeOptionsTemplate" class="panel">
-    <div class="stroke-options">
-      <span class="label">Stroke Width:</span>
-      <select>
-        <option name="0.25">0.25</option>
-        <option name="0.5">0.5</option>
-        <option name="1">1</option>
-        <option name="2">2</option>
-        <option name="3">3</option>
-      </select>
-    </div>
-  </div>
-
-  <div id="symbolOptionsTemplate" class="panel">
-    <div class="symbol-options">
-      <span class="label">Symbol Shape:</span>
-      <select>
-        <option name="square">square</option>
-        <option name="circle">circle</option>
-        <option name="diamond">diamond</option>
-        <option name="triangle-down">triangle down</option>
-        <option name="triangle-up">triangle up</option>
-      </select>
-      <span class="label">Symbol Size:</span>
-      <select>
-        <option name="1">1</option>
-        <option name="2">2</option>
-        <option name="3">3</option>
-        <option name="4">4</option>
-        <option name="5">5</option>
-        <option name="6">6</option>
-        <option name="7">7</option>
-        <option name="8">8</option>
-      </select>
-    </div>
-  </div>
-
-  <div id="colorOptionsTemplate" class="panel">
-    <div class="color-options">
-      <span class="label">Color:</span>
-      <select>
-        <option name="red">red</option>
-        <option name="blue">blue</option>
-        <option name="yellow">yellow</option>
-        <option name="green">green</option>
-        <option name="black">black</option>
-      </select>
-    </div>
-  </div>
-
--->
 
 </body>
 </html>

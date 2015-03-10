@@ -5,15 +5,14 @@ function (_d3, downloadFile, dashboard, sideAxis, palette, scatter, data, _util,
 
   var board = dashboard().size([600,400]);
   var charts = [  // TODO allow most of this stuff to be edited from the UI
-    { title: "untitled",
+    { title: "chart",
       timeSeries: true,
       showXAxis: true,
       margin: { top: 20, right: 50, bottom: 50, left: 75 },
       transformName: "reduceMax",
       padding:[5, 5],    // padding so that marks can extend past the edge of the plot area
       groups: [
-        { plot: { plotter: scatter() },
-          axis: sideAxis(),
+        { axis: sideAxis(),
           named: []
         }
       ]
@@ -25,8 +24,8 @@ function (_d3, downloadFile, dashboard, sideAxis, palette, scatter, data, _util,
     var form = d3.select("#ColumnOrEntityForm");
     var button = d3.select("#ColumnOrEntityForm button");
     button.on("click", function() {
-      var enteredValue = d3.select("#ColumnOrEntityInput").property("value");
       d3.event.preventDefault();
+      var enteredValue = d3.select("#ColumnOrEntityInput").property("value");
       if (!d3.event.ctrlKey) {
         addToPlot(enteredValue);
       } else {
@@ -36,7 +35,8 @@ function (_d3, downloadFile, dashboard, sideAxis, palette, scatter, data, _util,
 
     form.on("submit", function() {
       d3.event.preventDefault();
-      addToPlot();
+      var enteredValue = d3.select("#ColumnOrEntityInput").property("value");
+      addToPlot(enteredValue);
     });
   }
 

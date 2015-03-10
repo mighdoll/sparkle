@@ -1,5 +1,6 @@
 body {
-  font: 10px sans-serif;
+  font-size: 12px;
+  font-family: Oxygen, sans-serif;
   background: #F4F4F4;
 }
 
@@ -8,6 +9,10 @@ body {
   fill: none;
   stroke: #000;
   shape-rendering: crispEdges;
+}
+
+.axis {
+  font-size: 10px;
 }
 
 .bottom.axis path {
@@ -33,12 +38,11 @@ body {
 }
 
 text.title {
-  font: 12px sans-serif;
+  font-size: 12px;
 }
 
 .chart > .title {
-  font: 14px sans-serif;
-  font-weight: bold;
+  font-size: 14px;
 }
 
 .max-lock .max-line {
@@ -79,7 +83,7 @@ text.title {
 }
 
 .control-panel .picker .label {
-  font: 14px sans-serif;        
+  font-size: 14px;
   font-weight: bold;
   margin-right: 5px;
 }
@@ -109,7 +113,7 @@ text.title {
 }
 
 .chart text.error  {
-  font: 14px sans-serif;
+  font: 14px;
   font-style: italic;
   text-anchor: middle;
 }

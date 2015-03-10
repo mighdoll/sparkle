@@ -42,7 +42,24 @@ div.column_or_entity {
   font-size: 15px;
 }
 
-div.chart-control-panel {
+.chart-control-panel {
   margin-top: 20px;
+  font-size: 14px;
   float:left;
+}
+
+.chart-control-panel .md-select-label {
+  font-size: 14px;
+}
+
+md-option .md-text {
+  font-size: 14px;
+}
+
+.chart-control-panel .sub-selection {
+  margin-left: 8px;
+}
+
+.chart-control-panel .x-axis-controls {
+  margin-top: 50px;
 }
