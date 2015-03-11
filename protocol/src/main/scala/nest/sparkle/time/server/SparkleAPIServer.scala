@@ -102,10 +102,9 @@ class SparkleAPIServer // format: OFF
     val loaderConfig = sparkleConfig.getConfig("files-loader")
     if (loaderConfig.getBoolean("auto-start")) {
       loaderConfig.getStringList("directories").asScala.foreach { pathString =>
-        val strip = loaderConfig.getInt("directory-strip")
         val watch = loaderConfig.getBoolean("watch-directories")
         try {
-          new FilesLoader(sparkleConfig, pathString, pathString, readWriteStore, strip, Some(watch))
+          new FilesLoader(sparkleConfig, pathString, pathString, readWriteStore, Some(watch))
         } catch {
           case LoadPathDoesNotExist(path) => sys.exit(1)
         }

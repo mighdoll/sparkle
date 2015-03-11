@@ -28,8 +28,6 @@ object Main extends SparkleApp {
     "load .csv/.tsv file, or directory containing .csv or .tsv files")
   val watch = parser.option[String](List("w", "watch"), "path",
     "load .csv/.tsv file, or directory containing .csv or .tsv files. Reload new or changed files.")
-  val filesStrip = parser.option[Int](List("s", "prefix-strip"), "strip",
-    "Number of leading path elements to strip off of path when creating DataSet name")
   val erase = parser.flag[Boolean](List("format"), "erase and format the database")
   val port = parser.option[Int](List("p", "port"), "port", "tcp port for web server")
   val root = parser.option[String](List("root"), "path", "directory containing custom web pages to serve")
@@ -56,11 +54,9 @@ object Main extends SparkleApp {
     val filesOverride = directories.toList.flatMap { path =>
       val filesConfig = s"$sparkleConfigName.files-loader"
       val doWatch = watch.value.isDefined
-      val strip = filesStrip.value.getOrElse(0)
       Seq(
         (s"$filesConfig.directories", List(s"$path")),
         (s"$filesConfig.watch-directories", doWatch),
-        (s"$filesConfig.directory-strip", strip),
         (s"$filesConfig.auto-start", "true")
       )
     }

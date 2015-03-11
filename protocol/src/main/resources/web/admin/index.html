@@ -16,7 +16,8 @@
               'angular-aria': "lib/angular/1.3.5/angular-aria.min",
               'angular-material': "lib/angular_material/0.8.2/angular-material.min",
               'angularAMD': 'lib/angularAMD-0.2.1.min',
-              'ngload': 'lib/ngload.min'
+              'ngload': 'lib/ngload.min',
+              'angular-upload': 'lib/ng-file-upload-bower-3.1.2/angular-file-upload.min'
           },
 
           // Add angular modules that does not support AMD out of the box, put it in a shim
@@ -26,7 +27,8 @@
               'angular-route': ['angular'],
               'angular-aria': ['angular'],
               'angular-animate': ['angular'],
-              'angular-material': ['angular-animate', 'angular-aria', 'angular']
+              'angular-material': ['angular-animate', 'angular-aria', 'angular'],
+              'angular-upload': ['angular']
           }
       };
     </script>
@@ -36,11 +38,18 @@
 <body ng-cloak>
   <div class=page-title> Data Dash </div>
 
-  <div class="column_or_entity">
+  <div class="column-entry">
     <form id=ColumnOrEntityForm>
       <input type='text' id='ColumnOrEntityInput'/>
       <md-button> plot </md-button>
     </form>
+  </div>
+
+  <div ng-controller="UploadFile">
+    <div ng-file-drop ng-model="files" class="drop-box"
+        drag-over-class="dragover" ng-multiple="true" allow-dir="true"
+        accept=".csv,tsv">.tsv or .csv files</div>
+    <div ng-no-file-drop>File Drag/Drop is not supported for this browser</div>
   </div>
 
   <div id="charts"></div>

@@ -3,18 +3,19 @@ body {
   font-family: 'Oxygen', sans-serif;  
 } 
 
-div.page-title {
+.page-title {
   text-align: center;
   font-size: 20px;
   margin-bottom: 15px;
 }
 
-div.column_or_entity {
+.column-entry {
   margin-top: 15px;
   margin-left: 5px;
+  float: left;
 }
 
-.column_or_entity div.label {
+.column-entry .label {
   margin-bottom: 7px;
 }
 
@@ -62,4 +63,19 @@ md-option .md-text {
 
 .chart-control-panel .x-axis-controls {
   margin-top: 50px;
+}
+
+.drop-box {
+  background: #F8F8F8;
+  border: 5px dashed #DDD;
+  width: 200px;
+  height: 65px;
+  text-align: center;
+  padding-top: 25px;
+  margin: 10px;
+  float: right;
+}
+
+.dragover {
+    border: 5px dashed blue;
 }

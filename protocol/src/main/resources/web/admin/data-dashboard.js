@@ -1,7 +1,7 @@
 require(["lib/d3", "sg/downloadFile",  "sg/dashboard", "sg/sideAxis", "sg/palette",
-         "sg/scatter", "sg/data", "sg/util", "admin/chartControlPanel"],
+         "sg/scatter", "sg/data", "sg/util", "admin/chartControlPanel", "admin/uploadFile"],
 
-function (_d3, downloadFile, dashboard, sideAxis, palette, scatter, data, _util, _app) {
+function (_d3, downloadFile, dashboard, sideAxis, palette, scatter, data, _util, _panel, _upload) {
 
   var board = dashboard().size([600,400]);
   var charts = [  // TODO allow most of this stuff to be edited from the UI

@@ -77,7 +77,7 @@ trait CassandraStoreTestConfig extends SparkleTestConfig {
       withTestActors { implicit system =>
         import system.dispatcher
         val complete = onLoadComplete(testDb, resourcePath)
-        new FilesLoader(sparkleConfig, filePath, resourcePath, testDb, 0)
+        new FilesLoader(sparkleConfig, filePath, resourcePath, testDb)
         complete.await(4.seconds)
 
         val column = testDb.column[U, V](columnPath).await
@@ -117,7 +117,7 @@ trait CassandraStoreTestConfig extends SparkleTestConfig {
                            (implicit actorSystem: ActorSystem): T = {
     val complete = onLoadComplete(store, resourcePath)
     val loadPath = Resources.filePathString(resourcePath)
-    val loader = new FilesLoader(sparkleConfig, loadPath, resourcePath, store, 0)
+    val loader = new FilesLoader(sparkleConfig, loadPath, resourcePath, store)
     complete.await
     val result =
       try {

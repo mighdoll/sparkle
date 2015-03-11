@@ -26,13 +26,13 @@ trait LoaderConsole {
 
   def loadFiles(path:String): Unit = { // LATER clean up on quit
     awaitWrite(path) {
-      loaders += new FilesLoader(sparkleConfig, path, path, writeStore, 0, Some(false))
+      loaders += new FilesLoader(sparkleConfig, path, path, writeStore, Some(false))
     }
   }
 
   def watchFiles(path:String): Unit = { // LATER clean up on quit
     awaitWrite(path) {
-      loaders += new FilesLoader(sparkleConfig, path, path, writeStore, 0, Some(true))
+      loaders += new FilesLoader(sparkleConfig, path, path, writeStore, Some(true))
     }
   }
 

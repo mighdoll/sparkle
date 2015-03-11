@@ -103,12 +103,10 @@ function chart() {
       if (!errors) {
         if (allSeries.length > 0) {
           trackMaxDomain(chartData, allSeries);
-
           var requestUntil = chartData.displayDomain[1] == chartData.maxDomain[1] ?
               undefined        // unspecified end (half bounded range) if selection is max range
               : chartData.displayDomain[1] + 1; // +1 to be inclusive of last element
           var requestDomain = [ chartData.displayDomain[0], requestUntil ];
-
           allSeries.forEach(function (series) {
             series.transformName = series.transformName ? series.transformName : transformName;
           });
@@ -161,7 +159,7 @@ function chart() {
         series.xScale = xScale;
         series.plotSize = deepClone(plotSize);
         series.labelLayer = labelLayer;
-        series.displayDomain = chartData.displayDomain;
+        series.displayDomain = deepClone(chartData.displayDomain);
       });
 
       // draw data plot
@@ -398,7 +396,7 @@ function chart() {
     return plotter;
   }
 
-  /** Return the transtition to use for the drawing the chart, depending on the 
+  /** Return the transition to use for the drawing the chart, depending on the
    * transition the chart inherits from it's caller (via transition.each()).  (The 
    * transition may have expired before we get to use it, so we recreate a short transition
    * if need be just so the user sees something)   

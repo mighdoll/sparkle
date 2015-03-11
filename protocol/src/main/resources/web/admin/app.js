@@ -1,4 +1,4 @@
-define(['angularAMD', 'angular-material'], function (angularAMD) {
-  var app = angular.module("webapp", ['ngMaterial']);
+define(['angularAMD', 'angular-material', 'angular-upload'], function (angularAMD) {
+  var app = angular.module("webapp", ['ngMaterial', 'angularFileUpload']);
   return angularAMD.bootstrap(app);
 });

@@ -18,7 +18,7 @@ import spray.routing.Directive.pimpApply
 import spray.routing.{Directives, Route}
 
 import nest.sparkle.http.{BaseAdminService$ => HttpAdminService, BaseAdminService, ResourceLocation, BaseAdminServiceActor}
-import nest.sparkle.store.Store
+import nest.sparkle.store.{ReadWriteStore, Store}
 import nest.sparkle.tools.DownloadExporter
 import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.util.Log
@@ -50,8 +50,19 @@ trait DataAdminService extends BaseAdminService with DataService {
       }
     }
 
+  lazy val upload: Route =
+    post {
+      path("admin" / "upload" / "url") {
+        dynamic {
+          println("got upload")
+          complete("ok")
+        }
+      }
+    }
+
   override lazy val routes: Route = {// format: OFF
       fetch ~
+      upload ~
       v1protocol ~
       get {
         jsServiceConfig
@@ -64,14 +75,11 @@ trait DataAdminService extends BaseAdminService with DataService {
 class ConcreteBaseDataAdminService(val actorSystem: ActorSystem, val store: Store, rootConfig: Config, measurements: Measurements)
   extends BaseAdminServiceActor(actorSystem, measurements, rootConfig)
   with DataAdminService
-{
-}
 
 /** start an admin service */
 object DataAdminService {
-  def start(rootConfig: Config, store: Store, measurements: Measurements)
-    (implicit actorSystem: ActorSystem): Future[Unit] =
-  {
+  def start(rootConfig: Config, store: ReadWriteStore, measurements: Measurements)
+    (implicit actorSystem: ActorSystem): Future[Unit] = {
     val serviceActor = actorSystem.actorOf(
       Props(new ConcreteBaseDataAdminService(actorSystem, store, rootConfig, measurements)),
       "admin-server"
@@ -82,7 +90,19 @@ object DataAdminService {
     import actorSystem.dispatcher
     implicit val timeout = Timeout(10.seconds)
     val started = IO(Http) ? Http.Bind(serviceActor, interface = interface, port = port)
-    started.map { _ => () }
+
+
+    val uploadActor = actorSystem.actorOf(
+      Props(new FileUploadService(rootConfig, store)), "upload-service"
+    )
+    val uploadPort = configForSparkle(rootConfig).getInt("admin.upload-port")
+
+    val startedUpload = IO(Http) ? Http.Bind(uploadActor, interface = interface, port = uploadPort)
+
+    for {
+      _ <- started
+      _ <- startedUpload
+    } yield ()
   }
 
 }

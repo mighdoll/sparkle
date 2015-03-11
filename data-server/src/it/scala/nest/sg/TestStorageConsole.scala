@@ -1,10 +1,11 @@
 package nest.sg
 
-import org.scalatest.{ FunSuite, Matchers }
+import org.scalatest.{FunSuite, Matchers}
+
 import nest.sparkle.loader.FilesLoader
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
-import nest.sparkle.util.Resources
 import nest.sparkle.util.FutureAwait.Implicits._
+import nest.sparkle.util.Resources
 
 class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestConfig {
   val fileName = "epochs.csv"
@@ -16,7 +17,7 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestC
     withTestDb { testDb =>
       withTestActors{ implicit system =>
         val complete = onLoadComplete(testDb, fileName)
-        new FilesLoader(sparkleConfig, filePath, fileName, testDb, 0, Some(false))
+        new FilesLoader(sparkleConfig, filePath, fileName, testDb, Some(false))
         complete.await
         val storageConsole = new StorageConsole {
           override val store = testDb
