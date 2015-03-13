@@ -51,7 +51,6 @@ case class ReduceMin[V: Numeric]() extends IncrementalReduction[V] {
   override def newInstance():ReduceMin[V] = ReduceMin[V]()
 }
 
-
 /** accumulate by summing the values */
 case class ReduceSum[V: Numeric]() extends IncrementalReduction[V] {
   private var total = implicitly[Numeric[V]].zero
@@ -68,7 +67,6 @@ case class ReduceSum[V: Numeric]() extends IncrementalReduction[V] {
 
   override def newInstance():ReduceSum[V] = ReduceSum[V]()
 }
-
 
 /** accumulate by calculating the numeric mean of the values */
 case class ReduceMean[V: Numeric]() extends IncrementalReduction[V] {
@@ -87,5 +85,21 @@ case class ReduceMean[V: Numeric]() extends IncrementalReduction[V] {
     }
 
   override def newInstance():ReduceMean[V] = ReduceMean[V]()
+}
 
+/** accumulate by calculating the count of the values.  */
+// LATER don't cast to the value type, or require that the values be numeric
+case class ReduceCount[V:Numeric]() extends IncrementalReduction[V] {
+  private var count = 0
+
+  override def accumulate(value: V): Unit = {
+    count += 1
+  }
+
+  override def currentTotal: Option[V] = {
+    if (count == 0) None
+    else Some(implicitly[Numeric[V]].fromInt(count))
+  }
+
+  override def newInstance(): ReduceCount[V] = ReduceCount[V]()
 }

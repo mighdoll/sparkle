@@ -3,7 +3,7 @@ package nest.sparkle.time.transform
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
-import scala.util.Try
+import scala.util.{Success, Try}
 import scala.reflect.runtime.universe._
 
 import com.typesafe.config.Config
@@ -30,6 +30,7 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
   lazy val meanTransform = makeNumericTransform { ReduceMean()(_) }
   lazy val minTransform = makeNumericTransform { ReduceMin()(_) }
   lazy val maxTransform = makeNumericTransform { ReduceMax()(_) }
+  lazy val countTransform = makeNumericTransform { ReduceCount()(_) }
 
   /** create a ReduceTransform for a particular numeric reduction operation */
   def makeNumericTransform
@@ -51,6 +52,7 @@ case class ReductionTransform(rootConfig: Config)(implicit measurements: Measure
     case "average"  => meanTransform
     case "min"      => minTransform
     case "max"      => maxTransform
+    case "count"    => countTransform
   }
 }
 
