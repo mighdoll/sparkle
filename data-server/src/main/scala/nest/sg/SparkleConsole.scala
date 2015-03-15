@@ -10,6 +10,7 @@ import nest.sparkle.time.server.SparkleAPIServer
 import nest.sparkle.util.ConfigUtil._
 import nest.sparkle.util.{ConfigurationError, ConfigUtil, LogUtil, InitializeReflection}
 import nest.sparkle.util.RandomUtil.randomAlphaNum
+import nest.sparkle.shell.SparkConnection
 
 /** a collection of handy functions useful from the repl console */
 object SparkleConsole extends SparkleConsole
@@ -41,6 +42,7 @@ trait SparkleConsole
 
   connectStore()
   lazy val server = new SparkleAPIServer(rootConfig, store)
+  lazy val spark = SparkConnection(rootConfig)
 
   def store:ReadWriteStore = currentStore.getOrElse {
     throw ConfigurationError("store not initialized")

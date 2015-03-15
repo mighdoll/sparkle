@@ -75,6 +75,6 @@ class FileUploadService(rootConfig: Config, store:WriteableStore) extends Actor 
     case akka.io.Tcp.PeerClosed => // TODO close FileUploadHandler if necessary here
 
     case x =>
-      log.warning(s"unexpected message: $x")
+      log.debug(s"unexpected message: $x")
   }
 }

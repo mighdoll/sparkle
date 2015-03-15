@@ -10,15 +10,14 @@ Introduction
 As a standalone tool, sparkle gives users an easy way to make visualize data from a directory of .csv files. The graphs are interactively zoomable in a d3 based web interface. With some easy customization, graphs can be aggregated into dashboards, and customized with simple declarative javascript, and data read in from other sources such as Apache Kafka.
 
 See [Sparkle Intro Talk](https://docs.google.com/a/nestlabs.com/presentation/d/1yBgxGrqJ0TR2VONKN_Lfol49lyUb3CZ-o_JiEclO0aY/pub?start=false&loop=false&delayms=3000#slide=id.p) for an introduction presentation.
-
-[coming soon: links to example charts and dashboards]
+See [Visualize the Things](https://docs.google.com/presentation/d/1q3upEFivpx-IClqiDlFHl4FQZrLRWAWdYiFI-keJbQU/edit#slide=id.g7bf2bd9b8_30) for a brief introduction to sparkle, lessons on garbage collection with reative streams, and comments on the future of the Lambda Architecture.
 
 Components
 ------
 Sparkle contains three core components:
 
 ###Sparkle-Time Server 
-**sparkle-time** is a mini web server that provides HTTP and websocket apis for data visualization. Sparkle-time collects data from an extensible set of inputs (Apache Kafka and .csv/.tsv data files, hadoop and netcat support coming soon). Sparkle-time stores data in Cassandra.  Sparkle-time also hosts an extensible set of data transformations that transform data on demand (downsampling for example).
+**sparkle-time** is a mini web server that provides HTTP and websocket apis for data visualization. Sparkle-time collects data from an extensible set of inputs (Apache Kafka and .csv/.tsv data files, hadoop and netcat support coming soon). Sparkle-time stores data in Cassandra.  Sparkle-time also hosts an extensible set of data transformations that transform data on demand (e.g. for aggregation).
 
 Sparkle-time can be run as a library inside another server, or it can run standalone if no customization is needed.
 

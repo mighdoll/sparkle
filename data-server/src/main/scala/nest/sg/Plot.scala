@@ -55,16 +55,18 @@ trait PlotConsole extends Log {
 
   /** load a DataArray into the store and plot it */
   def plotDataArray[K:TypeTag, V:TypeTag]
-      ( dataArray:DataArray[K,V], name:String = nowString(),
-        optParameters:Opt[PlotParameters])
+      ( dataArray: DataArray[K,V], name: String = nowString(),
+        optParameters:Opt[PlotParameters] = None)
       : Future[Unit] = {
 
+    val columnPath = nameToPath(name)
     val plotParameters = {
       optParameters.option match {
-        case Some(params) => params.withSources(Seq(PlotSource(nameToPath(name), name)))
-        case None         => PlotParameters(nameToPath(name))
+        case Some(params) => params.withSources(Seq(PlotSource(columnPath, name)))
+        case None         => PlotParameters(columnPath)
       }
     }
+    println(s"plotting column $columnPath")
 
     for {
       _ <- writeDataArray(dataArray, name)

@@ -221,7 +221,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
           accumulate(value)
         }
       } else if (key < periods.get.start) {
-        log.error(s"processRemainingPairs: unexpected key. bug? $key is < ${periods.get.start}")
+        log.error(s"processPair: unexpected key. bug? $key is < ${periods.get.start}")
       }
     }
 

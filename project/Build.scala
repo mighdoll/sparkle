@@ -309,18 +309,36 @@ object SparkleBuild extends Build {
       .dependsOn(protocol)
       .dependsOn(protocolTestKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
+      .dependsOn(sparkShell)
       .configs(IntegrationTest)
       .settings(sparkleSettings ++ dataServerMergeSettings ++ BackgroundService.settings: _*)
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
+      .settings(BuildSettings.sparkMergeSettings: _*)
       .settings(
         healthPort := Some(1235),
         dependenciesToStart := Seq(cassandraServer),
-        libraryDependencies ++= logbackTest, 
+        libraryDependencies ++= logbackTest ++ spark ++ Seq(
+          sparkRepl
+        ),
+        assemblyExcludedJars in assembly := {
+          val classpath = (fullClasspath in assembly).value
+          classpath.filter{ attributedFile =>
+            val name = attributedFile.data.getName
+            name match {
+              case _ if name.endsWith("-sources.jar")              => true // cassandra driver includes sources
+              case _ if name.endsWith("akka-actor_2.10-2.2.4.jar") => true // exclusion trick doesn't work with cached resolution
+              case _ if name.endsWith("minlog-1.2.jar")            => true // probably better in current rev. see https://github.com/EsotericSoftware/kryo/issues/189
+              case _                                               => false
+            }
+          }
+        },
         initialCommands in console := """
           import nest.sg.SparkleConsole._
           import nest.sparkle.store.Event
           import rx.lang.scala.Observable
           import scala.concurrent.duration._
+          import nest.sparkle.util.FutureAwait.Implicits._
+          import nest.sparkle.datastream.DataArray
           """
       )
 
