@@ -325,7 +325,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
 
   /** Write the block to the Store. Update watchers when complete
     *  
-    * @param block TaggedBlock2 from a Kafka message.
+    * @param block TaggedBlock from a Kafka message.
     */
   private def writeMessage(block: TaggedBlock): Unit = {
     val sliceFutures = block map writeSlice
