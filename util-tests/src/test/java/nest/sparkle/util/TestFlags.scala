@@ -26,17 +26,16 @@ class TestFlags extends FunSuite with Matchers {
   def updatedFlags(flags: Flags, position: Int, flag: Boolean): Flags = {
     flags.fieldValue(position) shouldBe None
     val updatedFlags = flags.updatedFlags(position, flag)
-    updatedFlags should not be empty
-    updatedFlags.get.fieldValue(position) shouldBe Some(flag)
-    updatedFlags.get
+    updatedFlags.fieldValue(position) shouldBe Some(flag)
+    updatedFlags
   }
 
 }
 
 case class DummyFlags(value: Long) extends AnyVal with Flags {
   override def fields = DummyFieldsDescriptor
-  override def updatedFlags(position: Int, value: Boolean): Option[Flags] = {
-    updatedValue(position, value).map(new DummyFlags(_))
+  override def updatedFlags(position: Int, value: Boolean): Flags = {
+    new DummyFlags(updatedValue(position, value))
   }
 }
 
