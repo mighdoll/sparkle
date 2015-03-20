@@ -48,13 +48,14 @@ object SparseColumnReader extends Log {
     /** create a reader of the appropriate type */
     def reader(catalogInfo: CatalogInfo): SparseColumnReader[T, U] = {
       catalogInfo match { // TODO capture types for key,value independently to avoid combinatorial
-        case LongDoubleSerializers(KeyValueSerializers(key, value))  => makeReader(key, value)
-        case LongLongSerializers(KeyValueSerializers(key, value))    => makeReader(key, value)
-        case LongIntSerializers(KeyValueSerializers(key, value))     => makeReader(key, value)
-        case LongBooleanSerializers(KeyValueSerializers(key, value)) => makeReader(key, value)
-        case LongStringSerializers(KeyValueSerializers(key, value))  => makeReader(key, value)
-        case LongJsValueSerializers(KeyValueSerializers(key, value)) => makeReader(key, value)
-        case _                                                       => ???
+        case LongDoubleSerializers(KeyValueSerializers(key, value))       => makeReader(key, value)
+        case LongLongSerializers(KeyValueSerializers(key, value))         => makeReader(key, value)
+        case LongIntSerializers(KeyValueSerializers(key, value))          => makeReader(key, value)
+        case LongBooleanSerializers(KeyValueSerializers(key, value))      => makeReader(key, value)
+        case LongStringSerializers(KeyValueSerializers(key, value))       => makeReader(key, value)
+        case LongJsValueSerializers(KeyValueSerializers(key, value))      => makeReader(key, value)
+        case LongGenericFlagsSerializers(KeyValueSerializers(key, value)) => makeReader(key, value)
+        case _                                                            => ???
       }
     }
 

@@ -15,11 +15,11 @@
 package nest.sparkle.store.cassandra
 
 import scala.concurrent.duration.FiniteDuration
-import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.concurrent.duration.NANOSECONDS
 import com.datastax.driver.core.Row
 import spray.json._
+import nest.sparkle.util.GenericFlags
 import nest.sparkle.util.Exceptions.NYI
 
 /** utilities for converting between typeTags and cassandra serialized nativeType strings */
@@ -27,15 +27,16 @@ object CanSerialize {
   /** return a TypeTag from cassandra serialized nativeType string */
   def stringToTypeTag(typeString: String): TypeTag[_] = {
     typeString match {
-      case "Boolean"            => typeTag[Boolean]
-      case "Short"              => typeTag[Short]
-      case "Int"                => typeTag[Int]
-      case "Long"               => typeTag[Long]
-      case "Double"             => typeTag[Double]
-      case "Char"               => typeTag[Char]
-      case "String"             => typeTag[String]
-      case "spray.json.JsValue" => typeTag[JsValue]
-      case x                    => NYI(s"unsupported storage type $x")
+      case "Boolean"                        => typeTag[Boolean]
+      case "Short"                          => typeTag[Short]
+      case "Int"                            => typeTag[Int]
+      case "Long"                           => typeTag[Long]
+      case "Double"                         => typeTag[Double]
+      case "Char"                           => typeTag[Char]
+      case "String"                         => typeTag[String]
+      case "spray.json.JsValue"             => typeTag[JsValue]
+      case "nest.sparkle.util.GenericFlags" => typeTag[GenericFlags]
+      case x                                => NYI(s"unsupported storage type $x")
     }
   }
 }
@@ -58,6 +59,7 @@ abstract class CanSerialize[T: TypeTag] {
   def typedTag: TypeTag[T] = typeTag[T]
 }
 
+// TODO: support registering of custom serializers
 /** standard serializers for cassandra data types */
 object serializers {
   implicit object LongSerializer extends CanSerialize[Long] {
@@ -153,6 +155,17 @@ object serializers {
 
     override def serialize(value: JsValue): AnyRef =
       value.prettyPrint
+  }
+
+  /** until we can register custom serializers, we'll use GenericFlags to
+    * serialize all Flags types, and have the client convert GenericFlags to
+    * custom Flags types */
+  implicit object GenericFlagsSerializer extends CanSerialize[GenericFlags] {
+    val columnType = "bigint"
+    override def serialize(flags: GenericFlags): AnyRef = flags.value.asInstanceOf[AnyRef]
+    def fromRow(row: Row, index: Int): GenericFlags = {
+      GenericFlags(row.getLong(index))
+    }
   }
 
 }

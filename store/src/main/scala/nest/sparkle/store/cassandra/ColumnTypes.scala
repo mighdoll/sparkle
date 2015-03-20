@@ -2,10 +2,8 @@ package nest.sparkle.store.cassandra
 
 import scala.reflect.runtime.universe._
 import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.util.{Log, TaggedKeyValueExtractor}
+import nest.sparkle.util.{GenericFlags, Log, TaggedKeyValueExtractor}
 import spray.json.JsValue
-import nest.sparkle.util.OptionConversion._
-import scala.util.Try
 
 object ColumnTypes extends Log {
   /** the column types in the store are currently fixed, so that we can prepare CQL statement
@@ -17,7 +15,8 @@ object ColumnTypes extends Log {
     createSerializationInfo[Long, Int](),
     createSerializationInfo[Long, Boolean](),
     createSerializationInfo[Long, String](),
-    createSerializationInfo[Long, JsValue](false)
+    createSerializationInfo[Long, JsValue](false),
+    createSerializationInfo[Long, GenericFlags](false)
   )
 
   case class UnsupportedColumnType[T, U](keySerial: CanSerialize[T], valueSerial: CanSerialize[U])
@@ -78,6 +77,7 @@ object LongIntSerializers extends SerializerExtractor[Long, Int]
 object LongBooleanSerializers extends SerializerExtractor[Long, Boolean]
 object LongStringSerializers extends SerializerExtractor[Long, String]
 object LongJsValueSerializers extends SerializerExtractor[Long, JsValue]
+object LongGenericFlagsSerializers extends SerializerExtractor[Long, GenericFlags]
 
 /** a pair of cassandra serializers for key and value */
 case class KeyValueSerializers[T, U](keySerializer: CanSerialize[T], valueSerializer: CanSerialize[U])

@@ -1,8 +1,10 @@
 package nest.sparkle.store.cassandra
+
 import scala.reflect.runtime.universe._
 import nest.sparkle.store.cassandra.serializers._
 import spray.json.JsValue
 import scala.util.Try
+import nest.sparkle.util.GenericFlags
 import nest.sparkle.util.OptionConversion._
 
 case class CanSerializeNotFound(msg: String) extends RuntimeException(msg)
@@ -18,7 +20,8 @@ object RecoverCanSerialize {
     typeToCanSerialize[Double],
     typeToCanSerialize[Char],
     typeToCanSerialize[String],
-    typeToCanSerialize[JsValue]
+    typeToCanSerialize[JsValue],
+    typeToCanSerialize[GenericFlags]
   )
 
   /** return a CanSerialize instance at runtime based a typeTag. */
