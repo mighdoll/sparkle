@@ -30,13 +30,16 @@ class TestCassandraStreaming extends FunSuite with Matchers with CassandraStoreT
           } yield {
             initial.isEmpty shouldBe true
 
+            val futureCollected = read.ongoing.take(3).toFutureSeq
+
             // write items every 100ms so that we're not writing everything thread synchronously and might not test notification
             Observable.interval(100.milliseconds).take(3).subscribe { value =>
               val event = Event(System.currentTimeMillis(), value)
               writeColumn.write(Seq(event))
             }
 
-            val collected = read.ongoing.take(3).toBlocking.toList.map(_.value)
+            val collected = futureCollected.await.map(_.value)
+
             collected shouldBe List(0, 1, 2)
           }
 
