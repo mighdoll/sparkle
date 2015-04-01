@@ -1,0 +1,35 @@
+<div>
+  <md-content class="md-padding" layout="column">
+    <form ng-submit="$event.preventDefault()">
+      <md-autocomplete
+            md-selected-item="selectedItem"
+            md-search-text="term"
+            md-selected-item-change="selectionChange(item)"
+            md-items="item in search(term)"
+            md-item-text="item.display"
+            md-no-cache="true"
+            placeholder="Entity or Column">
+        <span md-highlight-text="term">{{item}}</span>
+      </md-autocomplete>
+    </form>
+    <div>
+      <treecontrol class="tree-light"
+                   tree-model="treeModel"
+                   options="treeOptions"
+                   expanded-nodes="expandedNodes"
+                   selected-node="selectedTreeNode">
+        <span class="column-name">{{node.name}}</span>
+        <span class="plot-button" ng-show="node == selectedTreeNode && node.leaf"
+              ng-click="plot(node); $event.stopPropagation();">PLOT</span>
+        <md-icon class="download" ng-show="node == selectedTreeNode && (node.leaf || node.leafParent)"
+                 md-svg-src="/img/icons/ic_file_download_24px.svg"
+                 ng-click="download(node); $event.stopPropagation();"
+              ng-click=""></md-icon>
+      </treecontrol>
+    </div>
+
+  </md-content>
+  <br/>
+  <br/>
+
+</div>

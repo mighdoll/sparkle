@@ -13,9 +13,9 @@
    limitations under the License.  */
 
 define (["lib/when/when", "lib/d3", 
-         "sg/util", "sg/richAxis", "sg/maxLock", "sg/data", 
+         "sg/util", "sg/richAxis", "sg/data",
          "sg/zoom", "sg/chart", "sg/domCache"], 
-        function(when, _d3, util, _richAxis, _maxLock, networkDataApi, 
+        function(when, _d3, util, _richAxis, networkDataApi,
                  _zoom, chart, domCache) {
 
 /** Bind to an array containing a Dashboard object.

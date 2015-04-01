@@ -48,7 +48,6 @@ function resizable() {
   function placeLowerRight(widget, model) {   
     widget.each(function() {  // use .each so we do nothing on empty selection 
       var selection = d3.select(this),
-          transition = d3.transition(selection),
           modelSize = widthHeight(model),
           modelNode = model.node(),   
           modelCTM = modelNode.getCTM(),   // getCTM returns null in firefox when called on an svg element
@@ -57,7 +56,7 @@ function resizable() {
           spot = [modelSpot[0] + modelSize[0] - widgetSize[0], 
                   modelSpot[1] + modelSize[1] - widgetSize[1]]; 
   
-      transition.attr("transform", translate(spot));
+      selection.attr("transform", translate(spot));
     });
   }
 

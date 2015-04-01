@@ -1,0 +1,22 @@
+
+<md-dialog aria-label="Upload File Dialog">
+  <md-toolbar>
+    <div class="md-toolbar-tools">
+      <span>Upload File</span>
+      <span flex></span>
+      <md-button ng-click="close()" aria-label="close upload dialog">
+          <md-icon md-svg-src="/img/icons/ic_close_48px.svg"></md-icon>
+      </md-button>
+    </div>
+  </md-toolbar>
+  <div ng-controller="UploadFile">
+    <md-content>
+      Drop a file here to upload:
+      <br/>
+    <div ng-file-drop ng-model="files" class="drop-box"
+        drag-over-class="dragover" ng-multiple="true" allow-dir="true"
+        accept=".csv,tsv">.tsv or .csv files</div>
+    <div ng-no-file-drop>File Drag/Drop is not supported for this browser</div>
+    </md-content>
+  </div>
+</md-dialog>

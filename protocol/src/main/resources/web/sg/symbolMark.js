@@ -3,26 +3,24 @@ define(["lib/d3"], function(_) {
 /** Return a function which plots a single d3Symbol.  */
 return function() {
   var _layoutHeight,
-      _symbol = d3.svg.symbol().size(36);
+      _color = "blue",
+      _markType = "circle",
+      _symbol = d3.svg.symbol().size(36).type(_markType);
 
 
-/** Parameters to the circle plotting function:
+/** Parameters to the symbol plotting function:
   *   enter:Selection --  d3 enter() selection 
-  *   symbolMark:SymbolMark -- a Categorized with optional mark drawing control */
-  var returnFn = function(enter, symbolMark) {
-    var plot = symbolMark.plot || {},
-        symbol = plot.symbol || _symbol,
-        color = symbolMark.color;
-
+  */
+  var returnFn = function(enter) {
     enter
       .append("path")
       .classed("mark", true)
-      .style("stroke", color)
-      .style("fill", color)
-      .attr("d", symbol);
+      .style("stroke", _color)
+      .style("fill", _color)
+      .attr("d", _symbol);
   };
 
-  d3.rebind(returnFn, _symbol, "size", "type");
+  d3.rebind(returnFn, _symbol, "size");
 
   returnFn.layoutHeight = function(value) {
     if (!arguments.length) return _layoutHeight || Math.sqrt(_symbol.size()()); // ()() because size returns accessorFn
@@ -35,6 +33,19 @@ return function() {
     _symbol = value;
     return returnFn;
   };
+
+  returnFn.color = function(value) {
+    if (!arguments.length) return _color;
+    _color = value;
+    return returnFn;
+  };
+
+  returnFn.markType = function(value) {
+    if (!arguments.length) return _markType;
+    _markType = value;
+    _symbol.type(_markType);
+    return returnFn;
+  }
 
   return returnFn;
 };

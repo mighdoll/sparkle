@@ -1,6 +1,7 @@
 body {
   background-color: white;
-  font-family: 'Oxygen', sans-serif;  
+  font-family: 'Oxygen', sans-serif;
+  font-size: 14px;
 } 
 
 .page-title {
@@ -29,14 +30,12 @@ body {
   margin-bottom: 20px;
 }
 
-#charts {
-  margin-top: 20px;
-  margin-left: 50px;
-  float: left;
-}
-
 [ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak], .ng-cloak, .x-ng-cloak {
   display: none !important;
+}
+
+.chart {
+  display: inline-block;
 }
 
 .panel .label {
@@ -44,13 +43,21 @@ body {
 }
 
 .chart-control-panel {
-  margin-top: 20px;
   font-size: 14px;
-  float:left;
+  display: inline-block;
+  vertical-align: top;
 }
 
 .chart-control-panel .md-select-label {
   font-size: 14px;
+}
+
+.chart-control-panel .settings-button {
+  vertical-align: top;
+}
+
+.upload-button {
+  vertical-align: top;
 }
 
 md-option .md-text {
@@ -58,24 +65,60 @@ md-option .md-text {
 }
 
 .chart-control-panel .sub-selection {
-  margin-left: 8px;
+  margin-left: 12px;
 }
 
-.chart-control-panel .x-axis-controls {
+.chart-control-panel .axis-controls {
   margin-top: 50px;
 }
 
 .drop-box {
   background: #F8F8F8;
   border: 5px dashed #DDD;
-  width: 200px;
-  height: 65px;
-  text-align: center;
+  width: 400px;
+  height: 150px;
   padding-top: 25px;
   margin: 10px;
-  float: right;
+  display: flex;
+  justify-content: center; /* align horizontal */
+  align-items: center; /* align vertical */
 }
 
 .dragover {
-    border: 5px dashed blue;
+  border: 5px dashed blue;
+}
+
+md-content {
+  min-height: 200px;
+}
+
+.picker {
+  width: 400px;
+  display: inline-block;
+  position: relative;
+  top: -16px; /* reverse padding from being nested in two md-content blocks */
+  vertical-align: top;
+  transition-duration: 0.5s;
+  transition-function: ease;
+}
+
+.picker.ng-hide {
+  transition-duration: 0.5s;
+  transition-function: ease;
+  transform: translateX(-100%);
+}
+
+.menu {
+  vertical-align: top;
+}
+
+.left-button-bar {
+  width: 40px;
+  position: fixed;
+}
+
+.main-content {
+  position: absolute;
+  left: 40px;
+  clip: rect(auto, auto, auto, auto);
 }

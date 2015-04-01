@@ -24,8 +24,7 @@ import spray.http.StatusCodes
 import spray.json._
 import spray.httpx.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
-
-import nest.sparkle.store.{Store}
+import nest.sparkle.store.{EntityNotFoundForLookupKey, Store}
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat, StatusMessageFormat }
 import nest.sparkle.time.server.RichComplete
@@ -55,7 +54,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
     }
   }
 
-  private lazy val postDataRequest =
+  private lazy val postDataRequest:Route =
     path("data") {
       handleExceptions(exceptionHandler) {
         post {
@@ -70,7 +69,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
     }
 
   /** Returns the given entity path's columns */
-  private lazy val columnsRequest =
+  private lazy val columnsRequest:Route =
     path("columns" / Rest) { entityPath =>
       if (entityPath.isEmpty) {
         // This will happen if the url has just a slash after 'columns'
@@ -82,14 +81,20 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
     }
 
   /** Returns the entity paths associated with the given lookup key */
-  private lazy val entitiesRequest =
-    path("entities" / Rest) { lookupKey =>
-      if (lookupKey.isEmpty) {
-        // This will happen if the url has just a slash after 'entities'
-        complete(StatusCodes.NotFound -> "Lookup key not specified")
-      } else {
-        val futureNames = store.entities(lookupKey)
-        richComplete(futureNames)
+  private lazy val entitiesRequest:Route =
+    path("findEntity" ) {
+      parameter('q) { term =>
+        if (term.isEmpty) {
+          // This will happen if the url has just a slash after 'entities'
+          complete(StatusCodes.NotFound -> "Lookup key not specified")
+        } else {
+          val futureNames =
+            store.entities(term)
+            .recover {
+              case e:EntityNotFoundForLookupKey => Seq()
+            }
+          richComplete(futureNames)
+        }
       }
     }
 
@@ -104,7 +109,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
       completeWithError(ctx, Status(999, s"unexpected error. $err"))
     }
   }
-  
+
   /** respond to the caller with the results of a processing their StreamRequest */
   private def completeDataRequest(request: StreamRequestMessage): Route = { ctx =>
     log.info(s"DataServiceV1.request: ${request.toLogging}")
@@ -134,7 +139,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
 
     result match {
       case Failure(err) =>
-        log.warn(s"parseStreamRequest failed to parse: $request", err)  
+        log.warn(s"parseStreamRequest failed to parse: $request", err)
         Failure(RequestParsingException(request))
       case success => success
     }
@@ -170,7 +175,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
       messageType = MessageType.Status, message = status)
     context.complete(statusMessage)
   }
-  
+
   case class RequestParsingException(origRequest: String) extends RuntimeException(origRequest)
 }
 

@@ -1,0 +1,95 @@
+<div class="chart-control-panel">
+  <md-button class="md-primary md-hue-1 settings-button" ng-click="showPanel = ! showPanel" aria-label="show panel">
+    <md-icon md-svg-src="/img/icons/ic_settings_24px.svg"></md-icon>
+  </md-button>
+
+  <div ng-show="showPanel" class="panel">
+    <md-input-container>
+      <label>Chart Title</label>
+      <input ng-model="chartData.title">
+    </md-input-container>
+
+    <div ng-show="selectedSeries.columnPath">
+      <!-- choose a single column in the plot that we an edit -->
+      <md-select ng-model="selectedSeries" placeholder="series">
+        <md-option ng-value="named" ng-repeat="named in allSeries">{{named.columnPath}}</md-option>
+      </md-select>
+
+      <div class='sub-selection'>
+
+        <!-- plot type: scatter, line, bar, etc. -->
+        <md-select ng-model="selectedSeries.plotType" placeholder="plot">
+          <md-option ng-value="plotType" ng-repeat="plotType in plotTypes">
+            {{plotType}}
+          </md-option>
+        </md-select>
+
+         <!-- line plot options -->
+        <div ng-show="selectedSeries.plot.plotter.plotterName == 'line'">
+          <md-select ng-model="selectedSeries.plot.interpolate" placeholder="curve">
+            <md-option ng-value="interpolate" ng-repeat="interpolate in lineInterpolate">
+              {{interpolate}}
+            </md-option>
+          </md-select>
+          <div class="strokeWidth">
+            <md-select ng-model="selectedSeries.plot.strokeWidth" placeholder="line width">
+              <md-option ng-value="strokeWidth" ng-repeat="strokeWidth in strokeWidths">
+                {{strokeWidth}}
+              </md-option>
+            </md-select>
+          </div>
+        </div>
+
+        <!--scatter plot options -->
+        <div ng-show="selectedSeries.plot.plotter.plotterName == 'scatter'">
+          <div layout="row">
+            <md-select ng-model="selectedSeries.plot.symbol" placeholder="symbol">
+              <md-option ng-value="symbol" ng-repeat="symbol in symbols">
+                {{symbol}}
+              </md-option>
+            </md-select>
+            <md-select ng-model="selectedSeries.plot.symbolSize" placeholder="size">
+              <md-option ng-value="size" ng-repeat="size in symbolSizes">
+                {{size}}
+              </md-option>
+            </md-select>
+          </div>
+        </div>
+
+        <!-- transform/aggregation options -->
+        <div class="aggregation">
+          <md-select ng-model="selectedSeries.transformName" placeholder="aggregation">
+            <md-option ng-value="aggregation.aggregation" ng-repeat="aggregation in aggregations">
+              {{aggregation.name}}
+            </md-option>
+          </md-select>
+        </div>
+      </div>
+
+      <!-- options to control the display axes -->
+      <div class="axis-controls">
+        <md-switch ng-model="chartData.showXAxis" class="md-primary" aria-label="Show X Axis">
+          X Axis
+        </md-switch>
+        <md-switch ng-model="chartData.timeSeries" class="md-primary" aria-label="Time Series">
+          Time Series
+        </md-switch>
+        <md-switch ng-model="chartData.lockYAxis" class="md-primary" aria-label="Lock Y Axis">
+          Lock Y Axis
+        </md-switch>
+      </div>
+
+    </div>
+
+    <!--
+
+        <div class="palette">
+          <md-select ng-model="chart.palette" placeholder="Colors">
+            <md-option ng-value="palette" ng-repeat="palette in palettes">{{palette}}</md-option>
+          </md-select>
+        </div>
+
+          -->
+  </div>
+
+</div>

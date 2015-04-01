@@ -21,6 +21,7 @@ define(["lib/d3", "sg/util", "sg/richAxis", "sg/palette"],
 return function() {
   var _colors = palette.purpleBlueGreen3(),
       _zeroLock = false,
+      _lockYAxis = false,
       _orient = "left";
 
   var returnFn = function(container) {
@@ -31,6 +32,7 @@ return function() {
     var selection = d3.select(this),
         transition = d3.transition(selection),
         zeroLock = axisGroup.zeroLock || _zeroLock,
+        lockYAxis = axisGroup.lockYAxis || _lockYAxis,
         colors = axisGroup.colors || _colors,
         orient = axisGroup.orient || _orient;
   
@@ -44,24 +46,22 @@ return function() {
       position = [axisGroup.chartMargin.left + axisGroup.paddedPlotSize[0], 
                   axisGroup.chartMargin.top + paddingY];
     }
-    var axisTransition = attachGroup(transition, orient + ".axis", position),
-        axisNode = axisTransition.node(),
-        axisSelection = d3.select(axisNode); // (can't call .data on a transition)
+    var axisSelection = attachGroup(selection, orient + ".axis", position),
+        axisNode = axisSelection.node(),
+        axisTransition = toTransition(axisSelection, transition);
 
     var axisData = axisNode.__sideAxis = axisNode.__sideAxis || {
-      maxLockData: {locked: false, lockRange: maxRange(axisGroup.series) }
+      maxLockData: {lockRange: maxRange(axisGroup.series) }
     };
 
     var axis = richAxis()     
       .displayLength(axisGroup.plotSize[1])
       .labelColor(colors(0))
       .orient(orient)
-      .label(axisGroup.label);
+      .label(axisGroup.label || 'bar');
 
-    axisSelection.on("toggleMaxLock", reviseMax);    
-      
     var range;
-    if (axisData.maxLockData.locked) {
+    if (lockYAxis) {
       range = axisData.maxLockData.lockRange;
     } else {
       range = currentRange(axisGroup.series); 
@@ -71,8 +71,7 @@ return function() {
     }
     axis.domain(range); 
 
-    axisSelection
-      .data([axisData]); 
+    axisSelection.data([axisData]);
     axisTransition.call(axis);
 
     // assign a color, and share the scale and range
@@ -81,17 +80,6 @@ return function() {
       series.yScale = axis.scale();
       series.displayRange = range;
     });
-
-    /** called when the max lock button has been toggled.  
-     * Reset our definition of max if we're now locked */
-    function reviseMax() {
-      if (axisData.maxLockData.locked) {
-        axisData.maxLockData.lockRange = axis.domain();
-
-        // use a dummy tickFormat to calculate an abbreviated maxValue for display
-        axisData.maxLockData.maxValue = axis.scale().tickFormat(1)(axis.domain()[1]);
-      }
-    }
   }
 
   /** return the maximum possible range of all series as reported by the dataSeries metadata */
@@ -147,6 +135,12 @@ return function() {
   returnFn.zeroLock = function(value) {
     if (!arguments.length) return _zeroLock;
     _zeroLock = value;
+    return returnFn;
+  };
+
+  returnFn.lockYAxis = function(value) {
+    if (!arguments.length) return _lockYAxis;
+    _lockYAxis = value;
     return returnFn;
   };
 

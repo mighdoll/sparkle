@@ -3,7 +3,7 @@ define(["lib/d3", "sg/symbolMark", "sg/util"], function(_d3, symbolMark, _util) 
 /** Plot a scatterin of symbols.  
   * Bind to a DataSeries object */
 function scatter () {
-  var _plot = { plotter:symbolMark() },
+  var _markPlot = symbolMark(),
       _color = "black";
 
   var returnFn = function(container) {
@@ -17,20 +17,27 @@ function scatter () {
     * On transition, we translate the existing elements to their new location.
     */
   function attach(dataSeries) {
-    var selection = d3.select(this).selectAll(".mark"),
+    var rootSelect = d3.select(this),
+        markPlot = (dataSeries.plot && dataSeries.plot.markPlot) ?
+                      dataSeries.plot.markPlot : _markPlot,
+        markType = markPlot.markType(),
+        selection = rootSelect.selectAll(".mark." + markType),
+        otherPlotterJunk = rootSelect.selectAll('*').filter(function() {
+          return !d3.select(this).classed('mark ' + markType);
+        }),
         update = selection.data(dataSeries.data),
         enter = update.enter(),
-        exit = update.exit(),
-        subPlot = dataSeries.plot || _plot;  
+        exit = update.exit();
+
+    otherPlotterJunk.remove();
 
     // save old dataSeries in to use for transitions
     var currentScales = { xScale:dataSeries.xScale.copy(), yScale:dataSeries.yScale.copy() }, 
         oldScales = this.__scales || currentScales;
     this.__scales = currentScales;
-    
-    var args = shallowCopy({}, dataSeries);
-    args.plot = subPlot.plot;
-    subPlot.plotter(enter, args);
+
+    enter
+      .call(markPlot);
 
     update
       .call(translateXY, function(d) { 
@@ -54,6 +61,7 @@ function scatter () {
     return returnFn;
   };
 
+  returnFn.plotterName = 'scatter';
 
   return returnFn;
 }

@@ -504,7 +504,7 @@ function toTransition(selection, modelTransition) {
   var transition;
 
   // consider just copying the transition internal state instead: if this was an 
-  // transition containing mulitple elements, this loop would run multiple times unnecessarily
+  // transition containing multiple elements, this loop would run multiple times unnecessarily
   modelTransition.each(function() {   
     transition = d3.transition(selection);
   });
@@ -555,4 +555,23 @@ function parseUrl(urlString) {
   };
 }
 
+/** return true if the object has properties. returns false for an empty object, or undefined */
+function hasProperties(obj) {
+  for (var prop in obj) {
+    if(obj.hasOwnProperty(prop))
+      return true;
+  }
 
+  return false;
+}
+
+
+/** return the last part of a slash separated path */
+function lastPathComponent(path) {
+  var last = path.lastIndexOf("/");
+  if (last >= 0) {
+    return path.substring(last + 1);
+  } else {
+    return path;
+  }
+}

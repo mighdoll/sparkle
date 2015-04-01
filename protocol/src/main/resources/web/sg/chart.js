@@ -1,20 +1,20 @@
 /* Copyright 2013  Nest Labs
 
-   Licensed under the Apache License, Version 2.0 (the "License");
+   Licensed under the Apache License, Version 2.0 (the 'License');
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
        http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
+   distributed under the License is distributed on an 'AS IS' BASIS,
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["lib/d3", "lib/when/monitor/console", "lib/when/when", 
-        "sg/data", "sg/util", "sg/zoom", "sg/resizable", "sg/linePlot", "sg/richAxis", 
-        "sg/legend", "sg/timeClip", "sg/domCache"], 
+define(['lib/d3', 'lib/when/monitor/console', 'lib/when/when', 
+        'sg/data', 'sg/util', 'sg/zoom', 'sg/resizable', 'sg/linePlot', 'sg/richAxis', 
+        'sg/legend', 'sg/timeClip', 'sg/domCache'], 
    function(_d3, _console, when, sgData, _util, zoomBrush, resizable, linePlot, richAxis, 
             legend, timeClip, domCache) {
 
@@ -25,7 +25,7 @@ define(["lib/d3", "lib/when/monitor/console", "lib/when/when",
   * Note: assumes that it will be bound to an 'svg' DOM node.  (might work on a 'g'..)
   */
 function chart() {
-  var _title = "",
+  var _title = '',
       _size = [400, 200],     // total size: plot area + padding + margin 
       _margin = { top: 20, right: 50, bottom: 50, left: 50 }, // space around the plot area for axes and titles
       _padding = [0, 0],      // padding inside the plotArea
@@ -34,11 +34,12 @@ function chart() {
       _transitionTime = 500,
       _plotter = linePlot(),
       _dataApi = sgData,  
-      _showXAxis = true,  
-      _transformName = "Raw",  
+      _showXAxis = true,
+      _lockYAxis = false,
+      _transformName = 'Raw',  
       _xScale = null,
       _timeSeries = true,  
-      emptyGroups = [{label:"", series:[]}];
+      emptyGroups = [{label:'', series:[]}];
 
   /** Add chart components to the dom element selection. */
   var returnFn = function(container) {
@@ -63,9 +64,10 @@ function chart() {
         dataApi = chartData.dataApi || _dataApi,
         transitionTime = chartData.transitionTime || _transitionTime,
         padding = chartData.padding || _padding,
-        showLegend = ("showLegend" in chartData) ? chartData.showLegend : _showLegend,
+        showLegend = ('showLegend' in chartData) ? chartData.showLegend : _showLegend,
         selection = d3.select(this),
         inheritedTransition = d3.transition(selection),
+        lockYAxis = chartData.lockYAxis || _lockYAxis,
         paddedPlotSize = [outerSize[0] - margin.left - margin.right,
                           outerSize[1] - margin.top - margin.bottom],
         plotSpot = [margin.left + padding[0],
@@ -74,10 +76,10 @@ function chart() {
                     paddedPlotSize[1] - (2 * padding[1])],
         titleMargin = chartData.titleMargin || _titleMargin,
         groups = chartData.groups || emptyGroups,
-        timeSeries = ("timeSeries" in chartData) ? chartData.timeSeries : _timeSeries,
-        showXAxis = ("showXAxis" in chartData) ? chartData.showXAxis: _showXAxis,
+        timeSeries = ('timeSeries' in chartData) ? chartData.timeSeries : _timeSeries,
+        showXAxis = ('showXAxis' in chartData) ? chartData.showXAxis: _showXAxis,
         xScale = chartData.xScale || _xScale || timeSeries ? d3.time.scale.utc() : d3.scale.linear(),
-        chartId = domCache.saveIfEmpty(node, "chartId", function() {
+        chartId = domCache.saveIfEmpty(node, 'chartId', function() {
             return randomAlphaNum(8);
           });
 
@@ -91,9 +93,12 @@ function chart() {
     namedSeriesMetaData(groups, dataApi)
       .then(seriesMetaDataLoaded);
 
-    selection.on("resize", resize);
+    selection.on('resize', resize);
 
     var redraw = function() { bind.call(node, chartData); };
+
+    // expose an api to the outside world
+    chartData.api = { transitionRedraw:transitionRedraw};
 
     function seriesMetaDataLoaded() {
       var allSeries = collectSeries(groups);
@@ -131,23 +136,23 @@ function chart() {
     function dataReady(allSeries) {
       var transition = useTransition(inheritedTransition);
       // data plot drawing area
-      var plotSelection = attachByClass("g", selection, "plotArea")
-        .attr("width", plotSize[0])
-        .attr("transform", "translate(" + plotSpot[0] + "," + plotSpot[1] +")");
-      var plotClipId = "chart-plot-clip-" + chartId;
-      var labelLayer = attachByClass("g", selection, "label-layer")
-        .attr("width", plotSize[0])
-        .attr("transform", "translate(" + plotSpot[0] + "," + plotSpot[1] +")");
+      var plotSelection = attachByClass('g', selection, 'plotArea')
+        .attr('width', plotSize[0])
+        .attr('transform', 'translate(' + plotSpot[0] + ',' + plotSpot[1] +')');
+      var plotClipId = 'chart-plot-clip-' + chartId;
+      var labelLayer = attachByClass('g', selection, 'label-layer')
+        .attr('width', plotSize[0])
+        .attr('transform', 'translate(' + plotSpot[0] + ',' + plotSpot[1] +')');
 
       // x axis
       var xAxisSpot = [plotSpot[0], 
                        plotSpot[1] + plotSize[1] + padding[1]];
-      
-      keyAxis(transition, chartData.displayDomain, timeSeries, xAxisSpot, plotSize[0], xScale, showXAxis);
 
-      attachSideAxes(groups, transition, plotSize, paddedPlotSize, margin);
-      selection.on("toggleMaxLock", transitionRedraw);
-      selection.on("zoomBrush", brushed);
+      xAxis(transition, chartData.displayDomain, timeSeries, xAxisSpot,
+            plotSize[0], xScale, showXAxis);
+
+      attachSideAxes(groups, transition, plotSize, paddedPlotSize, margin, lockYAxis);
+      selection.on('zoomBrush', brushed);
 
       // setup clip so we can draw lines that extend a bit past the edge 
       // or animate clip if we're in a transition
@@ -163,7 +168,7 @@ function chart() {
       });
 
       // draw data plot
-      var plotTransition = transition.selectAll(".plotArea");
+      var plotTransition = transition.selectAll('.plotArea');
       attachSeriesPlots(plotTransition, groups, defaultPlotter);
       attachGroupPlots(plotSelection, plotTransition, groups, defaultPlotter);
 
@@ -211,7 +216,7 @@ function chart() {
         chartTransition: transition
       };
       var eventInfo = {detail: chartZoom, bubbles:true};
-      node.dispatchEvent(new CustomEvent("chartZoom", eventInfo));
+      node.dispatchEvent(new CustomEvent('chartZoom', eventInfo));
     }
 
     /** trigger our own transition and redraw. return the transition so
@@ -228,28 +233,28 @@ function chart() {
     }
   }
 
-  /** Emit a custom "chart" event when the transition completes and drawing is done.
+  /** Emit a custom 'chart' event when the transition completes and drawing is done.
    * Report the event immediately if we're not called on a transition 
    * Note that we dont't take into account any subsequnet 
    * */
   function drawCompleteNotify(transition, node) {
     if (transition.ease) {
-      transition.each("end", report);
+      transition.each('end', report);
     } else {
       report();
     }
 
     function report() {
       var eventInfo = {detail: {drawComplete:true}, bubbles:true};
-      node.dispatchEvent(new CustomEvent("chart", eventInfo));
+      node.dispatchEvent(new CustomEvent('chart', eventInfo));
     }
   }
 
   /** bind the side axes to chart */
-  function attachSideAxes(groups, transition, plotSize, paddedPlotSize, chartMargin) {
+  function attachSideAxes(groups, transition, plotSize, paddedPlotSize, chartMargin, lockYAxis) {
     var axisGroups = groups.filter(function(group) {if (group.axis) return true; });
     axisGroups.forEach(function(group) {
-      var groupAxis = attachByClass("g", transition, "group-axis");
+      var groupAxis = attachByClass('g', transition, 'group-axis');
 
       var axisGroup = {
         label: group.label,
@@ -257,6 +262,7 @@ function chart() {
         orient: group.orient,
         series: group.series,
         zeroLock: group.zeroLock,
+        lockYAxis: lockYAxis,
         chartMargin: deepClone(chartMargin),
         plotSize: plotSize.slice(0),
         paddedPlotSize: paddedPlotSize.slice(0)
@@ -286,7 +292,7 @@ function chart() {
   }
 
   function bindZoomBrush(plot, xScale, plotHeight) {
-    var attached = attachComponent(plot, zoomBrush, "brush");
+    var attached = attachComponent(plot, zoomBrush, 'brush');
     var zoomer = attached.component;
 
     zoomer
@@ -326,22 +332,22 @@ function chart() {
   /** display any error text from loading missing files */
   function displayLoadingErrors(selection, size, errors) {
     if (errors.length) 
-      selection.selectAll("*").remove();
+      selection.selectAll('*').remove();
 
-    var update = selection.selectAll(".error").data(errors),
+    var update = selection.selectAll('.error').data(errors),
         enter = update.enter(),
         exit = update.exit(),
         middle = [size[0] / 2, size[1] * 3/4],
         height = 20;
 
     enter
-      .append("text")
-      .classed("error", true);
+      .append('text')
+      .classed('error', true);
 
     update
-      .attr("transform", function(d,i) {
+      .attr('transform', function(d,i) {
           var yPosition = middle[1] - (height * i); 
-          return "translate(" + middle[0] + "," + yPosition + ")";
+          return 'translate(' + middle[0] + ',' + yPosition + ')';
       })
       .text(function(d) {return d;});
 
@@ -362,7 +368,7 @@ function chart() {
         };
       });
 
-    var legendSelection = attachGroup(selection, "legend", legendMargin);
+    var legendSelection = attachGroup(selection, 'legend', legendMargin);
     legendSelection.data([legendData]).call(legend());
   }
 
@@ -380,7 +386,7 @@ function chart() {
 
     var componentInfo = d3.merge(groupedInfos);
 
-    bindComponents(container, componentInfo, "series");
+    bindComponents(container, componentInfo, 'series');
   }
 
 
@@ -408,7 +414,7 @@ function chart() {
     var valid = validTransition(inheritedTransition);
 
     if (inheritedTransition.ease && !valid.ease) {
-      console.log("chart: creating transition.  inherited transition expired on node:", 
+      console.log('chart: creating transition.  inherited transition expired on node:', 
          inheritedTransition.node());
       return valid.transition().duration(150); 
     } 
@@ -424,13 +430,13 @@ function chart() {
       }
     });
 
-    var update = selection.selectAll(".grouped").data(groupers),
+    var update = selection.selectAll('.grouped').data(groupers),
         enter = update.enter(),
         exit = update.exit();
 
     enter
-      .append("g")
-      .classed("grouped", true);
+      .append('g')
+      .classed('grouped', true);
     
     var transition = toTransition(update, parentTransition);
     transition.each(function(group) { 
@@ -465,7 +471,7 @@ function chart() {
         if (timeSeries) {
           partsControl = {
             intoDurationParts: maxResults,
-            timeZoneId: "UTC"  // TODO allow override of timezone
+            timeZoneId: 'UTC'  // TODO allow override of timezone
           };
         }
 
@@ -491,7 +497,7 @@ function chart() {
 
           // update when for first set of data, call fn for subsequent updates
           // TODO fix race: we shouldn't update stream 1 if stream2 head hasn't arrived
-          if (fetched.promise.inspect().state === "pending") {
+          if (fetched.promise.inspect().state === 'pending') {
             series.data = translatedData;
             fetched.resolve();
           } else {
@@ -509,43 +515,67 @@ function chart() {
     var center = chartMargin.left + plotWidth/2,
         textHeight = 10,
         titleTop = titleMargin[1] + textHeight,
-        attachedTitle = attachByClass("text", selection, "title");    
+        attachedTitle = attachByClass('text', selection, 'title');    
 
     attachedTitle.entered()
-      .attr("class", "title")
-      .attr("text-anchor", "middle");
+      .attr('class', 'title')
+      .attr('text-anchor', 'middle');
 
     attachedTitle
-      .attr("transform", "translate(" + center + "," + titleTop +")")
+      .attr('transform', 'translate(' + center + ',' + titleTop +')')
       .text(title);
   }
 
 
-  /** add x axis, typically for time */
-  function keyAxis(selection, domain, timeSeries, position, width, scale, show) {
-    var axis = richAxis();
+  /** revise the scaling function for the xAxis based on current zoom and display width */
+  function setXScale(xScale, displayDomain, timeSeries, width) {
+    var translatedDomain = (timeSeries
+      ? displayDomain.map( function(millis) { return new Date(millis); })
+      : displayDomain);
+    xScale.domain(translatedDomain);
+    xScale.rangeRound([0, width]);
+  }
 
-    var labeler = function() {
-      if (timeSeries) {
-        return function() {return timeLabel(axis);};
-      } else {
-        return function() {return rawLabel(axis); };
+  /** add x axis, typically for time. Also, revise the xAxis scaling function */
+  function xAxis(transition, displayDomain, timeSeries, position, width, scale, show) {
+    setXScale(scale, displayDomain, timeSeries, width);
+
+    var axisSelection = d3.select(transition.node()).selectAll('.bottom.axis').data([{}]);
+    if (!show) {
+      axisSelection.remove();
+    } else {
+      var axis = richAxis();
+
+      var labeler = function() {
+        if (timeSeries) {
+          return function() {return timeLabel(axis);};
+        } else {
+          return function() {return rawLabel(axis); };
+        }
       }
+
+      axis
+        .displayLength(width)
+        .label(labeler())
+        .scale(scale)
+        .orient('bottom');
+
+      axis.scale(scale);
+
+      axisSelection.enter()
+        .append('g')
+        .classed('bottom axis', true);
+
+      var translate = 'translate(' + position[0] + ',' + position[1] + ')';
+      var axisTransition = toTransition(axisSelection, transition);
+
+      axisSelection
+        .attr('transform', translate);
+
+      axisTransition
+        .call(axis);
     }
 
-    var translatedDomain = (timeSeries 
-        ? domain.map( function(millis) { return new Date(millis); }) 
-        : domain);
-
-    axis
-      .displayLength(width)
-      .label(labeler())
-      .scale(scale)
-      .orient("bottom");
-
-    axis.scale(scale).domain(translatedDomain);
-
-    bindComponents(selection, [{component:axis, position:position, data: {showAxis: show}}], "bottom.axis");
 
     return axis;
   }
@@ -568,7 +598,7 @@ function chart() {
     return [min, max];
   }
 
-  var dateFormat = d3.time.format.utc("%H:%M %Y-%m-%d");  // LATER format configurable, and display optional
+  var dateFormat = d3.time.format.utc('%H:%M %Y-%m-%d');  // LATER format configurable, and display optional
 
   /** return the label for a time axis (current minimum displayed time) */
   function timeLabel(displayAxis) {
@@ -630,7 +660,7 @@ function chart() {
     /** return a 'fake' Series with an error property set */
     function errorSeries(err) {
       return {
-        error: err.statusText + ": " + err.responseText
+        error: err.statusText + ': ' + err.responseText
       };
     }
 
@@ -655,8 +685,8 @@ function chart() {
   /** Fetch a namedSeries from the server via the /column REST api.
    *  Returns a promise that completes with a Series object.  */
   function fetchSeriesInfo(dataApi, namedSeries) {
-    var setAndColumn = namedSeries.name,
-        lastSlash = setAndColumn.lastIndexOf("/"),
+    var setAndColumn = namedSeries.columnPath,
+        lastSlash = setAndColumn.lastIndexOf('/'),
         dataSetName = setAndColumn.slice(0, lastSlash),
         column = setAndColumn.slice(lastSlash+1, setAndColumn.length),
         futureKeyValueRanges = dataApi.columnRequestHttp("KeyValueRanges", {},
@@ -670,15 +700,12 @@ function chart() {
     /** now that we have the series metadata from the server, fill in the Series */
     function received(data) {
       var keyValueRanges = arrayToObject(data);
-      var series = {
-        set: dataSetName,
-        name: column,
-        range: keyValueRanges.valueRange,
-        domain: keyValueRanges.keyRange
-      };
+      namedSeries.set = dataSetName;
+      namedSeries.name = column;
+      namedSeries.range = keyValueRanges.valueRange;
+      namedSeries.domain = keyValueRanges.keyRange;
 
-      copyPropertiesExcept(series, namedSeries, "name");
-      return series;
+      return namedSeries;
     }
 
     return futureKeyValueRanges.then(received).otherwise(rethrow);
@@ -746,6 +773,12 @@ function chart() {
   returnFn.showXAxis = function(value) {
     if (!arguments.length) return _showXAxis;
     _showXAxis = value;
+    return returnFn;
+  };
+
+  returnFn.lockYAxis = function(value) {
+    if (!arguments.length) return _lockYAxis;
+    _lockYAxis = value;
     return returnFn;
   };
 

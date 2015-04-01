@@ -35,6 +35,9 @@ function linePlot() {
     */
   function attach(dataSeries) {
     var selection = d3.select(this),
+        otherPlotterJunk = selection.selectAll('*').filter(function() {
+          return !d3.select(this).classed('line');
+        }),
         // (we don't do the d3 traditional selectAll here -- svg paths are one
         // node for the whole line, not one node per data point)
         selected = attachByClass("path", selection, "line"),
@@ -42,7 +45,7 @@ function linePlot() {
         strokeWidth = (dataSeries.plot && dataSeries.plot.strokeWidth) || _strokeWidth,
         interpolate = (dataSeries.plot && dataSeries.plot.interpolate) || _interpolate,
         color = dataSeries.color || (dataSeries.plot && dataSeries.plot.color) || _color,
-        update = d3.transition(selected),
+        transition = d3.transition(selected),
         xScale = dataSeries.xScale,
         yScale = dataSeries.yScale;
 
@@ -50,15 +53,17 @@ function linePlot() {
     var thisSeries = { xScale:xScale.copy(), yScale:yScale.copy() }, 
         oldSeries = this.__series || thisSeries;
     this.__series = thisSeries;
-    
-    entered
-      .attr("stroke", color)
-      .attr("stroke-width", strokeWidth);
+
+    otherPlotterJunk.remove();
 
     selected
+      .attr("stroke", color)
       .datum(dataSeries.data);
       
-    var line = 
+    transition
+      .attr("stroke-width", strokeWidth);
+
+    var line =
       d3.svg.line()
         .interpolate(interpolate);
 
@@ -77,7 +82,7 @@ function linePlot() {
       };
     }
 
-    if (update.ease) { // if we're in a transition 
+    if (transition.ease) { // if we're in a transition
       var xTween = tweener("xScale", dataSeries.displayDomain),
           yTween = tweener("yScale", dataSeries.displayRange);
         
@@ -85,7 +90,7 @@ function linePlot() {
         .x( function(d) { return xTween.scale(d[0]); })
         .y( function(d) { return yTween.scale(d[1]); });
 
-      update 
+      transition
         .attrTween("d", scaledLine);
 
     } else {
@@ -93,7 +98,7 @@ function linePlot() {
         .x( function(d) { return xScale(d[0]); })
         .y( function(d) { return yScale(d[1]); });
 
-      update
+      transition
         .attr("d", line);
     }
 
@@ -126,6 +131,8 @@ function linePlot() {
     _color = value;
     return returnFn;
   };
+
+  returnFn.plotterName = 'line';
 
   return returnFn;
 }

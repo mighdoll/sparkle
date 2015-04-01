@@ -9,6 +9,7 @@ object LogUtil {
   
   private val configured: AtomicBoolean = new AtomicBoolean(false)
   private var loggingProvider:Option[ConfigureLog] = None
+
   /** setup java logging based on .conf settings for levels, file sizes, etc. */
   def configureLogging(rootConfig: Config): Unit = {
     if (configured.compareAndSet(false,true)) {

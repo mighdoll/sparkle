@@ -12,28 +12,17 @@
    See the License for the specific language governing permissions and
    limitations under the License.  */
 
-define(["lib/d3", "sg/util", "sg/maxLock"], function(_d3, _util, maxLock) {
+define(["lib/d3", "sg/util"], function(_d3, _util) {
 
 /** A display d3.axis with a few extensions:
   *  label - a code or css styled text label
-  *  lockMax - display a button for 'locking' the maximum value of the axis 
-  *    (unlock to let axis size grow dynamically)
-  *  sizing - sizes axis range based on a length and orientation
-  *
-  *  bind to a richAxisData:
-  *    { maxLockData: {locked:true, maxValue:"3.3"}
-  *      showAxis:Boolean
-  *    }
+  *  sizing - sizes axis range based on a length and orientation (TODO remove this and set scale externally)
   */
 return function() {
   var axis = d3.svg.axis(),   // wrapped d3.axis
       displayLength = 200,
       labelColor = "black",
-      lockMaxEnabled = true,  // lockMax feature enabled
-      maxLockHeight = 40,
-      maxLockOutdentY = 20,
-      _showAxis = true,
-      label = "";
+      label = "foo";
 
   /** Creator function the displayScale component.  
     * Adds axis to the selected dom element in the 'this' parameter.  */
@@ -41,24 +30,23 @@ return function() {
     selection.each(bind);
   }
     
-  function bind(richAxisData) {
+  function bind() {
     var g = d3.select(this),
+        inheritedTransition = d3.transition(g),
         range,
         dy,
         labelTransform = "rotate(-90)",
         anchorStyle = "end",
-        showAxis = ("showAxis" in richAxisData) ? richAxisData.showAxis : _showAxis,
-        orient = axis.orient(),
-        displayLockControl = lockMaxEnabled && (orient == "left" || orient == "right");
-
-    var maxLocked = displayLockControl && richAxisData.maxLockData && richAxisData.maxLockData.locked;
+        orient = axis.orient();
 
     if (orient == "left") {
       dy = "1.3em";
-      range = verticalRange();
+      range = [displayLength, 0];
+      axis.scale().rangeRound(range);
     } else if (orient == "right") {
       dy = "-.7em";
-      range = verticalRange();
+      range = [displayLength, 0];
+      axis.scale().rangeRound(range);
     } else if (orient == "bottom") {
       labelTransform = "";
       range = [0, displayLength];
@@ -66,46 +54,28 @@ return function() {
       anchorStyle = "beginning";
     }
 
-    function verticalRange() {
-      if (maxLocked) { 
-        return [displayLength, maxLockHeight - maxLockOutdentY];
-      } else {
-        return [displayLength, 0];
-      }
-    }
+    g
+      .call(axis);
 
-    axis.scale().rangeRound(range);
+    var labelUpdate = g.selectAll(".label").data([0]),
+        labelEnter = labelUpdate.enter(),
+        labelExit = labelUpdate.exit();
 
-    if (showAxis) {
-      var labelUpdate = g.selectAll(".label").data([0]),
-          labelEnter = labelUpdate.enter(),
-          labelExit = labelUpdate.exit();
+    labelEnter
+      .append("text")
+        .attr("class", "label")
+        .attr("transform", labelTransform)
+        .attr("dy", dy)
+        .attr("opacity", 0)
+        .style("text-anchor", anchorStyle)
+        .style("fill", labelColor);
 
-      labelEnter
-        .append("text")
-          .attr("class", "label") 
-          .attr("transform", labelTransform)
-          .attr("dy", dy)
-          .style("text-anchor", anchorStyle)
-          .style("fill", labelColor);
+    toTransition(labelUpdate, inheritedTransition)
+      .text(label)
+      .attr("opacity", 1);
 
-      if (displayLockControl) {
-        var attached = attachComponent(g, maxLock, "max-lock", [0, -maxLockOutdentY]);
-        attached.component
-          .height(maxLockHeight)
-          .orient(orient);
+    labelExit.remove();
 
-        attached.bind(richAxisData.maxLockData);
-      }
-      
-      labelUpdate
-        .text(label);
-
-      labelExit.remove();
-
-      g
-        .call(axis);
-    }
   }
 
   republishAxisApi();
@@ -143,21 +113,9 @@ return function() {
     return returnFn;
   };
 
-  returnFn.lockMaxEnabled = function(value) {
-    if (!arguments.length) return lockMaxEnabled;
-    lockMaxEnabled = value;
-    return returnFn;
-  };
-
   returnFn.labelColor = function(value) {
     if (!arguments.length) return labelColor;
     labelColor = value;
-    return returnFn;
-  };
-
-  returnFn.show = function(value) {
-    if (!arguments.length) return _show;
-    _show = value;
     return returnFn;
   };
 

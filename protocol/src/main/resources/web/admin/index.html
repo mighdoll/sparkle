@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <link rel="stylesheet" href="../css/angular_material/0.8.2/angular-material.css">
+    <link rel="stylesheet" type="text/css" href="../css/tree-control.css">
     <link rel="stylesheet" href="../css/graph.css">
     <link rel="stylesheet" href="data-dashboard.css">
     <link href='/font/Oxygen.css' rel='stylesheet' type='text/css'>
@@ -17,7 +18,8 @@
               'angular-material': "lib/angular_material/0.8.2/angular-material.min",
               'angularAMD': 'lib/angularAMD-0.2.1.min',
               'ngload': 'lib/ngload.min',
-              'angular-upload': 'lib/ng-file-upload-bower-3.1.2/angular-file-upload.min'
+              'angular-upload': 'lib/ng-file-upload-bower-3.1.2/angular-file-upload.min',
+              'angular-tree-control': 'lib/angular-tree-control'
           },
 
           // Add angular modules that does not support AMD out of the box, put it in a shim
@@ -28,7 +30,8 @@
               'angular-aria': ['angular'],
               'angular-animate': ['angular'],
               'angular-material': ['angular-animate', 'angular-aria', 'angular'],
-              'angular-upload': ['angular']
+              'angular-upload': ['angular'],
+              'angular-tree-control': ['angular'],
           }
       };
     </script>
@@ -36,82 +39,28 @@
   </head>
 
 <body ng-cloak>
+
   <div class=page-title> Data Dash </div>
 
-  <div class="column-entry">
-    <form id=ColumnOrEntityForm>
-      <input type='text' id='ColumnOrEntityInput'/>
-      <md-button> plot </md-button>
-    </form>
-  </div>
+  <div ng-controller="DataDashController as dash">
+    <div layout="row">
+      <md-content class="left-button-bar" layout="column">
+        <md-button class="md-primary menu" ng-click="showLeftPanel = !showLeftPanel" aria-label="show left menu">
+          <md-icon md-svg-src="/img/icons/ic_menu_48px.svg"></md-icon>
+        </md-button>
 
-  <div ng-controller="UploadFile">
-    <div ng-file-drop ng-model="files" class="drop-box"
-        drag-over-class="dragover" ng-multiple="true" allow-dir="true"
-        accept=".csv,tsv">.tsv or .csv files</div>
-    <div ng-no-file-drop>File Drag/Drop is not supported for this browser</div>
-  </div>
-
-  <div id="charts"></div>
-
-
-  <div ng-controller="ChartControlPanel" class="chart-control-panel">
-    <md-button class="md-primary md-hue-1" ng-click="showPanel = ! showPanel" aria-label="show panel">
-        <md-icon md-svg-src="/img/icons/ic_settings_24px.svg"></md-icon>
-    </md-button>
-    <div ng-show="showPanel" class="panel">
-      <md-input-container>
-        <label>Chart Title</label>
-        <input ng-model="chart.title">
-      </md-input-container>
-
-      <md-select ng-model="chart.chartType" placeholder="Chart Type">
-        <md-option ng-value="chartType" ng-repeat="chartType in chartTypes">{{chartType}}</md-option>
-      </md-select>
-
-      <div class='sub-selection' ng-show="chart.chartType == 'line'">
-        <md-select ng-model="chart.lineInterpolate" placeholder="Line Style">
-          <md-option ng-value="interpolate" ng-repeat="interpolate in lineInterpolate">
-            {{interpolate}}
-          </md-option>
-        </md-select>
-        <div class="strokeWidth">
-          <md-select ng-model="chart.strokeWidth" placeholder="Stroke">
-            <md-option ng-value="strokeWidth" ng-repeat="strokeWidth in strokeWidths">{{strokeWidth}}</md-option>
-          </md-select>
+        <md-button class="md-primary md-hue-1 upload-button" ng-click="showUpload()" aria-label="upload a file">
+          <md-icon md-svg-src="/img/icons/ic_file_upload_48px.svg"></md-icon>
+        </md-button>
+      </md-content>
+      <div layout="row" class="main-content">
+        <div class="picker" ng-show="showLeftPanel">
+          <Column-Picker search="dash.entityQuery" find-children="dash.columnsQuery"
+                download-file="dash.downloadTsv" plot-data="dash.plotData"></Column-Picker>
         </div>
-      </div>
 
-      <div class='sub-selection' ng-show="chart.chartType == 'scatter'">
-        <md-select ng-model="chart.symbol" placeholder="Symbol">
-          <md-option ng-value="symbol" ng-repeat="symbol in symbols">{{symbol}}</md-option>
-        </md-select>
-        <md-select ng-model="chart.symbolSize" placeholder="size">
-          <md-option ng-value="size" ng-repeat="size in symbolSizes">{{size}}</md-option>
-        </md-select>
+        <chart-with-settings api-event="firstChart"></chart-with-settings>
       </div>
-
-      <div class="palette">
-        <md-select ng-model="chart.palette" placeholder="Colors">
-          <md-option ng-value="palette" ng-repeat="palette in palettes">{{palette}}</md-option>
-        </md-select>
-      </div>
-
-      <div class="aggregation">
-        <md-select ng-model="chart.aggregation" placeholder="Aggregation">
-          <md-option ng-value="aggregation" ng-repeat="aggregation in aggregations">{{aggregation}}</md-option>
-        </md-select>
-      </div>
-
-      <div class="x-axis-controls">
-        <md-switch ng-model="chart.showXAxis" class="md-primary" aria-label="Show X Axis">
-          X Axis
-        </md-switch>
-        <md-switch ng-model="chart.timeSeries" class="md-primary" aria-label="Time Series">
-          Time Series
-        </md-switch>
-      </div>
-
     </div>
 
   </div>

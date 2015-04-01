@@ -7,7 +7,7 @@ import com.typesafe.config.Config
 
 import spray.http.StatusCodes
 
-import akka.actor.{Actor, ActorRefFactory, ActorSystem, Props}
+import akka.actor.{ActorSystem, Props}
 import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
@@ -15,16 +15,18 @@ import akka.util.Timeout
 import spray.can.Http
 import spray.http.HttpHeaders.`Content-Disposition`
 import spray.routing.Directive.pimpApply
-import spray.routing.{Directives, Route}
+import spray.routing.Route
 
-import nest.sparkle.http.{BaseAdminService$ => HttpAdminService, BaseAdminService, ResourceLocation, BaseAdminServiceActor}
+import nest.sparkle.http.{BaseAdminService, BaseAdminServiceActor}
 import nest.sparkle.store.{ReadWriteStore, Store}
 import nest.sparkle.tools.DownloadExporter
 import nest.sparkle.util.ConfigUtil.configForSparkle
-import nest.sparkle.util.Log
 import nest.sparkle.measure.Measurements
+import spray.json._
+import spray.json.DefaultJsonProtocol._
+import spray.httpx.SprayJsonSupport._
 
-/** a web api for serving an administrative page about data stored in sparkle: downlaod .tsv files, etc. */
+/** a web api for serving an administrative page about data stored in sparkle: download .tsv files, etc. */
 trait DataAdminService extends BaseAdminService with DataService {
   implicit def actorSystem: ActorSystem
   def store: Store
@@ -49,19 +51,8 @@ trait DataAdminService extends BaseAdminService with DataService {
       }
     }
 
-  lazy val upload: Route =
-    post {
-      path("admin" / "upload" / "url") {
-        dynamic {
-          println("got upload")
-          complete("ok")
-        }
-      }
-    }
-
   override lazy val routes: Route = {// format: OFF
       fetch ~
-      upload ~
       v1protocol ~
       get {
         jsServiceConfig

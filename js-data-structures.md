@@ -11,7 +11,7 @@ ChartData
     ?.style                    -- set this css class on the chart (so that css rules can style it)
     ?.title
     ?.margin
-    ?.size
+    ?.size:[Number,Number]     -- [width, height] in pixels of the svg window containing the chart
     ?.plotter:PlotInfo
     ?.showLegend:Boolean       -- display a 'key' describing the color of each data series
                                   (true by default)
@@ -64,7 +64,7 @@ NamedSeriesGroup
    .error:String                  -- display this error message rather than data
 
 NamedSeries
-   .name:String              -- "dataSetName/column" strings that identify the data set & column on the server
+   .columnPath:String        -- "dataSetName/column" strings that identify the data set & column on the server
    ?.label:String            -- label for the data series (column is used if .label is not specified)
 
 AxisGroup     // descriptor for binding a SideAxis 
