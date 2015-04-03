@@ -14,21 +14,12 @@
 
 package nest.sparkle.loader
 
-import java.io.IOException
-import java.nio.charset.StandardCharsets
-import java.nio.file.{ FileVisitResult, Files, Path, Paths, SimpleFileVisitor }
-import java.nio.file.attribute.BasicFileAttributes
-import java.util.concurrent.TimeUnit
+import java.nio.file.{Files, Paths}
 import java.nio.charset.StandardCharsets.UTF_8
-import scala.concurrent.{ Future, Promise }
 import org.scalatest.{ FunSuite, Matchers }
-import org.slf4j.LoggerFactory
-import akka.actor._
-import akka.util.Timeout.longToTimeout
 import spray.util._
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
-import nest.sparkle.tools.Exporter
-import nest.sparkle.util.{FileUtil, Resources}
+import nest.sparkle.util.FileUtil
 import nest.sparkle.tools.FileExporter
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
@@ -40,16 +31,14 @@ class TestExporter extends FunSuite with CassandraStoreTestConfig with Matchers 
   override def configOverrides = super.configOverrides ++
       List("exporter.output" -> exportDirectory)
 
-  // TODO figure out what to do with the dataset catalog
-  /*
   test("export epochs.csv to exports.tsv and validate the exported contents") {
     withLoadedFile("epochs.csv") { (store, system) =>
-      
+
       import system.dispatcher
 
       withDeleteDirectory(exportDirectory) {
         val exporter = FileExporter(rootConfig, store)
-        exporter.exportFiles("epochs").await(10.seconds)
+        exporter.exportLeafDataSet("epochs").await(10.seconds)
 
         val exportedFilePath = Paths.get(exportDirectory).resolve("epochs.tsv")
         val lines = Files.readAllLines(exportedFilePath, UTF_8).asScala
@@ -59,9 +48,44 @@ class TestExporter extends FunSuite with CassandraStoreTestConfig with Matchers 
       }
     }
   }
-  */
-  
-  /** recursively delete a provided directory after running a provided function (delet even if the function throws) */
+
+  test("export dir/subdir/epochs.csv to subdir/epochs.csv and validate the exported contents") {
+    withLoadedFile("dir") { (store, system) =>
+
+      import system.dispatcher
+
+      withDeleteDirectory(exportDirectory) {
+        val exporter = FileExporter(rootConfig, store)
+        exporter.exportLeafDataSet("subdir/epochs").await(10.seconds)
+
+        val exportedFilePath = Paths.get(exportDirectory).resolve("subdir/epochs.tsv")
+        val lines = Files.readAllLines(exportedFilePath, UTF_8).asScala
+        lines.size shouldBe 2752
+        lines.head shouldBe "key\tcount\tp90\tp99"
+        lines(1) shouldBe "1357710556000\t1402\t0.000604\t0.00139"
+      }
+    }
+  }
+
+  test("export epochs/p90 of epochs.csv to epochs.tsv and validate the exported contents") {
+    withLoadedFile("epochs.csv") { (store, system) =>
+
+      import system.dispatcher
+
+      withDeleteDirectory(exportDirectory) {
+        val exporter = FileExporter(rootConfig, store)
+        exporter.exportColumn("epochs/p90").await(10.seconds)
+
+        val exportedFilePath = Paths.get(exportDirectory).resolve("epochs.tsv")
+        val lines = Files.readAllLines(exportedFilePath, UTF_8).asScala
+        lines.size shouldBe 2752
+        lines.head shouldBe "key\tp90"
+        lines(1) shouldBe "1357710556000\t0.000604"
+      }
+    }
+  }
+
+  /** recursively delete a provided directory after running a provided function (delete even if the function throws) */
   private def withDeleteDirectory[T](pathString: String)(fn: => T): T = {
     try {
       fn

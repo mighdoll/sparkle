@@ -28,18 +28,16 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestC
     }
   }
 
-  test("all columns") {
+  test("all column categories") {
     withTestConsole { storageConsole =>
-      val allColumns = storageConsole.allColumns().toBlocking.toList
-      allColumns.toSet shouldBe Set("epochs/count", "epochs/p99", "epochs/p90")
+      val allColumnCategories = storageConsole.allColumnCategories().toBlocking.toList
+      allColumnCategories.toSet shouldBe Set("count", "p99", "p90")
     }
   }
 
-  // TODO figure out what to do with the dataset catalog
-  /*
-  test("eventsByDataSet") {
+  test("eventsByLeafDataSet") {
     withTestConsole { storageConsole =>
-      val allEvents = storageConsole.eventsByDataSet("epochs")
+      val allEvents = storageConsole.eventsByLeafDataSet("epochs")
       allEvents.length shouldBe 3
       allEvents.map(_.name).toSet shouldBe Set("epochs/count", "epochs/p99", "epochs/p90")
       allEvents.map(_.events).foreach { events =>
@@ -47,7 +45,6 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestC
       }
     }
   }
-  */
   
   test("eventsByColumnPath") {
     withTestConsole { storageConsole =>

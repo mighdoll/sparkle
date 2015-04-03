@@ -20,6 +20,18 @@ import nest.sparkle.util.Instance
 
 /** An abstraction for a datastore that holds readable columns */
 trait Store {
+  //TODO: handle partial matches based on lookupKey?
+  /** Return the entity paths associated with the given lookup key. If none, the Future
+    * if failed with EntityNotFoundForLookupKey. */
+  def entities(lookupKey: String): Future[Seq[String]]
+
+  /** Return the specified entity's column paths. */
+  def entityColumnPaths(entityPath: String): Future[Seq[String]]
+
+  /** Return the specified leaf dataSet's column paths, where a leaf dataSet is
+    * a dataSet with only columns (not other dataSets) as children */
+  def leafDataSetColumnPaths(dataSet: String): Future[Seq[String]]
+
   /** return the dataset for the provided dataSet name or path (fooSet/barSet/mySet).  */
   def dataSet(name: String): Future[DataSet]
 
@@ -73,6 +85,9 @@ object Store {
     }
   }
 }
+
+/** Used when there aren't any entity paths associated with the given lookup key */
+case class EntityNotFoundForLookupKey(lookupKey: String) extends RuntimeException(lookupKey)
 
 /** Used when a data set cannot be found in the store */
 case class DataSetNotFound(name: String) extends RuntimeException(name)

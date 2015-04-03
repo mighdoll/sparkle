@@ -68,6 +68,19 @@ trait CassandraStoreTestConfig extends SparkleTestConfig {
   def withTestActors[T](fn: ActorSystem => T): T = {
     ActorSystemFixture.withTestActors("cassandra-store-test-config")(fn)
   }
+
+  /** run a function after getting a writeable column from the store */
+  def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStoreWriter) // format: OFF
+      (fn: (WriteableColumn[T, U], String) => Unit): Boolean = { // format: ON
+    val testColumn = s"latency.p99.${randomAlphaNum(3)}"
+    val testId = "server1"
+    val testColumnPath = s"$testId/$testColumn"
+    val column = store.writeableColumn[T, U](testColumnPath).await
+    try {
+      fn(column, testColumnPath)
+    }
+    true  // so that it can be used in a property that throws to report errors
+  }
   
   /** try loading a known file and check the expected column for results */
   def testLoadFile[T, U, V](resourcePath: String, columnPath: String)(fn: Seq[Event[U, V]] => T) {

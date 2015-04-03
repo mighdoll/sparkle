@@ -4,7 +4,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
 import scala.reflect.runtime.universe._
 
-import nest.sparkle.store.{Column, DataSet}
+import nest.sparkle.store.Column
 import nest.sparkle.store.EventGroup.transposeSlices
 import nest.sparkle.store.Store
 import nest.sparkle.util.Log
@@ -12,7 +12,9 @@ import nest.sparkle.util.ObservableFuture.WrappedObservable
 import nest.sparkle.util.StringUtil.lastPart
 
 /** Base trait for exporting data from the column Store in tabular form.
-  * Subclasses should call folderData() to retrieve a table of data from all the colums in a DataSet.
+  * Subclasses should call leafDatSet() to retrieve a table of data from all
+  * the columns in a leaf DataSet, or column() to retrieve a table of data
+  * from a particular column.
   */
 trait Exporter extends Log {
   implicit def execution: ExecutionContext
@@ -23,20 +25,24 @@ trait Exporter extends Log {
   case class Row(values: Seq[Option[Any]])
   case class NameAndType(name: String, typed: TypeTag[_])
 
-  /** return a table of data from all the columns in a dataSet */
-  protected def folderData(leafFolder: String): Future[Tabular] = {
-    // TODO this needs to be redone, now that dataSet catalog is going away
-    store.dataSet(leafFolder).flatMap { dataSet =>
-      exportRows(dataSet)
+  /** return a table of data from all the columns in a leaf dataSet, where
+    * a leaf dataSet is a dataSet with only columns (not other dataSets) as
+    * children */
+  protected def leafDatSet(dataSet: String): Future[Tabular] = {
+    store.leafDataSetColumnPaths(dataSet).flatMap { columnPaths =>
+      exportRows(columnPaths)
     }
   }
 
-  /** return a table of data from all the columns in a dataSet */
-  private def exportRows(dataSet: DataSet): Future[Tabular] = {
+  /** return a table of data from a particular column */
+  protected def column(columnPath: String): Future[Tabular] = {
+    exportRows(Seq(columnPath))
+  }
 
-    val futureNameColumns = dataSet.childColumns.toFutureSeq.flatMap { names =>
-      fetchColumns(names)
-    }
+  /** return a table of data from the specified columns */
+  private def exportRows(columnPaths: Seq[String]): Future[Tabular] = {
+
+    val futureNameColumns = fetchColumns(columnPaths)
 
     futureNameColumns.map { nameColumns =>
       val (names, columns) = nameColumns.unzip

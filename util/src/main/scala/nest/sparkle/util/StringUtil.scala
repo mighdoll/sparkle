@@ -22,4 +22,14 @@ object StringUtil {
     }
   }
 
+  /** return the leading component in a token separated string */
+  def firstPart(path: String, separator: String = "/"): String = {
+    val end = path.lastIndexOf(separator)
+    if (end >= 0) {
+      path.substring(0, end)
+    } else {
+      path
+    }
+  }
+
 }

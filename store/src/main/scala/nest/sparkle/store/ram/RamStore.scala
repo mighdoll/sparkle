@@ -15,19 +15,34 @@
 package nest.sparkle.store.ram
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 import nest.sparkle.store._
-import nest.sparkle.store.cassandra.ColumnTypes._
 import nest.sparkle.store.cassandra.{CanSerialize, WriteableColumn}
 import nest.sparkle.util.OptionConversion.OptionFuture
-import scala.reflect.runtime.universe._
 
 /** A java heap resident database of Columns */
 class WriteableRamStore extends ReadWriteStore {
   private val columns = mutable.Map[String, RamColumn[_, _]]()
   
   override val writeListener = new WriteNotification()
+
+  /** Return the entity paths associated with the given lookup key. If none, the Future
+    * if failed with EntityNotFoundForLookupKey. */
+  override def entities(lookupKey: String): Future[Seq[String]] = {
+    ???
+  }
+
+  /** Return the specified entity's column paths. */
+  override def entityColumnPaths(entityPath: String): Future[Seq[String]] = {
+    ???
+  }
+
+  /** Return the specified leaf dataSet's column paths, where a leaf dataSet is
+    * a dataSet with only columns (not other dataSets) as children */
+  override def leafDataSetColumnPaths(dataSet: String): Future[Seq[String]] = {
+    ???
+  }
 
   /** return the dataset for the provided name name or path (fooSet/barSet/mySet).  */
   override def dataSet(name: String): Future[DataSet] = {

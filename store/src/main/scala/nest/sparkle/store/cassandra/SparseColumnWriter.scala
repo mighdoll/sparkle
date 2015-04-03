@@ -39,7 +39,8 @@ object SparseColumnWriter
   def apply[T: CanSerialize, U: CanSerialize]( // format: OFF
         dataSetName: String, 
         columnName: String, 
-        catalog: ColumnCatalog,
+        columnCatalog: ColumnCatalog,
+        entityCatalog: EntityCatalog,
         tryDataSetCatalog: Try[DataSetCatalog],
         writeNotifier:WriteNotifier,
         preparedSession: PreparedSession,
@@ -47,15 +48,16 @@ object SparseColumnWriter
         batchSize: Int
       ): SparseColumnWriter[T,U] = { // format: ON
 
-    new SparseColumnWriter[T, U](dataSetName, columnName, catalog, tryDataSetCatalog, writeNotifier,
-      preparedSession, consistencyLevel, batchSize)
+    new SparseColumnWriter[T, U](dataSetName, columnName, columnCatalog, entityCatalog,
+      tryDataSetCatalog, writeNotifier, preparedSession, consistencyLevel, batchSize)
   }
 
   /** constructor to create a SparseColumnWriter and update the store */
   def instance[T: CanSerialize, U: CanSerialize]( // format: OFF
         dataSetName: String, 
         columnName: String, 
-        catalog: ColumnCatalog, 
+        columnCatalog: ColumnCatalog,
+        entityCatalog: EntityCatalog,
         tryDataSetCatalog: Try[DataSetCatalog],
         writeNotifier:WriteNotifier,
         preparedSession: PreparedSession,
@@ -63,8 +65,8 @@ object SparseColumnWriter
         batchSize: Int
       )(implicit execution:ExecutionContext):Future[SparseColumnWriter[T,U]] = { // format: ON
 
-    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, catalog, tryDataSetCatalog, writeNotifier,
-      preparedSession, consistencyLevel, batchSize)
+    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, columnCatalog, entityCatalog,
+      tryDataSetCatalog, writeNotifier, preparedSession, consistencyLevel, batchSize)
     writer.updateCatalog().map { _ =>
       writer
     }
@@ -115,7 +117,7 @@ import nest.sparkle.store.cassandra.SparseColumnWriter._
   */
 protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
     val dataSetName: String, val columnName: String,
-    catalog: ColumnCatalog, tryDataSetCatalog: Try[DataSetCatalog],
+    columnCatalog: ColumnCatalog, entityCatalog: EntityCatalog, tryDataSetCatalog: Try[DataSetCatalog],
     writeNotifier:WriteNotifier, preparedSession: PreparedSession,
     consistencyLevel: ConsistencyLevel, batchSize: Int,
     unloggedBatches: Boolean = true
@@ -136,7 +138,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
   /** overall count of how many values we tried to write to this table */
   val writeCountMetric = metrics.counter("store-value-writes", tableName)
 
-  /** create a catalog entries for this given sparse column */
+  /** create catalog entries for this given sparse column */
   protected def updateCatalog(description: String = "no description")(implicit executionContext: ExecutionContext): Future[Unit] = {
     
     // LATER check to see if table already exists first
@@ -146,7 +148,8 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
 
     val result =
       for {
-        _ <- catalog.writeCatalogEntry(entry)
+        _ <- columnCatalog.writeCatalogEntry(entry)
+        _ <- entityCatalog.addColumnPath(columnPath)
         _ <- updateDataSetCatalog(columnPath)
       } yield { }
 

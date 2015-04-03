@@ -14,24 +14,24 @@
 
 package nest.sparkle.store.cassandra
 
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import com.datastax.driver.core.{PreparedStatement, Session, SimpleStatement}
-import nest.sparkle.store.{ColumnPathFormat, ColumnNotFound}
-import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.util.Instance
-import nest.sparkle.util.OptionConversion._
-import nest.sparkle.util.Log
-import nest.sparkle.store.ColumnCategoryNotFound
-import nest.sparkle.store.cassandra.ObservableResultSet._
-
 import scala.language.existentials
 import scala.reflect.runtime.universe._
-import scala.util.{Failure, Success}
-import nest.sparkle.util.TaggedKeyValue
-import rx.lang.scala.Observable
+import scala.util.{Failure, Success, Try}
+
+import com.datastax.driver.core.{PreparedStatement, Session, SimpleStatement}
 import com.typesafe.config.Config
+import rx.lang.scala.Observable
 import spray.caching.LruCache
+
+import nest.sparkle.store.{ColumnPathFormat, ColumnNotFound, ColumnCategoryNotFound}
+import nest.sparkle.store.cassandra.ObservableResultSet._
+import nest.sparkle.util.GuavaConverters._
+import nest.sparkle.util.OptionConversion._
+import nest.sparkle.util.TryToFuture._
+import nest.sparkle.util.{Log, TaggedKeyValue}
 
 /** metadata about a column of data
   *
@@ -55,7 +55,8 @@ case class CatalogStatements(addCatalogEntry: PreparedStatement,
   * the cassandra table holding the column data, as well as other
   * metadata about the column like the type of data that is stored in the column.
   */
-case class ColumnCatalog(sparkleConfig: Config, session: Session, cassandraConsistency: CassandraConsistency)
+case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathFormat,
+                         session: Session, cassandraConsistency: CassandraConsistency)
     extends PreparedStatements[CatalogStatements] with Log {
 
   val tableName = ColumnCatalog.tableName
@@ -72,11 +73,10 @@ case class ColumnCatalog(sparkleConfig: Config, session: Session, cassandraConsi
       WHERE columnCategory = ?;
     """
 
-  val columnPathFormat: ColumnPathFormat = {
-    val className = sparkleConfig.getString("column-path-format")
-    log.info(s"using ColumnPathFormat: $className")
-    Instance.byName[ColumnPathFormat](className)()
-  }
+  val allColumnCategoriesStatement = s"""
+      SELECT columnCategory FROM $tableName
+      LIMIT 50000000;
+    """
 
   /** LRU cache used to track column categories that this instance has read/written
     * from/to cassandra, so we can avoid duplicate reads/writes */
@@ -91,7 +91,7 @@ case class ColumnCatalog(sparkleConfig: Config, session: Session, cassandraConsi
   /** store metadata about a column in Cassandra */ // format: OFF
   def writeCatalogEntry(entry: CassandraCatalogEntry)
       (implicit executionContext:ExecutionContext): Future[CatalogInfo] = { // format: ON
-    columnPathFormat.getColumnCategory(entry.columnPath) match {
+    columnPathFormat.columnCategory(entry.columnPath) match {
       case Success(columnCategory) =>
         cachedWriteCatalogEntry(columnCategory, entry)
       case Failure(exception) => Future.failed(exception)
@@ -123,7 +123,7 @@ case class ColumnCatalog(sparkleConfig: Config, session: Session, cassandraConsi
   /** return metadata about a given columnPath (based on data previously stored with writeCatalogEntry) */
   def catalogInfo(columnPath: String) // format:OFF
       (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
-    columnPathFormat.getColumnCategory(columnPath) match {
+    columnPathFormat.columnCategory(columnPath) match {
       case Success(columnCategory) =>
         cachedCatalogInfo(columnCategory, columnPath)
       case Failure(exception) =>
@@ -155,21 +155,31 @@ case class ColumnCatalog(sparkleConfig: Config, session: Session, cassandraConsi
     }
   }
 
-  def allColumns() // format:OFF
-  (implicit executionContext: ExecutionContext): Observable[String] = { // format: ON
-    val allColumnsStatement = s"""
-      SELECT columnCategory FROM $tableName
-      LIMIT 50000000;
-    """
+  // TODO: periodically read from cassandra and cache the results?
+  /** return all column categories from cassandra as a Future */
+  def allColumnCategoriesFuture() // format:OFF
+      (implicit executionContext: ExecutionContext): Future[Seq[String]] = { // format: ON
+    for {
+      resultSet <- session.executeAsync(allColumnCategoriesSimpleStatement).toFuture
+      rows <- Try(resultSet.all()).toFuture
+    } yield {
+      rows.asScala.map { row =>
+        row.getString(0)
+      }
+    }
+  }
 
-    val rows = session.executeAsync(
-      new SimpleStatement(allColumnsStatement).setConsistencyLevel(cassandraConsistency.read))
-        .observerableRows()
-    // result should be rows containing a single string: the columnCategory
+  /** return all column categories from cassandra as an Observable */
+  def allColumnCategoriesObservable() // format:OFF
+      (implicit executionContext: ExecutionContext): Observable[String] = { // format: ON
+    val rows = session.executeAsync(allColumnCategoriesSimpleStatement).observerableRows()
     rows.map { row =>
       row.getString(0)
     }
   }
+
+  private def allColumnCategoriesSimpleStatement =
+    new SimpleStatement(allColumnCategoriesStatement).setConsistencyLevel(cassandraConsistency.read)
 
   lazy val catalogStatements: CatalogStatements = {
     preparedStatements(makeStatements)

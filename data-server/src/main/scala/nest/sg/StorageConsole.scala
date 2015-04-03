@@ -26,35 +26,31 @@ trait StorageConsole extends Log {
   def store:Store
   implicit def executionContext:ExecutionContext
 
-  /** Return events for all columns inside a dataset.
-    * Only direct children a returned (it does not recurse on nested dataSets).
-    */
-  def eventsByDataSet(dataSet: String): Seq[ColumnEvents] = {
-    val tryDataSet = store.dataSet(dataSet).toTry
-    val tryColumnEvents =
-      tryDataSet.flatMap{ dataSet =>
-        val futureNames = dataSet.childColumns.toFutureSeq
+  /** Return events for all columns inside a leaf dataset. */
+  def eventsByLeafDataSet(dataSet: String): Seq[ColumnEvents] = {
+    val tryColumnEvents = {
+      val futureNames = store.leafDataSetColumnPaths(dataSet)
 
-        val futureColumnEvents: Future[Seq[ColumnEvents]] = futureNames.flatMap { names =>
-          val futureColumns = {
-            val seqFutureColumns = names.map { name => store.column[Long, Double](name) }
-            Future.sequence(seqFutureColumns)
-          }
-
-          val futureEvents = futureColumns.flatMap { columns =>
-            val seqFutureEvents = columns.map { column =>
-              column.readRangeOld(None, None).initial.toFutureSeq
-            }
-
-            Future.sequence(seqFutureEvents)
-          }
-
-          futureEvents.map { eventsSeq =>
-            eventsSeq.zip(names).map { case (events, name) => ColumnEvents(name, events) }
-          }
+      val futureColumnEvents: Future[Seq[ColumnEvents]] = futureNames.flatMap { names =>
+        val futureColumns = {
+          val seqFutureColumns = names.map { name => store.column[Long, Double](name) }
+          Future.sequence(seqFutureColumns)
         }
-        futureColumnEvents.toTry
+
+        val futureEvents = futureColumns.flatMap { columns =>
+          val seqFutureEvents = columns.map { column =>
+            column.readRangeOld(None, None).initial.toFutureSeq
+          }
+
+          Future.sequence(seqFutureEvents)
+        }
+
+        futureEvents.map { eventsSeq =>
+          eventsSeq.zip(names).map { case (events, name) => ColumnEvents(name, events) }
+        }
       }
+      futureColumnEvents.toTry
+    }
 
     tryColumnEvents match {
       case Success(seqColumnEvents) =>
@@ -84,11 +80,11 @@ trait StorageConsole extends Log {
     }
   }
 
-  /** return an observable of _all_ columns in the store */
-  def allColumns(): Observable[String] = {
+  /** return an observable of _all_ column categories in the store */
+  def allColumnCategories(): Observable[String] = {
     store match {
       case cassandraStore: CassandraStoreReader =>
-        cassandraStore.columnCatalog.allColumns()
+        cassandraStore.columnCatalog.allColumnCategoriesObservable()
     }
   }
 

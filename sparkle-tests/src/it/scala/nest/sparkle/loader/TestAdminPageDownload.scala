@@ -30,9 +30,6 @@ import nest.sparkle.util.ExpectHeader
 class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTestConfig
     with ExpectHeader with RequestBuilding {
 
-  override def configOverrides = super.configOverrides :+ (
-      "sparkle.sparkle-store-cassandra.dataset-catalog-enabled" -> true )
-
   def epochTest(headers: HttpHeader*) {
     epochRequestWithHeaders(headers: _*) { implicit response =>
       val entity = response.entity.asInstanceOf[HttpEntity.NonEmpty]
@@ -56,7 +53,6 @@ class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTe
     }
   }
 
-  // TODO figure out what to do with the dataset catalog
   test("download a .tsv file via the web admin interface, no Accept headers") {
     epochTest()
   }

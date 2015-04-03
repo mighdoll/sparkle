@@ -41,7 +41,7 @@ trait DataAdminService extends BaseAdminService with DataService {
       extract(_.request) { request =>
         path("fetch" / Segments) { segments =>
           val folder = segments.mkString("/")
-          val futureResult = exporter.exportFolder(folder).map { TsvContent(_) }
+          val futureResult = exporter.exportLeafDataSet(folder).map { TsvContent(_) }
           val fileName = segments.last + ".tsv"
           respondWithHeader(`Content-Disposition`("attachment", Map(("filename", fileName)))) {
             richComplete(futureResult)

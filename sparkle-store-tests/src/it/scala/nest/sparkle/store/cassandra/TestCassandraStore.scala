@@ -10,9 +10,8 @@ import org.scalacheck.{Test, Prop, Arbitrary, Gen}
 import nest.sparkle.datastream.DataArray
 import nest.sparkle.measure.DummySpan
 import nest.sparkle.store.cassandra.serializers._
-import nest.sparkle.store.{DataSetNotEnabled, ColumnNotFound, DataSetNotFound, Event}
+import nest.sparkle.store.{DataSetNotEnabled, ColumnNotFound, Event}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
-import nest.sparkle.util.RandomUtil.randomAlphaNum
 import nest.sparkle.util.FutureAwait.Implicits._
 import nest.sparkle.util.StringToMillis._
 
@@ -31,19 +30,6 @@ class TestCassandraStore
     (s"$sparkleConfigName.sparkle-store-cassandra.replication-factor" -> replicationFactor)
 
   private def replicationFactor = 1 // ensure replication factor so we can validate
-  
-  
-  def withTestColumn[T: CanSerialize, U: CanSerialize](store: CassandraStoreWriter) // format: OFF
-      (fn: (WriteableColumn[T, U], String) => Unit): Boolean = { // format: ON
-    val testColumn = s"latency.p99.${randomAlphaNum(3)}"
-    val testId = "server1"
-    val testColumnPath = s"$testId/$testColumn"
-    val column = store.writeableColumn[T, U](testColumnPath).await
-    try {
-      fn(column, testColumnPath)
-    }
-    true  // so that it can be used in a property that throws to report errors
-  }
 
   /** read and write a single event */
   def testOneEvent[T: CanSerialize : Arbitrary, U: CanSerialize : Arbitrary]() {
@@ -110,7 +96,7 @@ class TestCassandraStore
       val tables = rows.map(_.getString(0)).toSet
       tables shouldBe Set(
         "bigint0bigint", "bigint0boolean", "bigint0double", "bigint0int", "bigint0text",
-        "column_categories", "dataset_catalog"
+        "column_categories", "entity_catalog", "dataset_catalog"
       )
     }
 

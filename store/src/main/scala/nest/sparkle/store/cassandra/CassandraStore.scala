@@ -17,21 +17,22 @@ package nest.sparkle.store.cassandra
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language._
+import scala.util.{Failure, Success, Try}
 import scala.util.control.Exception._
+
+import com.datastax.driver.core.{ConsistencyLevel, Cluster, Row, Session}
 
 import com.typesafe.config.Config
 
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.store._
 import nest.sparkle.util.GuavaConverters._
-import nest.sparkle.util.Log
+import nest.sparkle.util.{Instance, Log, TryUtil}
 import nest.sparkle.util.ObservableFuture._
 import nest.sparkle.util.TryToFuture._
 import nest.sparkle.util.FutureAwait.Implicits._
 import nest.sparkle.util.BooleanOption._
 import nest.sparkle.util.OptionConversion._
-
-import com.datastax.driver.core.{ConsistencyLevel, Cluster, Row, Session}
 
 case class AsciiString(string: String) extends AnyVal
 
@@ -147,7 +148,13 @@ trait ConfiguredCassandra extends Log
 
   // TODO use a provided execution context
   implicit def execution: ExecutionContext = ExecutionContext.global
-  lazy val columnCatalog = ColumnCatalog(config, session, cassandraConsistency)
+  val columnPathFormat: ColumnPathFormat = {
+    val className = config.getString("column-path-format")
+    log.info(s"using ColumnPathFormat: $className")
+    Instance.byName[ColumnPathFormat](className)()
+  }
+  lazy val columnCatalog = ColumnCatalog(config, columnPathFormat, session, cassandraConsistency)
+  lazy val entityCatalog = EntityCatalog(config, columnPathFormat, session, cassandraConsistency)
   lazy val tryDataSetCatalog =
     storeConfig.getBoolean("dataset-catalog-enabled").toOption.map { _ =>
       DataSetCatalog(session, cassandraConsistency)
@@ -218,6 +225,7 @@ trait ConfiguredCassandra extends Log
 
     SparseColumnWriter.createColumnTables(session).await
     ColumnCatalog.create(session)
+    EntityCatalog.create(session)
     DataSetCatalog.create(session)
   }
 
@@ -260,7 +268,7 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
       : Future[WriteableColumn[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     SparseColumnWriter.instance[T, U](
-      dataSetName, columnName, columnCatalog, tryDataSetCatalog, writeNotifier, preparedSession,
+      dataSetName, columnName, columnCatalog, entityCatalog, tryDataSetCatalog, writeNotifier, preparedSession,
       cassandraConsistency.write, writeBatchSize
     )
   }
@@ -272,6 +280,7 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
     * This call is synchronous. */
   def format(): Unit = {
     columnCatalog.format()
+    entityCatalog.format()
     format(session)
   }
 
@@ -300,18 +309,72 @@ case class ColumnRowData(columnPath: String, key: AnyRef, value: AnyRef)
 /** a data access object for reading cassandra column data and the catalog of columns. */
 trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
 {
-  def writeListener: WriteListener
+  override def writeListener: WriteListener
 
   this.session
 
   // trigger creating connection, and create schemas if necessary 
   private lazy val preparedSession = PreparedSession(session, SparseColumnReaderStatements, cassandraConsistency.read)
 
+  /** Return the entity paths associated with the given lookup key. If none, the Future
+    * if failed with EntityNotFoundForLookupKey. */
+  override def entities(lookupKey: String): Future[Seq[String]] = {
+    def validateEntities(entities: Seq[String]): Future[Seq[String]] = {
+      if (entities.isEmpty) {
+        Future.failed(EntityNotFoundForLookupKey(lookupKey))
+      } else {
+        Future.successful(entities)
+      }
+    }
+    for {
+      entities <- entityCatalog.lookupEntities(lookupKey)
+      validatedEntities <- validateEntities(entities)
+    } yield {
+      validatedEntities
+    }
+  }
+
+  /** Return the specified entity's column paths. */
+  override def entityColumnPaths(entityPath: String): Future[Seq[String]] = {
+    for {
+      columnCategories <- columnCatalog.allColumnCategoriesFuture
+      columnPaths <- columnPaths(columnCategories){ columnCategory =>
+        columnPathFormat.entityColumnPath(columnCategory, entityPath)
+      }
+    } yield {
+      columnPaths
+    }
+  }
+
+  /** Return the specified leaf dataSet's column paths, where a leaf dataSet is
+    * a dataSet with only columns (not other dataSets) as children */
+  override def leafDataSetColumnPaths(dataSet: String): Future[Seq[String]] = {
+    for {
+      columnCategories <- columnCatalog.allColumnCategoriesFuture
+      columnPaths <- columnPaths(columnCategories){ columnCategory =>
+        columnPathFormat.leafDataSetColumnPath(columnCategory, dataSet)
+      }
+    } yield {
+      columnPaths
+    }
+  }
+
+  /** Converts column categories to column paths per the specified function */
+  private def columnPaths(columnCategories: Seq[String])(fn: String => Try[Option[String]]): Future[Seq[String]] = {
+    val columnPathTries = columnCategories.iterator.map { columnCategory =>
+      fn(columnCategory)
+    }
+    TryUtil.firstFailureOrElseSuccessVector(columnPathTries) match {
+      case Success(columnPaths) => Future.successful(columnPaths.flatten.sorted) // remove Nones
+      case Failure(err)         => Future.failed(err)
+    }
+  }
+
   /** Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
     *
     * A check is made that the dataSet exists. If not the Future is failed with
     * a DataSetNotFound returned. */
-  def dataSet(dataSetPath: String): Future[DataSet] = {
+  override def dataSet(dataSetPath: String): Future[DataSet] = {
     def childrenToDataSet(children:Seq[DataSetCatalogEntry]):Future[DataSet] = {
       children.size match {
         case n if n > 0 => Future.successful(CassandraDataSet(this, dataSetPath))
@@ -330,7 +393,7 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
   }
 
   /** return a column from a fooSet/barSet/columnName path */
-  def column[T, U](columnPath: String): Future[Column[T, U]] = {
+  override def column[T, U](columnPath: String): Future[Column[T, U]] = {
     for {
       (dataSetName, columnName) <- nonFatalCatch
                                       .withTry { Store.setAndColumn(columnPath) }
