@@ -14,6 +14,8 @@
 
 package nest.sparkle.store.cassandra
 
+import java.nio.ByteBuffer
+
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.runtime.universe._
 import scala.concurrent.duration.NANOSECONDS
@@ -36,6 +38,7 @@ object CanSerialize {
       case "String"                         => typeTag[String]
       case "spray.json.JsValue"             => typeTag[JsValue]
       case "nest.sparkle.util.GenericFlags" => typeTag[GenericFlags]
+      case "java.nio.ByteBuffer"            => typeTag[ByteBuffer]
       case x                                => NYI(s"unsupported storage type $x")
     }
   }
@@ -165,6 +168,16 @@ object serializers {
     override def serialize(flags: GenericFlags): AnyRef = flags.value.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): GenericFlags = {
       GenericFlags(row.getLong(index))
+    }
+  }
+
+  implicit object ByteBufferSerializer extends CanSerialize[ByteBuffer] {
+    val columnType = "blob"
+    def fromRow(row: Row, index: Int): ByteBuffer = {
+      val buf = row.getBytes(index)
+      val fixedBuf = new Array[Byte](buf.remaining())
+      buf.get(fixedBuf)
+      ByteBuffer.wrap(fixedBuf)
     }
   }
 

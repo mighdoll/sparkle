@@ -1,5 +1,7 @@
 package nest.sparkle.store.cassandra
 
+import java.nio.ByteBuffer
+
 import scala.reflect.runtime.universe._
 import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.util.{GenericFlags, Log, TaggedKeyValueExtractor}
@@ -16,7 +18,8 @@ object ColumnTypes extends Log {
     createSerializationInfo[Long, Boolean](),
     createSerializationInfo[Long, String](),
     createSerializationInfo[Long, JsValue](false),
-    createSerializationInfo[Long, GenericFlags](false)
+    createSerializationInfo[Long, GenericFlags](false),
+    createSerializationInfo[Long, ByteBuffer]()
   )
 
   case class UnsupportedColumnType[T, U](keySerial: CanSerialize[T], valueSerial: CanSerialize[U])
@@ -78,6 +81,7 @@ object LongBooleanSerializers extends SerializerExtractor[Long, Boolean]
 object LongStringSerializers extends SerializerExtractor[Long, String]
 object LongJsValueSerializers extends SerializerExtractor[Long, JsValue]
 object LongGenericFlagsSerializers extends SerializerExtractor[Long, GenericFlags]
+object LongByteBufferSerializers extends SerializerExtractor[Long, ByteBuffer]
 
 /** a pair of cassandra serializers for key and value */
 case class KeyValueSerializers[T, U](keySerializer: CanSerialize[T], valueSerializer: CanSerialize[U])

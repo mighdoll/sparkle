@@ -55,6 +55,7 @@ object SparseColumnReader extends Log {
         case LongStringSerializers(KeyValueSerializers(key, value))       => makeReader(key, value)
         case LongJsValueSerializers(KeyValueSerializers(key, value))      => makeReader(key, value)
         case LongGenericFlagsSerializers(KeyValueSerializers(key, value)) => makeReader(key, value)
+        case LongByteBufferSerializers(KeyValueSerializers(key, value))   => makeReader(key, value)
         case _                                                            => ???
       }
     }

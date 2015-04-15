@@ -1,8 +1,9 @@
 package nest.sparkle.loader
 
-import nest.sparkle.util.StringUtil
+import java.nio.ByteBuffer
 import scala.reflect.runtime.universe._
 import spray.json.JsValue
+import nest.sparkle.util.{GenericFlags, StringUtil}
 
 /** support for parsing text column headers with ascribed types e.g. myColumn:Int */
 object TypedColumnHeader {
@@ -18,6 +19,8 @@ object TypedColumnHeader {
 //      case Some("char")    => Some(typeTag[Char]) // TODO fixme, breaks other tests when enabled
       case Some("string")  => Some(typeTag[String])
       case Some("json")    => Some(typeTag[JsValue])
+      case Some("flags")   => Some(typeTag[GenericFlags])
+      case Some("blob")    => Some(typeTag[ByteBuffer])
       case _               => None
     }
   }

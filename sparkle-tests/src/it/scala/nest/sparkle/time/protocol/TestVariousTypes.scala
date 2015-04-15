@@ -1,13 +1,13 @@
 package nest.sparkle.time.protocol
 
+import java.nio.ByteBuffer
 import org.scalatest.FunSuite
 import org.scalatest.Matchers
+import spray.json.JsonFormat
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.store.Event
 import nest.sparkle.time.protocol.TransformParametersJson.RawParametersFormat
-import spray.json.DefaultJsonProtocol._
-import spray.json.JsonFormat
-import spray.json.JsValue
+import nest.sparkle.util.SparkleJsonProtocol._
 
 class TestVariousTypes extends FunSuite with Matchers with CassandraStoreTestConfig
     with StreamRequestor {
@@ -61,6 +61,14 @@ class TestVariousTypes extends FunSuite with Matchers with CassandraStoreTestCon
     import spray.json._
     testExplicitType[JsValue]("jso") { firstValue =>
       val expected = """{ "js": 9 }""".asJson
+      firstValue shouldBe expected
+    }
+  }
+
+  test("deliver blob value over protocol request") {
+    import com.google.common.base.Charsets
+    testExplicitType[ByteBuffer]("blo") { firstValue =>
+      val expected = ByteBuffer.wrap("abc".getBytes(Charsets.UTF_8))
       firstValue shouldBe expected
     }
   }

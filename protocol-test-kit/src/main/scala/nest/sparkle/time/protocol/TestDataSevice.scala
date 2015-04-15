@@ -27,7 +27,6 @@ import spray.http.{DateTime, HttpResponse}
 import spray.httpx._
 import spray.httpx.unmarshalling._
 import spray.json._
-import spray.json.DefaultJsonProtocol._
 import spray.httpx.SprayJsonSupport._
 import spray.testkit.ScalatestRouteTest
 import nest.sparkle.measure.ConfiguredMeasurements
@@ -35,10 +34,11 @@ import nest.sparkle.store.{ReadWriteStore, Event, Store}
 import nest.sparkle.test.SparkleTestConfig
 import nest.sparkle.time.protocol.EventJson.EventFormat
 import nest.sparkle.time.server.DataService
-import nest.sparkle.util.ConfigUtil.configForSparkle
 import nest.sparkle.time.protocol.ResponseJson.StreamsMessageFormat
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.protocol.ResponseJson.UpdateMessageFormat
+import nest.sparkle.util.ConfigUtil.configForSparkle
+import nest.sparkle.util.SparkleJsonProtocol._
 
 // TODO rename to not prefix with Test
 trait TestDataService extends DataServiceFixture with SparkleTestConfig {

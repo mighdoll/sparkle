@@ -1,3 +1,3 @@
 # column headers have explicit type ascription
-time:Long,boo:Boolean,sho:Short,int:int,lon:Long,dou:Double,cha:char,str:String,jso:Json
-1261440000,true,1,2,3,4,c,st,{\"js\": 9}
+time:Long,boo:Boolean,sho:Short,int:int,lon:Long,dou:Double,cha:char,str:String,jso:Json,fla:Flags,blo:Blob
+1261440000,true,1,2,3,4,c,st,{\"js\": 9},123,YWJj

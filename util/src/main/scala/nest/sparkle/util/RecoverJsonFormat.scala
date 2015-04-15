@@ -1,11 +1,13 @@
 package nest.sparkle.util
 
-import nest.sparkle.util.OptionConversion._
+import java.nio.ByteBuffer
+
 import spray.json.{ JsValue, JsonFormat }
-import spray.json.DefaultJsonProtocol._
 import scala.reflect.runtime.universe._
 import scala.util.Try
 import spray.json.JsNull
+import nest.sparkle.util.OptionConversion._
+import nest.sparkle.util.SparkleJsonProtocol._
 
 case class JsonFormatNotFound(msg: String) extends RuntimeException(msg)
 
@@ -33,7 +35,8 @@ object RecoverJsonFormat {
     optionToNullFormat[Double],
     optionToNullFormat[Char],
     optionToNullFormat[String],
-    typeToFormat[JsValue]
+    typeToFormat[JsValue],
+    typeToFormat[ByteBuffer]
   )
 
   /** return a mapping from a typetag to an JsonFormat */

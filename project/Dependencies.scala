@@ -101,6 +101,9 @@ object Dependencies {
   // match version used by spark, cassandra driver, etc
   val guava                 = "com.google.guava"          % "guava"                   % "14.0.1"
 
+  // see https://issues.scala-lang.org/browse/SI-8978
+  val jsr                   = "com.google.code.findbugs"  % "jsr305"                  % "2.0.3"
+
   object Runtime {
     val logback             = "ch.qos.logback"            % "logback-classic"         % "1.1.2"
     val log4j               = "log4j"                     % "log4j"                   % "1.2.17"

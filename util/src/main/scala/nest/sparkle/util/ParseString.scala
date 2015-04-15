@@ -1,9 +1,13 @@
 package nest.sparkle.util
 
-import nest.sparkle.util.KindCast.castKind
+import java.nio.ByteBuffer
+
+import com.google.common.base.Charsets
+import com.google.common.io.BaseEncoding
 import spray.json.JsValue
 
 import scala.reflect.runtime.universe._
+import nest.sparkle.util.KindCast.castKind
 
 /** typeclass to parse strings to a value. */
 abstract class ParseStringTo[T: TypeTag] {
@@ -61,8 +65,17 @@ object ParseStringTo {
         case _       => throw BooleanParseException(s)
       }
     }
+
     implicit object StringToString extends ParseStringTo[String] {
       def parse(s: String): String = s
+    }
+
+    implicit object StringToGenericFlags extends ParseStringTo[GenericFlags] {
+      override def parse(s: String): GenericFlags = GenericFlags(java.lang.Long.parseLong(s))
+    }
+
+    implicit object StringToBlob extends ParseStringTo[ByteBuffer] {
+      def parse(s: String): ByteBuffer = ByteBuffer.wrap(BaseEncoding.base64().decode(s))
     }
   }
 
@@ -71,14 +84,16 @@ object ParseStringTo {
     import nest.sparkle.util.ParseStringTo.Implicits._
     val existential: Option[ParseStringTo[_]] =
       typeTag[T].tpe match {
-        case t if t <:< typeOf[Boolean] => Some(StringToBoolean)
-        case t if t <:< typeOf[Short]   => Some(StringToShort)
-        case t if t <:< typeOf[Int]     => Some(StringToInt)
-        case t if t <:< typeOf[Long]    => Some(StringToLong)
-        case t if t <:< typeOf[Double]  => Some(StringToDouble)
-        case t if t <:< typeOf[Char]    => Some(StringToChar)
-        case t if t <:< typeOf[String]  => Some(StringToString)
-        case t if t <:< typeOf[JsValue] => Some(StringToJson)
+        case t if t <:< typeOf[Boolean]      => Some(StringToBoolean)
+        case t if t <:< typeOf[Short]        => Some(StringToShort)
+        case t if t <:< typeOf[Int]          => Some(StringToInt)
+        case t if t <:< typeOf[Long]         => Some(StringToLong)
+        case t if t <:< typeOf[Double]       => Some(StringToDouble)
+        case t if t <:< typeOf[Char]         => Some(StringToChar)
+        case t if t <:< typeOf[String]       => Some(StringToString)
+        case t if t <:< typeOf[JsValue]      => Some(StringToJson)
+        case t if t <:< typeOf[GenericFlags] => Some(StringToGenericFlags)
+        case t if t <:< typeOf[ByteBuffer]   => Some(StringToBlob)
       }
 
     // convert to the appropriate type

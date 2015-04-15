@@ -14,6 +14,8 @@
 
 package nest.sparkle.loader
 
+import java.nio.ByteBuffer
+
 import scala.collection.JavaConverters._
 import org.slf4j.LoggerFactory
 import org.scalatest.FunSuite
@@ -24,13 +26,11 @@ import akka.actor.ActorSystem
 import akka.actor.Props
 import scala.concurrent.{ Future, Promise }
 import spray.util._
-import nest.sparkle.util.ConfigUtil
+import nest.sparkle.util.{ConfigUtil, Resources, Log, GenericFlags}
 import nest.sparkle.store.cassandra.CassandraStore
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
-import nest.sparkle.util.Resources
 import nest.sparkle.store.Event
-import nest.sparkle.util.Log
 import spray.json.JsValue
 
 class TestFilesLoader extends FunSuite with Matchers with CassandraStoreTestConfig {
@@ -127,11 +127,26 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraStoreTestConf
       results.head.value shouldBe "st"
     }
   }
-  
+
   test("load file with explicit json") {
     import spray.json._
     testLoadFile("explicitTypes.csv", "explicitTypes/jso") { results: Seq[Event[Long, JsValue]] =>
       val expected = """{ "js": 9 }""".asJson
+      results.head.value shouldBe expected
+    }
+  }
+
+  test("load file with explicit generic flags") {
+    testLoadFile("explicitTypes.csv", "explicitTypes/fla") { results: Seq[Event[Long, GenericFlags]] =>
+      val expected = GenericFlags(123)
+      results.head.value shouldBe expected
+    }
+  }
+
+  test("load file with explicit blob") {
+    import com.google.common.base.Charsets
+    testLoadFile("explicitTypes.csv", "explicitTypes/blo") { results: Seq[Event[Long, ByteBuffer]] =>
+      val expected = ByteBuffer.wrap("abc".getBytes(Charsets.UTF_8))
       results.head.value shouldBe expected
     }
   }

@@ -200,6 +200,7 @@ object SparkleBuild extends Build {
         libraryDependencies ++= logbackTest ++ Seq(
           argot,
           guava,
+          jsr,
           spire,
           scalaLogging,
           metricsScala,

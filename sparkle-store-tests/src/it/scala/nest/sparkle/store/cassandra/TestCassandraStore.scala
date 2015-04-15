@@ -95,7 +95,7 @@ class TestCassandraStore
       val rows = resultRows.all.asScala
       val tables = rows.map(_.getString(0)).toSet
       tables shouldBe Set(
-        "bigint0bigint", "bigint0boolean", "bigint0double", "bigint0int", "bigint0text",
+        "bigint0bigint", "bigint0boolean", "bigint0double", "bigint0int", "bigint0text", "bigint0blob",
         "column_categories", "entity_catalog", "dataset_catalog"
       )
     }

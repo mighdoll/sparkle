@@ -1,9 +1,13 @@
 package nest.sparkle.store.cassandra
 
+import java.nio.ByteBuffer
+
 import scala.reflect.runtime.universe._
-import nest.sparkle.store.cassandra.serializers._
-import spray.json.JsValue
 import scala.util.Try
+
+import spray.json.JsValue
+
+import nest.sparkle.store.cassandra.serializers._
 import nest.sparkle.util.GenericFlags
 import nest.sparkle.util.OptionConversion._
 
@@ -21,7 +25,8 @@ object RecoverCanSerialize {
     typeToCanSerialize[Char],
     typeToCanSerialize[String],
     typeToCanSerialize[JsValue],
-    typeToCanSerialize[GenericFlags]
+    typeToCanSerialize[GenericFlags],
+    typeToCanSerialize[ByteBuffer]
   )
 
   /** return a CanSerialize instance at runtime based a typeTag. */

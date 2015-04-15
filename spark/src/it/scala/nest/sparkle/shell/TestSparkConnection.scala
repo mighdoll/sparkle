@@ -28,7 +28,6 @@ class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTest
       withSpark { connection =>
         fn(connection, store)
       }
-
     }
   }
 
@@ -47,8 +46,6 @@ class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTest
   }
 
   test("count total elements in the system") {
-    val connection = SparkConnection(rootConfig, "TestSparkConnection")
-
     withSparkTest("epochs.csv") { (connection, store) =>
       val sum = connection.allData.map(_.data.length).collect.sum
       sum shouldBe 8253
@@ -75,10 +72,11 @@ class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTest
   test("count elements by type (explicit types)") {
     countElementsByType("explicitTypes.csv") { (byType) =>
       byType("Int") shouldBe 1
-      byType("Long") shouldBe 2 // short currently treated as long, see TypedColumnHeader
+      byType("Long") shouldBe 3 // short and GenericFlags are treated as a long, see TypedColumnHeader
       byType("Double") shouldBe 1
       byType("String") shouldBe 3
       byType("Boolean") shouldBe 1
+      byType("java.nio.ByteBuffer") shouldBe 1
     }
   }
 }
