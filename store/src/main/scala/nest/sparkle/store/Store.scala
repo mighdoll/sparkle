@@ -87,16 +87,19 @@ object Store {
 }
 
 /** Used when there aren't any entity paths associated with the given lookup key */
-case class EntityNotFoundForLookupKey(lookupKey: String) extends RuntimeException(lookupKey)
+case class EntityNotFoundForLookupKey(lookupKey: String) extends RuntimeException(s"No entities found for $lookupKey")
 
 /** Used when a data set cannot be found in the store */
-case class DataSetNotFound(name: String) extends RuntimeException(name)
+case class DataSetNotFound(dataSetPath: String) extends RuntimeException(s"$dataSetPath does not exist")
 
 /** the dataset subsystem is disabled */
 case class DataSetNotEnabled() extends RuntimeException
 
 /** Used when a column path cannot be found in the store */
 case class ColumnNotFound(columnPath: String) extends RuntimeException(columnPath)
+
+/** Used when the specified input, like a entity path or a leaf dataSet, has no columns in the store */
+case class HasNoColumns(input: String) extends RuntimeException(s"$input does not have any columns")
 
 /** Used when a column path can't be split into data set and column components */
 case class MalformedColumnPath(msg: String) extends RuntimeException(msg)

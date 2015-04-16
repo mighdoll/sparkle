@@ -336,37 +336,46 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
 
   /** Return the specified entity's column paths. */
   override def entityColumnPaths(entityPath: String): Future[Seq[String]] = {
-    for {
-      columnCategories <- columnCatalog.allColumnCategoriesFuture
-      columnPaths <- columnPaths(columnCategories){ columnCategory =>
-        columnPathFormat.entityColumnPath(columnCategory, entityPath)
-      }
-    } yield {
-      columnPaths
+    columnPaths(entityPath){ columnCategory =>
+      columnPathFormat.entityColumnPath(columnCategory, entityPath)
     }
   }
 
   /** Return the specified leaf dataSet's column paths, where a leaf dataSet is
     * a dataSet with only columns (not other dataSets) as children */
   override def leafDataSetColumnPaths(dataSet: String): Future[Seq[String]] = {
+    columnPaths(dataSet){ columnCategory =>
+      columnPathFormat.leafDataSetColumnPath(columnCategory, dataSet)
+    }
+  }
+
+  /** Return column paths for the specified input per the specified function that
+    * converts column categories to column paths */
+  private def columnPaths(input: String)(fn: String => Try[Option[String]]): Future[Seq[String]] = {
     for {
       columnCategories <- columnCatalog.allColumnCategoriesFuture
-      columnPaths <- columnPaths(columnCategories){ columnCategory =>
-        columnPathFormat.leafDataSetColumnPath(columnCategory, dataSet)
-      }
+      columnPaths <- columnCategoriesToColumnPaths(columnCategories, input)(fn)
     } yield {
       columnPaths
     }
   }
 
   /** Converts column categories to column paths per the specified function */
-  private def columnPaths(columnCategories: Seq[String])(fn: String => Try[Option[String]]): Future[Seq[String]] = {
+  private def columnCategoriesToColumnPaths(columnCategories: Seq[String], input: String)
+      (fn: String => Try[Option[String]]): Future[Seq[String]] = {
     val columnPathTries = columnCategories.iterator.map { columnCategory =>
       fn(columnCategory)
     }
     TryUtil.firstFailureOrElseSuccessVector(columnPathTries) match {
-      case Success(columnPaths) => Future.successful(columnPaths.flatten.sorted) // remove Nones
-      case Failure(err)         => Future.failed(err)
+      case Success(columnPaths) =>
+        val realColumnPaths = columnPaths.flatten.sorted // remove Nones
+        if (realColumnPaths.isEmpty) {
+          Future.failed(HasNoColumns(input))
+        } else {
+          Future.successful(realColumnPaths)
+        }
+      case Failure(err)         =>
+        Future.failed(err)
     }
   }
 
@@ -378,7 +387,7 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
     def childrenToDataSet(children:Seq[DataSetCatalogEntry]):Future[DataSet] = {
       children.size match {
         case n if n > 0 => Future.successful(CassandraDataSet(this, dataSetPath))
-        case _          => Future.failed(DataSetNotFound(s"$dataSetPath does not exist"))
+        case _          => Future.failed(DataSetNotFound(dataSetPath))
       }
     }
 

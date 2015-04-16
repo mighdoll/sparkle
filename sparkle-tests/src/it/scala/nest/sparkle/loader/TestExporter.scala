@@ -16,6 +16,7 @@ package nest.sparkle.loader
 
 import java.nio.file.{Files, Paths}
 import java.nio.charset.StandardCharsets.UTF_8
+import nest.sparkle.store.ColumnNotFound
 import org.scalatest.{ FunSuite, Matchers }
 import spray.util._
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
@@ -81,6 +82,19 @@ class TestExporter extends FunSuite with CassandraStoreTestConfig with Matchers 
         lines.size shouldBe 2752
         lines.head shouldBe "key\tp90"
         lines(1) shouldBe "1357710556000\t0.000604"
+      }
+    }
+  }
+
+  test("export non-existent epochs/p95") {
+    withLoadedFile("epochs.csv") { (store, system) =>
+
+      import system.dispatcher
+
+      withDeleteDirectory(exportDirectory) {
+        val exporter = FileExporter(rootConfig, store)
+        val result = exporter.exportColumn("epochs/p95").failed.await
+        result shouldBe ColumnNotFound("epochs/p95")
       }
     }
   }

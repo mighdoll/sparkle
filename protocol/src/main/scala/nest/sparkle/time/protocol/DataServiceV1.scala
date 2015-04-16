@@ -21,19 +21,16 @@ import com.typesafe.config.Config
 import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
-import spray.routing.{ Directives, ExceptionHandler, StandardRoute }
+import spray.routing.{ Directives, ExceptionHandler }
 import spray.json._
-import nest.sparkle.store.Store
+import nest.sparkle.store.{Store, ColumnNotFound}
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat, StatusMessageFormat }
 import nest.sparkle.time.server.RichComplete
 import nest.sparkle.util.Log
-import nest.sparkle.util.ObservableFuture.WrappedObservable
 import spray.routing.RequestContext
 import akka.actor.ActorSystem
 import nest.sparkle.time.transform.InvalidPeriod
-import nest.sparkle.store.ColumnNotFound
-import nest.sparkle.util.TryToFuture.FutureTry
 import spray.routing.Route
 import nest.sparkle.measure.Measurements
 
@@ -54,7 +51,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
       pathPrefix("v1") { // format: OFF
         postDataRequest ~
         columnsRequest ~
-        dataSetsRequest
+        entitiesRequest
       } // format: ON
     }
   }
@@ -73,34 +70,26 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
       }
     }
 
+  /** Returns the given entity path's columns */
   private lazy val columnsRequest =
-    path("columns" / Rest) { dataSetName =>
-      if (dataSetName.isEmpty) {
+    path("columns" / Rest) { entityPath =>
+      if (entityPath.isEmpty) {
         // This will happen if the url has just a slash after 'columns'
-        complete(StatusCodes.NotFound -> "DataSet not specified")
+        complete(StatusCodes.NotFound -> "Entity path not specified")
       } else {
-        val futureColumnNames = store.dataSet(dataSetName).flatMap { dataSet =>
-          dataSet.childColumns.map { columnPath =>
-            val (_, columnName) = Store.setAndColumn(columnPath)
-            columnName
-          }.toFutureSeq
-        }
+        val futureColumnNames = store.entityColumnPaths(entityPath)
         richComplete(futureColumnNames)
       }
     }
 
-  private lazy val dataSetsRequest =
-    path("datasets" / Rest) { dataSetName =>
-      if (dataSetName.isEmpty) {
-        // This will happen if the url has just a slash after 'columns'
-        complete(StatusCodes.NotFound -> "DataSet not specified")
+  /** Returns the entity paths associated with the given lookup key */
+  private lazy val entitiesRequest =
+    path("entities" / Rest) { lookupKey =>
+      if (lookupKey.isEmpty) {
+        // This will happen if the url has just a slash after 'entities'
+        complete(StatusCodes.NotFound -> "Lookup key not specified")
       } else {
-        val futureNames = store.dataSet(dataSetName).flatMap { dataSet =>
-          dataSet.childDataSets.map { dataSet =>
-            val (_, childName) = Store.setAndColumn(dataSet.name)
-            childName
-          }.toFutureSeq
-        }
+        val futureNames = store.entities(lookupKey)
         richComplete(futureNames)
       }
     }
