@@ -40,13 +40,17 @@ import nest.sparkle.util.{Log, TaggedKeyValue}
   * @param description description of the column (for developer UI documentation)
   * @param domainType type of domain elements, e.g. "NanoTime" for nanosecond timestamps
   * @param rangeType type of range elements, e.g. "Double" for double event
+  * @param bucketSize bucket size in seconds, for data partitioning in cassandra
+  * @param firstBucketStart first possible starting bucket
   */
 case class CassandraCatalogEntry(
   columnPath: String,
   tableName: String,
   description: String,
   domainType: String,
-  rangeType: String)
+  rangeType: String,
+  bucketSize: Long,
+  firstBucketStart: Long)
 
 case class CatalogStatements(addCatalogEntry: PreparedStatement,
                              catalogInfo: PreparedStatement)
@@ -64,12 +68,12 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
   /** insert or overwrite a catalog entry */
   val addCatalogEntryStatement = s"""
       INSERT INTO $tableName
-      (columnCategory, tableName, description, domainType, rangeType)
-      VALUES (?, ?, ?, ?, ?);
+      (columnCategory, tableName, description, domainType, rangeType, bucketSize, firstBucketStart)
+      VALUES (?, ?, ?, ?, ?, ?, ?);
       """
 
   val catalogInfoStatement = s"""
-      SELECT tableName, domainType, rangeType FROM $tableName
+      SELECT tableName, domainType, rangeType, bucketSize, firstBucketStart FROM $tableName
       WHERE columnCategory = ?;
     """
 
@@ -114,7 +118,7 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
     val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
     val result = session.executeAsync(statement).toFuture.map { _ =>
       CatalogInfo(entry.tableName, CanSerialize.stringToTypeTag(entry.domainType),
-        CanSerialize.stringToTypeTag(entry.rangeType))
+        CanSerialize.stringToTypeTag(entry.rangeType), entry.bucketSize, entry.firstBucketStart)
     }
     result.onFailure { case error => log.error("writing catalog entry failed", error)}
     result
@@ -151,7 +155,9 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
       val tableName = row.getString(0)
       val domainType = CanSerialize.stringToTypeTag(row.getString(1))
       val rangeType = CanSerialize.stringToTypeTag(row.getString(2))
-      CatalogInfo(tableName, domainType, rangeType)
+      val bucketSize = row.getLong(3)
+      val firstBucketStart = row.getLong(4)
+      CatalogInfo(tableName, domainType, rangeType, bucketSize, firstBucketStart)
     }
   }
 
@@ -194,7 +200,8 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
   }
 }
 
-case class CatalogInfo(tableName: String, keyType: TypeTag[_], valueType: TypeTag[_]) extends TaggedKeyValue
+case class CatalogInfo(tableName: String, keyType: TypeTag[_], valueType: TypeTag[_],
+  bucketSize: Long, firstBucketStart: Long) extends TaggedKeyValue
 
 object ColumnCatalog {
 
@@ -212,6 +219,8 @@ object ColumnCatalog {
         description text,
         domainType text,
         rangeType text,
+        bucketSize bigint,
+        firstBucketStart bigint,
         PRIMARY KEY(columnCategory)
       );"""
     )

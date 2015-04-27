@@ -4,7 +4,7 @@ import java.nio.file.{Files, Path}
 import scala.concurrent.{Promise, Future, ExecutionContext}
 import scala.util.Success
 
-import nest.sparkle.store.{Event, WriteableStore}
+import nest.sparkle.store.{Store, Event, WriteableStore}
 import nest.sparkle.store.cassandra.{RecoverCanSerialize, WriteableColumn}
 import nest.sparkle.util.Exceptions._
 import nest.sparkle.util.Log
@@ -141,7 +141,7 @@ class SingleFileLoader
     * Strips off .tsv or .csv suffixes
     *
     * After stripping and skipping _ prefixed files, if no path components
-    * remain for the dataset, use "default" as the dataset.
+    * remain for the dataset, use the store's default dataset.
     *
     * @param path Path of the tsv/csv file
     * @return The DataSet as a string.
@@ -159,7 +159,7 @@ class SingleFileLoader
       if (fileName.startsWith("_")) {
         parentOpt match {
           case Some(parent) => parent
-          case None         => "default"
+          case None         => Store.defaultDataSet
         }
       } else {
         val strippedFileName = fileName.stripSuffix(".tsv").stripSuffix(".csv")

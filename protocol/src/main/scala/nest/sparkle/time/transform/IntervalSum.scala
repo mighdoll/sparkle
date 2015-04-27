@@ -114,7 +114,7 @@ class IntervalSum(rootConfig: Config) extends MultiColumnTransform with Log {
       rows.map { row =>
         val optValues: Seq[Option[U]] = row.value
         val zeroedValues = optValues.map(_.getOrElse(zero))
-        Event(row.argument, zeroedValues)
+        Event(row.key, zeroedValues)
       }
     }
   }
@@ -199,7 +199,7 @@ class IntervalSum(rootConfig: Config) extends MultiColumnTransform with Log {
   private def summarizeEntire[T: Numeric, U: Numeric]( // format: OFF
       events: Seq[Event[T, U]]
       ): Iterator[Event[T, U]] = { // format: ON
-    events.headOption.map(_.argument) match {
+    events.headOption.map(_.key) match {
       case Some(start) =>
         val intervals = combinedIntervals(events)
         val totalOverlaps: U = RawInterval.sumIntervals[T, U](intervals)

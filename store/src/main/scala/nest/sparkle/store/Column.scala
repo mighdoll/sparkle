@@ -57,7 +57,7 @@ trait Column[T, U]
 // . possibly a typeclass that covers all single, sequence, and typed list cases?
 /** an single item in the datastore, e.g. a timestamp and value */
 // Obsolete, DataArrays are the new black.
-case class Event[T, V](argument: T, value: V)
+case class Event[T, V](key: T, value: V)
 
 // TODO get rid of Event in favor of DataArray
 object Event {

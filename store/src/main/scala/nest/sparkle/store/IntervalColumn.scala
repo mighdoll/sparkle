@@ -81,14 +81,14 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]], earlyRead: 
       onOffs.scan(IntervalState(None, None)){ (state, event) =>
         (state.current, event.value) match {
           case (Some(Event(start, _)), true) => // accumulate into current interval, making it a bit longer
-            val size = event.argument - start
+            val size = event.key - start
             IntervalState(Some(Event(start, size)), None)
           case (Some(Event(start, _)), false) => // end started interval 
-            val size = event.argument - start
+            val size = event.key - start
             val emit = Event(start, size)
             IntervalState(None, Some(emit))
           case (None, true) => // start a new zero length interval
-            IntervalState(Some(Event(event.argument, numeric.zero)), None)
+            IntervalState(Some(Event(event.key, numeric.zero)), None)
           case (None, false) => // continue no interval
             state
         }
@@ -136,14 +136,14 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]], earlyRead: 
     }
 
     def overlap(first: Event[T, T], second: Event[T, T]): Boolean = {
-      val firstEnd = first.argument + first.value
-      second.argument < firstEnd
+      val firstEnd = first.key + first.value
+      second.key < firstEnd
     }
 
     def combine(first: Event[T, T], second: Event[T, T]): Event[T, T] = {
-      val firstOverlap = second.argument - first.argument
+      val firstOverlap = second.key - first.key
       val length = firstOverlap + second.value
-      Event(first.argument, length)
+      Event(first.key, length)
     }
 
     val joined = intervals.reduce{ (a, b) => a.merge(b) }
@@ -153,7 +153,7 @@ case class IntervalColumn[T](sourceColumns: Seq[Column[T, Boolean]], earlyRead: 
         // note this awaits all the streams to complete. To do this on async arriving data,
         // perhaps buffer and assume that all source events that overlap are available in the
         // buffered window..
-        val sorted = all.sortBy(_.argument)
+        val sorted = all.sortBy(_.key)
         Observable.from(combineEvents(sorted))
       }
 

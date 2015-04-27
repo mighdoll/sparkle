@@ -51,7 +51,7 @@ object PeriodPartitioner {
 
     val PeriodWithZone(period, dateTimeZone) = periodWithZone
     val range = rangeOpt.getOrElse(RangeInterval())
-    val startOpt = range.start.orElse(events.headOption.map(_.argument))
+    val startOpt = range.start.orElse(events.headOption.map(_.key))
     val (endOpt, includeEnd) = range.until match {
       case explicitEnd: Some[T] => (explicitEnd, false)
       case None                 => (endOfLatestInterval[T,U](events), true)

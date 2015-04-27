@@ -18,7 +18,6 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{Failure, Success, Try}
 
-import akka.dispatch.sysmsg.Failed
 import com.datastax.driver.core.{ConsistencyLevel, BatchStatement, Session}
 
 import nest.sparkle.datastream.DataArray
@@ -92,12 +91,11 @@ object SparseColumnWriter
       (implicit execution:ExecutionContext): Future[Unit] = { // format: ON
     val createTable = s"""
       CREATE TABLE IF NOT EXISTS "${tableInfo.tableName}" (
-        dataSet ascii,
-        rowIndex int,
-        column ascii,
-        argument ${tableInfo.keyType},
+        columnPath text,
+        bucketStart bigint,
+        key ${tableInfo.keyType},
         value ${tableInfo.valueType},
-        PRIMARY KEY((dataSet, column, rowIndex), argument)
+        PRIMARY KEY((columnPath, bucketStart), key)
       ) WITH COMPACT STORAGE
       """
     val created = session.executeAsync(createTable).toFuture.map { _ => () }
@@ -112,7 +110,7 @@ object SparseColumnWriter
 
 import nest.sparkle.store.cassandra.SparseColumnWriter._
 
-/** Manages a column of (argument,value) data pairs.  The pair is typically
+/** Manages a column of (key,value) data pairs.  The pair is typically
   * a millisecond timestamp and a double value.
   */
 protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
@@ -129,6 +127,9 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
   val serialInfo = serializationInfo[T, U]()
   val tableName = serialInfo.tableName
   
+  val bucketSize: Long = 0L // unlimited bucket size for now
+  val firstBucketStart: Long = 0L
+
   /** UNLOGGED may perform better */
   val batchType = unloggedBatches match {
     case true  => BatchStatement.Type.UNLOGGED
@@ -144,7 +145,8 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     // LATER check to see if table already exists first
 
     val entry = CassandraCatalogEntry(columnPath = columnPath, tableName = tableName, description = description,
-      domainType = serialInfo.domain.nativeType, rangeType = serialInfo.range.nativeType)
+      domainType = serialInfo.domain.nativeType, rangeType = serialInfo.range.nativeType, bucketSize = bucketSize,
+      firstBucketStart = firstBucketStart)
 
     val result =
       for {
@@ -174,8 +176,8 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     val written = writeMany(events)
     written.map { _ =>
       items.headOption.foreach { head =>
-        val start = head.argument
-        val end = items.last.argument
+        val start = head.key
+        val end = items.last.key
         log.trace(s"wrote events to $columnPath: $events")
         writeNotifier.columnUpdate(columnPath, ColumnUpdate(start, end))
       }
@@ -193,7 +195,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
         val serialValue  =  serialInfo.range.serialize(value)
 
         preparedSession.statement(InsertOne(tableName)).bind(
-          Seq[AnyRef](dataSetName, columnName, rowIndex, serialKey, serialValue): _*
+          Seq[AnyRef](columnPath, bucketStart, serialKey, serialValue): _*
         )
       }
 
@@ -233,7 +235,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
 
   /** delete all the column values in the column */
   def erase()(implicit executionContext: ExecutionContext): Future[Unit] = { // format: ON
-    val deleteAll = preparedSession.statement(DeleteAll(tableName)).bind(Seq[Object](dataSetName, columnName, rowIndex): _*)
+    val deleteAll = preparedSession.statement(DeleteAll(tableName)).bind(Seq[Object](columnPath, bucketStart): _*)
     preparedSession.session.executeAsync(deleteAll).toFuture.map { _ => () }
   }
 
@@ -243,9 +245,9 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
 
     val batches = events.grouped(batchSize).map { eventGroup =>
       val insertGroup = eventGroup.map { event =>
-        val (argument, value) = serializeEvent(event)
+        val (key, value) = serializeEvent(event)
         preparedSession.statement(InsertOne(tableName)).bind(
-          Seq[AnyRef](dataSetName, columnName, rowIndex, argument, value): _*
+          Seq[AnyRef](columnPath, bucketStart, key, value): _*
         )
       }
 
@@ -277,10 +279,10 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
 
   /** return a tuple of cassandra serializable objects for an event */
   private def serializeEvent(event: Event[T, U]): (AnyRef, AnyRef) = {
-    val argument = serialInfo.domain.serialize(event.argument)
+    val key = serialInfo.domain.serialize(event.key)
     val value = serialInfo.range.serialize(event.value)
 
-    (argument, value)
+    (key, value)
   }
 
 }

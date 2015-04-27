@@ -18,7 +18,6 @@ import nest.sparkle.util.ConfigUtil.{modifiedConfig, configForSparkle, sparkleCo
 import nest.sparkle.store.cassandra.ColumnTypes
 import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.datastream.DataArray
-import nest.sparkle.store.cassandra.ColumnSupport
 
 
 /** All the data from a column packed into an array */
@@ -115,7 +114,7 @@ case class SparkConnection(rootConfig: Config, applicationName: String = "Sparkl
         val grouped = items.groupBy(_.columnPath)
         grouped.map {
           case (columnPath, items) =>
-            val keys = items.map(_.argument).toArray
+            val keys = items.map(_.key).toArray
             val values = items.map(_.value).toArray
             ColumnData(columnPath, DataArray(keys, values), valueType)
         }
@@ -171,7 +170,7 @@ object SparkConnection {
 }
 
 /** A single key,value pair as its read from a column */
-private case class RawItem[K, V](dataset: String, column: String, argument: K, value: V) {
-  def columnPath = ColumnSupport.constructColumnPath(dataset, column)
+private case class RawItem[K, V](columnpath: String, key: K, value: V) {
+  // note: the casing of "columnpath" is per spark cassandra connector requirements
+  def columnPath = columnpath
 }
-

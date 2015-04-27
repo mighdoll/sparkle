@@ -117,8 +117,8 @@ object EntityCatalog {
   def create(session: Session): Unit = {
     session.execute(s"""
       CREATE TABLE IF NOT EXISTS $tableName (
-        lookupKey ascii,
-        entityPath ascii,
+        lookupKey text,
+        entityPath text,
         PRIMARY KEY(lookupKey, entityPath)
       );"""
     )

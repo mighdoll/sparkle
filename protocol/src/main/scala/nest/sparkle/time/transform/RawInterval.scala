@@ -57,7 +57,7 @@ object RawInterval {
     val numericKey = implicitly[Numeric[T]]
     val numericValue = implicitly[Numeric[U]]
 
-    def start: T = event.argument
+    def start: T = event.key
 
     val end: T = start match { // DRY with addLong
       case startDouble: Double => numericKey.fromDouble(startDouble + event.value.toDouble)

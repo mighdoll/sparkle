@@ -24,8 +24,9 @@ object ColumnSupport {
 trait ColumnSupport {
   def dataSetName:String
   def columnName:String
+  def bucketSize:Long       // bucket size in seconds, 0 for no limit
+  def firstBucketStart:Long // first possible starting bucket
 
   lazy val columnPath = constructColumnPath(dataSetName, columnName)
-  protected val rowIndex = 0.asInstanceOf[AnyRef] // LATER implement when we do wide row partitioning
-
+  protected val bucketStart = 0L.asInstanceOf[AnyRef] // LATER implement when we do wide row partitioning
 }

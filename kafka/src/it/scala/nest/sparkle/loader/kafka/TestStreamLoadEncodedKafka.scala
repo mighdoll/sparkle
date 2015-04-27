@@ -122,7 +122,7 @@ class TestStreamLoadEncodedKafka
       val column = testStore.column[Long, Double](expectedPath(generated.id1, generated.id2)).await
       val results = column.readRangeOld(None, None).initial.toBlocking.toList
       results.length shouldBe 1 //is it possible that the same id1/id2 combos was randomly generated more than once?
-      generated.key shouldBe results(0).argument
+      generated.key shouldBe results(0).key
       generated.value shouldBe results(0).value
     }
   }

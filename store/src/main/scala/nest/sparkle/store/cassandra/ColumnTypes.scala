@@ -47,10 +47,10 @@ object ColumnTypes extends Log {
     val domainSerializer = implicitly[CanSerialize[T]]
     val rangeSerializer = implicitly[CanSerialize[U]]
 
-    // cassandra storage types for the argument and value
-    val argumentStoreType = domainSerializer.columnType
+    // cassandra storage types for the key and value
+    val keyStoreType = domainSerializer.columnType
     val valueStoreType = rangeSerializer.columnType
-    val tableName = argumentStoreType + "0" + valueStoreType
+    val tableName = keyStoreType + "0" + valueStoreType
 
     assert(validateTableName(tableName), s"invalid table name $tableName")
 

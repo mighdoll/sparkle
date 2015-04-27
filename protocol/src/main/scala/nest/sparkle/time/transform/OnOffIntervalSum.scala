@@ -199,18 +199,18 @@ case class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measureme
             seqOnOffs.scanLeft(IntervalState(None, None)) { (state, event) =>
               (state.current, event.value) match {
                 case (None, true) => // start a new zero length interval
-                  val current = IntervalItem(event.argument, numeric.zero)
+                  val current = IntervalItem(event.key, numeric.zero)
                   IntervalState(Some(current), None)
                 case (None, false) => // continue with no interval
                   state
                 case (Some(item), true) => // accumulate into current interval, making it a bit longer
                   val start = item.start
-                  val size = event.argument - start
+                  val size = event.key - start
                   val current = IntervalItem(start, size)
                   IntervalState(Some(current), None)
                 case (Some(item), false) => // end started interval 
                   val start = item.start
-                  val size = event.argument - start
+                  val size = event.key - start
                   val emit = IntervalItem(start, size)
                   IntervalState(None, Some(emit))
               }
@@ -259,7 +259,7 @@ case class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measureme
       val allCombined = Future.sequence(eachStackCombined).map(_.flatten)
       val allMerged = allCombined.map { items =>
         val sorted = Span("mergeIntervals.sort", Detail).time {
-          items.sortBy(_.argument)
+          items.sortBy(_.key)
         }
         Span("mergeIntervals.combine, Detail").time {
           IntervalItem.combine(sorted)
@@ -371,7 +371,7 @@ case class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measureme
             parts.partIterator().take(maxParts).map { jodaInterval =>
               val start: K = Numeric[Long].toType[K](jodaInterval.start.millis)
               val end: K = Numeric[Long].toType[K](jodaInterval.end.millis)
-              val inPeriod = active.filter { item => item.argument >= start && item.argument < end }
+              val inPeriod = active.filter { item => item.key >= start && item.key < end }
 
               val sum = inPeriod.map(_.value).reduceOption(_ + _).getOrElse(zeroValue)
               Event(start, sum)
@@ -390,7 +390,7 @@ case class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measureme
     val initial =
       stream.initialEntire.map { items =>
         Span("sumEntire", Detail).time {
-          items.headOption.map(_.argument) match {
+          items.headOption.map(_.key) match {
             case Some(start) =>
               val total = items.map(_.value).reduce(_ + _)
               val item = Event(start, total)
@@ -454,7 +454,7 @@ case class OnOffIntervalSum(rootConfig: Config)(implicit measurements: Measureme
             Span("tabularBlanksToZeros", Detail).time {
               rows.map { row =>
                 val zeroedValues = row.value.map(_.getOrElse(zero))
-                new MultiValue(row.argument, zeroedValues)
+                new MultiValue(row.key, zeroedValues)
               }
             }
           }

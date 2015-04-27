@@ -26,8 +26,8 @@ class TestRawTransform extends PreloadedRamService with StreamRequestor {
     val message = streamRequest("Raw", params = params, selector = SelectString(simpleColumnPath))
     v1TypicalRequest(message) { events =>
       events.length shouldBe 3
-      events(0).argument shouldBe range.start.get
-      events(2).argument shouldBe "2013-01-19T22:13:50Z".toMillis
+      events(0).key shouldBe range.start.get
+      events(2).key shouldBe "2013-01-19T22:13:50Z".toMillis
     }
   }
 

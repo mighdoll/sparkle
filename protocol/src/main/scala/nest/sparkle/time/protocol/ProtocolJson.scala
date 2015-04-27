@@ -67,19 +67,19 @@ object TimeJson extends DefaultJsonProtocol {
 /** spray json converters for Event */
 object EventJson extends DefaultJsonProtocol {
   implicit def EventFormat[T: JsonFormat, U: JsonFormat]: JsonFormat[Event[T, U]] = { // SCALA, avoid the def here
-    val argumentFormat = implicitly[JsonFormat[T]]
+    val keyFormat = implicitly[JsonFormat[T]]
     val valueFormat = implicitly[JsonFormat[U]]
 
     new JsonFormat[Event[T, U]] {
       def write(event: Event[T, U]): JsValue = {
-        JsArray(argumentFormat.write(event.argument), valueFormat.write(event.value))
+        JsArray(keyFormat.write(event.key), valueFormat.write(event.value))
       }
 
       def read(value: JsValue): Event[T, U] = value match {
         case JsArray(Seq(elem1, elem2)) =>
-          val argument = argumentFormat.read(elem1)
+          val key = keyFormat.read(elem1)
           val value = valueFormat.read(elem2)
-          Event(argument, value)
+          Event(key, value)
         case _ => throw new DeserializationException("JsonStreamType expected")
 
       }

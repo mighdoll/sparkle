@@ -69,12 +69,14 @@ object Store {
   }
 
   case class MalformedColumnPath(msg: String) extends RuntimeException(msg)
-  /** split a columnPath into a dataSet and column components */
+
+  /** split a columnPath into dataSet and column components,
+    * the default dataSet is returned if the column path doesn't have one */
   def setAndColumn(columnPath: String): (String, String) = {
     val separator = columnPath.lastIndexOf("/")
     separator match {
-      case -1                              => ("default", columnPath)
-      case 0 if columnPath.tail.length > 0 => ("default", columnPath.tail)
+      case -1                              => (defaultDataSet, columnPath)
+      case 0 if columnPath.tail.length > 0 => (defaultDataSet, columnPath.tail)
       case 0                               => throw MalformedColumnPath(columnPath)
       case n =>
         val dataSetName = columnPath.substring(0, separator)
@@ -84,6 +86,9 @@ object Store {
         (dataSetName, columnName)
     }
   }
+
+  /** dataSet that is used, if a column path doesn't have one */
+  val defaultDataSet: String = "default"
 }
 
 /** Used when there aren't any entity paths associated with the given lookup key */

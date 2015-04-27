@@ -59,7 +59,7 @@ class TestCassandraStore
         implicit val keyClass = ClassTag[T](keyType.mirror.runtimeClass(keyType.tpe))
         val valueType = implicitly[CanSerialize[U]].typedTag
         implicit val valueClass = ClassTag[U](valueType.mirror.runtimeClass(valueType.tpe))
-        val pair = DataArray[T, U](Array[T](event.argument), Array[U](event.value))
+        val pair = DataArray[T, U](Array[T](event.key), Array[U](event.value))
 
         writeColumn.writeData(pair).await
         val readColumn = store.column[T, U](testColumnPath).await
@@ -161,7 +161,7 @@ class TestCassandraStore
           }.toIterable
           
           val testArray = {
-            val keys = events.map(_.argument).toArray
+            val keys = events.map(_.key).toArray
             val values = events.map(_.value).toArray
             DataArray(keys,values)
           }

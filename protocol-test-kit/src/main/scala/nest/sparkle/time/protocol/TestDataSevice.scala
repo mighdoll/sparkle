@@ -178,7 +178,7 @@ object TestDataService {
 
   def printMillisEvents[T](events: Seq[Event[Long, T]]) {
     val eventText = events.map { event =>
-      val dateTime = DateTime(event.argument)
+      val dateTime = DateTime(event.key)
       val dateString = dateTime.toString
       Event(dateString, event.value)
     }

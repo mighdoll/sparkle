@@ -80,7 +80,7 @@ class TestMultiIntervalSum extends FunSuite with Matchers with CassandraStoreTes
   test("multi on-off specified intervals") {
     withMultiSelect("_intervals-multi",
       """[["one", "two", "three", "four", "five", "six"], ["a", "b"]]""") { data =>
-        data.head.map(_.argument) shouldBe toMillis(Seq("2014-07-06T00:00:00.000", "2014-07-06T00:01:00.000", "2014-07-06T00:02:00.000"))
+        data.head.map(_.key) shouldBe toMillis(Seq("2014-07-06T00:00:00.000", "2014-07-06T00:01:00.000", "2014-07-06T00:02:00.000"))
         data.head.map(_.value) shouldBe Seq(
           Seq(1.minute.toMillis, 1.minute.toMillis),
           Seq(1.minute.toMillis, 1.minute.toMillis),

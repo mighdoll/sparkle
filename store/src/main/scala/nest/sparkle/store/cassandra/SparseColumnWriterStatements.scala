@@ -12,12 +12,12 @@ object SparseColumnWriterStatements extends PerTablePrepared {
 
   private def deleteAllStatement(tableName: String): String = s"""
       DELETE FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ?
+      WHERE columnPath = ? AND bucketStart = ?
       """
 
   private def insertOneStatement(tableName: String): String = s"""
       INSERT INTO $tableName
-      (dataSet, column, rowIndex, argument, value)
-      VALUES (?, ?, ?, ?, ?)
+      (columnPath, bucketStart, key, value)
+      VALUES (?, ?, ?, ?)
       """
 }

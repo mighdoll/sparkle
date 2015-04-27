@@ -23,7 +23,7 @@ import com.datastax.driver.core.{BoundStatement, Row}
 
 import nest.sparkle.core.OngoingData
 import nest.sparkle.datastream.DataArray
-import nest.sparkle.store.{Column, ColumnUpdate, WriteListener, WriteEvent, WriteNotifier, Event, OngoingEvents}
+import nest.sparkle.store._
 import nest.sparkle.store.cassandra.SparseColumnReaderStatements._
 import nest.sparkle.measure.{DummySpan, Span}
 import nest.sparkle.util.Exceptions.NYI
@@ -40,22 +40,22 @@ object SparseColumnReader extends Log {
     /** create a SparseColumnReader of the supplied X,Y type. The cast it to the
       * (presumably _) type of instance()s T,U parameters.
       */
-    def makeReader[X, Y](key: CanSerialize[X], value: CanSerialize[Y]): SparseColumnReader[T, U] = {
-      val typed = new SparseColumnReader(dataSetName, columnName, catalog, writeListener, preparedSession)(key, value)
+    def makeReader[X, Y](key: CanSerialize[X], value: CanSerialize[Y], catalogInfo: CatalogInfo): SparseColumnReader[T, U] = {
+      val typed = new SparseColumnReader(dataSetName, columnName, catalogInfo, writeListener, preparedSession)(key, value)
       typed.asInstanceOf[SparseColumnReader[T, U]]
     }
 
     /** create a reader of the appropriate type */
     def reader(catalogInfo: CatalogInfo): SparseColumnReader[T, U] = {
       catalogInfo match { // TODO capture types for key,value independently to avoid combinatorial
-        case LongDoubleSerializers(KeyValueSerializers(key, value))       => makeReader(key, value)
-        case LongLongSerializers(KeyValueSerializers(key, value))         => makeReader(key, value)
-        case LongIntSerializers(KeyValueSerializers(key, value))          => makeReader(key, value)
-        case LongBooleanSerializers(KeyValueSerializers(key, value))      => makeReader(key, value)
-        case LongStringSerializers(KeyValueSerializers(key, value))       => makeReader(key, value)
-        case LongJsValueSerializers(KeyValueSerializers(key, value))      => makeReader(key, value)
-        case LongGenericFlagsSerializers(KeyValueSerializers(key, value)) => makeReader(key, value)
-        case LongByteBufferSerializers(KeyValueSerializers(key, value))   => makeReader(key, value)
+        case LongDoubleSerializers(KeyValueSerializers(key, value))       => makeReader(key, value, catalogInfo)
+        case LongLongSerializers(KeyValueSerializers(key, value))         => makeReader(key, value, catalogInfo)
+        case LongIntSerializers(KeyValueSerializers(key, value))          => makeReader(key, value, catalogInfo)
+        case LongBooleanSerializers(KeyValueSerializers(key, value))      => makeReader(key, value, catalogInfo)
+        case LongStringSerializers(KeyValueSerializers(key, value))       => makeReader(key, value, catalogInfo)
+        case LongJsValueSerializers(KeyValueSerializers(key, value))      => makeReader(key, value, catalogInfo)
+        case LongGenericFlagsSerializers(KeyValueSerializers(key, value)) => makeReader(key, value, catalogInfo)
+        case LongByteBufferSerializers(KeyValueSerializers(key, value))   => makeReader(key, value, catalogInfo)
         case _                                                            => ???
       }
     }
@@ -74,7 +74,7 @@ object SparseColumnReader extends Log {
 class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     val dataSetName: String, 
     val columnName: String, 
-    catalog: ColumnCatalog, 
+    catalogInfo: CatalogInfo,
     writeListener:WriteListener, 
     prepared: PreparedSession )
       extends Column[T, U] with ColumnSupport { // format: ON
@@ -82,6 +82,9 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
   import SparseColumnReader.log
 
   def name: String = columnName
+
+  val bucketSize: Long = catalogInfo.bucketSize
+  val firstBucketStart: Long = catalogInfo.firstBucketStart
 
   private val keySerializer = implicitly[CanSerialize[T]]
   private val valueSerializer = implicitly[CanSerialize[U]]
@@ -136,13 +139,13 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
       (optStart, optEnd) match {
         case (None,None) =>
           prepared.statement(CountAll(tableName)).bind(
-            Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
+            Seq[AnyRef](columnPath, bucketStart): _*)
         case (Some(start:AnyRef), Some(end:AnyRef)) =>
           prepared.statement(CountRange(tableName)).bind(
-            Seq[AnyRef](dataSetName, columnName, rowIndex, start, end): _*)
+            Seq[AnyRef](columnPath, bucketStart, start, end): _*)
         case (Some(start:AnyRef), None) =>
           prepared.statement(CountFromStart(tableName)).bind(
-            Seq[AnyRef](dataSetName, columnName, rowIndex, start): _*)
+            Seq[AnyRef](columnPath, bucketStart, start): _*)
         case x =>
           NYI(s"countItems range variant $x")
        }
@@ -161,7 +164,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     val span = Span.start(spanName, parentSpan)
 
     val statement = prepared.statement(makeTableOperation(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex): _*
+      Seq[AnyRef](columnPath, bucketStart): _*
     )
     val obsRows = prepared.session.executeAsync(statement).observerableRowsA()(execution, span)
     obsRows.toFutureSeq.map { rows:Seq[Seq[Row]] =>
@@ -177,7 +180,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     : OngoingData[T, U] = { // format: ON
     log.trace(s"readAll from $tableName $columnPath")
     val readStatement = prepared.statement(ReadAll(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex): _*)
+      Seq[AnyRef](columnPath, bucketStart): _*)
 
     OngoingData(initial = readDataRows(readStatement), ongoing = ongoingRead())
   }
@@ -195,7 +198,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
       ( implicit execution:ExecutionContext, parentSpan: Span): Observable[DataArray[T,U]] = { // format: ON
     log.trace(s"readFromStartCurrent from $tableName $columnPath $start")
     val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex,
+      Seq[AnyRef](columnPath, bucketStart,
         start.asInstanceOf[AnyRef]): _*)
     readDataRows(readStatement)
   }
@@ -227,7 +230,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
       ( implicit execution:ExecutionContext, parentSpan: Span): OngoingData[T, U] = { // format: ON
     log.trace(s"readBoundedRange from $tableName $columnPath $start $end")
     val readStatement = prepared.statement(ReadRange(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex,
+      Seq[AnyRef](columnPath, bucketStart,
         start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
 
     OngoingData(readDataRows(readStatement), Observable.empty)
@@ -246,14 +249,14 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
   private def rowsDecoder(rows: Seq[Row]): DataArray[T, U] = {
     log.trace(s"rowsDecoder: $rows")
     val size = rows.size
-    val arguments = new Array[T](size)
+    val keys = new Array[T](size)
     val values    = new Array[U](size)
     (0 until size) foreach { index =>
       val row = rows(index)
-      arguments(index) = keySerializer.fromRow(row, 0)
+      keys(index) = keySerializer.fromRow(row, 0)
       values(index) = valueSerializer.fromRow(row, 1)
     }
-    DataArray(arguments, values)
+    DataArray(keys, values)
   }
 
 
@@ -278,7 +281,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
                         ( implicit executionContext: ExecutionContext, parentSpan:Span): OngoingEvents[T, U] = { // format: ON
     log.trace(s"readAllOld from $tableName $columnPath")
     val baseStatement = prepared.statement(ReadAll(tableName))
-    val args =  Seq[AnyRef](dataSetName, columnName, rowIndex)
+    val args =  Seq[AnyRef](columnPath, bucketStart)
     val readStatement = baseStatement.bind(args: _*)
 
     OngoingEvents(initial = readEventRowsOld(readStatement), ongoing = ongoingReadOld())
@@ -286,9 +289,9 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
 
   private def rowDecoder(row: Row): Event[T, U] = {
     log.trace(s"rowDecoder: $row")
-    val argument = keySerializer.fromRow(row, 0)
+    val key = keySerializer.fromRow(row, 0)
     val value = valueSerializer.fromRow(row, 1)
-    Event(argument.asInstanceOf[T], value.asInstanceOf[U])
+    Event(key.asInstanceOf[T], value.asInstanceOf[U])
   }
 
 
@@ -314,7 +317,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
                                  ( implicit execution:ExecutionContext, parentSpan: Span ): OngoingEvents[T, U] = { // format: ON
     log.trace(s"readBoundedRangeOld from $tableName $columnPath $start $end")
     val readStatement = prepared.statement(ReadRange(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex,
+      Seq[AnyRef](columnPath, bucketStart,
         start.asInstanceOf[AnyRef], end.asInstanceOf[AnyRef]): _*)
 
     OngoingEvents(readEventRowsOld(readStatement), Observable.empty)
@@ -328,7 +331,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
                                      (implicit execution:ExecutionContext, parentSpan: Span): Observable[Event[T,U]] = { // format: ON
     log.trace(s"readFromStartCurrentOld from $tableName $columnPath $start")
     val readStatement = prepared.statement(ReadFromStart(tableName)).bind(
-      Seq[AnyRef](dataSetName, columnName, rowIndex,
+      Seq[AnyRef](columnPath, bucketStart,
         start.asInstanceOf[AnyRef]): _*)
     readEventRowsOld(readStatement)
   }

@@ -13,7 +13,7 @@ object ItemUtil {
       val dateTime = new DateTime(millis)
       dateTime.toString(ISODateTimeFormat.hourMinuteSecond.withZone(DateTimeZone.UTC))
     }
-    val start = event.argument.asInstanceOf[Long]
+    val start = event.key.asInstanceOf[Long]
     val startString = millisTimeString(start)
     val valueString =
       event.value match {

@@ -14,7 +14,7 @@ import com.github.nscala_time.time.Implicits._
 
 /** A closed numeric interval [start,end). Supports intersection (project) and merging (combine).  */
 class IntervalItem[T:Numeric](val start:T, val length:T) extends Event[T,T](start, length) with Log {
-  def end:T = argument + value
+  def end:T = key + value
   
   /** intersect this interval with a target interval, optionally return their intersection. */
   def project(target: IntervalItem[T]): Option[IntervalItem[T]] = {

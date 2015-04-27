@@ -25,48 +25,48 @@ object SparseColumnReaderStatements extends PerTablePrepared {
   )
 
   private def readAll(tableName: String): String = s"""
-      SELECT argument, value FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ?
+      SELECT key, value FROM $tableName
+      WHERE columnPath = ? AND bucketStart = ?
       """
 
   private def readRange(tableName: String): String = s"""
-      SELECT argument, value FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? AND argument >= ? AND argument < ?
+      SELECT key, value FROM $tableName
+      WHERE columnPath = ? AND bucketStart = ? AND key >= ? AND key < ?
       """
 
   private def readFromStart(tableName: String): String = s"""
-      SELECT argument, value FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? AND argument >= ? 
+      SELECT key, value FROM $tableName
+      WHERE columnPath = ? AND bucketStart = ? AND key >= ?
       """
 
   private def readLastKey(tableName: String):String = s"""
-      SELECT argument FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? ORDER BY argument DESC LIMIT 1
+      SELECT key FROM $tableName
+      WHERE columnPath = ? AND bucketStart = ? ORDER BY key DESC LIMIT 1
       """
 
   private def readFirstKey(tableName: String):String = s"""
-      SELECT argument FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? ORDER BY argument ASC LIMIT 1
+      SELECT key FROM $tableName
+      WHERE columnPath = ? AND bucketStart = ? ORDER BY key ASC LIMIT 1
       """
 
   private def readFromStartWithLimit(tableName: String):String = s"""
-      SELECT argument, value FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? ORDER BY argument ASC LIMIT ?
+      SELECT key, value FROM $tableName
+      WHERE columnPath = ? AND bucketStart = ? ORDER BY key ASC LIMIT ?
       """
 
   private def countAll(tableName: String):String = s"""
       SELECT COUNT(*) FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ?
+      WHERE columnPath = ? AND bucketStart = ?
       """
 
   private def countRange(tableName: String):String = s"""
       SELECT COUNT(*) FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? AND argument >= ? AND argument < ?
+      WHERE columnPath = ? AND bucketStart = ? AND key >= ? AND key < ?
       """
 
   private def countFromStart(tableName: String):String = s"""
       SELECT COUNT(*) FROM $tableName
-      WHERE dataSet = ? AND column = ? AND rowIndex = ? AND argument >= ?
+      WHERE columnPath = ? AND bucketStart = ? AND key >= ?
       """
 
 }

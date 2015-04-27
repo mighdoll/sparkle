@@ -45,7 +45,7 @@ class TestAvroArrayDecoder extends FunSuite with Matchers {
     resultColumns.columns(0).size shouldBe 1
 
     val resultEvent = resultColumns.columns(0)(0).asInstanceOf[Event[Long,Double]]
-    resultEvent.argument shouldBe 1L
+    resultEvent.key shouldBe 1L
     resultEvent.value shouldBe 13.1
   }
 
@@ -66,7 +66,7 @@ class TestAvroArrayDecoder extends FunSuite with Matchers {
     resultColumns.columns(0).size shouldBe 1
 
     val resultEvent = resultColumns.columns(0)(0).asInstanceOf[Event[Long,Long]]
-    resultEvent.argument shouldBe 1L
+    resultEvent.key shouldBe 1L
     resultEvent.value shouldBe 1L
   }
 

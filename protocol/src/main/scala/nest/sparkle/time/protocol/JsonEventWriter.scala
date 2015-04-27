@@ -98,7 +98,7 @@ object JsonEventWriter {
   
   /** return the JsArray for one event */
   private def eventToJsArray[T: JsonWriter, U: JsonWriter](event: Event[T, U]): JsArray = {
-    JsArray(event.argument.toJson, event.value.toJson)
+    JsArray(event.key.toJson, event.value.toJson)
   }
 
 }

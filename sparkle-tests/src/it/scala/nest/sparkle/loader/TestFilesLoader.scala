@@ -64,7 +64,7 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraStoreTestConf
   test("load csv file with boolean values, and second resolution timestamps") {
     testLoadFile("booleanSeconds.csv", "booleanSeconds/value") { results: Seq[Event[Long, Boolean]] =>
       results.map(_.value) shouldBe Seq(false, false, true, true)
-      results.map(_.argument) shouldBe Seq(1, 2, 3, 4) // TODO should be 1000,2000,etc.
+      results.map(_.key) shouldBe Seq(1, 2, 3, 4) // TODO should be 1000,2000,etc.
     }
   }
 

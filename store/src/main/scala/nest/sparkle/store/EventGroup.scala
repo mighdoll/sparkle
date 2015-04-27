@@ -41,7 +41,7 @@ object EventGroup {
       }
     }
 
-    val groupedByKey = indexedEvents.stableGroupBy { indexed => indexed.event.argument }
+    val groupedByKey = indexedEvents.stableGroupBy { indexed => indexed.event.key }
     val groupedEvents = groupedByKey.map {
       case (key, indexedGroup) =>
         val values = valuesWithBlanks(indexedGroup)
@@ -96,7 +96,7 @@ object EventGroup {
       rows.map { row =>
         val optValues: Seq[Option[U]] = row.value
         val zeroedValues = optValues.map(_.getOrElse(zero))
-        Event(row.argument, zeroedValues)
+        Event(row.key, zeroedValues)
       }
     }
   }
