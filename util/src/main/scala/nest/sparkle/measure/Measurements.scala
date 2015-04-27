@@ -201,7 +201,7 @@ object MeasurementToMetrics extends MeasurementGateway with Log {
     val metricsConfig = measureConfig.getConfig("metrics-gateway")
     metricsConfig.getBoolean("enable").toOption.map { _ =>
       val reportLevel = GatewayReportLevel.parseReportLevel(metricsConfig)
-      log.info("Measurements to Metrics gateway enabled. level $reportLevel")
+      log.info(s"Measurements to Metrics gateway enabled. level $reportLevel")
       new MeasurementToMetrics(reportLevel)
     }
   }

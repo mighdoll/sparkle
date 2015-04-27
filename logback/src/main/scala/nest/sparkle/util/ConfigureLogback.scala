@@ -45,6 +45,19 @@ object ConfigureLogback extends ConfigureLog with Log {
     }
   }
 
+  /** temporarily set the log level for a logger, e.g. for a noisy unit test*/
+  def withLogLevel[T](loggerName:String, level:String)(fn: =>T):T = {
+    val logger = slf4j.LoggerFactory.getLogger(loggerName).asInstanceOf[Logger]
+    val origLevel = logger.getLevel()
+    try {
+      val newLevel = Level.toLevel(level)
+      logger.setLevel(newLevel)
+      fn
+    } finally {
+      logger.setLevel(origLevel)
+    }
+  }
+
   /** configure file based logger for logback, based on settings in the .conf file */
   private def configureLogBack(config: Config, rootLogger: Logger): Unit = {
     val logConfig = config.getConfig("logging")
@@ -61,6 +74,7 @@ object ConfigureLogback extends ConfigureLog with Log {
         slf4j.LoggerFactory.getLogger(key).asInstanceOf[Logger]
       }
       val level = entry.getValue.unwrapped.toString
+//      println(s"$key -> $level")
       logger.setLevel(Level.toLevel(level))
     }
 
@@ -89,6 +103,8 @@ object ConfigureLogback extends ConfigureLog with Log {
       val consoleAppend = consoleAppender(loggerContext, logConfig)
       rootLogger.addAppender(consoleAppend)
     }
+
+    slf4j.LoggerFactory.getLogger(getClass).info("started logback logging")
   }
 
   /** return an appender for logging to the console */

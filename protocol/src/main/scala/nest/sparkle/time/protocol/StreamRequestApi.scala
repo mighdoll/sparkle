@@ -17,21 +17,19 @@ package nest.sparkle.time.protocol
 import scala.concurrent.{ ExecutionContext, Future }
 import com.typesafe.config.Config
 import spray.json._
-import nest.sparkle.store.Store
-import nest.sparkle.util.Log
-import nest.sparkle.util.ObservableFuture._
 import rx.lang.scala.Observable
 import akka.actor.ActorSystem
 import akka.actor.ActorRefFactory
 import unfiltered.netty.websockets.WebSocket
-import nest.sparkle.time.protocol.ResponseJson._
 import io.netty.channel.ChannelFuture
+import nest.sparkle.time.protocol.ResponseJson._
+import nest.sparkle.measure.{TraceId, Span, Measurements}
+import nest.sparkle.util.Log
 import nest.sparkle.util.ObservableUtil
 import nest.sparkle.util.RandomUtil
 import nest.sparkle.util.TryToFuture._
-import nest.sparkle.util.ObservableUtil
-import nest.sparkle.measure.TraceId
-import nest.sparkle.measure.Measurements
+import nest.sparkle.util.ObservableFuture._
+import nest.sparkle.store.Store
 
 // TODO break this up into something per session/socket and something per service for
 // looking up transforms
@@ -43,7 +41,9 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
 
   /** handle a StreamRequestMessage over a websocket */
   def socketStreamRequest(request: StreamRequestMessage, socket: WebSocket) // format: OFF 
-    (implicit context: ExecutionContext):Unit = { // format: ON
+    (implicit context: ExecutionContext, measurements:Measurements):Unit = { // format: ON
+    val traceId = request.traceId.map(TraceId(_)).getOrElse(TraceId.create())
+    val span = Span.startRoot("data-request-websocket", traceId)
     val futureOutputStreams = outputStreams(request)
 
     // TODO assign streamIds to each output stream
@@ -54,16 +54,23 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
 
     // after Streams messages are sent, send subsequent data blocks as Update messages
     streamsSent.flatMap { remaining =>
+      span.complete()
       sendUpdates(request, remaining, socket)
-    }.doOnError { error =>
-      log.error(s"StreamRequestAPI, error processing stream: $error")
+    }.onErrorReturn { error =>
+      val errorStatusMessage = ProtocolError.streamErrorMessage(request, error)
+      val errSpan = span.copy(name = "data-request-websocket-error")
+      errSpan.complete()
+      sendStatus(errorStatusMessage, socket)
     }.subscribe() // don't forget to kick lazy observables into action
   }
 
-  /** send an initial Streams response over a weboscket */
-  private def sendStreams(request: StreamRequestMessage,
-                          futureOutputStreams: Future[Seq[JsonDataStream]],
-                          socket: WebSocket)(implicit context: ExecutionContext): Observable[Seq[JsonDataStream]] = {
+  /** send an initial Streams response over a websocket */
+  private def sendStreams
+      ( request: StreamRequestMessage,
+        futureOutputStreams: Future[Seq[JsonDataStream]],
+        socket: WebSocket )
+      ( implicit context: ExecutionContext )
+      : Observable[Seq[JsonDataStream]] = {
 
     // get the first chunk from each json stream
     val headsAndRemaining =
@@ -142,6 +149,13 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
     }
 
     updatesSent
+  }
+
+  /** send a status message over the web socket */
+  private def sendStatus(message:StatusMessage, socket: WebSocket): Unit = {
+    val prettyMessage =  message.toJson.compactPrint
+    log.info(s"StatusMessage: $prettyMessage")
+    socket.send(prettyMessage)
   }
 
   case class StreamAndData(outputStream: JsonDataStream, data: Seq[JsArray])

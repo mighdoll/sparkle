@@ -1,5 +1,6 @@
 package nest.sparkle.time.protocol
 
+import _root_.nest.sparkle.util.LogUtil
 import spray.http.{ HttpResponse, StatusCodes }
 import spray.httpx.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
@@ -26,9 +27,11 @@ class TestStaticAuthentication extends PreloadedRamService with SparkleTestConfi
     val baseMessage = streamRequest("Raw", params = RawParameters[Long]())
     val message = baseMessage.copy(realm = realmOpt)
 
-    Post("/v1/data", message) ~> route ~> check {
-      response.status shouldBe StatusCodes.OK
-      fn
+    LogUtil.withLogLevel(ProtocolError.getClass, "ERROR") {
+      Post("/v1/data", message) ~> route ~> check {
+        response.status shouldBe StatusCodes.OK
+        fn
+      }
     }
   }
 
@@ -76,10 +79,13 @@ class TestStaticAuthentication extends PreloadedRamService with SparkleTestConfi
         }
       }"""
 
-    Post("/v1/data", msg) ~> route ~> check {
-      val statusMessage = responseAs[StatusMessage]
-      statusMessage.message.code shouldBe 612
+    LogUtil.withLogLevel(ProtocolError.getClass, "ERROR") {
+      Post("/v1/data", msg) ~> route ~> check {
+        val statusMessage = responseAs[StatusMessage]
+        statusMessage.message.code shouldBe 612
+      }
     }
+
   }
 
 }

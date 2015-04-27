@@ -29,6 +29,18 @@ object ConfigureLog4j extends ConfigureLog {
       configure(sparkleConfig)
     }
   }
+  /** temporarily set the log level for a logger, e.g. for a noisy unit test*/
+  def withLogLevel[T](loggerName:String, level:String)(fn: =>T):T = {
+    val logger = Logger.getLogger(loggerName)
+    val origLevel = logger.getLevel()
+    try {
+      val newLevel = Level.toLevel(level)
+      logger.setLevel(newLevel)
+      fn
+    } finally {
+      logger.setLevel(origLevel)
+    }
+  }
 
   /** configure log4j logging based on a .conf file
     * @param sparkleConfig sparkle config object
@@ -95,7 +107,7 @@ object ConfigureLog4j extends ConfigureLog {
       rootLogger.addAppender(consoleAppender)
     }
 
-    Logger.getLogger(getClass).log(Level.INFO, "started log4j loggin")
+    Logger.getLogger(getClass).log(Level.INFO, "started log4j logging")
   }
 
 }

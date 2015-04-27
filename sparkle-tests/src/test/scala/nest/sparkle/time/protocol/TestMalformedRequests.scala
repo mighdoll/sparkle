@@ -1,4 +1,6 @@
 package nest.sparkle.time.protocol
+
+import _root_.nest.sparkle.util.LogUtil
 import spray.http.MediaTypes.`application/json`
 import spray.http.HttpHeaders.`Content-Type`
 import spray.http.StatusCodes.OK
@@ -28,9 +30,6 @@ class TestMalformedRequests extends PreloadedRamService with StreamRequestor {
   }
   
   test("missing column returns column not found (601)") {
-    val underlying = log.underlying
-    val isInfo = underlying.isInfoEnabled()
-    log.info("!!!shouldn't be logged!!!")
     val msg = s"""
       {
         "messageType": "StreamRequest",
@@ -44,10 +43,12 @@ class TestMalformedRequests extends PreloadedRamService with StreamRequestor {
       }
     """
 
-    Post("/v1/data", msg) ~> v1protocol ~> check {
-      status shouldBe OK
-      val statusMessage = responseAs[StatusMessage]
-      statusMessage.message.code shouldBe 601
+    LogUtil.withLogLevel(ProtocolError.getClass, "ERROR") {
+      Post("/v1/data", msg) ~> v1protocol ~> check {
+        status shouldBe OK
+        val statusMessage = responseAs[StatusMessage]
+        statusMessage.message.code shouldBe 601
+      }
     }
   }
   

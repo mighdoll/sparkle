@@ -17,22 +17,21 @@ package nest.sparkle.time.protocol
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
 import scala.util.control.Exception.nonFatalCatch
+import akka.actor.ActorSystem
 import com.typesafe.config.Config
+import spray.routing._
 import spray.http.StatusCodes
+import spray.json._
 import spray.httpx.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
-import spray.routing.{ Directives, ExceptionHandler }
-import spray.json._
-import nest.sparkle.store.{Store, ColumnNotFound}
+
+import nest.sparkle.store.{Store}
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
 import nest.sparkle.time.protocol.ResponseJson.{ StreamsMessageFormat, StatusMessageFormat }
 import nest.sparkle.time.server.RichComplete
 import nest.sparkle.util.Log
-import spray.routing.RequestContext
-import akka.actor.ActorSystem
-import nest.sparkle.time.transform.InvalidPeriod
-import spray.routing.Route
-import nest.sparkle.measure.Measurements
+import nest.sparkle.measure.{Span, TraceId, Measurements}
+import nest.sparkle.time.protocol.ProtocolError.streamErrorMessage
 
 /** Provides the v1 sparkle data api
   */
@@ -41,7 +40,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
   implicit def executionContext: ExecutionContext // TODO can we just use actorSystem.dispatcher here?
   def store: Store
   def rootConfig: Config
-  def measurements:Measurements
+  implicit def measurements:Measurements
 
   // (lazy to help test logging initialization order)
   lazy val api = StreamRequestApi(store, rootConfig)(actorSystem, measurements)
@@ -109,10 +108,17 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
   /** respond to the caller with the results of a processing their StreamRequest */
   private def completeDataRequest(request: StreamRequestMessage): Route = { ctx =>
     log.info(s"DataServiceV1.request: ${request.toLogging}")
+    val traceId = request.traceId.map(TraceId(_)).getOrElse(TraceId.create())
+    val span = Span.startRoot("data-request-http", traceId)
     val futureResponse = httpDataRequest(request)
     futureResponse.onComplete {
-      case Success(response: StreamsMessage) => ctx.complete(response)
-      case Failure(err)                      => ctx.complete(streamError(request, err))
+      case Success(response: StreamsMessage) =>
+        span.complete()
+        ctx.complete(response)
+      case Failure(err) =>
+        val errSpan = span.copy(name = "data-request-http-error")
+        errSpan.complete()
+        ctx.complete(streamErrorMessage(request, err))
     }
   }
 
@@ -132,7 +138,6 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
         Failure(RequestParsingException(request))
       case success => success
     }
-
   }
 
   /** process a streamRequest through the api engine, return the results mapped into
@@ -157,37 +162,6 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
     futureResponse
   }
 
-  /** translate errors in processing to appropriate Status messages to the client */
-  private def streamError(request: StreamRequestMessage, error: Throwable): StatusMessage = {
-    val requestAsString = request.toJson.compactPrint
-    val status =
-      error match {
-        case ColumnNotFound(msg) =>
-          Status(601, s"Column not found.  $msg request: $requestAsString")
-        case InvalidPeriod(msg) =>
-          Status(603, s"Invalid period in Transform parameter.  $msg request: $requestAsString")
-        case err: MalformedSourceSelector =>
-          Status(603, s"parameter error in transform.  request: $requestAsString")
-        case err: DeserializationException =>
-          Status(604, s"parameter error in source selector.  request: $requestAsString")
-        case CustomSourceNotFound(msg) =>
-          Status(605, s"custom source selector not found: $msg.  request: $requestAsString")
-        case AuthenticationFailed =>
-          Status(611, s"Authentication failed.  request: $requestAsString")
-        case AuthenticationMissing =>
-          Status(612, s"Authentication missing.  request: $requestAsString")
-        case ColumnForbidden(msg) =>
-          Status(613, s"Access to column forbidden.  $msg request: $requestAsString")
-        case err =>
-          log.error("unexpected error processing request", err)
-          Status(999, s"unknown error $err in $requestAsString")
-      }
-    val realmToClient = request.realm.map { orig => RealmToClient(orig.name) }
-    val statusMessage = StatusMessage(requestId = request.requestId, realm = realmToClient,
-      traceId = request.traceId, messageType = MessageType.Status, message = status)
-    log.warn(s"streamError ${status.code} ${status.description}: request: $requestAsString ")
-    statusMessage
-  }
 
   /** error with no parsed request available */
   private def completeWithError(context: RequestContext, status: Status): Unit = {

@@ -59,7 +59,7 @@ object Span {
   }
 
   /** return a StartedSpan that starts now */
-  def startNoParent // format: OFF
+  def startRoot // format: OFF
       (name: String, traceId: TraceId = TraceId.create(), level: ReportLevel = Info)
       (implicit measurements: Measurements)
       : StartedSpan = { // format: ON 

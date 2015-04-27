@@ -39,7 +39,7 @@ class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
   def publishSpan()(implicit measurements: Measurements): String = {
     val name = "short-test"
     val traceId = TraceId(RandomUtil.randomAlphaNum(3))
-    val span = Span.startNoParent(name, traceId)
+    val span = Span.startRoot(name, traceId)
     span.complete()
     name
   }
@@ -56,8 +56,8 @@ class TestMeasurements extends FunSuite with Matchers with SparkleTestConfig {
     withMeasurements { (measurements, _) =>
       val name = publishSpan()(measurements)
       val timers = MetricsInstrumentation.registry.getTimers.asScala
-      val x = timers(name)
-      x.getCount shouldBe 1
+      val timer = timers(name)
+      timer.getCount shouldBe 1
     }
   }
 

@@ -53,7 +53,7 @@ trait KafkaLoaderBaseAdminService extends BaseAdminService
   lazy val allTopics: Route = {
     get {
       path("topics") {
-        implicit val span = Span.startNoParent("admin.allTopics", level = Trace)
+        implicit val span = Span.startRoot("admin.allTopics", level = Trace)
         timedOnComplete(KafkaStatus.allTopics, "/topics")
       }
     }
@@ -63,7 +63,7 @@ trait KafkaLoaderBaseAdminService extends BaseAdminService
   lazy val allTopics2: Route = {
     get {
       path("topics2") {
-        implicit val span = Span.startNoParent("admin.allTopics2", level = Trace)
+        implicit val span = Span.startRoot("admin.allTopics2", level = Trace)
         timedOnComplete(KafkaStatus.allTopics2, "/topics2")
       }
     }
@@ -73,7 +73,7 @@ trait KafkaLoaderBaseAdminService extends BaseAdminService
   lazy val oneTopic: Route = {
     get {
       path("topics" / Segment) { topicName =>
-        implicit val span = Span.startNoParent("admin.oneTopic", level = Trace)
+        implicit val span = Span.startRoot("admin.oneTopic", level = Trace)
         timedOnComplete(KafkaStatus.topicFromName(topicName), s"/topics/$topicName")
       }
     }
@@ -83,7 +83,7 @@ trait KafkaLoaderBaseAdminService extends BaseAdminService
   lazy val brokers: Route = {
     get {
       path("brokers") {
-        implicit val span = Span.startNoParent("admin.brokers", level = Trace)
+        implicit val span = Span.startRoot("admin.brokers", level = Trace)
         timedOnComplete(KafkaStatus.allBrokers, "/brokers")
       }
     }
@@ -93,7 +93,7 @@ trait KafkaLoaderBaseAdminService extends BaseAdminService
   lazy val groups: Route = {
     get {
       path("groups") {
-        implicit val span = Span.startNoParent("admin.consumerGroups", level = Trace)
+        implicit val span = Span.startRoot("admin.consumerGroups", level = Trace)
         timedOnComplete(consumerGroups(), "/groups")
       }
     }
@@ -103,7 +103,7 @@ trait KafkaLoaderBaseAdminService extends BaseAdminService
   lazy val offsets: Route = {
     get {
       path("offsets") {
-        implicit val span = Span.startNoParent("admin.offsets", level = Trace)
+        implicit val span = Span.startRoot("admin.offsets", level = Trace)
         timedOnComplete(groupOffsets(), "/offsets")
       }
     }

@@ -29,7 +29,7 @@ class TestKafkaStatus
   }
   
   def withSpan[T](fn: StartedSpan => T): T = {
-    val span = Span.startNoParent("TestKafkaSuite", level = Trace)
+    val span = Span.startRoot("TestKafkaSuite", level = Trace)
     try {
       fn(span)
     } finally {
