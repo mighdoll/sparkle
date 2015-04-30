@@ -38,8 +38,8 @@ import nest.sparkle.util.{Log, TaggedKeyValue}
   * @param columnPath name of the data set and column, e.g. "server1/responseLatency/p99"
   * @param tableName cassandra table for the column e.g. "timestamp0double"
   * @param description description of the column (for developer UI documentation)
-  * @param domainType type of domain elements, e.g. "NanoTime" for nanosecond timestamps
-  * @param rangeType type of range elements, e.g. "Double" for double event
+  * @param keyType type of key elements, e.g. "NanoTime" for nanosecond timestamps
+  * @param valueType type of value elements, e.g. "Double" for double event
   * @param bucketSize bucket size in seconds, for data partitioning in cassandra
   * @param firstBucketStart first possible starting bucket
   */
@@ -47,8 +47,8 @@ case class CassandraCatalogEntry(
   columnPath: String,
   tableName: String,
   description: String,
-  domainType: String,
-  rangeType: String,
+  keyType: String,
+  valueType: String,
   bucketSize: Long,
   firstBucketStart: Long)
 
@@ -68,12 +68,12 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
   /** insert or overwrite a catalog entry */
   val addCatalogEntryStatement = s"""
       INSERT INTO $tableName
-      (columnCategory, tableName, description, domainType, rangeType, bucketSize, firstBucketStart)
+      (columnCategory, tableName, description, keyType, valueType, bucketSize, firstBucketStart)
       VALUES (?, ?, ?, ?, ?, ?, ?);
       """
 
   val catalogInfoStatement = s"""
-      SELECT tableName, domainType, rangeType, bucketSize, firstBucketStart FROM $tableName
+      SELECT tableName, keyType, valueType, bucketSize, firstBucketStart FROM $tableName
       WHERE columnCategory = ?;
     """
 
@@ -117,8 +117,8 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
     entryFields(0) = columnCategory
     val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
     val result = session.executeAsync(statement).toFuture.map { _ =>
-      CatalogInfo(entry.tableName, CanSerialize.stringToTypeTag(entry.domainType),
-        CanSerialize.stringToTypeTag(entry.rangeType), entry.bucketSize, entry.firstBucketStart)
+      CatalogInfo(entry.tableName, CanSerialize.stringToTypeTag(entry.keyType),
+        CanSerialize.stringToTypeTag(entry.valueType), entry.bucketSize, entry.firstBucketStart)
     }
     result.onFailure { case error => log.error("writing catalog entry failed", error)}
     result
@@ -153,11 +153,11 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
       row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath).initCause(ColumnCategoryNotFound(columnCategory)))
     } yield {
       val tableName = row.getString(0)
-      val domainType = CanSerialize.stringToTypeTag(row.getString(1))
-      val rangeType = CanSerialize.stringToTypeTag(row.getString(2))
+      val keyType = CanSerialize.stringToTypeTag(row.getString(1))
+      val valueType = CanSerialize.stringToTypeTag(row.getString(2))
       val bucketSize = row.getLong(3)
       val firstBucketStart = row.getLong(4)
-      CatalogInfo(tableName, domainType, rangeType, bucketSize, firstBucketStart)
+      CatalogInfo(tableName, keyType, valueType, bucketSize, firstBucketStart)
     }
   }
 
@@ -217,8 +217,8 @@ object ColumnCatalog {
         columnCategory text,
         tableName text,
         description text,
-        domainType text,
-        rangeType text,
+        keyType text,
+        valueType text,
         bucketSize bigint,
         firstBucketStart bigint,
         PRIMARY KEY(columnCategory)

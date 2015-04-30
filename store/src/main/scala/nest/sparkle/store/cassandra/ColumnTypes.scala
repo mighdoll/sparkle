@@ -31,7 +31,7 @@ object ColumnTypes extends Log {
     val valueSerialize = implicitly[CanSerialize[U]]
 
     val found = supportedColumnTypes.find{ info =>
-      info.domain == keySerialize && info.range == valueSerialize
+      info.keySerializer == keySerialize && info.valueSerializer == valueSerialize
     }.getOrElse {
       val err = UnsupportedColumnType(keySerialize, valueSerialize)
       log.error(s"serializationInfo not found", err)
@@ -44,17 +44,17 @@ object ColumnTypes extends Log {
   private def createSerializationInfo[T: CanSerialize, U: CanSerialize] // format: OFF
       (directToNative:Boolean = true)
       : SerializeInfo[T, U] = { // format: ON
-    val domainSerializer = implicitly[CanSerialize[T]]
-    val rangeSerializer = implicitly[CanSerialize[U]]
+    val keySerializer = implicitly[CanSerialize[T]]
+    val valueSerializer = implicitly[CanSerialize[U]]
 
     // cassandra storage types for the key and value
-    val keyStoreType = domainSerializer.columnType
-    val valueStoreType = rangeSerializer.columnType
+    val keyStoreType = keySerializer.columnType
+    val valueStoreType = valueSerializer.columnType
     val tableName = keyStoreType + "0" + valueStoreType
 
     assert(validateTableName(tableName), s"invalid table name $tableName")
 
-    SerializeInfo(domainSerializer, rangeSerializer, tableName, directToNative)
+    SerializeInfo(keySerializer, valueSerializer, tableName, directToNative)
   }
 
   // Cassandra table name length limit per http://cassandra.apache.org/doc/cql3/CQL.html#createTableStmt
@@ -64,10 +64,10 @@ object ColumnTypes extends Log {
     !tableName.isEmpty && (tableName.length <= maxTableNameLength) && tableName.forall(_.isLetterOrDigit)
   }
 
-  /** holder for serialization info for given domain and range types */
+  /** holder for serialization info for given key and value types */
   case class SerializeInfo[T, U](
-    domain: CanSerialize[T], 
-    range: CanSerialize[U], 
+    keySerializer: CanSerialize[T],
+    valueSerializer: CanSerialize[U],
     tableName: String,
     directToNative: Boolean
   )

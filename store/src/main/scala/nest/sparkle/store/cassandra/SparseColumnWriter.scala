@@ -75,7 +75,7 @@ object SparseColumnWriter
   def createColumnTables(session: Session)(implicit execution: ExecutionContext): Future[Unit] = {
     // This gets rid of duplicate column table creates which C* 2.1 doesn't handle correctly.
     val tables = ColumnTypes.supportedColumnTypes.map { serialInfo =>
-      serialInfo.tableName -> ColumnTableInfo(serialInfo.tableName, serialInfo.domain.columnType, serialInfo.range.columnType)
+      serialInfo.tableName -> ColumnTableInfo(serialInfo.tableName, serialInfo.keySerializer.columnType, serialInfo.valueSerializer.columnType)
     }.toMap
     val futures = tables.values.map { tableInfo =>
       createColumnTable(tableInfo, session)(execution)
@@ -145,7 +145,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
     // LATER check to see if table already exists first
 
     val entry = CassandraCatalogEntry(columnPath = columnPath, tableName = tableName, description = description,
-      domainType = serialInfo.domain.nativeType, rangeType = serialInfo.range.nativeType, bucketSize = bucketSize,
+      keyType = serialInfo.keySerializer.nativeType, valueType = serialInfo.valueSerializer.nativeType, bucketSize = bucketSize,
       firstBucketStart = firstBucketStart)
 
     val result =
@@ -191,8 +191,8 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
 
     val batches = dataArray.grouped(batchSize).map { eventGroup =>
       val insertGroup = eventGroup.map { case (key, value) =>
-        val serialKey  =  serialInfo.domain.serialize(key)
-        val serialValue  =  serialInfo.range.serialize(value)
+        val serialKey = serialInfo.keySerializer.serialize(key)
+        val serialValue = serialInfo.valueSerializer.serialize(value)
 
         preparedSession.statement(InsertOne(tableName)).bind(
           Seq[AnyRef](columnPath, bucketStart, serialKey, serialValue): _*
@@ -279,8 +279,8 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
 
   /** return a tuple of cassandra serializable objects for an event */
   private def serializeEvent(event: Event[T, U]): (AnyRef, AnyRef) = {
-    val key = serialInfo.domain.serialize(event.key)
-    val value = serialInfo.range.serialize(event.value)
+    val key = serialInfo.keySerializer.serialize(event.key)
+    val value = serialInfo.valueSerializer.serialize(event.value)
 
     (key, value)
   }

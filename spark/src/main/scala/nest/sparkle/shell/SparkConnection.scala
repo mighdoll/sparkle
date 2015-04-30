@@ -68,7 +68,7 @@ case class SparkConnection(rootConfig: Config, applicationName: String = "Sparkl
       for {
         serialInfo <- ColumnTypes.supportedColumnTypes
         if (serialInfo.directToNative)
-      } yield serialInfo.range.typedTag
+      } yield serialInfo.valueSerializer.typedTag
 
     val rdds: Seq[RDD[ColumnData[K, Any]]] = valueTypes.map { valueType =>
       val rdd = columnsRDD(typeTag[K], valueType)
