@@ -9,7 +9,7 @@ Introduction
 
 As a standalone tool, sparkle gives users an easy way to make visualize data from a directory of .csv files. The graphs are interactively zoomable in a d3 based web interface. With some easy customization, graphs can be aggregated into dashboards, and customized with simple declarative javascript, and data read in from other sources such as Apache Kafka.
 
-See [Sparkle Intro Talk](https://docs.google.com/a/nestlabs.com/presentation/d/1yBgxGrqJ0TR2VONKN_Lfol49lyUb3CZ-o_JiEclO0aY/pub?start=false&loop=false&delayms=3000#slide=id.p) for an introduction presentation.
+See [Sparkle Intro Talk](https://www.parleys.com/tutorial/sparkle-reactive-streams-browser-scala-d3) and [slides]  (https://cdn.parleys.com/p/53a7d2cce4b0543940d9e55a/g3ZWPlN7Oj5-SparkleIntroTalk1.pdf) for an introduction presentation.  
 
 [coming soon: links to example charts and dashboards]
 
