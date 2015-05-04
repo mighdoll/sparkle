@@ -1,7 +1,6 @@
 package nest.sparkle.time.protocol
 
 import scala.reflect.runtime.universe._
-import scala.reflect.runtime.universe.TypeTag.{Double, Long}
 
 import spray.httpx.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
@@ -11,14 +10,14 @@ import spray.json._
 import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.ArbitraryColumn.arbitraryEvent
 import nest.sparkle.store.cassandra.RecoverCanSerialize
-import nest.sparkle.time.protocol.TestDomainRange.minMaxEvents
+import nest.sparkle.time.protocol.TestKeyValueRanges.minMaxEvents
 import nest.sparkle.time.protocol.RequestJson.StreamRequestMessageFormat
-import nest.sparkle.time.transform.{DomainRange, MinMax}
-import nest.sparkle.time.transform.DomainRangeJson
-import nest.sparkle.time.transform.DomainRangeJson.DomainRangeFormat
+import nest.sparkle.time.transform.{KeyValueRanges, MinMax}
+import nest.sparkle.time.transform.KeyValueRangesJson
+import nest.sparkle.time.transform.KeyValueRangesJson.KeyValueRangesFormat
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 
-class TestDomainRangeRequest extends PreloadedRamStore with StreamRequestor with TestDataService {
+class TestKeyValueRangesRequest extends PreloadedRamStore with StreamRequestor with TestDataService {
   nest.sparkle.util.InitializeReflection.init
 
   override def readWriteStore = writeableRamStore
@@ -33,19 +32,19 @@ class TestDomainRangeRequest extends PreloadedRamStore with StreamRequestor with
     columnName
   }
 
-  test("DomainRange calculates domain and range on arbitrary long,double columns") {
+  test("KeyValueRanges calculates the min and max of the keys and values of arbitrary long,double columns") {
     forAll { events: List[Event[Long, Double]] =>
-      val columnName = makeColumn("V1Protocol.DomainRange", events)
-      val requestMessage = streamRequest("DomainRange", JsObject(), SelectString(columnName))
+      val columnName = makeColumn("V1Protocol.KeyValueRanges", events)
+      val requestMessage = streamRequest("KeyValueRanges", JsObject(), SelectString(columnName))
       Post("/v1/data", requestMessage) ~> v1protocol ~> check {
         val data = TestDataService.streamDataJson(response).head
         data.length shouldBe 2
         if (events.isEmpty) {
-          data shouldBe DomainRangeJson.Empty
+          data shouldBe KeyValueRangesJson.Empty
         } else {
-          val domainRange = data.toJson.convertTo[DomainRange[Long, Double]]
-          val (domainMin, domainMax, rangeMin, rangeMax) = minMaxEvents(events)
-          domainRange shouldBe DomainRange(domain = MinMax(domainMin, domainMax), range = MinMax(rangeMin, rangeMax))
+          val keyValueRanges = data.toJson.convertTo[KeyValueRanges[Long, Double]]
+          val (keyMin, keyMax, valueMin, valueMax) = minMaxEvents(events)
+          keyValueRanges shouldBe KeyValueRanges(keyRange = MinMax(keyMin, keyMax), valueRange = MinMax(valueMin, valueMax))
         }
       }
     }

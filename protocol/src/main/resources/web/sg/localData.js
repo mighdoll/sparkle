@@ -30,13 +30,13 @@ define(["lib/when/when", "sg/data"], function(when, dataApi) {
           first,
           extra = params.edgeExtra;
 
-      // Simulate DomainRange transform if requested
-      if (params.transform == "DomainRange") {
+      // Simulate KeyValueRanges transform if requested
+      if (params.transform == "KeyValueRanges") {
         var d = minMax(dataArray, 0);
         var r = minMax(dataArray, 1);
         
         return when.resolve(
-            [ [["domain",d],["range",r]] ]
+            [ [["keyRange",d],["valueRange",r]] ]
         );
       } 
       

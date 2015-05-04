@@ -659,7 +659,7 @@ function chart() {
         lastSlash = setAndColumn.lastIndexOf("/"),
         dataSetName = setAndColumn.slice(0, lastSlash),
         column = setAndColumn.slice(lastSlash+1, setAndColumn.length),
-        futureDomainRange = dataApi.columnRequestHttp("DomainRange", {},
+        futureKeyValueRanges = dataApi.columnRequestHttp("KeyValueRanges", {},
           dataSetName, column);
 
     /** plotter that will be used to plot this series */
@@ -669,19 +669,19 @@ function chart() {
 
     /** now that we have the series metadata from the server, fill in the Series */
     function received(data) {
-      var domainRange = arrayToObject(data);
+      var keyValueRanges = arrayToObject(data);
       var series = {
         set: dataSetName,
         name: column,
-        range: domainRange.range,
-        domain: domainRange.domain
+        range: keyValueRanges.valueRange,
+        domain: keyValueRanges.keyRange
       };
 
       copyPropertiesExcept(series, namedSeries, "name");
       return series;
     }
 
-    return futureDomainRange.then(received).otherwise(rethrow);
+    return futureKeyValueRanges.then(received).otherwise(rethrow);
   }
 
 

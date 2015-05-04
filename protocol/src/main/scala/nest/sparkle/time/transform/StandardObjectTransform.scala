@@ -1,11 +1,11 @@
 package nest.sparkle.time.transform
 
 
-/** extractor to match a DomainRange transform by string name */
+/** extractor to match a KeyValueRanges transform by string name */
 object StandardObjectTransform {
   def unapply(transform: String): Option[ColumnTransform] = {
     transform.toLowerCase match {
-      case "domainrange" => Some(DomainRangeTransform)
+      case "keyvalueranges" => Some(KeyValueRangesTransform)
       case _             => None
     }
   }

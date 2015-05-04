@@ -4,7 +4,7 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.collection.JavaConverters._
 import spray.json._
 import nest.sparkle.store.Column
-import nest.sparkle.time.transform.{ DomainRangeTransform, RawTransform }
+import nest.sparkle.time.transform.RawTransform
 import nest.sparkle.time.transform.StandardColumnTransform.{ runTransform, runColumnGroupsTransform, runMultiColumnTransform }
 import com.typesafe.config.Config
 import nest.sparkle.time.transform.CustomTransform

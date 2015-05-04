@@ -28,11 +28,11 @@ import nest.sparkle.util.{RecoverJsonFormat, RecoverOrdering}
 /** minimum and maximum values */
 case class MinMax[T](min: T, max: T)
 
-/** min and max for domain and range */
-case class DomainRange[T, U](domain: MinMax[T], range: MinMax[U])
+/** min and max for keys and values */
+case class KeyValueRanges[T, U](keyRange: MinMax[T], valueRange: MinMax[U])
 
-/** a transform that returns the min and max of the domain and range of a column */
-object DomainRangeTransform extends ColumnTransform {
+/** a transform that returns the min and max of the keys and values of a column */
+object KeyValueRangesTransform extends ColumnTransform {
   override def apply[T, U] // format: OFF
         (column: Column[T, U], transformParameters: JsObject) 
         (implicit execution: ExecutionContext): JsonDataStream = { // format: ON
@@ -46,14 +46,13 @@ object DomainRangeTransform extends ColumnTransform {
 
     val dataStream = events.initial.toSeq.map { seq =>
       if (!seq.isEmpty) {
-        val domain = seq.map{ case Event(k, v) => k }
-        val range = seq.map{ case Event(k, v) => v }
-        val limits = DomainRange(MinMax(domain.min, domain.max), MinMax(range.min, range.max))
-        val domainJson = JsArray("domain".toJson, MinMax(domain.min, domain.max).toJson)
-        val rangeJson = JsArray("range".toJson, MinMax(range.min, range.max).toJson)
-        Seq(domainJson, rangeJson)
+        val keys = seq.map{ case Event(k, v) => k }
+        val values = seq.map{ case Event(k, v) => v }
+        val keysJson = JsArray("keyRange".toJson, MinMax(keys.min, keys.max).toJson)
+        val valuesJson = JsArray("valueRange".toJson, MinMax(values.min, values.max).toJson)
+        Seq(keysJson, valuesJson)
       } else {
-        DomainRangeJson.Empty
+        KeyValueRangesJson.Empty
       }
     }
 
