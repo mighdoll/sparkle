@@ -65,7 +65,7 @@ md-option .md-text {
 }
 
 .chart-control-panel .sub-selection {
-  margin-left: 12px;
+  margin-left: 16px;
 }
 
 .chart-control-panel .axis-controls {
@@ -121,4 +121,13 @@ md-content {
   position: absolute;
   left: 40px;
   clip: rect(auto, auto, auto, auto);
+}
+
+.remove-button {
+  margin-top: 12px;
+}
+
+.remove-button .series-name {
+  text-transform: none;
+  margin-left: 5px;
 }

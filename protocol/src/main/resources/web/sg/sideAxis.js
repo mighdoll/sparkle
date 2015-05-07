@@ -50,20 +50,23 @@ return function() {
         axisNode = axisSelection.node(),
         axisTransition = toTransition(axisSelection, transition);
 
-    var axisData = axisNode.__sideAxis = axisNode.__sideAxis || {
-      maxLockData: {lockRange: maxRange(axisGroup.series) }
-    };
+    var axisData = axisNode.__sideAxis || {};
+    axisNode.__sideAxis = axisData;
 
     var axis = richAxis()     
       .displayLength(axisGroup.plotSize[1])
       .labelColor(colors(0))
       .orient(orient)
-      .label(axisGroup.label || 'bar');
+      .label(axisGroup.label);
 
     var range;
     if (lockYAxis) {
-      range = axisData.maxLockData.lockRange;
+      if (!axisData.locked) {
+        axisData.locked = currentRange(axisGroup.series);
+      }
+      range = axisData.locked;
     } else {
+      axisData.locked = undefined;
       range = currentRange(axisGroup.series); 
       if (zeroLock) {
         range[0] = 0;

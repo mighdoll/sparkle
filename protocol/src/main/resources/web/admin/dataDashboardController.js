@@ -38,9 +38,11 @@ define(["admin/app", "lib/d3", "sg/request", "sg/util", "admin/columnPicker",
 //        if (chartWithSettingsController)  { // DEBUG only
 //          setTimeout(function() {
 //            chartWithSettingsController.addSeries("epochs/p99");
+//            chartWithSettingsController.addSeries("epochs/p90");
 //            $scope.$apply();
 //          }, 100);
 //        }
+
       });
 
       $scope.showUpload = function(ev) {

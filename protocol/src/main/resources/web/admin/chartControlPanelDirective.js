@@ -104,6 +104,24 @@ define(['admin/app', 'sg/linePlot', 'sg/scatter', 'sg/symbolMark'],
 //        if (!plot.interpolate) plot.interpolate = 'linear';
       }
 
+      /** remove the series the chartData and redraw */
+      function removeSeries(removeNamed) {
+        var $scope = this;
+        $scope.chartData.groups.forEach(function(group) {
+          group.named = group.named.filter(function(named, i) {
+            if (named == removeNamed) {
+              group.series.splice(i, 1);
+              return false;
+            } else {
+              return true;
+            }
+          });
+        });
+        $scope.selectedSeries = {};
+        refreshSeriesList($scope);
+        queueRedraw($scope);
+      }
+
       return {
         restrict: 'E',
         templateUrl: 'partials/chart-control-panel.html',
@@ -123,6 +141,7 @@ define(['admin/app', 'sg/linePlot', 'sg/scatter', 'sg/symbolMark'],
           $scope.selectedSeries = {};
           $scope.symbols = ["circle", "cross", "diamond", "square", "triangle-up", "triangle-down"];
           $scope.symbolSizes = [4, 6, 8, 10, 15];
+          $scope.remove = removeSeries;
 
           $scope.aggregations = [
             { name: "min", aggregation: "reduceMin" },

@@ -18,6 +18,8 @@ define(['lib/d3', 'lib/when/monitor/console', 'lib/when/when',
    function(_d3, _console, when, sgData, _util, zoomBrush, resizable, linePlot, richAxis, 
             legend, timeClip, domCache) {
 
+var seriesId = 1;     // unique id for every series added to the chart
+
 /** Draw a chart graph containing possibly multiple data series and one or two Y axes 
   *
   * Expects to bound to ChartData object. 
@@ -38,7 +40,7 @@ function chart() {
       _lockYAxis = false,
       _transformName = 'Raw',  
       _xScale = null,
-      _timeSeries = true,  
+      _timeSeries = true,
       emptyGroups = [{label:'', series:[]}];
 
   /** Add chart components to the dom element selection. */
@@ -56,7 +58,7 @@ function chart() {
    * etc. inside one dom container. */ 
   function bind(chartData) {
     var node = this,
-        transformName = chartData.transformName || _transformName,
+        defaultTransform = chartData.transformName || _transformName,
         title = chartData.title || _title,
         margin = chartData.margin || _margin,
         outerSize = chartData.size || _size,
@@ -71,7 +73,7 @@ function chart() {
         paddedPlotSize = [outerSize[0] - margin.left - margin.right,
                           outerSize[1] - margin.top - margin.bottom],
         plotSpot = [margin.left + padding[0],
-                    margin.top +  padding[1]], 
+                    margin.top +  padding[1]],
         plotSize = [paddedPlotSize[0] - (2 * padding[0]), 
                     paddedPlotSize[1] - (2 * padding[1])],
         titleMargin = chartData.titleMargin || _titleMargin,
@@ -83,6 +85,7 @@ function chart() {
             return randomAlphaNum(8);
           });
 
+//    console.log("redrawing chart"); // TODO we're redrawing overmuch
 
     // data driven css styling of the chart
     if (chartData.styles) { selection.classed(chartData.styles, true); }
@@ -90,34 +93,42 @@ function chart() {
     // title
     showTitle(title, selection, plotSize[0], margin, titleMargin);
 
-    namedSeriesMetaData(groups, dataApi)
-      .then(seriesMetaDataLoaded);
-
     selection.on('resize', resize);
 
     var redraw = function() { bind.call(node, chartData); };
 
     // expose an api to the outside world
-    chartData.api = { transitionRedraw:transitionRedraw};
+    chartData.api = { transitionRedraw:transitionRedraw };
+
+    namedSeriesMetaData(groups, dataApi)
+      .then(seriesMetaDataLoaded);
+
 
     function seriesMetaDataLoaded() {
       var allSeries = collectSeries(groups);
 
+      if (allSeries.length == 0) {
+        // no series? fade out everything except the title
+        var exceptTitle = selection.selectAll('*').filter(function() {
+          return !d3.select(this).classed('title');
+        });
+        exceptTitle.transition().style('opacity', 0).remove();
+        return;
+      }
+
       var errors = displayErrors(groups, allSeries, selection, outerSize);
 
       if (!errors) {
-        if (allSeries.length > 0) {
-          trackMaxDomain(chartData, allSeries);
-          var requestUntil = chartData.displayDomain[1] == chartData.maxDomain[1] ?
-              undefined        // unspecified end (half bounded range) if selection is max range
-              : chartData.displayDomain[1] + 1; // +1 to be inclusive of last element
-          var requestDomain = [ chartData.displayDomain[0], requestUntil ];
-          allSeries.forEach(function (series) {
-            series.transformName = series.transformName ? series.transformName : transformName;
-          });
-          var fetched = fetchData(dataApi, allSeries, requestDomain, timeSeries, plotSize[0], moreData);
-          fetched.then( function(){dataReady(allSeries);} ).otherwise(rethrow);
-        }
+        trackMaxDomain(chartData, allSeries);
+        var requestUntil = chartData.displayDomain[1] == chartData.maxDomain[1] ?
+            undefined        // unspecified end (half bounded range) if selection is max range
+            : chartData.displayDomain[1] + 1; // +1 to be inclusive of last element
+        var requestDomain = [ chartData.displayDomain[0], requestUntil ];
+        allSeries.forEach(function (series) {
+          series.transformName = series.transformName ? series.transformName : defaultTransform;
+        });
+        var fetched = fetchData(dataApi, allSeries, requestDomain, timeSeries, plotSize[0], moreData);
+        fetched.then(function(){ dataReady(allSeries); }).otherwise(rethrow);
       }
     }
 
@@ -145,7 +156,7 @@ function chart() {
         .attr('transform', 'translate(' + plotSpot[0] + ',' + plotSpot[1] +')');
 
       // x axis
-      var xAxisSpot = [plotSpot[0], 
+      var xAxisSpot = [plotSpot[0],
                        plotSpot[1] + plotSize[1] + padding[1]];
 
       xAxis(transition, chartData.displayDomain, timeSeries, xAxisSpot,
@@ -374,23 +385,36 @@ function chart() {
 
   /** bind the data plotting components to the data and the DOM */
   function attachSeriesPlots(container, groups, defaultPlotter) {
-    var groupedInfos = groups.map(function(group) {
-      var infos = group.series.map(function(series) {
+    plottedSeriesIds = [];
+    groups.forEach(function(group) {
+      group.series.forEach(function(series) {
+        if (!series.uniqueId) {
+          series.uniqueId = 'series_' + seriesId++;
+        }
+        plottedSeriesIds.push(series.uniqueId);
         var plotter = plotterForSeries(series, group, defaultPlotter);
-        if (plotter.groupPlotter) return undefined; // prefer the group level plotter if specified
-        return {data: series, component:plotter}; 
+        var enteredSeries = bindComponent(container, plotter, series, series.uniqueId);
+        enteredSeries.classed('series', true);
       });
-      var filtered = infos.filter(function(info) {return info !== undefined;});
-      return filtered;
     });
 
-    var componentInfo = d3.merge(groupedInfos);
+    /** return true if the */
+    function isPlottedSeries(node) {
+      return plottedSeriesIds.some(function(plotted) {
+        return node.classList.contains(plotted);
+      });
+    }
 
-    bindComponents(container, componentInfo, 'series');
+    var oldSeries =
+      container.selectAll('.series').filter(function() {
+        return !isPlottedSeries(this);
+      });
+
+    // remove immediately, not in transition, so as not to distract from re-zooming Y axis
+    asSelection(oldSeries).remove();
   }
 
-
-  /** return the plotter for a given Series, using the most specific plotter provided 
+  /** return the plotter for a given Series, using the most specific plotter provided
    * (i.e. if no plotter is provided on the series, use the plotter on the group, or the chart.)  */
   function plotterForSeries(series, group, defaultPlotter) {
     var plotter = defaultPlotter;
@@ -702,6 +726,7 @@ function chart() {
       var keyValueRanges = arrayToObject(data);
       namedSeries.set = dataSetName;
       namedSeries.name = column;
+      // TODO reconsider this approach, the max value of the entire series doesn't take the transform into account
       namedSeries.range = keyValueRanges.valueRange;
       namedSeries.domain = keyValueRanges.keyRange;
 

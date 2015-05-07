@@ -14,24 +14,31 @@ define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/scatter', 'sg
         chartMaker(chartUpdate);
       }
 
-      function addSeries(chartData, $element, columnPath) {
-        chartData.groups[0].named.push(
+      function addSeries($scope, $element, columnPath) {
+        $scope.chartData.groups[0].named.push(
           { columnPath: columnPath,
             transformName: "reduceMean",
             plot: {
               plotter: linePlot(),
               strokeWidth: 1.5,
               interpolate: 'linear'
-//              plotter: scatterPlot(),
-//              markPlot:
-//                symbolMark()
-//                  .markType("square")
-//                  .size(8)
-//                  .color("green")
             }
           }
         );
-        drawChart(chartData, $element);
+        queueRedraw($scope, $element);
+      }
+
+      var redrawPostDigest = false; // redraw only once per digest cycle
+
+      /** redraw the chart at the end of the digest cycle */
+      function queueRedraw($scope, $element) {
+        if (!redrawPostDigest) {
+          redrawPostDigest = true;
+          $scope.$$postDigest(function() {
+            drawChart($scope.chartData, $element);
+            redrawPostDigest = false;
+          });
+        }
       }
 
       return {
@@ -42,7 +49,7 @@ define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/scatter', 'sg
           };
 
           this.addSeries = function(columnPath) {
-            addSeries($scope.chartData, $element, columnPath);
+            addSeries($scope, $element, columnPath);
           };
 
           $scope.$emit('chartController', this); // publish our controller api

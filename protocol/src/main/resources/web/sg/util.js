@@ -85,6 +85,30 @@ function attachByClass(element, container, cssClass) {
   return selection;
 }
 
+/** bind a component to a 'g' element in the provided container. The g element
+  * is identified by css class. If no appropriately classed element is in the container
+  * a new one is created. Returns the enter selection, containing the 'g' element
+  * if it was newly created. */
+function bindComponent(container, component, data, cssClass) {
+  var entered = emptySelection();
+  container.each(function(item) { // single element selection, but we each to trigger transition inheritance
+    var selected = d3.select(this),
+        selection = selected.selectAll('.' + cssClass).data([data]),
+        enter = selection.enter(),
+        transition = d3.transition(selection);
+
+    entered =
+      enter.append('g')
+        .classed(cssClass, true);
+
+    selection
+      .call(component);
+  });
+
+  return entered;
+}
+
+
 /** return an array of the nodes in a selection 
  * (d3's selection.node() returns just the first node) */
 function nodes(selection) {
@@ -228,6 +252,7 @@ function attachComponent(container, componentFn, cssClass, position) {
     update:update
   };
 }
+
 
 /** Attach a 'g' element with a specified css class to a container and optionally position the 'g' element.  
   * Return a selection containing the the 'g' element.  If the appropriate 'g' element can't be found,
@@ -575,3 +600,4 @@ function lastPathComponent(path) {
     return path;
   }
 }
+
