@@ -124,7 +124,11 @@ md-content {
 }
 
 .remove-button {
-  margin-top: 12px;
+  margin-top: 30px;
+}
+
+.remove-button .remove-text {
+  color: hotpink;
 }
 
 .remove-button .series-name {

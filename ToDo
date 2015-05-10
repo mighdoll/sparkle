@@ -1,6 +1,5 @@
 js
 . finish require.js modularization
-. fix select2 loading issues
 . verify basic firefox and safari support
 . hover to get point info (use voronoi to select)
 . build: bundle/optimize .js files into sg.min.js (usable w/o require.js)
@@ -11,12 +10,11 @@ js
 . more chart types: scatter, area, heatmap, stacked bar chart
 . support multiple X axes (to compare two data sets from different time)
 . interactive offset of X axis (to align second data set when comparing)
-. abstract X axis numeric type (currently hardcoded to date time)
 . grid lines, see e.g. http://www.d3noob.org/2013/01/adding-grid-lines-to-d3js-graph.html
 . improve default styling
 . icon for resize hitbox ('grippy corner')
 . keyboard navigation, up to zoom out, left to pan left, right to pan right, down to zoom in
-. don't ask for 'edge=true' for scatter/bar plots (performance optimization)
+. scroll-wheel navigation for zooming
 . button to pop out graph into new window and resize with the window (make it easy to go full screen on a graph in presentations)
 
 data server
@@ -25,7 +23,6 @@ data server
 . REST endpoint for summary region UI
 . simple subcription/notification api so web page can refresh when data changes
 . stream data from stdin pipe (cat file | awk | sg)
-. api for quick graphs from the REPL (import SG._;  plot(myList); plot(myList, myDashboard) )
 . stream data to javascript (optimization instead of refreshing the whole graph)
 . publish sg script (that uses pre-built binary)
 
@@ -62,3 +59,5 @@ data server
 . bump to sbt 13
 . support alternate data backends (set in application.conf like .api)
 . try adding spire or saddle 
+. api for quick graphs from the REPL (import SG._;  plot(myList); plot(myList, myDashboard) )
+. abstract X axis numeric type (currently hardcoded to date time)
