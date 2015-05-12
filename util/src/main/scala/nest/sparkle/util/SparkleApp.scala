@@ -14,6 +14,8 @@
 
 package nest.sparkle.util
 
+import java.nio.file.{Files, Paths}
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
@@ -48,6 +50,7 @@ trait SparkleApp
   val confFile = parser.option[String](List("conf"), "path", "path to a .conf file")
 
   lazy val rootConfig = {
+    confFile.value.foreach(validateNormalFile)
     val baseConfig = ConfigUtil.configFromFilesAndResources(
       confFile.value.toSeq ++ extraConfFiles, extraConfResources)
     val config = ConfigUtil.modifiedConfig(baseConfig, overrides: _*)
@@ -86,6 +89,19 @@ trait SparkleApp
     // Start an http server to return metrics values in graphite format.
     if (graphiteConfig.getBoolean("http.enable")) {
       Await.result(MetricsSupport.startHttpServer(graphiteConfig), 20 seconds)
+    }
+  }
+
+  /** validate that a file exists and is not a directory */
+  def validateNormalFile(fileName:String): Unit = {
+    val path = Paths.get(fileName)
+    if (!Files.exists(path)) {
+      Console.err.println(s"file does not exist: $fileName" )
+      sys.exit(1)
+    }
+    if (Files.isDirectory(path)) {
+      println(s"file is a directory, expected a file: $fileName" )
+      sys.exit(1)
     }
   }
 

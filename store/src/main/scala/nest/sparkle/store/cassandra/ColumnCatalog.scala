@@ -129,8 +129,10 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
       (implicit executionContext: ExecutionContext): Future[CatalogInfo] = { // format: ON
     columnPathFormat.columnCategory(columnPath) match {
       case Success(columnCategory) =>
+        log.debug(s"catalogInfo found for columnPath: $columnPath")
         cachedCatalogInfo(columnCategory, columnPath)
       case Failure(exception) =>
+        log.debug(s"catalogInfo not found for columnPath: $columnPath")
         Future.failed(ColumnNotFound(columnPath).initCause(exception))
     }
   }

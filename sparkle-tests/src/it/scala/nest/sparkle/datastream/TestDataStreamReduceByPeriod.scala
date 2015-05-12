@@ -40,7 +40,8 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
     implicit val span = DummySpan
     val reduced = stream.reduceByPeriod(periodWithZone, range, ReduceSum[V](), true)
     val dataArrays = reduced.reducedStream.data.toBlocking.toList
-    dataArrays.reduce (_ ++ _)
+    val optResult = dataArrays.reduceLeftOption (_ ++ _)
+    optResult.getOrElse(DataArray.empty)
   }
   
   def testSumSimpleByHour[K: ClassTag: TypeTag: Numeric, V: ClassTag: TypeTag: Numeric] // format: OFF
@@ -109,5 +110,11 @@ class TestDataStreamReduceByPeriod extends FunSuite with Matchers with PropertyC
       None
     )
   }
+
+  test("reduceByPeriod: no data") {
+    val results = reduceSum[Long,Long](Seq(Seq()), "1 hour")
+    println(results)
+  }
+
 
 }

@@ -62,7 +62,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
           val produced = state.processArray(dataArray)
           Observable.from(produced)
         case Notification.OnCompleted =>
-          finishState.complete(Success(Some(state.frozenState)))
+          finishState.complete(Success(state.frozenState))
           state.remaining match {
             case Some(remaining) => Observable.from(Seq(remaining))
             case None            => Observable.empty
@@ -102,7 +102,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     * is complete to fetch any partially reduced data. */
   private class State
       ( periodWithZone: PeriodWithZone,
-        reduction2: IncrementalReduction[V],
+        reduction: IncrementalReduction[V],
         range: SoftInterval[K],
         maxPeriods: Int,
         optPrevious: Option[FrozenProgress[K, V]],
@@ -112,7 +112,7 @@ trait DataStreamPeriodReduction[K,V] extends Log {
     var periods: Option[PeriodProgress[K]] = None
     var newDataReceived = false // true if we've received new data (not just applied frozen state)
     private var results = new Results()
-    var currentReduction = reduction2
+    var currentReduction = reduction
 
     optPrevious match {
       case Some(previousProgress) =>
@@ -184,8 +184,10 @@ trait DataStreamPeriodReduction[K,V] extends Log {
 
 
     /** return enough state to continue interim processing on a new stream */
-    def frozenState: FrozenProgress[K,V] = {
-      FrozenProgress(periods.get, currentReduction)
+    def frozenState: Option[FrozenProgress[K,V]] = {
+      periods.map { thePeriods =>
+        FrozenProgress(thePeriods, currentReduction)
+      }
     }
 
     /** initialize time period iterator */

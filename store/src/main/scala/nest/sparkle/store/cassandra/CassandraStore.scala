@@ -40,14 +40,13 @@ case class NanoTime(nanos: Long) extends AnyVal
 
 case class MilliTime(millis: Long) extends AnyVal
 
-object CassandraStore extends Log
-{
-  
+object CassandraStore extends Log {
   /** (for tests) return a Storage DAO for reading and writing to cassandra.  */
   def readerWriter(config: Config, writeNotification: WriteListenNotify) // format: OFF
       : CassandraReaderWriter = { // format: ON
     new ConfiguredCassandraReaderWriter(config, writeNotification)
   }
+
   /** Drop the keyspace.
     * This is mostly useful for testing.
     *

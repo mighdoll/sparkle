@@ -1,5 +1,5 @@
-define(["lib/when/monitor/console", "sg/request", "sg/util"],
-    function(_console, request) {
+define(["lib/when/monitor/console", "sg/request", "sg/util", "lib/when/when"],
+    function(_console, request, _util, when) {
 
    var webSocketUriWhen =
      request.jsonWhen("/serverConfig")
@@ -38,9 +38,10 @@ define(["lib/when/monitor/console", "sg/request", "sg/util"],
   *   column:String -- name of the column on the server
   *   dataFn:function -- called with the raw data from the server each time
   *     more data arrives.
+  *   errorFn:function -- called if there's an error from the server
   */
   function columnRequestSocket(transform, transformParameters, dataSet, column, 
-      dataFn) {
+      dataFn, errorFn) {
     //console.log("columnRequestSocket called for:", dataSet, column, transform, transformParameters);
     var sourceSelector = [dataSet + "/" + column];
 
@@ -51,9 +52,8 @@ define(["lib/when/monitor/console", "sg/request", "sg/util"],
       socket.onmessage = function(messageEvent) {
         //console.log("columnRequestSocket got message:", messageEvent.data);
         if (!receivedHead) {
-          var data = streamsResponse(messageEvent.data);
           receivedHead = true;
-          dataFn(data);
+          headResponse(messageEvent.data, dataFn, errorFn);
         } else {
           var data = updateResponse(messageEvent.data);
           dataFn(data);
@@ -84,6 +84,26 @@ define(["lib/when/monitor/console", "sg/request", "sg/util"],
     return request.jsonPost(uri, message).then(streamsResponse);
   }
 
+  /** return a When with the results from the head response from the server. The When
+    * resolves successfully with the data from a Streams message, or fails with the
+    * error from the server Status message */
+  function streamsResponse(message) {
+    var deferred = when.defer(),
+        promise = deferred.promise;
+
+    function dataReceived(data) {
+      deferred.resolve(data);
+    }
+
+    function errorReceived(err) {
+      deferred.reject(err);
+    }
+
+    headResponse(message, dataReceived, errorReceived);
+
+    return promise;
+  }
+
   /** convert [Millis,Number] to [Date, Number] format */
   function millisToDates(jsonArray) {
     var data = jsonArray.map( function (row) { 
@@ -98,8 +118,8 @@ define(["lib/when/monitor/console", "sg/request", "sg/util"],
    * @param dataSetName
    */
   function getDataSetColumns(dataSetName) {
-      var url = "/v1/columns/" + dataSetName;
-      return request.jsonWhen(url);
+    var url = "/v1/columns/" + dataSetName;
+    return request.jsonWhen(url);
   }
         
   /**
@@ -107,15 +127,25 @@ define(["lib/when/monitor/console", "sg/request", "sg/util"],
    * @param dataSetName
    */
   function getDataSetChildren(dataSetName) {
-      var url = "/v1/datasets/" + dataSetName;
-      return request.jsonWhen(url);
+    var url = "/v1/datasets/" + dataSetName;
+    return request.jsonWhen(url);
   }
 
-  /** process a Streams message from the server */
-  function streamsResponse(message) {
+  /** handle the first response coming back on a server stream */
+  function headResponse(message, dataFn, errorFn) {
     var streamsMessage = JSON.parse(message);
-    return streamsMessage.message.streams[0].data;
-    // TODO: Handle more than one stream of data in response
+    var messageType = streamsMessage.messageType.toLowerCase();
+    if (messageType == 'status') {
+      errorFn(streamsMessage.message);
+    } else if (messageType == 'streams') {
+      var streams = streamsMessage.message.streams;
+      if (streams.length == 0) {
+        dataFn([]);
+      } else {
+        // TODO: Handle more than one stream of data in response
+        dataFn(streams[0].data);
+      }
+    }
   }
 
   /** process an Update message from the server */

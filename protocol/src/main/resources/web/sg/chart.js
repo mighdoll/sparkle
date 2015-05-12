@@ -103,22 +103,32 @@ function chart() {
     namedSeriesMetaData(groups, dataApi)
       .then(seriesMetaDataLoaded);
 
-
     function seriesMetaDataLoaded() {
       var allSeries = collectSeries(groups);
 
       if (allSeries.length == 0) {
-        // no series? fade out everything except the title
         var exceptTitle = selection.selectAll('*').filter(function() {
           return !d3.select(this).classed('title');
         });
+        // no series? fade out everything except the title
         exceptTitle.transition().style('opacity', 0).remove();
         return;
       }
 
       var errors = displayErrors(groups, allSeries, selection, outerSize);
 
-      if (!errors) {
+      function failed(err) {
+        console.log("seriesMetaDataLoaded err:", err);
+      }
+
+      /** return true if all the series contain no data */
+      function allEmpty() {
+        return allSeries.every(function(series) {
+          return (!series.domain || series.domain.length == 0);
+        });
+      }
+
+      if (!errors && !allEmpty()) {
         trackMaxDomain(chartData, allSeries);
         var requestUntil = chartData.displayDomain[1] == chartData.maxDomain[1] ?
             undefined        // unspecified end (half bounded range) if selection is max range
@@ -128,7 +138,7 @@ function chart() {
           series.transformName = series.transformName ? series.transformName : defaultTransform;
         });
         var fetched = fetchData(dataApi, allSeries, requestDomain, timeSeries, plotSize[0], moreData);
-        fetched.then(function(){ dataReady(allSeries); }).otherwise(rethrow);
+        fetched.then(function(){ dataReady(allSeries); }).otherwise(failed);
       }
     }
 
@@ -146,14 +156,14 @@ function chart() {
     /** Plot the chart now that the data has been received from the server. */
     function dataReady(allSeries) {
       var transition = useTransition(inheritedTransition);
+      var labelLayer = attachByClass('g', selection, 'label-layer')
+          .attr('width', plotSize[0])
+          .attr('transform', 'translate(' + plotSpot[0] + ',' + plotSpot[1] +')');
       // data plot drawing area
       var plotSelection = attachByClass('g', selection, 'plotArea')
         .attr('width', plotSize[0])
         .attr('transform', 'translate(' + plotSpot[0] + ',' + plotSpot[1] +')');
       var plotClipId = 'chart-plot-clip-' + chartId;
-      var labelLayer = attachByClass('g', selection, 'label-layer')
-        .attr('width', plotSize[0])
-        .attr('transform', 'translate(' + plotSpot[0] + ',' + plotSpot[1] +')');
 
       // x axis
       var xAxisSpot = [plotSpot[0],
@@ -183,7 +193,7 @@ function chart() {
       attachSeriesPlots(plotTransition, groups, defaultPlotter);
       attachGroupPlots(plotSelection, plotTransition, groups, defaultPlotter);
 
-      // legends    
+      // legends
       if (showLegend)
         attachLegends(labelLayer, allSeries);
 
@@ -290,10 +300,12 @@ function chart() {
 
   /** Adjust the max domain based on the current series. Set the display domain if it
     * isn't already set */
-  function trackMaxDomain(chartData, series) {
-    var maxDomain = keyRange(series);
-    chartData.maxDomain = maxDomain;
-    chartData.displayDomain = chartData.displayDomain || maxDomain;
+  function trackMaxDomain(chartData, allSeries) {
+    var maxDomain = keysExtent(allSeries);
+    if (maxDomain) {
+      chartData.maxDomain = maxDomain;
+      chartData.displayDomain = chartData.displayDomain || maxDomain;
+    }
   }
 
   function bindResizer(svg) {
@@ -606,18 +618,24 @@ function chart() {
 
 
   /** return the min and max time from an array of DataSeries */
-  function keyRange(series) {
-    if (series.length == 0) {
-      return [0, 0];
+  function keysExtent(allSeries) {
+    var seriesWithDomains = allSeries.filter(function(series) {
+      return series.domain && series.domain.length == 2;
+    });
+
+    if (seriesWithDomains.length == 0) {
+      return undefined;
     }
 
-    var min = series.reduce(function(prevValue, item) {
-      return Math.min(item.domain[0], prevValue);
-    }, series[0].domain[0]);
+    var firstDomain = seriesWithDomains[0].domain;
 
-    var max = series.reduce(function(prevValue, item) {
+    var min = seriesWithDomains.reduce(function(prevValue, item) {
+      return Math.min(item.domain[0], prevValue);
+    }, firstDomain[0]);
+
+    var max = seriesWithDomains.reduce(function(prevValue, item) {
       return Math.max(item.domain[1], prevValue);
-    }, series[0].domain[1]);
+    }, firstDomain[1]);
 
     return [min, max];
   }
@@ -657,6 +675,8 @@ function chart() {
           if (seriesArray) {
             group.series = group.series.concat(seriesArray);
           }
+        }).otherwise(function(err) {
+          console.log("named error:", err);
         });
         groupWhens.push(futureSeries);
       }
@@ -683,6 +703,7 @@ function chart() {
 
     /** return a 'fake' Series with an error property set */
     function errorSeries(err) {
+      console.log("returning error Series for:", err);
       return {
         error: err.statusText + ': ' + err.responseText
       };
@@ -733,7 +754,15 @@ function chart() {
       return namedSeries;
     }
 
-    return futureKeyValueRanges.then(received).otherwise(rethrow);
+    var result = futureKeyValueRanges.then(received).otherwise(requestFailed);
+
+    function requestFailed(err) {
+      // TODO display error on screen
+      console.log("KeyValueRanges failed", err, result);
+      return [];
+    }
+
+    return result;
   }
 
 
