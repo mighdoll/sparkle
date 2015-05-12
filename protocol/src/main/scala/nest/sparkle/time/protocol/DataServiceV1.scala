@@ -20,7 +20,7 @@ import scala.util.control.Exception.nonFatalCatch
 import akka.actor.ActorSystem
 import com.typesafe.config.Config
 import spray.routing._
-import spray.http.StatusCodes
+import spray.http.{StringRendering, StatusCodes}
 import spray.json._
 import spray.httpx.SprayJsonSupport._
 import spray.json.DefaultJsonProtocol._
@@ -70,13 +70,15 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
 
   /** Returns the given entity path's columns */
   private lazy val columnsRequest:Route =
-    path("columns" / Rest) { entityPath =>
-      if (entityPath.isEmpty) {
-        // This will happen if the url has just a slash after 'columns'
-        complete(StatusCodes.NotFound -> "Entity path not specified")
-      } else {
-        val futureColumnNames = store.entityColumnPaths(entityPath)
-        richComplete(futureColumnNames)
+    pathPrefix("columns") {
+      path(Segments) { entityPath =>
+        if (entityPath.isEmpty) {
+          complete(StatusCodes.NotFound -> "Entity path not specified")
+        } else {
+          val pathString = entityPath.mkString("/")
+          val futureColumnNames = store.entityColumnPaths(pathString)
+          richComplete(futureColumnNames)
+        }
       }
     }
 
@@ -85,12 +87,9 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
     path("findEntity" ) {
       parameter('q) { term =>
         if (term.isEmpty) {
-          // This will happen if the url has just a slash after 'entities'
           complete(StatusCodes.NotFound -> "Lookup key not specified")
         } else {
-          val futureNames =
-            store.entities(term)
-            .recover {
+          val futureNames = store.entities(term).recover {
               case e:EntityNotFoundForLookupKey => Seq()
             }
           richComplete(futureNames)
