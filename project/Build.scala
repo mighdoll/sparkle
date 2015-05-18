@@ -43,9 +43,9 @@ object SparkleBuild extends Build {
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
         libraryDependencies ++= logbackTest ++ Seq(
-          scalaReflect,
           spire
-        )
+        ),
+        libraryDependencies <+= scalaVersion(scalaReflect % _)
       )
 
 
@@ -266,26 +266,27 @@ object SparkleBuild extends Build {
         libraryDependencies ++= log4jLogging ++ Seq(Test.scalaTest)
       )
 
+  lazy val assemblyExclusions = 
+    assemblyExcludedJars in assembly := {
+      val classpath = (fullClasspath in assembly).value
+      classpath.filter{ attributedFile =>
+        val name = attributedFile.data.getName
+        name match {
+          case _ if name.endsWith("-sources.jar")                           => true // cassandra driver includes sources
+          case _ if name.matches(raw".*?\bakka-actor_2\.\d+-2\.3\.11\.jar") => true // exclusion trick doesn't work with cached resolution
+          case _ if name.endsWith("minlog-1.2.jar")                         => true // probably better in current rev. see https://github.com/EsotericSoftware/kryo/issues/189
+          case _                                                            => false
+        }
+      }
+    }
+
   lazy val sparkShell =   // admin shell
     Project(id = "spark-repl", base = file("spark"))
       .dependsOn(sparkleStore)           // is "compile->compile" the default?
       .dependsOn(sparkleLoader)
       .dependsOn(storeTestKit % "it->compile;test->compile")  // is this just "it;test"?
       .dependsOn(logbackConfig)
-      .settings(
-        assemblyExcludedJars in assembly := { 
-          val classpath = (fullClasspath in assembly).value
-          classpath.filter{ attributedFile => 
-            val name = attributedFile.data.getName
-            name match {
-              case _ if name.endsWith("-sources.jar")              => true // cassandra driver includes sources
-              case _ if name.endsWith("akka-actor_2.10-2.2.4.jar") => true // exclusion trick doesn't work with cached resolution
-              case _ if name.endsWith("minlog-1.2.jar")            => true // probably better in current rev. see https://github.com/EsotericSoftware/kryo/issues/189
-              case _                                               => false  
-            }
-          }
-        }
-      )
+      .settings(assemblyExclusions)
       .configs(IntegrationTest)
       .settings(sparkleSettings: _*)
       .settings(BackgroundService.settings: _*)
@@ -321,18 +322,7 @@ object SparkleBuild extends Build {
         libraryDependencies ++= logbackTest ++ spark ++ Seq(
           sparkRepl
         ),
-        assemblyExcludedJars in assembly := {
-          val classpath = (fullClasspath in assembly).value
-          classpath.filter{ attributedFile =>
-            val name = attributedFile.data.getName
-            name match {
-              case _ if name.endsWith("-sources.jar")              => true // cassandra driver includes sources
-              case _ if name.endsWith("akka-actor_2.10-2.2.4.jar") => true // exclusion trick doesn't work with cached resolution
-              case _ if name.endsWith("minlog-1.2.jar")            => true // probably better in current rev. see https://github.com/EsotericSoftware/kryo/issues/189
-              case _                                               => false
-            }
-          }
-        },
+        assemblyExclusions,
         initialCommands in console := """
           import nest.sg.SparkleConsole._
           import nest.sparkle.store.Event

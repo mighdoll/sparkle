@@ -153,7 +153,7 @@ object serializers {
     val columnType = "text"
 
     def fromRow(row: Row, index: Int): JsValue = {
-      row.getString(index).asJson
+      row.getString(index).parseJson
     }
 
     override def serialize(value: JsValue): AnyRef =

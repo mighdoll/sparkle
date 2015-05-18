@@ -1,7 +1,7 @@
 package nest.sparkle.loader.kafka
 
 import java.util.concurrent.Executors
-import scala.concurrent.{ExecutionContext, Await, promise}
+import scala.concurrent.{ExecutionContext, Await, Promise}
 import scala.concurrent.duration._
 import org.scalatest.{ FunSuite, Matchers }
 import org.scalatest.prop.PropertyChecks
@@ -60,7 +60,7 @@ class TestLargeKafkaStream
             val loader = new KafkaLoader[Long](modifiedRoot, testStore)
 
             // Set up a future that will complete when a notification for the last write is received
-            val p = promise[Unit]()
+            val p = Promise[Unit]()
             storeWrite.subscribe { update =>
               update match {
                 case update:ColumnUpdate[_] if update.end == lastKey => p.success(())

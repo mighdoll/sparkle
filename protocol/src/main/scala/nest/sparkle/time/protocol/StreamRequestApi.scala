@@ -197,7 +197,7 @@ case class StreamRequestApi(val store: Store, val rootConfig: Config) // format:
   private def makeStream[T](streamAndData: StreamAndData, end: Boolean): Stream = {
     Stream(
       streamId = 1L, // TODO make a real stream id
-      metadata = streamAndData.outputStream.metadata.map { _.asJson },
+      metadata = streamAndData.outputStream.metadata.map { _.parseJson },
       data = Some(streamAndData.data),
       streamType = streamAndData.outputStream.streamType,
       end = Some(end)

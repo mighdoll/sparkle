@@ -21,7 +21,7 @@ object ReflectionUtil {
   /** given a case class type tag, return a list of the case class field names */
   def caseClassFields[T:TypeTag]:Seq[String] = {
     typeOf[T].members.collect {
-      case m:MethodSymbol if m.isCaseAccessor => m.name.decoded
+      case m:MethodSymbol if m.isCaseAccessor => m.name.decodedName.toString
     }.toVector
   }
 

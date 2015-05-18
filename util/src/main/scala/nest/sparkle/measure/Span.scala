@@ -207,7 +207,10 @@ case class Gauged[T](
 
 object Gauged {
   /** report a sampled metric value */
-  def apply[T](name:String, value:T, level: ReportLevel = Inherit)(implicit parent: Span): Unit = {
+  def apply[T](name:String, value:T)(implicit parent: Span): Unit = {
+    apply[T](name, value, level = Inherit)(parent)
+  }
+  def apply[T](name:String, value:T, level: ReportLevel)(implicit parent: Span): Unit = {
     val classOfValue = value.getClass
     // for now require Long compatible type until we write to multiple gauge files for each value type
     assert(

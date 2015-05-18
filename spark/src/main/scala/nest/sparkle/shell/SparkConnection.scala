@@ -163,7 +163,7 @@ object SparkConnection {
     import spray.json._
     def targetTypeTag = implicitly[TypeTag[JsValue]]
     def convertPF = {
-      case x: String => println(s"parsing: $x"); x.asJson
+      case x: String => println(s"parsing: $x"); x.parseJson
     }
   }
 

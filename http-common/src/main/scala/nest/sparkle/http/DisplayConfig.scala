@@ -64,11 +64,11 @@ trait DisplayConfig
 
   private lazy val renderConcise = ConfigRenderOptions.concise().setFormatted(true)
   
-  private def configConcise: Future[String] = future {
+  private def configConcise: Future[String] = Future {
     rootConfig.root.render(renderConcise)
   }
 
-  private def configCommented: Future[String] = future {
+  private def configCommented: Future[String] = Future {
     rootConfig.root.render()
   }
 }

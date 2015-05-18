@@ -123,7 +123,7 @@ class TestIntervalSumLarge extends FunSuite with Matchers with CassandraStoreTes
       val message = MultiIntervalSum.requestMessage(columns, summary)
       val result = testService.sendDataMessage(message, maxWait).await(Timeout(maxWait))
       result.status shouldBe StatusCodes.OK
-      val streams = result.entity.asString.asJson.convertTo[StreamsMessage]
+      val streams = result.entity.asString.parseJson.convertTo[StreamsMessage]
       streams.message.streams.size shouldBe 1
     }
 

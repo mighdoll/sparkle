@@ -165,13 +165,13 @@ object TestDataService {
   }
 
   def dataFromStreams(message:String): Seq[Seq[JsArray]] = {
-    val jsonMessage = message.asJson
+    val jsonMessage = message.parseJson
     val streamsMessage = jsonMessage.convertTo[StreamsMessage]
     streamsMessage.message.streams.map { stream => stream.data.get}
   }
 
   def dataFromUpdate(message:String): Seq[JsArray] = {
-    val jsonMessage = message.asJson
+    val jsonMessage = message.parseJson
     val updateMessage = jsonMessage.convertTo[UpdateMessage]
     updateMessage.message.data.get
   }

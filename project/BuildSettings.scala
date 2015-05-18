@@ -44,8 +44,14 @@ object BuildSettings {
   )
 
   lazy val compileSettings = Seq(
-    scalaVersion := Dependencies.V.scala,
-    scalaBinaryVersion := "2.10",
+    scalaVersion := "2.11.6",
+    crossScalaVersions := Seq("2.10.5"),
+    // TODO(ochafik): Do we need a custom binary version?
+    // scalaBinaryVersion <<= scalaVersion { scalaVersion => 
+    //   val Rx = """(\d+\.\d+)(?:\.\d+)""".r
+    //   val Rx(major) = scalaVersion
+    //   major
+    // },
     testOptions += Tests.Argument("-oF"), // show full stack traces during test failures
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps", "-target:jvm-1.7")
   )

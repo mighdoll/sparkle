@@ -4,10 +4,10 @@ object Dependencies {
   object V {
     val scalaTest = "2.2.1"
     val scalaCheck = "1.12.1" 
-    val akka = "2.2.3"
-    val spray = "1.2.1"
-    val scala = "2.10.4"
-    val spark = "1.1.0"
+    val akka = "2.3.11"
+    val spray = "1.3.3"
+    val sprayJson = "1.3.2"
+    val spark = "1.3.1"
     val slf4j = "1.7.9"
   }
 
@@ -16,15 +16,15 @@ object Dependencies {
   val scalaConfig           = "com.typesafe"              %  "config"                 % "1.2.1"
 
   // Spray + Akka
-  val sprayCan              = "io.spray"                  %  "spray-can"              % V.spray
-  val sprayRouting          = "io.spray"                  %  "spray-routing"          % V.spray
-  val sprayClient           = "io.spray"                  %  "spray-client"           % V.spray
-  val sprayCaching          = "io.spray"                  %  "spray-caching"          % V.spray
-  val sprayUtil             = "io.spray"                  %  "spray-util"             % V.spray
-  val sprayJson             = "io.spray"                  %% "spray-json"             % "1.2.5"
-  val akkaActor             = "com.typesafe.akka"         %% "akka-actor"             % V.akka
-  val akkaSlf4j             = "com.typesafe.akka"         %% "akka-slf4j"             % V.akka
-  val akkaRemoting          = "com.typesafe.akka"         %% "akka-remote"            % V.akka
+  val sprayCan              = "io.spray"                  %%  "spray-can"              % V.spray
+  val sprayRouting          = "io.spray"                  %%  "spray-routing"          % V.spray
+  val sprayClient           = "io.spray"                  %%  "spray-client"           % V.spray
+  val sprayCaching          = "io.spray"                  %%  "spray-caching"          % V.spray
+  val sprayUtil             = "io.spray"                  %%  "spray-util"             % V.spray
+  val sprayJson             = "io.spray"                  %%  "spray-json"             % V.sprayJson
+  val akkaActor             = "com.typesafe.akka"         %%  "akka-actor"             % V.akka
+  val akkaSlf4j             = "com.typesafe.akka"         %%  "akka-slf4j"             % V.akka
+  val akkaRemoting          = "com.typesafe.akka"         %%  "akka-remote"            % V.akka
 
   val argot                 = "org.clapper"               %% "argot"                  % "1.0.3"
   val nScalaTime            = "com.github.nscala-time"    %% "nscala-time"            % "1.6.0"
@@ -35,11 +35,12 @@ object Dependencies {
   val snappy                = "org.xerial.snappy"         %  "snappy-java"            % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           %  "lz4"                    % "1.3.0"
 
-  val scalaReflect          = "org.scala-lang"            %  "scala-reflect"           % V.scala
-  val scalaLogging          = "com.typesafe"              %% "scalalogging-slf4j"     % "1.1.0"
+  // Note: version is intentionally left out. Usage: `libraryDependencies <+= scalaVersion(scalaReflect % _)`.
+  val scalaReflect          = "org.scala-lang"            %  "scala-reflect"
+  val scalaLogging          = "com.typesafe.scala-logging" %% "scala-logging-slf4j"    % "2.1.2"
 
   val rxScala               = "io.reactivex"              %% "rxscala"                % "0.23.1"
-  val sparkCassandra        = ("com.datastax.spark"       %% "spark-cassandra-connector" % "1.1.0" withSources() withJavadoc()
+  val sparkCassandra        = ("com.datastax.spark"       %% "spark-cassandra-connector" % "1.2.1" withSources() withJavadoc()
                                 excludeAll(ExclusionRule(organization = "org.apache.spark"))
                               )
   val sparkCore             = ("org.apache.spark"         %% "spark-core"             % V.spark
@@ -53,7 +54,7 @@ object Dependencies {
                                 exclude("org.slf4j", "slf4j-log4j12")
                               )
   val sparkMllib            = ("org.apache.spark"         %% "spark-mllib"            % V.spark
-                                exclude("com.typesafe", "scalalogging-slf4j_2.10")   // avoid version conflict (and selected explicitly above anyway)
+                                exclude("com.typesafe", "scalalogging-slf4j_2.11")   // avoid version conflict (and selected explicitly above anyway)
                                 exclude("org.slf4j", "slf4j-log4j12")
                               )
   val sparkRepl             = ("org.apache.spark"          %% "spark-repl"             % V.spark    
@@ -79,7 +80,7 @@ object Dependencies {
                                 exclude("org.codehaus.jackson", "jackson-mapper-asl")
                               )
 
-  val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.1.1"
+  val apacheKafka           = ("org.apache.kafka"         %% "kafka"                  % "0.8.2.1"
                                   exclude("javax.jms", "jms")
                                   exclude("com.sun.jdmk", "jmxtools")
                                   exclude("com.sun.jmx", "jmxri")
@@ -95,7 +96,7 @@ object Dependencies {
   val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.4"
   val nettyAll              = "io.netty"                  %  "netty-all"                    % "4.0.19.Final" 
   
-  val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.2.1_a2.2"
+  val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.5.1_a2.3"
   val metricsGraphite       = "com.codahale.metrics"      %  "metrics-graphite"       % "3.0.2"
 
   // match version used by spark, cassandra driver, etc
@@ -114,14 +115,14 @@ object Dependencies {
   object Test {
     val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest  % "test"
     val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck % "test"
-    val sprayTestKit        = "io.spray"                 %  "spray-testkit"          % V.spray      % "test"
+    val sprayTestKit        = "io.spray"                 %% "spray-testkit"          % V.spray      % "test"
     val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       % "test"
   }
 
   object IT {
     val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest  % "it"
     val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck % "it"
-    val sprayTestKit        = "io.spray"                 %  "spray-testkit"          % V.spray      % "it"
+    val sprayTestKit        = "io.spray"                 %% "spray-testkit"          % V.spray      % "it"
     val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka       % "it"
     val tubeSocks           = ("me.lessis"               %% "tubesocks"              % "0.1.0"
                                 exclude("org.slf4j", "slf4j-jdk14")
@@ -131,7 +132,7 @@ object Dependencies {
   object Kit {
     val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest
     val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck
-    val sprayTestKit        = "io.spray"                 %  "spray-testkit"          % V.spray
+    val sprayTestKit        = "io.spray"                 %% "spray-testkit"          % V.spray
     val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka
   }
   

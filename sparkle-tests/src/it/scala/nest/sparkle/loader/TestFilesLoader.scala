@@ -131,7 +131,7 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraStoreTestConf
   test("load file with explicit json") {
     import spray.json._
     testLoadFile("explicitTypes.csv", "explicitTypes/jso") { results: Seq[Event[Long, JsValue]] =>
-      val expected = """{ "js": 9 }""".asJson
+      val expected = """{ "js": 9 }""".parseJson
       results.head.value shouldBe expected
     }
   }

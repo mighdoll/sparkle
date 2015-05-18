@@ -80,7 +80,7 @@ object TextTableParser extends Log {
             case TypedColumnHeader(tag) =>
               val parseTo =
                 ParseStringTo.findParser(tag).getOrElse {
-                  throw TextParserNotFound(tag.tpe.termSymbol.name.decoded)
+                  throw TextParserNotFound(tag.tpe.termSymbol.name.decodedName.toString)
                 }
               (parseTo, TypedColumnHeader.withoutSuffix(columnName))
             case _ =>

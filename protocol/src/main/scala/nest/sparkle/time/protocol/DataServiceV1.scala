@@ -130,7 +130,7 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
   private def parseStreamRequest(request: String): Try[StreamRequestMessage] = {
     val result =
       for {
-        json <- nonFatalCatch.withTry { request.asJson }
+        json <- nonFatalCatch.withTry { request.parseJson }
         streamRequest <- nonFatalCatch.withTry { json.convertTo[StreamRequestMessage] }
       } yield {
         streamRequest

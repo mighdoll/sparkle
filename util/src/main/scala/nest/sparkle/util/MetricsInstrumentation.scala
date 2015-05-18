@@ -23,6 +23,6 @@ trait Instrumented
   lazy val metricRegistry = MetricsInstrumentation.registry
   
   // Don't prefix metric names with the scala class.
-  private lazy val metricBuilder = new MetricBuilder(MetricName(""), metricRegistry)
+  override lazy val metricBuilder = new MetricBuilder(MetricName(""), metricRegistry)
   override def metrics = metricBuilder
 }

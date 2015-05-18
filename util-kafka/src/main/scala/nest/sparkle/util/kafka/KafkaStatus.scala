@@ -53,7 +53,7 @@ class KafkaStatus(
   }
   
   def allBrokers(implicit parentSpan: Span): Future[Seq[KafkaBroker]] = {
-    future {
+    Future {
       val span = Span("allBrokers")
       span.time {
         val brokerIds = Span("BrokerIds")(span).time {
@@ -64,7 +64,7 @@ class KafkaStatus(
             val path = s"${ZkUtils.BrokerIdsPath}/$brokerId"
             val stat = new Stat
             val json = client.readData[String](path, stat)
-            val ast = json.asJson
+            val ast = json.parseJson
             val info = ast.convertTo[BrokerInfo]
             KafkaBroker(brokerId, info.host, info.port)
           }
@@ -75,11 +75,11 @@ class KafkaStatus(
   }
    
   def brokerFromId(brokerId: Int)(implicit parentSpan: Span): Future[KafkaBroker] = {
-    future {
+    Future {
       Span("brokerFromId").time {
         val path = s"${ZkUtils.BrokerIdsPath}/$brokerId"
         val json = client.readData[String](path)
-        val ast = json.asJson
+        val ast = json.parseJson
         val info = ast.convertTo[BrokerInfo]
         KafkaBroker(brokerId, info.host, info.port)
       }
@@ -87,7 +87,7 @@ class KafkaStatus(
   }
  
   def allTopicNames(implicit parentSpan: Span): Future[Seq[String]] = {
-    future {
+    Future {
       Span("allTopicNames").time {
         ZkUtils.getAllTopics(client).sorted
       }
@@ -95,7 +95,7 @@ class KafkaStatus(
   }
   
   def allConsumerGroups(implicit parentSpan: Span): Future[Seq[String]] = {
-    future {
+    Future {
       Span("allConsumerGroups").time {
         ZkUtils.getChildren(client, ZkUtils.ConsumersPath).sorted
       }
@@ -103,7 +103,7 @@ class KafkaStatus(
   }
   
   def consumersInGroup(group: String)(implicit parentSpan: Span): Future[Seq[String]] = {
-    future {
+    Future {
       Span("consumersInGroup").time {
         ZkUtils.getConsumersInGroup(client, group).sorted
       }
@@ -111,7 +111,7 @@ class KafkaStatus(
   }
   
   def consumerGroupTopics(group: String)(implicit parentSpan: Span): Future[Seq[String]] = {
-    future {
+    Future {
       Span("consumerGroupTopics").time {
         val path = s"${ZkUtils.ConsumersPath}/$group/offsets"
         val tryResult = nonFatalCatch withTry client.getChildren(path).sorted
@@ -128,7 +128,7 @@ class KafkaStatus(
   def allTopics(implicit parentSpan: Span): Future[Map[String,KafkaTopic]] = {
     def topicsFromNames(consumers: Map[Int,BrokerConsumer], topicNames: Seq[String]) = {
        val futures = topicNames map { topicName =>
-         future {
+         Future {
            kafkaTopic(consumers, topicName)
          }
       }
@@ -180,7 +180,7 @@ class KafkaStatus(
   
   def partitionIdsForConsumerGroupTopic(group: String, topic: String)
     (implicit parentSpan: Span): Future[Seq[Int]] = {
-    future {
+    Future {
      Span("partitionIdsForConsumerGroupTopic").time {
        val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic"
        client.getChildren(path).map(_.toInt).sorted
@@ -190,7 +190,7 @@ class KafkaStatus(
   
   def kafkaPartitionOffset(group: String, topic: String, partition: Int)
     (implicit parentSpan: Span): Future[KafkaPartitionOffset] = {
-    future {
+    Future {
       Span("kafkaPartitionOffset").time {
         val path = s"${ZkUtils.ConsumersPath}/$group/offsets/$topic/$partition"
         val offset = nonFatalCatch opt { client.readData[String](path).toLong }
@@ -225,7 +225,7 @@ class KafkaStatus(
       partsIds map { partId =>
         val pathPart = s"${ZkUtils.BrokerTopicsPath}/$topicName/partitions/$partId/state"
         val source = client.readData[String](pathPart, true)
-        val ast = source.asJson
+        val ast = source.parseJson
         val state = ast.convertTo[BrokerTopicPartitionState]
 
         val broker = consumers(state.leader)

@@ -12,7 +12,7 @@ object MinMaxJson extends DefaultJsonProtocol {
       
       def read(value: JsValue): MinMax[T] = {
         value match {
-          case JsArray(min :: max :: Nil) =>
+          case JsArray(Vector(min, max)) =>
             MinMax(min.convertTo[T], max.convertTo[T])
           case x => throw new DeserializationException(s"MinMax expected, got $x")
         }
@@ -43,11 +43,10 @@ object KeyValueRangesJson extends DefaultJsonProtocol {
       
       def read(value: JsValue): KeyValueRanges[T, U] = {
         value match {
-          case JsArray(
-            JsArray(JsString("keyRange") :: List(keyRangeJs))
-              :: JsArray(JsString("valueRange") :: List(valueRangeJs))
-              :: Nil
-            ) =>
+          case JsArray(Vector(
+            JsArray(Vector(JsString("keyRange"), keyRangeJs)),
+            JsArray(Vector(JsString("valueRange"), valueRangeJs))
+          )) =>
             val keyRange = keyRangeJs.convertTo[MinMax[T]]
             val valueRange = valueRangeJs.convertTo[MinMax[U]]
             KeyValueRanges(keyRange, valueRange)

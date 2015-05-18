@@ -60,7 +60,7 @@ class TestVariousTypes extends FunSuite with Matchers with CassandraStoreTestCon
   test("deliver json value over protocol request") {
     import spray.json._
     testExplicitType[JsValue]("jso") { firstValue =>
-      val expected = """{ "js": 9 }""".asJson
+      val expected = """{ "js": 9 }""".parseJson
       firstValue shouldBe expected
     }
   }

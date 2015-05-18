@@ -24,7 +24,7 @@ object AvroUtil {
   /** return a pretty printed json string from a generic avro record */
   def prettyRecord(record: GenericRecord): String = {
     val recordString = record.toString
-    val recordJson = recordString.asJson
+    val recordJson = recordString.parseJson
     recordJson.prettyPrint
   }
 

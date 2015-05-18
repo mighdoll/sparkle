@@ -39,7 +39,7 @@ class DataWebSocket(store: Store, rootConfig: Config) // format: OFF
   }
 
   private def handleMessage(socket: WebSocket, message: String) {
-    val json = message.asJson
+    val json = message.parseJson
 
     val request = json.convertTo[StreamRequestMessage](StreamRequestMessageFormat) // TODO error handling
     api.socketStreamRequest(request, socket)

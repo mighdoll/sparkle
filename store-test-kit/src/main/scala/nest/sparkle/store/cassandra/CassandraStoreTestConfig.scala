@@ -76,9 +76,9 @@ trait CassandraStoreTestConfig extends SparkleTestConfig {
     val testId = "server1"
     val testColumnPath = s"$testId/$testColumn"
     val column = store.writeableColumn[T, U](testColumnPath).await
-    try {
+    //try {
       fn(column, testColumnPath)
-    }
+    //}
     true  // so that it can be used in a property that throws to report errors
   }
   

@@ -40,7 +40,7 @@ object ParseStringTo {
 
     implicit object StringToJson extends ParseStringTo[JsValue] {
       import spray.json._
-      override def parse(s: String): JsValue = s.asJson
+      override def parse(s: String): JsValue = s.parseJson
     }
 
     implicit object StringToShort extends ParseStringTo[Short] {

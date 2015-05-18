@@ -36,7 +36,7 @@ class TestKafkaLoaderBaseAdminService
     
     val json = body.asString
     json.length > 0 shouldBe true
-    val ast = json.asJson
+    val ast = json.parseJson
     ast.convertTo[T]
   }
   
