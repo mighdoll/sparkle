@@ -33,47 +33,60 @@ trait SparkleConsole
   ConfigUtil.dumpConfigToFile(rootConfig)
   LogUtil.configureLogging(rootConfig)
 
-  val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
+  var currentStore:Option[ReadWriteStore] = None
+  var currentSpark:Option[SparkConnection] = None
+  var currentServer:Option[SparkleAPIServer] = None
+  var consoleConfig:Config = rootConfig
+  def sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
   implicit lazy val system = ActorSystem("sparkleConsole"+ randomAlphaNum(4), sparkleConfig)
   implicit lazy val executionContext = system.dispatcher
 
-  val notification = new WriteNotification()
-  var currentStore:Option[ReadWriteStore] = None
-
-  connectStore()
-  lazy val server = new SparkleAPIServer(rootConfig, store)
-  lazy val spark = SparkConnection(rootConfig)
 
   def store:ReadWriteStore = currentStore.getOrElse {
-    throw ConfigurationError("store not initialized")
+    currentStore.getOrElse {
+      val notification = new WriteNotification()
+      val newStore = Store.instantiateReadWriteStore(sparkleConfig, notification)
+      currentStore = Some(newStore)
+      newStore
+    }
+  }
+
+  def server:SparkleAPIServer = {
+    currentServer.getOrElse {
+      val newServer = new SparkleAPIServer(consoleConfig, store)
+      currentServer = Some(newServer)
+      newServer
+    }
+  }
+
+  def spark:SparkConnection = {
+    currentSpark.getOrElse {
+      var newSpark = SparkConnection(consoleConfig)
+      currentSpark = Some(newSpark)
+      newSpark
+    }
   }
 
   /** use a different cassandra keyspace other than the default */
   def use(keySpace:String): Unit = {
-    connectStore(keySpace)
-  }
-
-  protected def connectStore(): Unit = {
-    connectStoreWithConfig(rootConfig)
-  }
-
-  protected def connectStore(keySpace:String): Unit = {
-    val modifiedConfig = ConfigUtil.modifiedConfig(rootConfig,
+    consoleConfig = ConfigUtil.modifiedConfig(consoleConfig,
       "sparkle.sparkle-store-cassandra.key-space" -> keySpace)
-    connectStoreWithConfig(modifiedConfig)
+    closeCurrent()
   }
 
-  private def connectStoreWithConfig(theRootConfig:Config): Unit = {
-    val theSparkleConfig = ConfigUtil.configForSparkle(theRootConfig)
-    val newStore = Store.instantiateReadWriteStore(theSparkleConfig, notification)
+  def closeCurrent(): Unit = {
     currentStore.foreach(_.close())
-    currentStore = Some(newStore)
+    currentServer.foreach(_.close())
+    currentSpark.foreach(_.close())
+
+    currentStore = None
+    currentSpark = None
+    currentServer = None
   }
 
   override def close (): Unit = {
     super.close()
-    currentStore.foreach(_.close())
-    server.close()
+    closeCurrent()
     system.shutdown()
     system.awaitTermination(10.seconds)
   }
