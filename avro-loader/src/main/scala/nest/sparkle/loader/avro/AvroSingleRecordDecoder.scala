@@ -13,19 +13,21 @@
    limitations under the License.  */
 package nest.sparkle.loader.avro
 
+import org.apache.avro.Schema
+import org.apache.avro.generic.GenericRecord
+import org.apache.avro.util.Utf8
+
 import nest.sparkle.loader.{ArrayRecordDecoder, ArrayRecordColumns, ArrayRecordMeta, NameTypeDefault}
 import nest.sparkle.store.Event
-import nest.sparkle.util.Log
-import org.apache.avro.Schema
-import org.apache.avro.generic.{GenericData, GenericRecord}
-import org.apache.avro.util.Utf8
+import nest.sparkle.util.{Whitelist, Blacklist, FilterType, Log}
 
 object AvroSingleRecordDecoder extends AvroDecoder with Log {
 
   def decoder(schema: Schema,  // format: OFF
               idFields: Seq[(String,Option[String])] = Seq(("id", None)),
               keyField: String = "time",
-              skipValueFields: Set[String] = Set(),
+              valueFieldsFilter: Set[String] = Set(),
+              valueFieldsFilterType: FilterType = Blacklist,
               filterOpt:Option[ArrayRecordFilter] = None
                ): ArrayRecordDecoder[GenericRecord] = // format: ON
   {
@@ -45,7 +47,13 @@ object AvroSingleRecordDecoder extends AvroDecoder with Log {
       }
 
       val values: Seq[NameTypeDefault] = {
-        val valueFields = fieldsExcept(schema, (skipValueFields + keyField) ++ Set(idFieldNames:_*))
+        val valueFields = {
+          valueFieldsFilterType match {
+            case Whitelist => fields(schema, valueFieldsFilter)
+            case Blacklist => fieldsExcept(schema, (valueFieldsFilter + keyField) ++ Set(idFieldNames:_*))
+            case _         => ???
+          }
+        }
         val valueTypes = typeTagFields(schema, valueFields)
         valueFields zip valueTypes map {
           case (valueName, typed) =>
@@ -89,10 +97,10 @@ object AvroSingleRecordDecoder extends AvroDecoder with Log {
               case s: Utf8 => s.toString
               case _       => value
             }
-            Event(k, v)
+            Seq(Event(k, v))
         }
 
-        Seq(events)
+        events
       }
 
       ArrayRecordColumns(ids, columns)

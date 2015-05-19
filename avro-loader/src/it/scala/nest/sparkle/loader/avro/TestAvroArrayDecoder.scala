@@ -16,6 +16,7 @@ package nest.sparkle.loader.avro
 import nest.sparkle.loader.ArrayRecordColumns
 import nest.sparkle.loader.avro.AvroRecordGenerators._
 import nest.sparkle.store.Event
+import nest.sparkle.util.{Blacklist, Whitelist}
 import org.scalatest.{Matchers, FunSuite}
 
 class TestAvroArrayDecoder extends FunSuite with Matchers {
@@ -58,7 +59,7 @@ class TestAvroArrayDecoder extends FunSuite with Matchers {
       idFields = Seq(("id1", None),("id2", None)),
       keyField = "time",
       valueFieldsFilter = Set("time"),
-      valueFieldsFilterIsBlackList = false)
+      valueFieldsFilterType = Whitelist)
 
     val resultColumns: ArrayRecordColumns = decoder.decodeRecord(latencyRecord)
 
@@ -80,7 +81,7 @@ class TestAvroArrayDecoder extends FunSuite with Matchers {
       idFields = Seq(("id1", None),("id2", None)),
       keyField = "time",
       valueFieldsFilter = Set("value"),
-      valueFieldsFilterIsBlackList = true)
+      valueFieldsFilterType = Blacklist)
 
     val resultColumns: ArrayRecordColumns = decoder.decodeRecord(latencyRecord)
 

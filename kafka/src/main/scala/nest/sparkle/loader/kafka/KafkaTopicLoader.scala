@@ -152,7 +152,9 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
         messageReadRateLimiter.acquire()
         iterator.next() match {
           case Success(block) =>
-            processMessage() { writeMessage(block) }
+            processMessage() {
+              writeMessage(block)
+            }
           case Failure(err: SparkleDeserializationException) =>
             processMessage() {
               log.warn(s"failed to deserialize message from $topic", err)
@@ -165,8 +167,15 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
             }
           case Failure(err: TransformException) =>
             processMessage() {
-              log.warn(s"failed to transform message from $topic", err)
-              transformErrorsMetric.mark()
+              val cause = err.getCause
+              cause match {
+                case TransformedBlockEmpty(_) =>
+                  log.trace(s"skipping message from $topic (${cause.getMessage})")
+                  skippedMessagesMetric.mark()
+                case                     _ =>
+                  log.warn(s"failed to transform message from $topic", err)
+                  transformErrorsMetric.mark()
+              }
             }
           case Failure(err: ColumnPathNotDeterminable) =>
             processMessage() {

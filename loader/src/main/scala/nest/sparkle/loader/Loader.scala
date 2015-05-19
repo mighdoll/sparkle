@@ -29,6 +29,9 @@ object Loader extends Log {
   /** thrown if the source schema specifies an unimplemented key or value type */
   case class UnsupportedColumnType(msg: String) extends RuntimeException(msg)
 
+  /** used if transforming a TaggedBlock legitimately yields an empty TaggedBlock */
+  case class TransformedBlockEmpty(msg: String) extends RuntimeException(msg)
+
   /** transform a source column slice into a potentially different slice */
   trait LoadingTransformer {
     def transform(source: TaggedBlock): Try[TaggedBlock]
@@ -38,4 +41,3 @@ object Loader extends Log {
 
 /** an update to a watcher about the latest value loaded */
 case class ColumnUpdate[T](columnPath: String, latest: T)
-

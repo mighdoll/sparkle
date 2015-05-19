@@ -14,14 +14,15 @@
 
 package nest.sparkle.loader.avro
 
-import nest.sparkle.loader.{ArrayRecordDecoder, NameTypeDefault, ArrayRecordColumns, ArrayRecordMeta}
-import nest.sparkle.store.Event
-import nest.sparkle.util.Log
+import scala.language.existentials
+
 import org.apache.avro.Schema
 import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.apache.avro.util.Utf8
 
-import scala.language.existentials
+import nest.sparkle.loader.{ArrayRecordDecoder, NameTypeDefault, ArrayRecordColumns, ArrayRecordMeta}
+import nest.sparkle.store.Event
+import nest.sparkle.util.{Whitelist, Blacklist, FilterType, Log}
 
 /** Utility for making the Decoder part of an AvroColumnDecoder from an avro schema when
   * the avro schema contains an array of key,values fields.
@@ -38,19 +39,16 @@ object AvroArrayDecoder extends AvroDecoder with Log {
     *
     * See `MillisDoubleArrayAvro` in the tests for an example avro schema in the expected structure.
     *
-    * @param idFields List of field names which will be separated by slashes to
-    *               form the column name
-    * @param valueFieldsFilter either a whitelist of values fields in each array row to consider, or
-    *               a blacklist of values fields in each array row to ignore, determined by
-    *               valueFieldsFilterIsBlackList param
-    * @param valueFieldsFilterIsBlackList whether valueFieldsFilter represents a whitelist or blacklist
+    * @param idFields list of field names which will be separated by slashes to form the column name
+    * @param valueFieldsFilter list of value fields to blacklist or whitelist
+    * @param valueFieldsFilterType whether valueFieldsFilter is a blacklist or whitelist
     */
   def decoder(schema: Schema,  // format: OFF
               arrayField: String = "elements",
               idFields: Seq[(String,Option[String])] = Seq(("id", None)),
               keyField: String = "time",
               valueFieldsFilter: Set[String] = Set(),
-              valueFieldsFilterIsBlackList: Boolean = true,
+              valueFieldsFilterType: FilterType = Blacklist,
               filterOpt:Option[ArrayRecordFilter] = None ): ArrayRecordDecoder[GenericRecord] = // format: ON
     {
       val name = schema.getName
@@ -84,8 +82,11 @@ object AvroArrayDecoder extends AvroDecoder with Log {
 
         val values: Seq[NameTypeDefault] = {
           val valueFields = {
-            if (valueFieldsFilterIsBlackList) fieldsExcept(elementSchema, valueFieldsFilter + keyField)
-            else fields(elementSchema, valueFieldsFilter)
+            valueFieldsFilterType match {
+              case Whitelist => fields(elementSchema, valueFieldsFilter)
+              case Blacklist => fieldsExcept(elementSchema, valueFieldsFilter + keyField)
+              case _         => ???
+            }
           }
           val valueTypes = typeTagFields(elementSchema, valueFields)
           valueFields zip valueTypes map {
