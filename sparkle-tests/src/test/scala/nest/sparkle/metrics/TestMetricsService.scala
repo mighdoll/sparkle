@@ -40,6 +40,8 @@ class TestMetricsService
     val path = "/metrics/graphite"
     Get(path) ~> routes ~> check {
       val lines = responseAs[String].split("\n")
+
+      // TODO grr.. metrics is global to the jvm, so this can fail if other tests are running too.
       lines.length shouldBe 1
       val words = lines(0).split(" ")
       words.length shouldBe 3
