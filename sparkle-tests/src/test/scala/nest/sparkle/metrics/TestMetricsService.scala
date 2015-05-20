@@ -36,18 +36,15 @@ class TestMetricsService
     super.beforeAll()
   }
 
-  test("metrics/graphite request returns one metric line") {
+  test("metrics/graphite request returns metric line") {
     val path = "/metrics/graphite"
     Get(path) ~> routes ~> check {
-      val lines = responseAs[String].split("\n")
-
-      // TODO grr.. metrics is global to the jvm, so this can fail if other tests are running too.
-      lines.length shouldBe 1
-      val words = lines(0).split(" ")
-      words.length shouldBe 3
-      words(0) shouldBe "counter.count"
-      words(1).toInt shouldBe 1
-      (words(2).toInt >= startTimestamp) should be (true)
+      val metrics = responseAs[String].split("\n").collect {
+        case Metric(metric) if metric.name == "counter.count" => metric
+      }
+      metrics.length shouldBe 1
+      metrics(0).value.toInt shouldBe 1
+      (metrics(0).timestamp >= startTimestamp) shouldBe true
     }
   }
 
@@ -60,4 +57,15 @@ class TestMetricsService
     }
   }
 
+}
+
+case class Metric(name: String, value: String, timestamp: Long)
+
+object Metric {
+  val regex = "(.+) (.+) (\\d+)".r
+
+  def unapply(str: String): Option[Metric] = str match {
+    case regex(counter, value, timestamp) => Some(Metric(counter, value, timestamp.toLong))
+    case _                                => None
+  }
 }
