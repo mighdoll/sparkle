@@ -50,6 +50,7 @@ body {
 
 .chart-control-panel .md-select-label {
   font-size: 14px;
+  padding-top: 10px;
 }
 
 .chart-control-panel .settings-button {
@@ -72,6 +73,11 @@ md-option .md-text {
   margin-top: 50px;
 }
 
+.chart-control-panel md-select {
+  margin-top: .2em;
+  margin-bottom: .5em;
+}
+
 .drop-box {
   background: #F8F8F8;
   border: 5px dashed #DDD;
@@ -84,8 +90,13 @@ md-option .md-text {
   align-items: center; /* align vertical */
 }
 
-.dragover {
+.dragover-ok {
   border: 5px dashed blue;
+}
+
+.dragover-not-ok {
+/*  border: 5px dashed red; */
+  background-color: red;
 }
 
 md-content {
@@ -113,13 +124,13 @@ md-content {
 }
 
 .left-button-bar {
-  width: 40px;
+  width: 55px;
   position: fixed;
 }
 
 .main-content {
   position: absolute;
-  left: 40px;
+  left: 55px;
   clip: rect(auto, auto, auto, auto);
 }
 

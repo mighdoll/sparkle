@@ -6,10 +6,13 @@
             md-search-text="term"
             md-selected-item-change="selectionChange(item)"
             md-items="item in search(term)"
-            md-item-text="item.display"
+            md-item-text="item"
             md-no-cache="true"
             placeholder="Entity or Column">
-        <span md-highlight-text="term">{{item}}</span>
+        <md-item-template>
+          <span md-highlight-text="term">{{item}}</span>
+        </md-item-template>
+
       </md-autocomplete>
     </form>
     <div>

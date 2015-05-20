@@ -13,6 +13,10 @@ treecontrol {
     text-decoration: none;
 }
 
+treecontrol :focus {
+    outline: none;
+}
+
 treecontrol ul {
     margin: 0;
     padding: 0;
@@ -40,7 +44,6 @@ treecontrol li .tree-label {
     cursor: pointer;
     display: inline;
 }
-
 
 treecontrol.tree-light li.tree-expanded i.tree-branch-head {
     padding: 1px 10px;

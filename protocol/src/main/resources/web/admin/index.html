@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="../css/angular_material/0.8.2/angular-material.css">
+    <link rel="stylesheet" href="../lib/angular-material/0.9.4/angular-material.css">
     <link rel="stylesheet" type="text/css" href="../css/tree-control.css">
     <link rel="stylesheet" href="../css/graph.css">
     <link rel="stylesheet" href="data-dashboard.css">
@@ -11,15 +11,15 @@
       var require = {
           baseUrl: "..",
           paths: {
-              'angular': 'lib/angular/1.3.6/angular.min',
-              'angular-route': 'lib/angular/1.3.6/angular-route.min',
-              'angular-animate': "lib/angular/1.3.6/angular-animate.min",
-              'angular-aria': "lib/angular/1.3.5/angular-aria.min",
-              'angular-material': "lib/angular_material/0.8.2/angular-material.min",
+              'angular': 'lib/angular/1.3.15/angular',
+              'angular-route': 'lib/angular/1.3.15/angular-route',
+              'angular-animate': "lib/angular-animate/1.3.15/angular-animate",
+              'angular-aria': "lib/angular-aria/1.3.15/angular-aria",
+              'angular-material': "lib/angular-material/0.9.4/angular-material",
               'angularAMD': 'lib/angularAMD-0.2.1.min',
               'ngload': 'lib/ngload.min',
-              'angular-upload': 'lib/ng-file-upload-bower-3.1.2/angular-file-upload.min',
-              'angular-tree-control': 'lib/angular-tree-control'
+              'ng-file-upload': 'lib/ng-file-upload-4.2.1/ng-file-upload',
+              'angular-tree-control': 'lib/angular-tree-control/0.2.9/angular-tree-control'
           },
 
           // Add angular modules that does not support AMD out of the box, put it in a shim
@@ -30,7 +30,7 @@
               'angular-aria': ['angular'],
               'angular-animate': ['angular'],
               'angular-material': ['angular-animate', 'angular-aria', 'angular'],
-              'angular-upload': ['angular'],
+              'ng-file-upload': ['angular'],
               'angular-tree-control': ['angular'],
           }
       };
@@ -45,12 +45,12 @@
   <div ng-controller="DataDashController as dash">
     <div layout="row">
       <md-content class="left-button-bar" layout="column">
-        <md-button class="md-primary menu" ng-click="showLeftPanel = !showLeftPanel" aria-label="show left menu">
-          <md-icon md-svg-src="/img/icons/ic_menu_48px.svg"></md-icon>
+        <md-button class="md-icon-button md-primary menu" ng-click="showLeftPanel = !showLeftPanel" aria-label="show left menu">
+          <md-icon md-svg-icon="/img/icons/ic_menu_48px.svg"></md-icon>
         </md-button>
 
-        <md-button class="md-primary md-hue-1 upload-button" ng-click="showUpload()" aria-label="upload a file">
-          <md-icon md-svg-src="/img/icons/ic_file_upload_48px.svg"></md-icon>
+        <md-button class="md-icon-button md-primary md-hue-1 upload-button" ng-click="showUpload()" aria-label="upload a file">
+          <md-icon md-svg-icon="/img/icons/ic_file_upload_48px.svg"></md-icon>
         </md-button>
       </md-content>
       <div layout="row" class="main-content">

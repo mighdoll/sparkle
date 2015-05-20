@@ -18,7 +18,7 @@ import nest.sparkle.util.MetricsInstrumentation
 object GraphiteReporter extends MetricsGraphiteReporter {
   /**
    * Build and start a Graphite reporter.
-   * @param graphiteConfig chisel.metrics.graphite config object
+   * @param graphiteConfig graphite config object
    * @return reporter that can be closed
    */
   def start(graphiteConfig: Config): Closeable = {

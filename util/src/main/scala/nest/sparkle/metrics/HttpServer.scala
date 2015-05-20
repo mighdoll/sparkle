@@ -23,7 +23,7 @@ object HttpServer
 {
   /**
    * Start a spray http server to return metrics when requested.
-   * @param graphiteConfig chisel.metrics.graphite config object
+   * @param graphiteConfig graphite config object
    */
   def start(graphiteConfig: Config, system: ActorSystem): Future[Any] = {
     val config = graphiteConfig.getConfig("http")
