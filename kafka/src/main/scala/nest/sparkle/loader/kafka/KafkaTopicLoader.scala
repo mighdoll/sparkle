@@ -7,11 +7,10 @@ import com.google.common.util.concurrent.RateLimiter
 import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
-import scala.concurrent.{Future, ExecutionContext, promise, Promise}
+import scala.concurrent.{Future, ExecutionContext, Promise}
 import scala.reflect.runtime.universe._
 import scala.language.existentials
 import scala.util.{Try, Success, Failure}
-import scala.util.control.NonFatal
 import scala.util.control.Exception.nonFatalCatch
 
 import com.typesafe.config.{Config, ConfigFactory}
@@ -25,7 +24,7 @@ import nest.sparkle.loader.Loader._
 import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.WriteableStore
 import nest.sparkle.store.cassandra.{WriteableColumn, CanSerialize, RecoverCanSerialize}
-import nest.sparkle.util.{Instrumented, Log, Instance, ConfigUtil, Watched}
+import nest.sparkle.util.{Instrumented, Log, Instance, ConfigUtil}
 import nest.sparkle.util.TryToFuture.FutureTry
 
 /**
@@ -37,8 +36,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
                                     val topic: String,
                                     val decoder: KafkaKeyValues
 ) (implicit system: ActorSystem)
-  extends Watched[ColumnUpdate[K]]
-  with Runnable
+  extends Runnable
   with Instrumented
   with Log
 {  
@@ -79,7 +77,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   private var keepRunning = true
   
   /** Promise backing shutdown future */
-  private val shutdownPromise = promise[Unit]()
+  private val shutdownPromise = Promise[Unit]()
   
   /** Allows any other code to take action when this loader terminates */
   val shutdownFuture = shutdownPromise.future
@@ -332,24 +330,12 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     writesInProcess.release(maxConcurrentWrites)
   }
 
-  /** Write the block to the Store. Update watchers when complete
+  /** Write the block to the Store.
     *  
     * @param block TaggedBlock from a Kafka message.
     */
   private def writeMessage(block: TaggedBlock): Unit = {
-    val sliceFutures = block map writeSlice
-
-    val allDone = Future.sequence(sliceFutures).map { updates => 
-        val flattened = updates.flatten // remove Nones
-        flattened
-      }
-
-    allDone.value.map { 
-      case Success(updates) =>
-        recordComplete(updates)
-      case Failure(err)     =>
-        log.error(s"Writes for $topic failed, retrying", err)
-    }
+    block map writeSlice
   }
 
   /** 
@@ -358,9 +344,9 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
    * @return a future that completes when the data has been written. 
    */
   private def writeSlice(slice: TaggedSlice[_,_])
-      (implicit keyType: TypeTag[K]): Future[Option[ColumnUpdate[K]]] = 
+      (implicit keyType: TypeTag[K]): Future[Unit] =
   {
-    val resultPromise = promise[Option[ColumnUpdate[K]]]()
+    val resultPromise = Promise[Unit]()
     
     def withFixedType[U](): Unit = {
       implicit val valueType = slice.valueType
@@ -385,10 +371,10 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
         writesInProcess.release() 
         
         tryResult match {
-          case Success(optUpdate) => resultPromise.success(optUpdate)
-          case Failure(err)       =>
+          case Success(_)   => resultPromise.success(())
+          case Failure(err) =>
             // this should never happen because we write until successful
-            log.error(s"got unexpected failure writing events: $err")
+            log.error("got unexpected failure writing events", err)
             resultPromise.failure(err)
        }
       }
@@ -401,11 +387,11 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
 
   /**
    * write some typed Events to storage retrying on error until it succeeds.
-   * @return a future with the updates to use for write notifications
+   * @return a future that completes when the Events have been written.
    */
   private def writeEvents[U: CanSerialize](
     events: DataArray[K, U], columnPath: String
-  ): Future[Option[ColumnUpdate[K]]] =
+  ): Future[Unit] =
   {
     events.lastOption match {
       case None =>
@@ -413,7 +399,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
         Future.successful(None)
       case Some(event) =>
         batchSizeMetric += events.size
-        val p = promise[Option[ColumnUpdate[K]]]()
+        val p = Promise[Unit]()
         writeEventsUntilSuccess(events, columnPath, p)
         p.future
     }
@@ -423,7 +409,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
    * write some typed Events to storage. Completes the passed Promise on success.
    */
   private def writeEventsUntilSuccess[U: CanSerialize](
-    events: DataArray[K, U], columnPath: String, p: Promise[Option[ColumnUpdate[K]]]
+    events: DataArray[K, U], columnPath: String, p: Promise[Unit]
   ): Unit =
   {
     val futureColumn = writeableColumn[U](columnPath)
@@ -431,7 +417,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
       def doWrite(retryDelay: FiniteDuration): Unit = {
         column.writeData(events) onComplete {
           case Success(_) =>
-            p.success(Some(ColumnUpdate[K](columnPath, events.last._1)))
+            p.success(())
           case Failure(err) =>
             log.error(s"Retrying writing events for $columnPath. $err")
             writeErrorsMetric.mark()
@@ -458,7 +444,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     columnPath: String
   ): Future[WriteableColumn[K, U]] =
   {
-    val p = promise[WriteableColumn[K, U]]()
+    val p = Promise[WriteableColumn[K, U]]()
 
     def column(retryDelay: FiniteDuration): Unit = {
       store.writeableColumn[K, U](columnPath) onComplete { 
@@ -479,23 +465,6 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
     column(InitialDelay)
 
     p.future
-  }
-
-  /** We have written one record's worth of data to storage. Per the batch policy
-    * notify any watchers.
-    */
-  private def recordComplete(updates: Seq[ColumnUpdate[K]]): Unit = {
-    // notify anyone subscribed to the Watched stream that we've written some data
-    try {
-      updates.foreach { update =>
-        log.trace(s"recordComplete: $update")
-        watchedData.onNext(update)
-      }
-    } catch {
-      case NonFatal(err)  =>
-        // Just log error and ignore
-        log.warn(s"Exception notifying for $topic", err)
-    }
   }
 
 }
