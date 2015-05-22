@@ -332,4 +332,15 @@ class TestCassandraStore
     }
   }
 
+  test("validate column paths") {
+    withTestDb { implicit store =>
+      withTestColumn[Long, Double](store) { (writeColumn, testColumnPath) =>
+        store.validateColumnPaths(Seq(testColumnPath)).await shouldBe Seq()
+        writeColumn.writeData(DataArray.single(123L, 2.0)).await
+        store.validateColumnPaths(Seq(testColumnPath)).await shouldBe Seq(testColumnPath)
+        store.validateColumnPaths(Seq(testColumnPath, "not/there")).await shouldBe Seq(testColumnPath)
+      }
+    }
+  }
+
 }

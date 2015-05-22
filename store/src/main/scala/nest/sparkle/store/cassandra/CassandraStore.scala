@@ -24,6 +24,7 @@ import com.datastax.driver.core.{ConsistencyLevel, Cluster, Row, Session}
 
 import com.typesafe.config.Config
 
+import nest.sparkle.measure.DummySpan
 import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.store._
 import nest.sparkle.util.GuavaConverters._
@@ -351,11 +352,20 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
   /** Return column paths for the specified input per the specified function that
     * converts column categories to column paths */
   private def columnPaths(input: String)(fn: String => Try[Option[String]]): Future[Seq[String]] = {
+    def checkNonEmpty(columnPaths: Seq[String]): Future[Seq[String]] = {
+      if (columnPaths.isEmpty) {
+        Future.failed(HasNoColumns(input))
+      } else {
+        Future.successful(columnPaths)
+      }
+    }
     for {
       columnCategories <- columnCatalog.allColumnCategoriesFuture
       columnPaths <- columnCategoriesToColumnPaths(columnCategories, input)(fn)
+      validatedColumnPaths <- validateColumnPaths(columnPaths)
+      nonEmpty <- checkNonEmpty(validatedColumnPaths)
     } yield {
-      columnPaths
+      nonEmpty
     }
   }
 
@@ -367,15 +377,24 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
     }
     TryUtil.firstFailureOrElseSuccessVector(columnPathTries) match {
       case Success(columnPaths) =>
-        val realColumnPaths = columnPaths.flatten.sorted // remove Nones
-        if (realColumnPaths.isEmpty) {
-          Future.failed(HasNoColumns(input))
-        } else {
-          Future.successful(realColumnPaths)
-        }
-      case Failure(err)         =>
+        Future.successful(columnPaths.flatten.sorted) // remove Nones
+      case Failure(err) =>
         Future.failed(err)
     }
+  }
+
+  /** Given a list of potential column paths, return the column paths which actually exist and contain data */
+  private[cassandra] def validateColumnPaths(potentialColumnPaths: Seq[String]): Future[Seq[String]] = {
+    implicit val span = DummySpan //TODO: use a real span
+    val columnPaths: Seq[Future[Option[String]]] = potentialColumnPaths.map { potentialColumnPath =>
+      for {
+        potentialColumn <- column[Any, Any](potentialColumnPath)
+        firstKey <- potentialColumn.firstKey
+      } yield {
+        firstKey.map{_ => potentialColumnPath}
+      }
+    }
+    Future.sequence(columnPaths.map(_.recover{case ColumnNotFound(_) => None})).map(_.flatten)
   }
 
   /** Return the dataset for the provided dataSet path (fooSet/barSet/mySet).
