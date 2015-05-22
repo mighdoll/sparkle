@@ -31,7 +31,7 @@ class TestStorageConsole extends FunSuite with Matchers with CassandraStoreTestC
   test("all column categories") {
     withTestConsole { storageConsole =>
       val allColumnCategories = storageConsole.allColumnCategories().toBlocking.toList
-      allColumnCategories.toSet shouldBe Set("count", "p99", "p90")
+      allColumnCategories.toSet shouldBe Set("epochs/count", "epochs/p99", "epochs/p90")
     }
   }
 

@@ -80,12 +80,9 @@ class BasicColumnPathFormat extends ColumnPathFormat {
   val entityRegex1 = "^(.*/)?(.*)/(.*)/.*$".r
   val entityRegex2 = "^(.*)/.*$".r
 
-  /** Returns whatever is after the trailing slash as the column category. */
+  /** Returns the column path as the column category. */
   override def columnCategory(columnPath: String): Try[String] = {
-    columnPath match {
-      case columnCategoryRegex(column) => Success(column)
-      case _                           => Failure(ColumnCategoryNotDeterminable(columnPath))
-    }
+    Success(columnPath)
   }
 
   /** If the column path only has one slash, whatever is before the trailing
@@ -113,13 +110,13 @@ class BasicColumnPathFormat extends ColumnPathFormat {
     }
   }
 
-  /** Returns the entity path concatenated with the column category */
+  /** Returns the column category if the entity path is a prefix of the column category */
   override def entityColumnPath(columnCategory: String, entityPath: String): Try[Option[String]] = {
-    Success(Some(s"$entityPath/$columnCategory"))
+    if (columnCategory.startsWith(s"$entityPath/")) Success(Some(columnCategory)) else Success(None)
   }
 
-  /** Returns the leaf dataSet concatenated with the column category */
+  /** Returns the column category if the leaf dataSet is a prefix of the column category */
   override def leafDataSetColumnPath(columnCategory: String, dataSet: String): Try[Option[String]] = {
-    Success(Some(s"$dataSet/$columnCategory"))
+    if (columnCategory.startsWith(s"$dataSet/")) Success(Some(columnCategory)) else Success(None)
   }
 }
