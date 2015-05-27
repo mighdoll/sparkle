@@ -1,7 +1,7 @@
 define(['admin/app', 'sg/chart', 'sg/sideAxis',
         "admin/chartDirective", "admin/chartControlPanelDirective"],
   function (app, chart, sideAxis, _chartDirective, _controlPanelDirective) {
-    app.directive('chartWithSettings', [function() {
+    app.directive('chartWithSettings', ['serverConfigWhen', function(serverConfigWhen) {
 
       function initializeControllerScope($scope) {
         $scope.padding = { top: 20, right: 50, bottom: 50, left: 75 };
@@ -19,7 +19,8 @@ define(['admin/app', 'sg/chart', 'sg/sideAxis',
             { axis: sideAxis(),
               named: []
             }
-          ]
+          ],
+          serverConfigWhen: serverConfigWhen
         };
 
         // stash the api for the chartController

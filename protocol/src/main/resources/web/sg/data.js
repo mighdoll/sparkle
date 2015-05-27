@@ -1,13 +1,13 @@
 define(["lib/when/monitor/console", "sg/request", "sg/util", "lib/when/when"],
     function(_console, request, _util, when) {
 
-   var webSocketUriWhen =
-     request.jsonWhen("/serverConfig")
-      .then(function(serverConfig) {
-         var host = parseUrl(document.documentURL).hostname;
-         var port = serverConfig.webSocketPort;
-         return "ws://" + host + ":" + port + "/data";
-       });
+   function webSocketUriWhen(serverConfigWhen) {
+     return serverConfigWhen.then(function(serverConfig) {
+       var host = parseUrl(document.documentURL).hostname;
+       var port = serverConfig.webSocketPort;
+       return "ws://" + host + ":" + port + "/data";
+     }).otherwise(rethrow);
+   }
 
    // these need to be unique per session/socket..
    // (but it doesn't hurt to make them unique across all connectons)
@@ -31,7 +31,8 @@ define(["lib/when/monitor/console", "sg/request", "sg/util", "lib/when/when"],
 
 /** Fetch data items from the server over a websocket connection. Returns the 
   * websocket. Calls a function with the raw data array that arrives
-  * 
+  *
+  *   serverConfigWhen - when.js promise with server config, like ports
   *   transform:String  -- server transformation/summarization function to use
   *   transformParamsters:Object -- server transformation parameters
   *   dataSet:String -- 'path' to the column on the server
@@ -40,12 +41,12 @@ define(["lib/when/monitor/console", "sg/request", "sg/util", "lib/when/when"],
   *     more data arrives.
   *   errorFn:function -- called if there's an error from the server
   */
-  function columnRequestSocket(transform, transformParameters, dataSet, column, 
+  function columnRequestSocket(serverConfigWhen, transform, transformParameters, dataSet, column,
       dataFn, errorFn) {
     //console.log("columnRequestSocket called for:", dataSet, column, transform, transformParameters);
     var sourceSelector = [dataSet + "/" + column];
 
-    webSocketUriWhen.then( function(uri) {
+    webSocketUriWhen(serverConfigWhen).then( function(uri) {
       var socket = new WebSocket(uri);
       var receivedHead = false;
 
@@ -65,7 +66,7 @@ define(["lib/when/monitor/console", "sg/request", "sg/util", "lib/when/when"],
         //console.log("columnRequestSocket sending message:", message);
         socket.send(message);
       };
-    });
+    }).otherwise(rethrow);
 
 
   }

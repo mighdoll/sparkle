@@ -83,7 +83,8 @@ function chart() {
         xScale = chartData.xScale || _xScale || timeSeries ? d3.time.scale.utc() : d3.scale.linear(),
         chartId = domCache.saveIfEmpty(node, 'chartId', function() {
             return randomAlphaNum(8);
-          });
+          }),
+        serverConfigWhen = chartData.serverConfigWhen;
 
 //    console.log("redrawing chart"); // TODO we're redrawing overmuch
 
@@ -137,7 +138,7 @@ function chart() {
         allSeries.forEach(function (series) {
           series.transformName = series.transformName ? series.transformName : defaultTransform;
         });
-        var fetched = fetchData(dataApi, allSeries, requestDomain, timeSeries, plotSize[0], moreData);
+        var fetched = fetchData(serverConfigWhen, dataApi, allSeries, requestDomain, timeSeries, plotSize[0], moreData);
         fetched.then(function(){ dataReady(allSeries); }).otherwise(failed);
       }
     }
@@ -491,6 +492,7 @@ function chart() {
     * calls a provided function when subsequent data is available
     *
     * parameters:
+    *   serverConfigWhen - when.js promise with server config, like ports
     *   dataApi - access to the sg/data module
     *   dataSeries - data descriptors array, a .data field will be added to each 
     *   domain - time range of data requested
@@ -498,7 +500,7 @@ function chart() {
     *   timeSeries - true if the incoming data should be converted to Date objects
     *   moreData - called with data updates subsequent to the initial data
     */
-  function fetchData(dataApi, dataSeries, domain, timeSeries, maxResults, moreData) {
+  function fetchData(serverConfigWhen, dataApi, dataSeries, domain, timeSeries, maxResults, moreData) {
     var allFetched = 
       dataSeries.map(function(series) {
         var fetched = when.defer();
@@ -522,7 +524,8 @@ function chart() {
         var transformParams = combineProperties(rangeParams, partsControl);
 
         // LATER transform should be adjustable per dataset..
-        dataApi.columnRequestSocket(series.transformName, transformParams, series.set, series.name, received);
+        //TODO: pass errorFn
+        dataApi.columnRequestSocket(serverConfigWhen, series.transformName, transformParams, series.set, series.name, received);
         function received(data) {
           var translatedData;
           if (timeSeries) {

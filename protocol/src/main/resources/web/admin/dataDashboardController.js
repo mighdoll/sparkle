@@ -3,6 +3,11 @@ define(["admin/app", "lib/d3", "sg/request", "sg/util", "admin/columnPicker",
   function(app, _d3, request, _util, _columnPicker, _chartControlPanel, _uploadFile, downloadFile,
            sideAxis) {
 
+    // when.js promise with server config, like ports
+    app.service('serverConfigWhen', function() {
+      return request.jsonWhen("/serverConfig")
+    });
+
     app.controller('DataDashController', ['$scope', '$q', '$mdDialog',
         function($scope, $q, $mdDialog) {
 

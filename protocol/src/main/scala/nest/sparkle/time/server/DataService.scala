@@ -38,7 +38,8 @@ trait DataService extends StaticContent with HealthService with DataServiceV1 wi
     customRoutes.reduceLeftOption{ (a, b) => a ~ b } getOrElse reject()
   
 
-  lazy val jsConfig = JsServiceConfig(rootConfig.getInt("sparkle.web-socket.port"))
+  lazy val jsConfig = JsServiceConfig(rootConfig.getInt("sparkle.web-socket.port"),
+    rootConfig.getInt("sparkle.admin.upload-port"))
 
   lazy val jsServiceConfig: Route = {
     get {
