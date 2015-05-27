@@ -45,7 +45,7 @@ object SparkleBuild extends Build {
         libraryDependencies ++= logbackTest ++ Seq(
           spire
         ),
-        libraryDependencies <+= scalaVersion(scalaReflect % _)
+        libraryDependencies <+= scalaVersion(scalaReflect % _)  // TODO use += .value style
       )
 
 
@@ -59,6 +59,7 @@ object SparkleBuild extends Build {
       .settings(BackgroundService.settings: _*)
       .settings(
         libraryDependencies ++= cassandraClient ++ logbackTest ++ Seq (
+          akkaActor,
           sprayCaching,
           sprayJson,  // needed?
           sprayUtil,  // needed?
@@ -208,6 +209,7 @@ object SparkleBuild extends Build {
           nScalaTime,
           rxScala,
           Optional.metricsGraphite,
+          akkaActor,
           sprayJson,
           sprayCan % "optional",
           sprayRouting % "optional"

@@ -7,7 +7,7 @@ object Dependencies {
     val akka = "2.3.11"
     val spray = "1.3.3"
     val sprayJson = "1.3.2"
-    val spark = "1.3.1"
+    val spark = "1.2.2"
     val slf4j = "1.7.9"
   }
 
@@ -31,7 +31,7 @@ object Dependencies {
   val spire                 = "org.spire-math"            %% "spire"                  % "0.9.0"
   val openCsv               = "net.sf.opencsv"            %  "opencsv"                % "2.3"
   val cassandraAll          = "org.apache.cassandra"      %  "cassandra-all"          % "2.1.2"
-  val cassandraDriver       = "com.datastax.cassandra"    %  "cassandra-driver-core"  % "2.1.3"
+  val cassandraDriver       = "com.datastax.cassandra"    %  "cassandra-driver-core"  % "2.1.6"
   val snappy                = "org.xerial.snappy"         %  "snappy-java"            % "1.0.5"
   val lz4                   = "net.jpountz.lz4"           %  "lz4"                    % "1.3.0"
 
@@ -94,10 +94,10 @@ object Dependencies {
                               )
 
   val unfiltered            = "net.databinder"            %% "unfiltered-netty-websockets"  % "0.8.4"
-  val nettyAll              = "io.netty"                  %  "netty-all"                    % "4.0.19.Final" 
-  
-  val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.5.1_a2.3"
-  val metricsGraphite       = "com.codahale.metrics"      %  "metrics-graphite"       % "3.0.2"
+  val sparkNetty            = "io.netty"                  %  "netty"                  % "3.8.0.Final"
+
+  val metricsScala          = "nl.grons"                  %% "metrics-scala"          % "3.5.1"
+  val metricsGraphite       = "io.dropwizard.metrics"     %  "metrics-graphite"       % "3.1.2"
 
   // match version used by spark, cassandra driver, etc
   val guava                 = "com.google.guava"          % "guava"                   % "14.0.1"
@@ -238,7 +238,8 @@ object Dependencies {
     sparkCassandra,
     sparkMllib,
     sparkCore,
-    sparkSql
+    sparkSql,
+    sparkNetty
   ) ++ nativeMath
  
 

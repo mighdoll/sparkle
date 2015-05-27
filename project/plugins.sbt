@@ -32,4 +32,4 @@ addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.8")
 addSbtPlugin("io.spray" % "sbt-revolver" % "0.7.2")
 
 // for scalastyle checks
-addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "0.4.0")
+addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "0.7.0")

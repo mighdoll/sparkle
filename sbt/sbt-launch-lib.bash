@@ -6,17 +6,12 @@
 
 # TODO - Should we merge the main SBT script with this library?
 
-if test -z "$HOME"; then
-  declare -r script_dir="$(dirname $script_path)"
-else
-  declare -r script_dir="$HOME/.sbt"
-fi
-
 declare -a residual_args
 declare -a java_args
 declare -a scalac_args
 declare -a sbt_commands
 declare java_cmd=java
+declare java_version
 declare -r sbt_bin_dir="$(dirname "$(realpath "$0")")"
 declare -r sbt_home="$(dirname "$sbt_bin_dir")"
 
@@ -74,17 +69,26 @@ addResidual () {
   residual_args=( "${residual_args[@]}" "$1" )
 }
 addDebugger () {
-  addJava "-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=$1"
+  addJava "-Xdebug -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=$1"
 }
 
-# a ham-fisted attempt to move some memory settings in concert
-# so they need not be dorked around with individually.
 get_mem_opts () {
-  local mem=${1:-1024}
-  local perm=768
-  local codecache=$(( $perm / 2 ))
+  # if we detect any of these settings in ${JAVA_OPTS} we need to NOT output our settings.
+  # The reason is the Xms/Xmx, if they don't line up, cause errors.
+  if [[ "${JAVA_OPTS}" == *-Xmx* ]] || [[ "${JAVA_OPTS}" == *-Xms* ]] || [[ "${JAVA_OPTS}" == *-XX:MaxPermSize* ]] || [[ "${JAVA_OPTS}" == *-XX:MaxMetaspaceSize* ]] || [[ "${JAVA_OPTS}" == *-XX:ReservedCodeCacheSize* ]]; then
+     echo ""
+  else
+    # a ham-fisted attempt to move some memory settings in concert
+    # so they need not be messed around with individually.
+    local mem=${1:-2048}
+    local codecache=$(( $mem / 8 ))
+    (( $codecache > 128 )) || codecache=128
+    (( $codecache < 512 )) || codecache=512
+    local class_metadata_size=$(( $codecache * 2 ))
+    local class_metadata_opt=$([[ "$java_version" < "1.8" ]] && echo "MaxPermSize" || echo "MaxMetaspaceSize")
 
-  echo "-Xms${mem}m -Xmx${mem}m -XX:MaxPermSize=${perm}m -XX:ReservedCodeCacheSize=${codecache}m"
+    echo "-Xms${mem}m -Xmx${mem}m -XX:ReservedCodeCacheSize=${codecache}m -XX:${class_metadata_opt}=${class_metadata_size}m"
+  fi
 }
 
 require_arg () {
@@ -128,6 +132,9 @@ process_args () {
     residual_args=()
     process_my_args "${myargs[@]}"
   }
+
+  java_version=$("$java_cmd" -Xmx512M -version 2>&1 | awk -F '"' '/version/ {print $2}')
+  vlog "[process_args] java_version = '$java_version'"
 }
 
 # Detect that we have java installed.
@@ -182,7 +189,7 @@ run() {
   execRunner "$java_cmd" \
     ${SBT_OPTS:-$default_sbt_opts} \
     $(get_mem_opts $sbt_mem) \
-  	  ${java_opts} \
+  	  ${JAVA_OPTS} \
     ${java_args[@]} \
     -jar "$sbt_jar" \
     "${sbt_commands[@]}" \
@@ -195,11 +202,4 @@ run() {
     stty icanon echo > /dev/null 2>&1
   fi
   exit $exit_code
-}
-
-runAlternateBoot() {
-  local bootpropsfile="$1"
-  shift
-  addJava "-Dsbt.boot.properties=$bootpropsfile"
-  run $@
 }
