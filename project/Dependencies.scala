@@ -164,7 +164,7 @@ object Dependencies {
   )
   
   // For setting minimum versions
-  val dependencyOverrides = Set(
+  val versionOverrides = Set(
       slf4j,
       Runtime.log4j
   )

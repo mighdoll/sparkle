@@ -14,6 +14,7 @@
 
 import sbt._
 import sbt.Keys._
+import sbt.complete.DefaultParsers._
 
 import sbtrelease.ReleasePlugin
 import spray.revolver.RevolverPlugin._
@@ -25,6 +26,21 @@ import sbtassembly.AssemblyPlugin.autoImport._
 
 import BackgroundServiceKeys._
 
+object DebugKeys {
+  val deps = inputKey[Unit]("search classpath")
+}
+object Debug {
+  import DebugKeys._
+  val settings = Seq(
+    deps := {
+      val matchString = (Space ~> token(StringBasic,"<search string>")).parsed
+      val classpath = (fullClasspath in Compile).value
+      val found = classpath.map(_.data.toString).filter(_.contains(matchString))
+      found foreach println
+    }
+  )
+}
+
 object BuildSettings {
 
   lazy val sparkleSettings =
@@ -35,6 +51,7 @@ object BuildSettings {
     slf4jSettings ++
     testSettings ++
     publishSettings ++
+    Debug.settings ++
     dependencySettings
 
   lazy val orgSettings = Seq(
@@ -89,7 +106,7 @@ object BuildSettings {
   
   lazy val dependencySettings = Seq(
     updateOptions := updateOptions.value.withCachedResolution(true),
-    dependencyOverrides ++= Dependencies.dependencyOverrides
+    dependencyOverrides ++= Dependencies.versionOverrides
   )
 
 
