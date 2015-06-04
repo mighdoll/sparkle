@@ -68,11 +68,11 @@ object IntervalItem {
       IntervalItem(current.start, spire.math.max(current.end, next.end) - current.start)
     }
 
-    /** State for incremental processing of combined intervals.
+    /* State for incremental processing of combined intervals.
      *  
-      * @current active interval, might still be combined with subsequent intervals
-      * @emit complete interval ready to be output, won't be combined anymore
-      */
+     * @param current active interval, might still be combined with subsequent intervals
+     * @param emit complete interval ready to be output, won't be combined anymore
+     */
     case class State(current: Option[IntervalItem[T]], emit: Option[IntervalItem[T]])
 
     val states = intervals.scanLeft(State(None, None)) { (state, event) =>
