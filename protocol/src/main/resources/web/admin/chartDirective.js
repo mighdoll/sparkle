@@ -1,5 +1,5 @@
-define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/scatter', 'sg/symbolMark'],
-  function (app, chart, sideAxis, linePlot, scatterPlot, symbolMark) {
+define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/areaPlot', 'sg/barPlot'],
+  function (app, chart, sideAxis, linePlot, areaPlot, barPlot) {
     app.directive('chart', ['$q', function($q) {
 
       var chartMaker = chart();
@@ -19,7 +19,7 @@ define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/scatter', 'sg
           { columnPath: columnPath,
             transformName: "reduceMean",
             plot: {
-              plotter: linePlot(),
+              plotter: areaPlot(),
               strokeWidth: 1.5,
               interpolate: 'linear'
             }

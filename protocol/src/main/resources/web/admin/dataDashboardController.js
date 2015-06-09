@@ -1,6 +1,6 @@
 define(["admin/app", "lib/d3", "sg/request", "sg/util", "admin/columnPicker",
-        "admin/chartControlPanel", "admin/uploadFile", "sg/downloadFile",  "sg/sideAxis"],
-  function(app, _d3, request, _util, _columnPicker, _chartControlPanel, _uploadFile, downloadFile,
+        "admin/uploadFile", "sg/downloadFile",  "sg/sideAxis"],
+  function(app, _d3, request, _util, _columnPicker, _uploadFile, downloadFile,
            sideAxis) {
 
     // when.js promise with server config, like ports
@@ -40,13 +40,12 @@ define(["admin/app", "lib/d3", "sg/request", "sg/util", "admin/columnPicker",
       $scope.$on('firstChart', function(e, chartWithSettingsController) {
         $scope.firstChart = chartWithSettingsController;
 
-//        if (chartWithSettingsController)  { // DEBUG only
-//          setTimeout(function() {
-//            chartWithSettingsController.addSeries("epochs/p99");
-//            chartWithSettingsController.addSeries("epochs/p90");
-//            $scope.$apply();
-//          }, 100);
-//        }
+       if (chartWithSettingsController)  { // DEBUG only
+         setTimeout(function() {
+           chartWithSettingsController.addSeries("data/num");
+           $scope.$apply();
+         }, 100);
+       }
 
       });
 

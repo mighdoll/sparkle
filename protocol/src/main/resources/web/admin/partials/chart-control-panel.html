@@ -25,7 +25,7 @@
           </md-select>
 
            <!-- line plot options -->
-          <div ng-show="selectedSeries.plot.plotter.plotterName == 'line'">
+          <div ng-show="selectedSeries.plot.plotter.plotterName == 'line' || selectedSeries.plot.plotter.plotterName == 'area'">
             <md-select ng-model="selectedSeries.plot.interpolate" placeholder="curve">
               <md-option ng-value="interpolate" ng-repeat="interpolate in lineInterpolate">
                 {{interpolate}}

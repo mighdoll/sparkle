@@ -20,6 +20,7 @@ define(["lib/d3", "sg/util", "sg/richAxis", "sg/palette"],
  * Bind to an AxisGroup */
 return function() {
   var _colors = palette.purpleBlueGreen3(),
+      _fillColors = palette.purpleBlueGreen3Pastel(),
       _zeroLock = false,
       _lockYAxis = false,
       _orient = "left";
@@ -34,6 +35,7 @@ return function() {
         zeroLock = axisGroup.zeroLock || _zeroLock,
         lockYAxis = axisGroup.lockYAxis || _lockYAxis,
         colors = axisGroup.colors || _colors,
+        fillColors = axisGroup.fillColors || _fillColors,
         orient = axisGroup.orient || _orient;
   
     // bind the richAxis at the right position
@@ -80,22 +82,10 @@ return function() {
     // assign a color, and share the scale and range
     axisGroup.series.forEach(function(series, index) {
       series.color = colors(index);
+      series.fillColor = fillColors(index);
       series.yScale = axis.scale();
       series.displayRange = range;
     });
-  }
-
-  /** return the maximum possible range of all series as reported by the dataSeries metadata */
-  function maxRange(seria) {
-    var min = seria.reduce(function(prevValue, item) {
-      return Math.min(prevValue, item.range[0]);
-    }, seria[0].range[0]);
-
-    var max = seria.reduce(function(prevValue, item) {
-      return Math.max(prevValue, item.range[1]);
-    }, seria[0].range[1]);
-
-    return [min, max];
   }
 
   /** return the maximum range of all series in the current loaded dataSeries.data */
@@ -132,6 +122,12 @@ return function() {
   returnFn.colors = function(value) {
     if (!arguments.length) return _colors;
     _colors = value;
+    return returnFn;
+  };
+
+  returnFn.fillColors = function(value) {
+    if (!arguments.length) return _fillColors;
+    _fillColors = value;
     return returnFn;
   };
 

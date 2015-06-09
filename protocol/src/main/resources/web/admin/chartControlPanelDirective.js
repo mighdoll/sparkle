@@ -1,5 +1,5 @@
-define(['admin/app', 'sg/linePlot', 'sg/scatter', 'sg/symbolMark'],
-  function (app, linePlot, scatterPlot, symbolMark) {
+define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', 'sg/symbolMark'],
+  function (app, linePlot, areaPlot, scatterPlot, barPlot, symbolMark) {
     app.directive('chartPanel', [function() {
       var self = this;
 
@@ -69,6 +69,10 @@ define(['admin/app', 'sg/linePlot', 'sg/scatter', 'sg/symbolMark'],
       function changePlotType(plotType, $scope) {
         if (plotType == 'line') {
           $scope.selectedSeries.plot.plotter = linePlot();
+        } else if (plotType == 'area') {
+          $scope.selectedSeries.plot.plotter = areaPlot();
+        } else if (plotType == 'bar') {
+          $scope.selectedSeries.plot.plotter = barPlot();
         } else if (plotType == 'scatter') {
           $scope.selectedSeries.plot.plotter = scatterPlot();
         }
@@ -135,8 +139,8 @@ define(['admin/app', 'sg/linePlot', 'sg/scatter', 'sg/symbolMark'],
         controller: function($scope) {
 
           $scope.showPanel = false;
-//          $scope.showPanel = true; // start open for DEBUG convenience
-          $scope.plotTypes = ["line", "scatter"];
+          $scope.showPanel = true; // start open for DEBUG convenience
+          $scope.plotTypes = ["line", "scatter", "area", "bar"];
           $scope.lineInterpolate = ["linear", "monotone", "basis",  "step"];
           $scope.strokeWidths = [.5, 1, 1.5, 2, 3, 5];
           $scope.selectedSeries = {};

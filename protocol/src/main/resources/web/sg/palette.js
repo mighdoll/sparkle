@@ -20,6 +20,7 @@ var palette = {
   category20b      : d3.scale.category20b,
   category20c      : d3.scale.category20c,
   purpleBlueGreen3 : colorsMaker(["#1c9099", "#a6bddb", "#ece2f0"]),
+  purpleBlueGreen3Pastel : colorsMaker(["#bae5e9", "#a6bddb", "#ece2f0"]),
   orangeBlue4      : colorsMaker(["#ffb400", "#4512ae", "#06799f", "#a67500"]),
   orangePurple3    : colorsMaker(["#ffa400", "#5e0dac", "#a66b00"]),
   orangeBrown3     : colorsMaker(["#ffbb40", "#a66b00", "#ffa400"]),
