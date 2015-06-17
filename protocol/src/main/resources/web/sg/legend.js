@@ -41,27 +41,29 @@ return function() {
       textX = boxX - 5;
     }
 
-    var colorValue = enter
+    var gEntry = enter
       .append("g")
         .classed("entry " + orient, true)
         .attr("transform", function(d, i) { 
               return "translate(0," + (i * 20) + ")"; 
             });
 
-    colorValue
+    gEntry
       .append("rect")
         .attr("width", 18)
         .attr("height", 18)
         .attr("x", boxX)
-        .style("fill", function(d) { return d.color; });
+        .classed("box", true);
 
-    colorValue
+    gEntry
       .append("text")
         .attr("x", textX)
         .attr("y", 9)
         .attr("dy", ".35em")
-        .style("text-anchor", anchor)
-        .text(function (d) { return d.label; });
+        .style("text-anchor", anchor);
+
+    update.select(".box").style("fill", function(d) { return d.color; });
+    update.select("text").text(function (d) { return d.label; }); 
 
     exit.remove();
   }

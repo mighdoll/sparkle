@@ -71,6 +71,16 @@
           <span class="series-name">{{selectedSeries.columnPath}}</span>
         </md-button>
 
+        <div class="palette">
+          <md-select ng-model="palettes" placeholder="colors">
+              <!-- NG, how to use an object or an index as the ng-value? check out ng-options -->
+            <md-option class="palette" ng-value="palette" ng-repeat="palette in palettes">
+              <span class="swatch" style='background-color:{{palette[0]}}'></span>
+              <!-- {{paletteHtml(palette)}}  NG, how to interpret as html not a string? -->
+            </md-option>
+          </md-select>
+        </div>
+
         <!-- options to control the display axes -->
         <div class="axis-controls">
           <md-switch ng-model="chartData.showXAxis" class="md-primary" aria-label="Show X Axis">

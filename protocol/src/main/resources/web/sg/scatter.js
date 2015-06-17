@@ -4,7 +4,8 @@ define(["lib/d3", "sg/symbolMark", "sg/util"], function(_d3, symbolMark, _util) 
   * Bind to a DataSeries object */
 function scatter () {
   var _markPlot = symbolMark(),
-      _color = "black";
+      _color = "black",
+      _fillColor = "none";
 
   var returnFn = function(container) {
     container.each(attach);
@@ -21,6 +22,8 @@ function scatter () {
         markPlot = (dataSeries.plot && dataSeries.plot.markPlot) ?
                       dataSeries.plot.markPlot : _markPlot,
         markType = markPlot.markType(),
+        color = (dataSeries.plot && dataSeries.plot.color) || _color,
+        fillColor = (dataSeries.plot && dataSeries.plot.fillColor) || _fillColor,
         selection = rootSelect.selectAll(".mark." + markType),
         otherPlotterJunk = rootSelect.selectAll('*').filter(function() {
           return !d3.select(this).classed('mark ' + markType);
@@ -35,6 +38,8 @@ function scatter () {
     var currentScales = { xScale:dataSeries.xScale.copy(), yScale:dataSeries.yScale.copy() }, 
         oldScales = this.__scales || currentScales;
     this.__scales = currentScales;
+
+    markPlot.color(color);
 
     enter
       .call(markPlot);
@@ -54,6 +59,18 @@ function scatter () {
     exit
       .remove();
   }
+
+  returnFn.color = function(value) {
+    if (!arguments.length) return _color;
+    _color = value;
+    return returnFn;
+  };
+
+  returnFn.fillColor = function(value) {
+    if (!arguments.length) return _fillColor;
+    _fillColor = value;
+    return returnFn;
+  };
 
   returnFn.plot = function(value) {
     if (!arguments.length) return _plot;

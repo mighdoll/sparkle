@@ -139,3 +139,10 @@ treecontrol .download {
 treecontrol > ul.a1 {
   padding-top: 20px;
 }
+
+.palette .swatch {
+  display: inline-block;
+  height: 20px;
+  width: 20px;
+  margin-right: 3px;
+}

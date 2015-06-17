@@ -1,8 +1,11 @@
-define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/areaPlot', 'sg/barPlot'],
-  function (app, chart, sideAxis, linePlot, areaPlot, barPlot) {
+define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/areaPlot', 'sg/barPlot', 
+        'sg/scatter', 'sg/palette2'],
+  function (app, chart, sideAxis, linePlot, areaPlot, barPlot, scatterPlot, palettes) {
     app.directive('chart', ['$q', function($q) {
 
-      var chartMaker = chart();
+      var chartMaker = chart(),
+          currentPalette = palettes.set2;
+
       function drawChart(chartData, $element) {
         var width = chartData.size ? chartData.size[0] : chartMaker.size()[0];
         var height = chartData.size ? chartData.size[1] : chartMaker.size()[1];
@@ -15,16 +18,28 @@ define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/areaPlot', 's
       }
 
       function addSeries($scope, $element, columnPath) {
-        $scope.chartData.groups[0].named.push(
+        var namedGroup = $scope.chartData.groups[0].named,
+            index = namedGroup.length,
+            color = currentPalette[index % currentPalette.length],
+            fillColor = currentPalette.lighter[index % currentPalette.lighter.length];
+
+        namedGroup.push(
           { columnPath: columnPath,
             transformName: "reduceMean",
             plot: {
               plotter: areaPlot(),
-              strokeWidth: 1.5,
+              color: color,
+              fillColor: fillColor,
+              strokeWidth: 2,
               interpolate: 'linear'
             }
           }
         );
+        queueRedraw($scope, $element);
+      }
+
+      function setPalette($scope, $element, palette) {
+        currentPalette = palette;
         queueRedraw($scope, $element);
       }
 
@@ -50,6 +65,10 @@ define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/areaPlot', 's
 
           this.addSeries = function(columnPath) {
             addSeries($scope, $element, columnPath);
+          };
+
+          this.setPalette = function(palette) {
+            setPalette($scope, $element, palette);
           };
 
           $scope.$emit('chartController', this); // publish our controller api

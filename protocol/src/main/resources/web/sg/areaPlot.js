@@ -31,8 +31,8 @@ function areaPlot() {
         entered = selected.entered(),
         strokeWidth = (dataSeries.plot && dataSeries.plot.strokeWidth) || _strokeWidth,
         interpolate = (dataSeries.plot && dataSeries.plot.interpolate) || _interpolate,
-        color = dataSeries.color || (dataSeries.plot && dataSeries.plot.color) || _color,
-        fillColor = dataSeries.fillColor || (dataSeries.plot && dataSeries.plot.fillColor) || _fillColor,
+        color = (dataSeries.plot && dataSeries.plot.color) || _color,
+        fillColor = (dataSeries.plot && dataSeries.plot.fillColor) || _fillColor,
         transition = d3.transition(selected),
         xScale = dataSeries.xScale,
         yScale = dataSeries.yScale;

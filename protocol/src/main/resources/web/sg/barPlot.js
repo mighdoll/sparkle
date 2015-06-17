@@ -28,7 +28,7 @@ return function() {
         enter = update.enter(),
         exit = update.exit(),
         domainWidth = (dataSeries.plot && dataSeries.plot.width) || _width,
-        color = (dataSeries.plot && dataSeries.plot.color) || dataSeries.color || _color,
+        color = (dataSeries.plot && dataSeries.plot.color) || _color,
         padding = (dataSeries.plot && dataSeries.plot.padding) || _padding,
         xScale = dataSeries.xScale,
         yScale = dataSeries.yScale,

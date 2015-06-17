@@ -1,5 +1,6 @@
-define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', 'sg/symbolMark'],
-  function (app, linePlot, areaPlot, scatterPlot, barPlot, symbolMark) {
+define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', 'sg/symbolMark',
+        'sg/palette2'],
+  function (app, linePlot, areaPlot, scatterPlot, barPlot, symbolMark, palettes) { 
     app.directive('chartPanel', [function() {
       var self = this;
 
@@ -13,6 +14,7 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
         watchAndDo($scope, 'selectedSeries.plotType', changePlotType);
         watchAndDo($scope, 'selectedSeries.plot.symbol', changeSymbol);
         watchAndDo($scope, 'selectedSeries.plot.symbolSize', changeSymbol);
+        watchAndDo($scope, 'palette', changePalette);
 
         watchAndRedraw($scope, 'chartData.title');
         watchAndRedraw($scope, 'chartData.showXAxis');
@@ -56,12 +58,15 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
             squareSize = Math.pow(selectedSeries.plot.symbolSize || 4, 2),
             marks = symbolMark()
                       .markType(selectedSeries.plot.symbol)
-                      .size(squareSize)
-                      .color(selectedSeries.color);
+                      .size(squareSize);
 
         selectedSeries.plot.markPlot = marks;
 
         queueRedraw($scope);
+      }
+
+      function changePalette(palette, $scope) {
+        console.log("color palette changed", palette);
       }
 
 
@@ -100,12 +105,6 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
       }
 
       function refreshSelectedSeries(selectedSeries, chartData) {
-        // DRY with chartDirective, which also sets default values as series are added to the chart
-//        if (!selectedSeries.plot) selectedSeries.plot = {};
-//        var plot = selectedSeries.plot;
-//        if (!plot.plotter) plot.plotter = linePlot();
-//        if (!plot.strokeWidth) plot.strokeWidth = 1.5;
-//        if (!plot.interpolate) plot.interpolate = 'linear';
       }
 
       /** remove the series the chartData and redraw */
@@ -126,6 +125,17 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
         queueRedraw($scope);
       }
 
+      /** TODO what's the right way 'around with NG? */
+      function paletteHtml(palette) {
+        var result = "<span class='colors'>";
+        for (var j = 0; j < palette.length; j++) {
+          var color = palette[j];
+          result += "<span class='swatch' background-color='" + color+ "'></span>";
+        }
+        result += "</span>"; 
+        return result;
+      }
+
       return {
         restrict: 'E',
         templateUrl: 'partials/chart-control-panel.html',
@@ -137,7 +147,6 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
         },
 
         controller: function($scope) {
-
           $scope.showPanel = false;
           $scope.showPanel = true; // start open for DEBUG convenience
           $scope.plotTypes = ["line", "scatter", "area", "bar"];
@@ -147,7 +156,6 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
           $scope.symbols = ["circle", "cross", "diamond", "square", "triangle-up", "triangle-down"];
           $scope.symbolSizes = [4, 6, 8, 10, 15];
           $scope.remove = removeSeries;
-
           $scope.aggregations = [
             { name: "min", aggregation: "reduceMin" },
             { name: "max", aggregation: "reduceMax" },
@@ -156,6 +164,9 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
             { name: "count", aggregation: "reduceCount" },
             { name: "raw", aggregation: "raw" }
           ];
+          $scope.palettes = palettes;
+          $scope.palette = palettes[0];
+          $scope.paletteHtml = paletteHtml;
 
           setupWatches($scope);
         }

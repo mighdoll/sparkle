@@ -1,28 +1,13 @@
-/* Copyright 2013  Nest Labs
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.  */
-
-define(["lib/d3", "sg/util", "sg/richAxis", "sg/palette"], 
-       function(_d3, _util, richAxis, palette) {
+define(["lib/d3", "sg/util", "sg/richAxis"], 
+       function(_d3, _util, richAxis) {
 
 /** Attach a lockable axis to one side of the chart.
  *
  * Bind to an AxisGroup */
 return function() {
-  var _colors = palette.purpleBlueGreen3(),
-      _fillColors = palette.purpleBlueGreen3Pastel(),
-      _zeroLock = false,
+  var _zeroLock = false,
       _lockYAxis = false,
+      _color = "grey",
       _orient = "left";
 
   var returnFn = function(container) {
@@ -34,8 +19,6 @@ return function() {
         transition = d3.transition(selection),
         zeroLock = axisGroup.zeroLock || _zeroLock,
         lockYAxis = axisGroup.lockYAxis || _lockYAxis,
-        colors = axisGroup.colors || _colors,
-        fillColors = axisGroup.fillColors || _fillColors,
         orient = axisGroup.orient || _orient;
   
     // bind the richAxis at the right position
@@ -57,7 +40,7 @@ return function() {
 
     var axis = richAxis()     
       .displayLength(axisGroup.plotSize[1])
-      .labelColor(colors(0))
+      .labelColor(_color)
       .orient(orient)
       .label(axisGroup.label);
 
@@ -79,10 +62,8 @@ return function() {
     axisSelection.data([axisData]);
     axisTransition.call(axis);
 
-    // assign a color, and share the scale and range
+    // and share the y scale and range with all series in the group
     axisGroup.series.forEach(function(series, index) {
-      series.color = colors(index);
-      series.fillColor = fillColors(index);
       series.yScale = axis.scale();
       series.displayRange = range;
     });
@@ -119,15 +100,9 @@ return function() {
     }, series.data[0][1]);
   }
 
-  returnFn.colors = function(value) {
-    if (!arguments.length) return _colors;
-    _colors = value;
-    return returnFn;
-  };
-
-  returnFn.fillColors = function(value) {
-    if (!arguments.length) return _fillColors;
-    _fillColors = value;
+  returnFn.color = function(value) {
+    if (!arguments.length) return _color;
+    _color = value;
     return returnFn;
   };
 

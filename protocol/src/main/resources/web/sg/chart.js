@@ -1,17 +1,3 @@
-/* Copyright 2013  Nest Labs
-
-   Licensed under the Apache License, Version 2.0 (the 'License');
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an 'AS IS' BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.  */
-
 define(['lib/d3', 'lib/when/monitor/console', 'lib/when/when', 
         'sg/data', 'sg/util', 'sg/zoom', 'sg/resizable', 'sg/linePlot', 'sg/richAxis', 
         'sg/legend', 'sg/timeClip', 'sg/domCache'], 
@@ -130,8 +116,8 @@ function chart() {
       }
 
       if (!errors && !allEmpty()) {
-        trackMaxDomain(chartData, allSeries);
-        var requestUntil = chartData.displayDomain[1] == chartData.maxDomain[1] ?
+        trackDomainExtent(chartData, allSeries);
+        var requestUntil = chartData.displayDomain[1] == chartData.domainExtent[1] ?
             undefined        // unspecified end (half bounded range) if selection is max range
             : chartData.displayDomain[1] + 1; // +1 to be inclusive of last element
         var requestDomain = [ chartData.displayDomain[0], requestUntil ];
@@ -145,7 +131,7 @@ function chart() {
 
     /** Update chart meta data and re-plot based on new data received from the server. */
     function moreData(series, data) {
-      if (data.length) {  // TODO try trackMaxDomain here
+      if (data.length) {  // TODO try trackDomainExtent here
         var lastKey = data[data.length-1][0];
         var newEnd = Math.max(lastKey, chartData.displayDomain[1]);
         series.data = series.data.concat(data); // TODO overwrite existing keys not just append
@@ -217,7 +203,7 @@ function chart() {
     /** the user has zoomed via the brush control */
     function brushed() {
       if (d3.event.detail.zoomReset) {
-        chartData.displayDomain = chartData.maxDomain;  
+        chartData.displayDomain = chartData.domainExtent;  
       } else if (d3.event.detail.extent) {
         // convert date back to millis if necessary
         var newDomain = d3.event.detail.extent.map( function(maybeDate) {
@@ -280,7 +266,6 @@ function chart() {
 
       var axisGroup = {
         label: group.label,
-        colors: group.colors,
         orient: group.orient,
         series: group.series,
         zeroLock: group.zeroLock,
@@ -299,13 +284,23 @@ function chart() {
   }
 
 
-  /** Adjust the max domain based on the current series. Set the display domain if it
-    * isn't already set */
-  function trackMaxDomain(chartData, allSeries) {
-    var maxDomain = keysExtent(allSeries);
-    if (maxDomain) {
-      chartData.maxDomain = maxDomain;
-      chartData.displayDomain = chartData.displayDomain || maxDomain;
+  /** Adjust the domain extent based on the current series. Update the display domain 
+   * to be inside the domain extent. */
+  function trackDomainExtent(chartData, allSeries) {
+    var extent = keysExtent(allSeries);
+    if (extent) {
+      chartData.domainExtent = extent;
+      var displayed = chartData.displayDomain;
+      if (displayed) {
+        if (displayed[0] < extent[0] || displayed[0] > extent[1]) {
+          displayed[0] = extent[0];
+        }
+        if (displayed[1] < extent[0] || displayed[1] > extent[1]) {
+          displayed[1] = extent[1];
+        }
+      } else {
+        chartData.displayDomain = extent;
+      }
     }
   }
 
@@ -387,7 +382,7 @@ function chart() {
     var legendData = 
       allSeries.map(function(series) {
         return {
-          color:series.color,
+          color: series.plot.color,
           label: series.label || series.name
         };
       });

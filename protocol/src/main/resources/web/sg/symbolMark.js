@@ -4,6 +4,7 @@ define(["lib/d3"], function(_) {
 return function() {
   var _layoutHeight,
       _color = "blue",
+      _fillColor = "cadetblue",
       _markType = "circle",
       _symbol = d3.svg.symbol().size(36).type(_markType);
 
@@ -16,7 +17,7 @@ return function() {
       .append("path")
       .classed("mark", true)
       .style("stroke", _color)
-      .style("fill", _color)
+      .style("fill", _fillColor)
       .attr("d", _symbol);
   };
 
@@ -37,6 +38,12 @@ return function() {
   returnFn.color = function(value) {
     if (!arguments.length) return _color;
     _color = value;
+    return returnFn;
+  };
+
+  returnFn.fillColor = function(value) {
+    if (!arguments.length) return _fillColor;
+    _fillColor = value;
     return returnFn;
   };
 
