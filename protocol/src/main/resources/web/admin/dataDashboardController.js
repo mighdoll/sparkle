@@ -64,6 +64,7 @@ define(["admin/app", "lib/d3", "sg/request", "sg/util", "admin/columnPicker",
       }
 
       $scope.showLeftPanel = true;
+      $scope.showLeftPanel = false; // DEBUG only
 
     }]);
 

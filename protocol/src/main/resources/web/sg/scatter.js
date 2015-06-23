@@ -1,4 +1,5 @@
-define(["lib/d3", "sg/symbolMark", "sg/util"], function(_d3, symbolMark, _util) {
+define(["lib/d3", "sg/symbolMark", "sg/util", "sg/domCache"], 
+       function(_d3, symbolMark, _util, domCache) {
 
 /** Plot a scatterin of symbols.  
   * Bind to a DataSeries object */
@@ -23,37 +24,37 @@ function scatter () {
                       dataSeries.plot.markPlot : _markPlot,
         markType = markPlot.markType(),
         color = (dataSeries.plot && dataSeries.plot.color) || _color,
-        fillColor = (dataSeries.plot && dataSeries.plot.fillColor) || _fillColor,
+        fillColor = (dataSeries.plot && dataSeries.plot.lightColor) || _fillColor,
         selection = rootSelect.selectAll(".mark." + markType),
         otherPlotterJunk = rootSelect.selectAll('*').filter(function() {
           return !d3.select(this).classed('mark ' + markType);
         }),
         update = selection.data(dataSeries.data),
+        currentScales = {x:dataSeries.xScale, y:dataSeries.yScale},
+        oldScales = domCache.save(this, "scatter-scales", 
+              { x: currentScales.x.copy(), y: currentScales.y.copy() }),
         enter = update.enter(),
         exit = update.exit();
 
     otherPlotterJunk.remove();
 
-    // save old dataSeries in to use for transitions
-    var currentScales = { xScale:dataSeries.xScale.copy(), yScale:dataSeries.yScale.copy() }, 
-        oldScales = this.__scales || currentScales;
-    this.__scales = currentScales;
-
-    markPlot.color(color);
+    markPlot
+      .color(color)
+      .fillColor(fillColor);
 
     enter
       .call(markPlot);
 
     update
       .call(translateXY, function(d) { 
-        return [ oldScales.xScale(d[0]), oldScales.yScale(d[1]) ]; 
+        return [ oldScales.x(d[0]), oldScales.y(d[1]) ]; 
       });
 
     var transition = d3.transition(update);
 
     transition
       .call(translateXY, function(d) { 
-        return [ currentScales.xScale(d[0]), currentScales.yScale(d[1]) ]; 
+        return [ currentScales.x(d[0]), currentScales.y(d[1]) ]; 
       });
 
     exit

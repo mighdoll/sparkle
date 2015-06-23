@@ -105,11 +105,12 @@ text.title {
 .resize-widget {
   fill-opacity: .65;
   fill: grey;
+  cursor: nwse-resize;
 }
 
 .series path.mark,
 .series circle.mark {
-  fill-opacity: 0;
+/*  fill-opacity: 0; */
   stroke-width: 2.5;
 }
 
@@ -117,10 +118,6 @@ text.title {
   font: 14px;
   font-style: italic;
   text-anchor: middle;
-}
-
-.chart .series .bar {
-  fill-opacity: .3;
 }
 
 treecontrol .column-name {

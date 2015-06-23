@@ -23,6 +23,7 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
         watchAndRedraw($scope, 'selectedSeries.plot.strokeWidth');
         watchAndRedraw($scope, 'selectedSeries.plot.interpolate');
         watchAndRedraw($scope, 'selectedSeries.transformName');
+        watchAndRedraw($scope, 'selectedSeries.grouping');
       }
 
       /** watch for a change and call a function, unless the watched expression value is undefined */
@@ -77,13 +78,30 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
         } else if (plotType == 'area') {
           $scope.selectedSeries.plot.plotter = areaPlot();
         } else if (plotType == 'bar') {
-          $scope.selectedSeries.plot.plotter = barPlot();
+          $scope.selectedSeries.plot.plotter = barPlot().barWidth(50);
         } else if (plotType == 'scatter') {
           $scope.selectedSeries.plot.plotter = scatterPlot();
         }
+
+        setPadding($scope.chartData);
         queueRedraw($scope);
       }
 
+      /** set padding for the chart, adding extra side padding if we have a bar chart */
+      function setPadding(chartData) {
+        var noBars = 
+          chartData.groups.every(function(group) {
+            return group.series.every(function(series) {
+              return !series.plot.plotter || series.plot.plotter.plotterName != 'bar';
+            });
+          });
+
+        if (noBars) {
+          chartData.padding = [5, 5];  // leaves some room for marks
+        } else {
+          chartData.padding = [25, 5]; // room for 50px wide bar
+        }
+      }
 
       /** refresh the controllers model of the list of data series from the underlying chart data */
       function refreshSeriesList($scope) {
@@ -156,6 +174,15 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
           $scope.symbols = ["circle", "cross", "diamond", "square", "triangle-up", "triangle-down"];
           $scope.symbolSizes = [4, 6, 8, 10, 15];
           $scope.remove = removeSeries;
+          $scope.groupings = [
+            { name: "automatic", group:"" },  // TODO NYI
+            { name: "month", group:"1 month"}, 
+            { name: "week", group:"1 week"}, 
+            { name: "day", group:"1 day"}, 
+            { name: "hour", group:"1 hour"}, 
+            { name: "minute", group:"1 minute"}, 
+            { name: "second", group:"1 second"} 
+          ];
           $scope.aggregations = [
             { name: "min", aggregation: "reduceMin" },
             { name: "max", aggregation: "reduceMax" },

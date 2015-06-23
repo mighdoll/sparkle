@@ -56,11 +56,18 @@
             </div>
           </div>
 
-          <!-- transform/aggregation options -->
+          <!-- transform/aggregation and gropuing options -->
           <div class="aggregation">
             <md-select ng-model="selectedSeries.transformName" placeholder="aggregation">
               <md-option ng-value="aggregation.aggregation" ng-repeat="aggregation in aggregations">
                 {{aggregation.name}}
+              </md-option>
+            </md-select>
+          </div>
+          <div class="grouping">
+            <md-select ng-model="selectedSeries.grouping" placeholder="grouping">
+              <md-option ng-value="grouping.group" ng-repeat="grouping in groupings">
+                {{grouping.name}}
               </md-option>
             </md-select>
           </div>

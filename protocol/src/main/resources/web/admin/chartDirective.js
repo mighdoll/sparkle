@@ -21,15 +21,16 @@ define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/areaPlot', 's
         var namedGroup = $scope.chartData.groups[0].named,
             index = namedGroup.length,
             color = currentPalette[index % currentPalette.length],
-            fillColor = currentPalette.lighter[index % currentPalette.lighter.length];
+            lightColor = currentPalette.lighter[index % currentPalette.lighter.length];
 
+        $scope.chartData.padding = [25,0];
         namedGroup.push(
           { columnPath: columnPath,
             transformName: "reduceMean",
             plot: {
-              plotter: areaPlot(),
+              plotter: barPlot(),
               color: color,
-              fillColor: fillColor,
+              lightColor: lightColor,
               strokeWidth: 2,
               interpolate: 'linear'
             }

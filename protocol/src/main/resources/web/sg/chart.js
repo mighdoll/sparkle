@@ -500,12 +500,14 @@ function chart() {
       dataSeries.map(function(series) {
         var fetched = when.defer();
 
-        var partsControl = { intoCountedParts: maxResults };
+        var partsControl = { };
+        if (series.grouping) {
+          partsControl.partBySize = series.grouping;
+        } else {
+          partsControl.intoCountedParts = maxResults;
+        }
         if (timeSeries) {
-          partsControl = {
-            intoDurationParts: maxResults,
-            timeZoneId: 'UTC'  // TODO allow override of timezone
-          };
+          partsControl.timeZoneId = 'UTC';  // TODO allow override of timezone
         }
 
         var rangeParams = {
@@ -518,7 +520,6 @@ function chart() {
 
         var transformParams = combineProperties(rangeParams, partsControl);
 
-        // LATER transform should be adjustable per dataset..
         //TODO: pass errorFn
         dataApi.columnRequestSocket(serverConfigWhen, series.transformName, transformParams, series.set, series.name, received);
         function received(data) {
