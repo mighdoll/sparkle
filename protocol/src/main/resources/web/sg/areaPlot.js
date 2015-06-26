@@ -1,4 +1,4 @@
-define(["lib/d3", "sg/linePlot"], 
+define(["d3", "sg/linePlot"], 
   function(_, linePlot) {
 
 /** Plot a into a container.  

@@ -1,4 +1,4 @@
-define(["lib/d3", "sg/symbolMark", "sg/util", "sg/domCache"], 
+define(["d3", "sg/symbolMark", "sg/util", "sg/domCache"], 
        function(_d3, symbolMark, _util, domCache) {
 
 /** Plot a scatterin of symbols.  

@@ -1,7 +1,7 @@
-define(['lib/d3', 'lib/when/monitor/console', 'lib/when/when', 
+define(['d3', 'when', 
         'sg/data', 'sg/util', 'sg/zoom', 'sg/resizable', 'sg/linePlot', 'sg/richAxis', 
         'sg/legend', 'sg/timeClip', 'sg/domCache'], 
-   function(_d3, _console, when, sgData, _util, zoomBrush, resizable, linePlot, richAxis, 
+   function(_d3, when, sgData, _util, zoomBrush, resizable, linePlot, richAxis, 
             legend, timeClip, domCache) {
 
 var seriesId = 1;     // unique id for every series added to the chart
@@ -171,7 +171,6 @@ function chart() {
       allSeries.forEach(function (series) {    
         series.xScale = xScale;
         series.plotSize = deepClone(plotSize);
-        series.labelLayer = labelLayer;
         series.displayDomain = deepClone(chartData.displayDomain);
       });
 

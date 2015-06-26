@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="../lib/angular-material/0.9.4/angular-material.css">
+    <link rel="stylesheet" href="/webjars/angular-material/0.10.0/angular-material.css"> 
     <link rel="stylesheet" type="text/css" href="../css/tree-control.css">
     <link rel="stylesheet" href="../css/graph.css">
     <link rel="stylesheet" href="data-dashboard.css">
@@ -11,28 +11,31 @@
       var require = {
           baseUrl: "..",
           paths: {
-              'angular': 'lib/angular/1.3.15/angular',
-              'angular-route': 'lib/angular/1.3.15/angular-route',
-              'angular-animate': "lib/angular-animate/1.3.15/angular-animate",
-              'angular-aria': "lib/angular-aria/1.3.15/angular-aria",
-              'angular-material': "lib/angular-material/0.9.4/angular-material",
-              'angularAMD': 'lib/angularAMD-0.2.1.min',
-              'ngload': 'lib/ngload.min',
-              'ng-file-upload': 'lib/ng-file-upload-4.2.1/ng-file-upload',
-              'angular-tree-control': 'lib/angular-tree-control/0.2.9/angular-tree-control'
+              'angular':              '/webjars/angularjs/1.3.15/angular',
+              'angular-route':        '/webjars/angularjs/1.3.15/angular-route',
+              'angular-animate':      '/webjars/angularjs/1.3.15/angular-animate',
+              'angular-aria':         '/webjars/angularjs/1.3.15/angular-aria',
+              'angular-material':     '/webjars/angular-material/0.10.0/angular-material',
+              'angularAMD':           '/webjars/angularAMD/0.2.1-1/angularAMD',
+              'ng-file-upload':       '/webjars/ng-file-upload/5.0.9/ng-file-upload',
+              'angular-tree-control': '/webjars/angular-tree-control/0.2.9/angular-tree-control',  
+              'd3':                   '/webjars/d3js/3.5.5/d3'
           },
+          packages: [
+              { name: 'when', location: '/webjars/when/3.7.3', main: 'when' }
+          ],
 
           // Add angular modules that does not support AMD out of the box, put it in a shim
           shim: {
-              'angularAMD': ['angular'],
-              'ngload': ['angularAMD'],
-              'angular-route': ['angular'],
-              'angular-aria': ['angular'],
-              'angular-animate': ['angular'],
-              'angular-material': ['angular-animate', 'angular-aria', 'angular'],
-              'ng-file-upload': ['angular'],
-              'angular-tree-control': ['angular'],
-          }
+              'angularAMD':           ['angular'],
+              'angular-route':        ['angular'],
+              'angular-aria':         ['angular'],
+              'angular-animate':      ['angular'],
+              'angular-material':     ['angular-animate', 'angular-aria', 'angular'],
+              'ng-file-upload':       ['angular'],
+              'angular-tree-control': ['angular']
+          },
+          preloads:                   ['when/monitor/console']
       };
     </script>
     <script data-main="admin/data-dashboard.js" src="../lib/require.js"></script>

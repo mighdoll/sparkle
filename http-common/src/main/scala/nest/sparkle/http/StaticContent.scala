@@ -19,7 +19,10 @@ trait StaticContent extends HttpService with Log {
   def webRoot: Option[FileOrResourceLocation] = None
 
   private lazy val staticBuiltIn = { // static data from web html/javascript files pre-bundled in the 'web' resource path
-    getFromResourceDirectory("web")
+    getFromResourceDirectory("web") ~
+    pathPrefix("webjars") {
+      getFromResourceDirectory("META-INF/resources/webjars")
+    }
   }
 
   private lazy val webRootRoute: Route = { // static data from the web-root folder (if provided)

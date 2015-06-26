@@ -1,4 +1,4 @@
-define(["lib/d3", "sg/scatterLine", "sg/palette", "sg/util"], 
+define(["d3", "sg/scatterLine", "sg/palette", "sg/util"], 
        function(_d3, scatterLine, palette, _util) {
 
 /** Divide a Series into categories and then plot each category with 

@@ -1,4 +1,4 @@
-define(["lib/when/when"], 
+define(['when'], 
     function(when) {
 
   /** connect to a websocket and return an enhanced websocket wrapper */

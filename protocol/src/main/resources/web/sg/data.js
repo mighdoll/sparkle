@@ -1,5 +1,5 @@
-define(["lib/when/monitor/console", "sg/request", "sg/util", "lib/when/when"],
-    function(_console, request, _util, when) {
+define(["sg/request", "sg/util", "when"],
+    function(request, _util, when) {
 
    function webSocketUriWhen(serverConfigWhen) {
      return serverConfigWhen.then(function(serverConfig) {

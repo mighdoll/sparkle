@@ -29,7 +29,7 @@ object SparkleBuild extends Build {
       .configs(IntegrationTest)
       .settings(sparkleSettings: _*)
       .settings(
-        libraryDependencies ++= logbackTest ++ Seq(
+        libraryDependencies ++= logbackTest ++ web ++ Seq(
           unfiltered,
           metricsScala
         )

@@ -1,4 +1,4 @@
-define(["admin/app", "lib/d3", "sg/request", "sg/util", "admin/columnPicker",
+define(["admin/app", "d3", "sg/request", "sg/util", "admin/columnPicker",
         "admin/uploadFile", "sg/downloadFile",  "sg/sideAxis"],
   function(app, _d3, request, _util, _columnPicker, _uploadFile, downloadFile,
            sideAxis) {

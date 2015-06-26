@@ -1,4 +1,4 @@
-define(["lib/d3"], function(_) {
+define(["d3"], function(_) {
 
 /** Return a function which plots a single d3Symbol.  */
 return function() {

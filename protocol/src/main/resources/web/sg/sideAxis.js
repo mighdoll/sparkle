@@ -1,4 +1,4 @@
-define(["lib/d3", "sg/util", "sg/richAxis"], 
+define(["d3", "sg/util", "sg/richAxis"], 
        function(_d3, _util, richAxis) {
 
 /** Attach a lockable axis to one side of the chart.

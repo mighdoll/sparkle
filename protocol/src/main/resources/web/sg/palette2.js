@@ -1,4 +1,4 @@
-define (["lib/d3"], function(_) {
+define (["d3"], function(_) {
 
 var palette = {
                 // TODO make fourth color a bit darker

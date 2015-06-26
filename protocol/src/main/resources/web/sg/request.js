@@ -1,5 +1,5 @@
-define(["lib/when/monitor/console", "lib/when/when", "lib/d3"],
-    function(_console, when, _d3) {
+define(["when", "d3"],
+    function(when, _d3) {
 
 
 /** wrapper around d3.json that returns a when.js promise */

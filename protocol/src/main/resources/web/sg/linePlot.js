@@ -1,4 +1,4 @@
-define(["lib/d3"], 
+define(["d3"], 
   function(_) {
 
 /** Plot a single line into a container.  

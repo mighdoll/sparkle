@@ -1,4 +1,4 @@
-define (["lib/d3", "sg/util"], function(_d3, _util) {
+define (["d3", "sg/util"], function(_d3, _util) {
 
 /** Make an svg box resizable by dragging on a resize widget.  
   *

@@ -105,6 +105,15 @@ object Dependencies {
   // see https://issues.scala-lang.org/browse/SI-8978
   val jsr                   = "com.google.code.findbugs"  % "jsr305"                  % "2.0.3"
 
+  object Web {
+    val d3                  = "org.webjars"               % "d3js"                    % "3.5.5-1"
+    val angularMaterial     = "org.webjars"               % "angular-material"        % "0.10.0"
+    val angularAMD          = "org.webjars"               % "angularAMD"              % "0.2.1-1"
+    val angularTreeControl  = "org.webjars.bower"         % "angular-tree-control"    % "0.2.9"
+    val ngFileUpload        = "org.webjars.bower"         % "ng-file-upload"          % "5.0.9"
+    val whenJs              = "org.webjars.bower"         % "when"                    % "3.7.3"
+  }
+
   object Runtime {
     val logback             = "ch.qos.logback"            % "logback-classic"         % "1.1.2"
     val log4j               = "log4j"                     % "log4j"                   % "1.2.17"
@@ -241,6 +250,17 @@ object Dependencies {
     sparkSql,
     sparkNetty
   ) ++ nativeMath
- 
+
+  val web = {
+    import Web._
+    Seq(
+      d3,
+      angularMaterial,
+      angularAMD,
+      angularTreeControl,
+      ngFileUpload,
+      whenJs
+    )
+  }
 
 }

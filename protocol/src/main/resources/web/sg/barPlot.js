@@ -1,4 +1,4 @@
-define(["lib/d3", "sg/domCache"], 
+define(["d3", "sg/domCache"], 
   function(_, domCache) {
 
 return function() {

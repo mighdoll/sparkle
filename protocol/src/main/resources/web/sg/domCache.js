@@ -1,4 +1,4 @@
-define(["lib/d3"], 
+define(["d3"], 
   function(_) {
   
   /** Cache some private data in a javascript object e.g. a DOM node.  

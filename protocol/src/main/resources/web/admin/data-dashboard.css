@@ -53,6 +53,11 @@ body {
   padding-top: 10px;
 }
 
+.chart-control-panel md-select {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .chart-control-panel .settings-button {
   vertical-align: top;
 }
