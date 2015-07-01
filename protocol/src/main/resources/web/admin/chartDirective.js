@@ -27,6 +27,7 @@ define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/areaPlot', 's
         namedGroup.push(
           { columnPath: columnPath,
             transformName: "reduceMean",
+            grouping: "",
             plot: {
               plotter: barPlot(),
               color: color,

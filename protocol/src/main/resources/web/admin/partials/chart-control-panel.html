@@ -18,7 +18,8 @@
       <div layout="column">
         <div class='sub-selection'>
           <!-- plot type: scatter, line, bar, etc. -->
-          <md-select ng-model="selectedSeries.plotType" placeholder="plot">
+          <md-select ng-model-options='{getterSetter:true}' ng-model="plotTypeAccess" 
+                     placeholder="plot">
             <md-option ng-value="plotType" ng-repeat="plotType in plotTypes">
               {{plotType}}
             </md-option>

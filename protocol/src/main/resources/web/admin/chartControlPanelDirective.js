@@ -11,7 +11,6 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
         watchAndDo($scope, 'selectedSeries', function() {
           refreshSelectedSeries($scope.selectedSeries, $scope.chartData);
         });
-        watchAndDo($scope, 'selectedSeries.plotType', changePlotType);
         watchAndDo($scope, 'selectedSeries.plot.symbol', changeSymbol);
         watchAndDo($scope, 'selectedSeries.plot.symbolSize', changeSymbol);
         watchAndDo($scope, 'palette', changePalette);
@@ -154,6 +153,19 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
         return result;
       }
 
+      /** getter/setter for selectedSeries.plotType */
+      function plotTypeAccess(newPlotterName) {
+        var $scope = this;
+        if (!arguments.length) {
+          if ($scope.selectedSeries && $scope.selectedSeries.plot) {
+            return $scope.selectedSeries.plot.plotter.plotterName;
+          }
+          return undefined;
+        } else {
+          changePlotType(newPlotterName, $scope);
+        }
+      }
+
       return {
         restrict: 'E',
         templateUrl: 'partials/chart-control-panel.html',
@@ -194,6 +206,7 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
           $scope.palettes = palettes;
           $scope.palette = palettes[0];
           $scope.paletteHtml = paletteHtml;
+          $scope.plotTypeAccess = plotTypeAccess;
 
           setupWatches($scope);
         }

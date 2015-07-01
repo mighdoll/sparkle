@@ -500,10 +500,10 @@ function chart() {
         var fetched = when.defer();
 
         var partsControl = { };
-        if (series.grouping) {
-          partsControl.partBySize = series.grouping;
-        } else {
+        if (!series.grouping || series.grouping == '' || series.grouping == 'automatic') {
           partsControl.intoCountedParts = maxResults;
+        } else {
+          partsControl.partBySize = series.grouping;
         }
         if (timeSeries) {
           partsControl.timeZoneId = 'UTC';  // TODO allow override of timezone
