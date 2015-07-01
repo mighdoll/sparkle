@@ -18,21 +18,28 @@
       <div layout="column">
         <div class='sub-selection'>
           <!-- plot type: scatter, line, bar, etc. -->
-          <md-select ng-model-options='{getterSetter:true}' ng-model="plotTypeAccess" 
-                     placeholder="plot">
-            <md-option ng-value="plotType" ng-repeat="plotType in plotTypes">
-              {{plotType}}
-            </md-option>
-          </md-select>
-
-           <!-- line plot options -->
-          <div ng-show="selectedSeries.plot.plotter.plotterName == 'line' || selectedSeries.plot.plotter.plotterName == 'area'">
-            <md-select ng-model="selectedSeries.plot.interpolate" placeholder="curve">
-              <md-option ng-value="interpolate" ng-repeat="interpolate in lineInterpolate">
-                {{interpolate}}
+          <div class='plot-type' layout='row'> 
+            <span class='select-label' >plot: </span>
+            <md-select ng-model-options='{getterSetter:true}' ng-model="plotTypeAccess" 
+                       placeholder="plot">
+              <md-option ng-value="plotType" ng-repeat="plotType in plotTypes">
+                {{plotType}}
               </md-option>
             </md-select>
-            <div class="strokeWidth">
+          </div>
+
+           <!-- line plot options -->
+          <div class='sub-selection' ng-show="selectedSeries.plot.plotter.plotterName == 'line' || selectedSeries.plot.plotter.plotterName == 'area'">
+            <div class="interpoloate" layout='row'>
+              <span class='select-label' >interpolate: </span>
+              <md-select ng-model="selectedSeries.plot.interpolate" placeholder="curve">
+                <md-option ng-value="interpolate" ng-repeat="interpolate in lineInterpolate">
+                  {{interpolate}}
+                </md-option>
+              </md-select>
+            </div>
+            <div class="strokeWidth" layout='row'>
+              <span class='select-label' >line width:</span>
               <md-select ng-model="selectedSeries.plot.strokeWidth" placeholder="line width">
                 <md-option ng-value="strokeWidth" ng-repeat="strokeWidth in strokeWidths">
                   {{strokeWidth}}
@@ -42,30 +49,31 @@
           </div>
 
           <!--scatter plot options -->
-          <div ng-show="selectedSeries.plot.plotter.plotterName == 'scatter'">
-            <div layout="row">
-              <md-select ng-model="selectedSeries.plot.symbol" placeholder="symbol">
-                <md-option ng-value="symbol" ng-repeat="symbol in symbols">
-                  {{symbol}}
-                </md-option>
-              </md-select>
-              <md-select ng-model="selectedSeries.plot.symbolSize" placeholder="size">
-                <md-option ng-value="size" ng-repeat="size in symbolSizes">
-                  {{size}}
-                </md-option>
-              </md-select>
-            </div>
+          <div layout="row" class='sub-selection'
+            ng-show="selectedSeries.plot.plotter.plotterName == 'scatter'">
+            <md-select ng-model="selectedSeries.plot.symbol" placeholder="symbol">
+              <md-option ng-value="symbol" ng-repeat="symbol in symbols">
+                {{symbol}}
+              </md-option>
+            </md-select>
+            <md-select ng-model="selectedSeries.plot.symbolSize" placeholder="size">
+              <md-option ng-value="size" ng-repeat="size in symbolSizes">
+                {{size}}
+              </md-option>
+            </md-select>
           </div>
 
           <!-- transform/aggregation and gropuing options -->
-          <div class="aggregation">
+          <div class="aggregation" layout="row">
+            <span class='select-label' >aggregate: </span>
             <md-select ng-model="selectedSeries.transformName" placeholder="aggregation">
               <md-option ng-value="aggregation.aggregation" ng-repeat="aggregation in aggregations">
                 {{aggregation.name}}
               </md-option>
             </md-select>
           </div>
-          <div class="grouping">
+          <div class="grouping" layout="row">
+            <span class='select-label' >group: </span>
             <md-select ng-model="selectedSeries.grouping" placeholder="grouping">
               <md-option ng-value="grouping.group" ng-repeat="grouping in groupings">
                 {{grouping.name}}
