@@ -87,7 +87,8 @@ trait DataServiceV1 extends Directives with RichComplete with CorsDirective with
     path("findEntity" ) {
       parameter('q) { term =>
         if (term.isEmpty) {
-          complete(StatusCodes.NotFound -> "Lookup key not specified")
+          val none:Seq[String] = Seq()
+          complete(none)
         } else {
           val futureNames = store.entities(term).recover {
               case e:EntityNotFoundForLookupKey => Seq()

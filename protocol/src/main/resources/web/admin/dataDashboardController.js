@@ -13,6 +13,9 @@ define(["admin/app", "d3", "sg/request", "sg/util", "admin/columnPicker",
 
       /** autocomplete a search term for an entity or column */
       this.entityQuery = function(term) {
+        if (term == undefined || term == null) {
+          term = "";
+        }
         var response = request.jsonWhen("/v1/findEntity?q=" + encodeURIComponent(term));
         return response;
       };
