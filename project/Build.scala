@@ -2,6 +2,7 @@ import sbt._
 import sbt.Keys._
 import BackgroundServiceKeys._
 import BuildSettings._
+import com.typesafe.sbt.SbtSite.site
 
 import sbtassembly.AssemblyPlugin.autoImport._
 
@@ -17,8 +18,15 @@ object SparkleBuild extends Build {
     .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, sparkShell, testKit, 
       sparkleTests, sparkleStore, storeTestKit, storeTests, sparkAvro, sparkleLoader, sparkleAvro,
       util, utilTests, logbackConfig, log4jConfig, httpCommon, utilKafka,
-      cassandraServer, zookeeperServer, kafkaServer
+      cassandraServer, zookeeperServer, kafkaServer, doc
     )
+
+  lazy val doc =       // protocol server library serving the sparkle data api
+    Project(id = "doc", base = file("doc"))
+    .settings(
+      site.settings,
+      site.jekyllSupport()
+    ) 
 
   lazy val protocol =       // protocol server library serving the sparkle data api
     Project(id = "sparkle-protocol", base = file("protocol"))

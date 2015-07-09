@@ -33,3 +33,6 @@ addSbtPlugin("io.spray" % "sbt-revolver" % "0.7.2")
 
 // for scalastyle checks
 addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "0.7.0")
+
+// for doc html page 
+addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "0.8.1")

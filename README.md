@@ -9,9 +9,9 @@ Introduction
 
 As a standalone tool, sparkle gives users an easy way to make visualize data from a directory of .csv files. The graphs are interactively zoomable in a d3 based web interface. With some easy customization, graphs can be aggregated into dashboards, and customized with simple declarative javascript, and data read in from other sources such as Apache Kafka.
 
-See [Sparkle Intro Talk](https://docs.google.com/presentation/d/1j704Lcj7HhL1O6K2sOYdQeDyhQ_porkbur7UOkKeD50/edit?pli=1#slide=id.g9cb13d495_0_30) for an introduction presentation.
-See [Visualize the Things](https://docs.google.com/presentation/d/1YGeO2FEvdjGgSRihxU5HdEDdktBbv7mfYDtVAxW0FKU/edit?pli=1#slide=id.g9cb1bcd9d_0_0) for a brief introduction to sparkle, lessons on garbage collection with reative streams, and comments on the future of the Lambda Architecture.
-See [Sparkle Google Docs Folder](https://drive.google.com/folderview?id=0B6uZet2ug3aKfm9KRTdXcFZUc3o2UnFyU3FscWk2T2pNazdoR1AzMlZiU3lLRXFILXJHdlU&usp=sharing) for protocol descriptions (slightly out of date).
+See [Sparkle Intro Talk](https://docs.google.com/presentation/d/1j704Lcj7HhL1O6K2sOYdQeDyhQ_porkbur7UOkKeD50) for an introduction presentation.
+See [Visualize the Things](https://docs.google.com/presentation/d/1YGeO2FEvdjGgSRihxU5HdEDdktBbv7mfYDtVAxW0FKU) for a brief introduction to sparkle, lessons on garbage collection with reative streams, and comments on the future of the Lambda Architecture.
+See [Sparkle Google Docs Folder](https://drive.google.com/folderview?id=0B6uZet2ug3aKfm9KRTdXcFZUc3o2UnFyU3FscWk2T2pNazdoR1AzMlZiU3lLRXFILXJHdlU) for protocol descriptions (slightly out of date).
 
 Components
 ------
