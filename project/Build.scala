@@ -303,7 +303,6 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.sparkMergeSettings: _*)
       .settings(BuildSettings.setMainClass("org.apache.spark.repl.Main"): _*)
       .settings(
-        dependencyOverrides += cassandraDriver, // otherwise fails to include netty 3.x when cached resolution is enabled
         libraryDependencies ++= spark ++ logbackTest ++ Seq(
           sparkRepl
         ),
