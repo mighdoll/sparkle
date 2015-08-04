@@ -329,6 +329,20 @@ object SparkleBuild extends Build {
       .settings(
         healthPort := Some(1235),
         dependenciesToStart := Seq(cassandraServer),
+          //
+          // The problem here is that the netty folks publish both netty-all and the netty 
+          // component libraries separately. If both are on the same classpath, the build has no
+          // way to align versions.
+          //
+          // Here we have the that problem in that cassandra and spark both use netty.
+          //   netty-all is otherwise at 4.0.23, 
+          //   but netty-transport is at 4.0.27 via cassandra-driver-core
+          //    . netty-transport fails at runtime if netty-common isn't at 4.0.27
+          //    . netty-common is in netty-all. 
+          //    . fails unless nett-all is later in classpath 
+          //   so we bump netty-all to 4.0.27 to manually align things.
+          // 
+        dependencyOverrides += "io.netty" % "netty-all" % "4.0.27.Final", 
         libraryDependencies ++= logbackTest ++ spark ++ Seq(
           sparkRepl
         ),
