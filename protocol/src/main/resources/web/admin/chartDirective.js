@@ -26,14 +26,14 @@ define(['admin/app', 'sg/chart', 'sg/sideAxis', 'sg/linePlot', 'sg/areaPlot', 's
         $scope.chartData.padding = [25,0];
         namedGroup.push(
           { columnPath: columnPath,
-            transformName: "reduceMean",
+            transformName: "reduceMax",
             grouping: "",
             plot: {
-              plotter: barPlot(),
+              plotter: linePlot(),
               color: color,
               lightColor: lightColor,
               strokeWidth: 2,
-              interpolate: 'linear'
+              interpolate: 'basis'
             }
           }
         );

@@ -43,12 +43,14 @@ define(["admin/app", "d3", "sg/request", "sg/util", "admin/columnPicker",
       $scope.$on('firstChart', function(e, chartWithSettingsController) {
         $scope.firstChart = chartWithSettingsController;
 
+       /*
        if (chartWithSettingsController)  { // DEBUG only
          setTimeout(function() {
            chartWithSettingsController.addSeries("epochs/p90");
            $scope.$apply();
          }, 100);
        }
+       */
 
       });
 
@@ -67,7 +69,7 @@ define(["admin/app", "d3", "sg/request", "sg/util", "admin/columnPicker",
       }
 
       $scope.showLeftPanel = true;
-      $scope.showLeftPanel = false; // DEBUG only
+      // $scope.showLeftPanel = false; // DEBUG only
 
     }]);
 

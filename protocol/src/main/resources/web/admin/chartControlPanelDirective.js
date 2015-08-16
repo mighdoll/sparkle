@@ -178,7 +178,7 @@ define(['admin/app', 'sg/linePlot', 'sg/areaPlot', 'sg/scatter', 'sg/barPlot', '
 
         controller: function($scope) {
           $scope.showPanel = false;
-          $scope.showPanel = true; // start open for DEBUG convenience
+//          $scope.showPanel = true; // start open for DEBUG convenience
           $scope.plotTypes = ["line", "scatter", "area", "bar"];
           $scope.lineInterpolate = ["linear", "monotone", "basis",  "step"];
           $scope.strokeWidths = [.5, 1, 1.5, 2, 3, 5];
