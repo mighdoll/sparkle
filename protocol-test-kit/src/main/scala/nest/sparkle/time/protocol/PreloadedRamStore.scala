@@ -16,15 +16,17 @@ package nest.sparkle.time.protocol
 
 import scala.reflect.runtime.universe._
 
+import com.typesafe.config.Config
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
 import spray.testkit.ScalatestRouteTest
 
 import spray.util._
 
-import nest.sparkle.store.{ReadWriteStore, Event}
+import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.store.ram.WriteableRamStore
+import nest.sparkle.util.ConfigUtil
 
 trait PreloadedRamService extends PreloadedRamStore with TestDataService {
   override def readWriteStore = writeableRamStore
@@ -33,6 +35,10 @@ trait PreloadedRamService extends PreloadedRamStore with TestDataService {
 /** (for unit tests) a ram based Store with a sample column */
 trait PreloadedRamStore extends FunSuite with Matchers with ScalatestRouteTest
     with PropertyChecks with BeforeAndAfterAll with StreamRequestor {
+
+  def rootConfig: Config
+  lazy val recoverCanSerialize = new RecoverCanSerialize(ConfigUtil.configForSparkle(rootConfig))
+
   lazy val testId = "server1"
 
   lazy val testColumnName = "testColumn"
@@ -87,8 +93,8 @@ trait PreloadedRamStore extends FunSuite with Matchers with ScalatestRouteTest
 
   private def addTestColumn[T: TypeTag, U: TypeTag](testStore: WriteableRamStore,
                                                     columnPath: String, events: Seq[Event[T, U]]) {
-    implicit val keyTag = RecoverCanSerialize.tryCanSerialize[T](typeTag[T]).get
-    implicit val valueTag = RecoverCanSerialize.tryCanSerialize[U](typeTag[U]).get
+    implicit val keyTag = recoverCanSerialize.tryCanSerialize[T](typeTag[T]).get
+    implicit val valueTag = recoverCanSerialize.tryCanSerialize[U](typeTag[U]).get
     val column = testStore.writeableColumn[T, U](columnPath).await
     column.write(events).await
   }

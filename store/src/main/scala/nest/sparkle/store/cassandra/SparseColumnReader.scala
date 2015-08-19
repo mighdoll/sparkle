@@ -31,8 +31,9 @@ import nest.sparkle.util.Log
 import nest.sparkle.util.ObservableFuture._
 
 object SparseColumnReader extends Log {
-  def instance[T, U](dataSetName: String, columnName: String, catalog: ColumnCatalog, // format: OFF
-      writeListener:WriteListener, preparedSession:PreparedSession) 
+  def instance[T, U](dataSetName: String, columnName: String, // format: OFF
+      columnTypes: ColumnTypes, recoverCanSerialize: RecoverCanSerialize,
+      columnCatalog: ColumnCatalog, writeListener:WriteListener, preparedSession:PreparedSession)
       (implicit execution: ExecutionContext): Future[SparseColumnReader[T,U]] = { // format: ON
 
     val columnPath = ColumnSupport.constructColumnPath(dataSetName, columnName)
@@ -41,27 +42,24 @@ object SparseColumnReader extends Log {
       * (presumably _) type of instance()s T,U parameters.
       */
     def makeReader[X, Y](key: CanSerialize[X], value: CanSerialize[Y], catalogInfo: CatalogInfo): SparseColumnReader[T, U] = {
-      val typed = new SparseColumnReader(dataSetName, columnName, catalogInfo, writeListener, preparedSession)(key, value)
+      val typed = new SparseColumnReader(dataSetName, columnName, columnTypes, catalogInfo, writeListener, preparedSession)(key, value)
       typed.asInstanceOf[SparseColumnReader[T, U]]
     }
 
     /** create a reader of the appropriate type */
     def reader(catalogInfo: CatalogInfo): SparseColumnReader[T, U] = {
-      catalogInfo match { // TODO capture types for key,value independently to avoid combinatorial
-        case LongDoubleSerializers(KeyValueSerializers(key, value))       => makeReader(key, value, catalogInfo)
-        case LongLongSerializers(KeyValueSerializers(key, value))         => makeReader(key, value, catalogInfo)
-        case LongIntSerializers(KeyValueSerializers(key, value))          => makeReader(key, value, catalogInfo)
-        case LongBooleanSerializers(KeyValueSerializers(key, value))      => makeReader(key, value, catalogInfo)
-        case LongStringSerializers(KeyValueSerializers(key, value))       => makeReader(key, value, catalogInfo)
-        case LongJsValueSerializers(KeyValueSerializers(key, value))      => makeReader(key, value, catalogInfo)
-        case LongGenericFlagsSerializers(KeyValueSerializers(key, value)) => makeReader(key, value, catalogInfo)
-        case LongByteBufferSerializers(KeyValueSerializers(key, value))   => makeReader(key, value, catalogInfo)
-        case _                                                            => ???
-      }
+      val reader =
+        for {
+          keySerializer <- recoverCanSerialize.tryCanSerialize[T](catalogInfo.keyType)
+          valueSerializer <- recoverCanSerialize.tryCanSerialize[U](catalogInfo.valueType)
+        } yield {
+          makeReader(keySerializer, valueSerializer, catalogInfo)
+        }
+      reader.getOrElse(???)
     }
 
     for {
-      catalogInfo <- catalog.catalogInfo(columnPath)
+      catalogInfo <- columnCatalog.catalogInfo(columnPath)
     } yield {
       reader(catalogInfo)
     }
@@ -73,7 +71,8 @@ object SparseColumnReader extends Log {
 /** read only access to a cassandra source event column */
 class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
     val dataSetName: String, 
-    val columnName: String, 
+    val columnName: String,
+    columnTypes: ColumnTypes,
     catalogInfo: CatalogInfo,
     writeListener:WriteListener, 
     prepared: PreparedSession )
@@ -93,7 +92,7 @@ class SparseColumnReader[T: CanSerialize, U: CanSerialize] ( // format: OFF
   implicit val keyClass = ClassTag[T](keyType.mirror.runtimeClass(keyType.tpe))
   implicit val valueClass = ClassTag[U](valueType.mirror.runtimeClass(valueType.tpe))
 
-  val serialInfo = ColumnTypes.serializationInfo()(keySerializer, valueSerializer)
+  val serialInfo = columnTypes.serializationInfo()(keySerializer, valueSerializer)
   val tableName = serialInfo.tableName
 
 

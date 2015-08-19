@@ -47,7 +47,7 @@ class FilesLoader // format: OFF
   private val root: Path = Paths.get(loadPath)
   private var closed = false
   private var watcher: Option[PathWatcher] = None
-  val singleLoader = new SingleFileLoader(store, batchSize)
+  val singleLoader = new SingleFileLoader(sparkleConfig, store, batchSize)
 
   if (Files.notExists(root)) {
     log.error(s"$loadPath does not exist. Can not load data from this path")

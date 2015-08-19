@@ -148,12 +148,16 @@ trait ConfiguredCassandra extends Log
 
   // TODO use a provided execution context
   implicit def execution: ExecutionContext = ExecutionContext.global
+
   val columnPathFormat: ColumnPathFormat = {
     val className = config.getString("column-path-format")
     log.info(s"using ColumnPathFormat: $className")
     Instance.byName[ColumnPathFormat](className)()
   }
-  lazy val columnCatalog = ColumnCatalog(config, columnPathFormat, session, cassandraConsistency)
+
+  lazy val columnTypes = new ColumnTypes(config)
+  lazy val recoverCanSerialize = new RecoverCanSerialize(config)
+  lazy val columnCatalog = ColumnCatalog(config, columnTypes, columnPathFormat, session, cassandraConsistency)
   lazy val entityCatalog = EntityCatalog(config, columnPathFormat, session, cassandraConsistency)
   lazy val tryDataSetCatalog =
     storeConfig.getBoolean("dataset-catalog-enabled").toOption.map { _ =>
@@ -223,7 +227,7 @@ trait ConfiguredCassandra extends Log
   protected def format(session: Session): Unit = {
     dropTables(session)
 
-    SparseColumnWriter.createColumnTables(session).await
+    SparseColumnWriter.createColumnTables(session, columnTypes).await
     ColumnCatalog.create(session)
     EntityCatalog.create(session)
     DataSetCatalog.create(session)
@@ -261,15 +265,16 @@ trait CassandraStoreWriter extends ConfiguredCassandra with WriteableStore with 
   this.session
   
   // This is not used by the TableWriters
-  private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements, cassandraConsistency.write)
+  private lazy val preparedSession = PreparedSession(session, SparseColumnWriterStatements,
+    cassandraConsistency.write, columnTypes)
 
   /** return a column from a fooSet/barSet/columnName path */
   def writeableColumn[T: CanSerialize, U: CanSerialize](columnPath: String)
       : Future[WriteableColumn[T, U]] = {
     val (dataSetName, columnName) = Store.setAndColumn(columnPath)
     SparseColumnWriter.instance[T, U](
-      dataSetName, columnName, columnCatalog, entityCatalog, tryDataSetCatalog, writeNotifier, preparedSession,
-      cassandraConsistency.write, writeBatchSize
+      dataSetName, columnName, columnTypes, columnCatalog, entityCatalog, tryDataSetCatalog,
+      writeNotifier, preparedSession, cassandraConsistency.write, writeBatchSize
     )
   }
 
@@ -314,7 +319,8 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
   this.session
 
   // trigger creating connection, and create schemas if necessary 
-  private lazy val preparedSession = PreparedSession(session, SparseColumnReaderStatements, cassandraConsistency.read)
+  private lazy val preparedSession = PreparedSession(session, SparseColumnReaderStatements,
+    cassandraConsistency.read, columnTypes)
 
   /** Return the entity paths associated with the given lookup key. If none, the Future
     * if failed with EntityNotFoundForLookupKey. */
@@ -426,7 +432,8 @@ trait CassandraStoreReader extends ConfiguredCassandra with Store with Log
                                       .withTry { Store.setAndColumn(columnPath) }
                                       .toFuture
        futureColumn <- SparseColumnReader.instance[T, U](
-         dataSetName, columnName, columnCatalog, writeListener, preparedSession
+         dataSetName, columnName, columnTypes, recoverCanSerialize,
+         columnCatalog, writeListener, preparedSession
        )
     } yield futureColumn
   }

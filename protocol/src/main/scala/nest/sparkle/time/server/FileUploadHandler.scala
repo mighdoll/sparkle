@@ -2,6 +2,8 @@ package nest.sparkle.time.server
 
 import java.io.{File, FileInputStream, FileOutputStream}
 import java.nio.file.Path
+import com.typesafe.config.Config
+
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -15,13 +17,13 @@ import org.jvnet.mimepull.{MIMEMessage, MIMEPart}
 
 import nest.sparkle.loader.SingleFileLoader
 import nest.sparkle.store.WriteableStore
-import nest.sparkle.util.Log
+import nest.sparkle.util.{Log, ConfigUtil}
 
 // adapted from spray.io example code
 
 /** spray.io handler for chunked file upload into the store. Create this actor to handle the upload
   * of a single file after the the ChunkedRequestStart message has been received by the io layer. */
-class FileUploadHandler(store:WriteableStore, batchSize:Int, client: ActorRef, start: ChunkedRequestStart)
+class FileUploadHandler(rootConfig:Config, store:WriteableStore, batchSize:Int, client: ActorRef, start: ChunkedRequestStart)
       extends Actor with Log {
 
   import start.request._
@@ -33,7 +35,7 @@ class FileUploadHandler(store:WriteableStore, batchSize:Int, client: ActorRef, s
   val Some(HttpHeaders.`Content-Type`(ContentType(multipart: MultipartMediaType, _))) = header[HttpHeaders.`Content-Type`]
   val boundary = multipart.parameters("boundary")
   import context.dispatcher
-  val loader = new SingleFileLoader(store, batchSize)
+  val loader = new SingleFileLoader(ConfigUtil.configForSparkle(rootConfig), store, batchSize)
 
   log.info(s"Got start of chunked request $method $uri with multipart boundary '$boundary' writing to $uploadedMime")
   var bytesWritten = 0L

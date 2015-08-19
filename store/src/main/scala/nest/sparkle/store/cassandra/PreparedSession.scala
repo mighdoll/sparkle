@@ -12,8 +12,8 @@ trait TableOperation { def tableName: String }
 /** a C* session combined with prepared statements active on that session. Users
   * provide some functions to create CQL statements, and then access them via the statement() method
   */
-case class PreparedSession(val session: Session, perTablePrepared:PerTablePrepared,
-    val consistencyLevel: ConsistencyLevel) extends Log {
+case class PreparedSession(val session: Session, perTablePrepared: PerTablePrepared,
+    val consistencyLevel: ConsistencyLevel, columnTypes: ColumnTypes) extends Log {
 
   /** return prepared statement for a given intended operation. Throws if statement is not found. */
   def statement(tableOperation: TableOperation): PreparedStatement = {
@@ -44,7 +44,7 @@ case class PreparedSession(val session: Session, perTablePrepared:PerTablePrepar
     // table name for each supported table type
     val tableNames: Seq[String] =
       for {
-        serialInfo <- ColumnTypes.supportedColumnTypes
+        serialInfo <- columnTypes.supportedColumnTypes
         tableName = serialInfo.tableName
       } yield {
         tableName

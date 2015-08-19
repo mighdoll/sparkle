@@ -60,14 +60,14 @@ class FileUploadService(rootConfig: Config, store:WriteableStore) extends Actor 
       val parts = request.asPartStream()
       val client = sender
       val handler = context.actorOf(Props(
-          new FileUploadHandler(store, batchSize, client,
+          new FileUploadHandler(rootConfig, store, batchSize, client,
                                 parts.head.asInstanceOf[ChunkedRequestStart])
         ))
       parts.tail.foreach(handler !)
 
     case request@ChunkedRequestStart(HttpRequest(POST, Uri.Path("/file-upload"), _, _, _)) =>
       val client = sender
-      val handler = context.actorOf(Props(new FileUploadHandler(store, batchSize, client, request)))
+      val handler = context.actorOf(Props(new FileUploadHandler(rootConfig, store, batchSize, client, request)))
       sender ! RegisterChunkHandler(handler)
 
     case _: HttpRequest => sender ! HttpResponse(status = 404, entity = "Unknown resource!")

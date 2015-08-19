@@ -12,11 +12,11 @@ object TypedColumnHeader {
     suffix(column) match {
       case Some("boolean") => Some(typeTag[Boolean])
       case Some("bool")    => Some(typeTag[Boolean])
-//      case Some("short")   => Some(typeTag[Short]) // TODO fixme, breaks other tests when enabled
+      case Some("short")   => Some(typeTag[Short])
       case Some("int")     => Some(typeTag[Int])
       case Some("long")    => Some(typeTag[Long])
       case Some("double")  => Some(typeTag[Double])
-//      case Some("char")    => Some(typeTag[Char]) // TODO fixme, breaks other tests when enabled
+      case Some("char")    => Some(typeTag[Char])
       case Some("string")  => Some(typeTag[String])
       case Some("json")    => Some(typeTag[JsValue])
       case Some("flags")   => Some(typeTag[GenericFlags])

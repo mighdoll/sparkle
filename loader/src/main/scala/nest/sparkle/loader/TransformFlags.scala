@@ -7,7 +7,7 @@ import scala.util.Try
 
 import nest.sparkle.datastream.DataArray
 import nest.sparkle.loader.Loader._
-import nest.sparkle.util.{GenericFlags, FieldsDescriptor, Flags, Log, ReflectionUtil, TryUtil}
+import nest.sparkle.util.{FieldsDescriptor, Flags, Log, ReflectionUtil, TryUtil}
 
 /**
  * A transformer that can convert column slices with boolean values to a single column
@@ -63,12 +63,8 @@ abstract class TransformFlags[T <: Flags :TypeTag](flagsFactory: () => T)
           (key, flagUpdates.foldLeft(flagsFactory())((flags, flagUpdate) =>
             flags.updatedFlags(flagUpdate.position, flagUpdate.value).asInstanceOf[T]))
         }
-        // convert to GenericFlags for store serialization purposes
-        val pairs = flagsByKey.map { case (key, flags) =>
-          (key, GenericFlags(flags.value))
-        }
         assert(optFlagsDataset.isDefined)
-        otherSlices :+ TaggedSlice[Any, GenericFlags](s"${optFlagsDataset.get}/$flagsColumn", DataArray.fromPairs(pairs))
+        otherSlices :+ TaggedSlice[Any, T](s"${optFlagsDataset.get}/$flagsColumn", DataArray.fromPairs(flagsByKey))
       }
     }
   }

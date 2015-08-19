@@ -19,35 +19,17 @@ import java.nio.ByteBuffer
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.runtime.universe._
 import scala.concurrent.duration.NANOSECONDS
-import com.datastax.driver.core.Row
+import com.datastax.driver.core.{DataType, Row}
 import spray.json._
 import nest.sparkle.util.GenericFlags
-import nest.sparkle.util.Exceptions.NYI
-
-/** utilities for converting between typeTags and cassandra serialized nativeType strings */
-object CanSerialize {
-  /** return a TypeTag from cassandra serialized nativeType string */
-  def stringToTypeTag(typeString: String): TypeTag[_] = {
-    typeString match {
-      case "Boolean"                        => typeTag[Boolean]
-      case "Short"                          => typeTag[Short]
-      case "Int"                            => typeTag[Int]
-      case "Long"                           => typeTag[Long]
-      case "Double"                         => typeTag[Double]
-      case "Char"                           => typeTag[Char]
-      case "String"                         => typeTag[String]
-      case "spray.json.JsValue"             => typeTag[JsValue]
-      case "nest.sparkle.util.GenericFlags" => typeTag[GenericFlags]
-      case "java.nio.ByteBuffer"            => typeTag[ByteBuffer]
-      case x                                => NYI(s"unsupported storage type $x")
-    }
-  }
-}
 
 /** a cassandra serializer/deserializer */
 abstract class CanSerialize[T: TypeTag] {
   /** return the cassandra data type */
-  def columnType: String
+  def dataType: DataType
+
+  /** return the cassandra data type as a String */
+  def columnType: String = dataType.getName.toString
 
   /** return a string representation of the stored scala type */
   def nativeType: String = implicitly[TypeTag[T]].tpe.toString
@@ -62,11 +44,10 @@ abstract class CanSerialize[T: TypeTag] {
   def typedTag: TypeTag[T] = typeTag[T]
 }
 
-// TODO: support registering of custom serializers
 /** standard serializers for cassandra data types */
 object serializers {
   implicit object LongSerializer extends CanSerialize[Long] {
-    val columnType = "bigint"
+    val dataType = DataType.bigint()
     def deserialize(serialized: AnyRef): Long = serialized.asInstanceOf[Long]
     def fromRow(row: Row, index: Int): Long = {
       row.getLong(index)
@@ -74,7 +55,7 @@ object serializers {
   }
 
   implicit object NanoTimeSerializer extends CanSerialize[NanoTime] {
-    val columnType = "bigint"
+    val dataType = DataType.bigint()
     override def serialize(value: NanoTime): AnyRef = value.nanos.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): NanoTime = {
       NanoTime(row.getLong(index))
@@ -82,7 +63,7 @@ object serializers {
   }
 
   implicit object MilliTimeSerializer extends CanSerialize[MilliTime] {
-    val columnType = "bigint"
+    val dataType = DataType.bigint()
     override def serialize(value: MilliTime): AnyRef = value.millis.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): MilliTime = {
       MilliTime(row.getLong(index))
@@ -90,7 +71,7 @@ object serializers {
   }
 
   implicit object FiniteDurationSerializer extends CanSerialize[FiniteDuration] {
-    val columnType = "bigint"
+    val dataType = DataType.bigint()
     override def serialize(value: FiniteDuration): AnyRef = value.toNanos.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): FiniteDuration = {
       FiniteDuration(row.getLong(index), NANOSECONDS)
@@ -98,7 +79,7 @@ object serializers {
   }
 
   implicit object DoubleSerializer extends CanSerialize[Double] {
-    val columnType = "double"
+    val dataType = DataType.cdouble()
     def deserialize(serialized: AnyRef): Double =
       serialized.asInstanceOf[Double]
     def fromRow(row: Row, index: Int): Double = {
@@ -107,28 +88,29 @@ object serializers {
   }
 
   implicit object IntSerializer extends CanSerialize[Int] {
-    val columnType = "int"
+    val dataType = DataType.cint()
     def fromRow(row: Row, index: Int): Int = {
       row.getInt(index)
     }
   }
 
   implicit object ShortSerializer extends CanSerialize[Short] {
-    val columnType = "int"
+    val dataType = DataType.cint()
     def fromRow(row: Row, index: Int): Short = {
       row.getInt(index).toShort
     }
+    override def serialize(value: Short): AnyRef = value.toInt.asInstanceOf[AnyRef]
   }
 
   implicit object BooleanSerializer extends CanSerialize[Boolean] {
-    val columnType = "boolean"
+    val dataType = DataType.cboolean()
     def fromRow(row: Row, index: Int): Boolean = {
       row.getBool(index)
     }
   }
 
   implicit object CharSerializer extends CanSerialize[Char] {
-    val columnType = "text"
+    val dataType = DataType.text()
     def fromRow(row: Row, index: Int): Char = {
       row.getString(index)(0)
     }
@@ -136,35 +118,30 @@ object serializers {
   }
 
   implicit object StringSerializer extends CanSerialize[String] {
-    val columnType = "text"
+    val dataType = DataType.text()
     def fromRow(row: Row, index: Int): String = {
       row.getString(index)
     }
   }
 
   implicit object AsciiSerializer extends CanSerialize[AsciiString] {
-    val columnType = "ascii"
+    val dataType = DataType.ascii()
     def fromRow(row: Row, index: Int): AsciiString = {
       AsciiString(row.getString(index))
     }
   }
 
   implicit object JsonSerializer extends CanSerialize[JsValue] {
-    val columnType = "text"
-
+    val dataType = DataType.text()
     def fromRow(row: Row, index: Int): JsValue = {
       row.getString(index).parseJson
     }
-
     override def serialize(value: JsValue): AnyRef =
       value.prettyPrint
   }
 
-  /** until we can register custom serializers, we'll use GenericFlags to
-    * serialize all Flags types, and have the client convert GenericFlags to
-    * custom Flags types */
   implicit object GenericFlagsSerializer extends CanSerialize[GenericFlags] {
-    val columnType = "bigint"
+    val dataType = DataType.bigint()
     override def serialize(flags: GenericFlags): AnyRef = flags.value.asInstanceOf[AnyRef]
     def fromRow(row: Row, index: Int): GenericFlags = {
       GenericFlags(row.getLong(index))
@@ -172,7 +149,7 @@ object serializers {
   }
 
   implicit object ByteBufferSerializer extends CanSerialize[ByteBuffer] {
-    val columnType = "blob"
+    val dataType = DataType.blob()
     def fromRow(row: Row, index: Int): ByteBuffer = {
       val buf = row.getBytes(index)
       val fixedBuf = new Array[Byte](buf.remaining())

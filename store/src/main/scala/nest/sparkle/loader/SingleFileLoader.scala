@@ -1,6 +1,8 @@
 package nest.sparkle.loader
 
 import java.nio.file.{Files, Path}
+import com.typesafe.config.Config
+
 import scala.concurrent.{Promise, Future, ExecutionContext}
 import scala.util.Success
 
@@ -15,9 +17,11 @@ case class PathToDataSetFailed(msg: String) extends RuntimeException(msg)
 
 /** A facility for loading files into a data store */
 class SingleFileLoader
-    ( store: WriteableStore, batchSize: Int )
+    ( sparkleConfig: Config, store: WriteableStore, batchSize: Int )
     ( implicit executionContext: ExecutionContext)
     extends Log {
+
+  val recoverCanSerialize = new RecoverCanSerialize(sparkleConfig)
 
   /** Load a single file into the store. Returns a future that completes
     * when loading is complete.
@@ -67,7 +71,7 @@ class SingleFileLoader
       rowInfo.valueColumns.map {
         case StringColumnInfo(name, _, parser) =>
           val columnPath = dataSet + "/" + name
-          val serializeValue = RecoverCanSerialize.optCanSerialize[Any](parser.typed).getOrElse {
+          val serializeValue = recoverCanSerialize.tryCanSerialize[Any](parser.typed).getOrElse {
             log.error(s"can't file serializer for type ${parser.typed}")
             throw FileLoaderTypeConfiguration(s"can't find canSerialize for type: ${parser.typed}")
           }

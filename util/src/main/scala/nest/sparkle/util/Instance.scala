@@ -14,21 +14,23 @@
 
 package nest.sparkle.util
 
+import scala.reflect.ManifestFactory
 import scala.reflect.runtime.universe
+import scala.reflect.runtime.universe._
 
 object Instance {
 
-  /** Create an class instance by calling its (hopefully only) constructor */
+  /** Create a class instance by calling its (hopefully only) constructor */
   def byClass[T](clazz: java.lang.Class[T])(args:AnyRef*): T = {
     val constructor = clazz.getConstructors()(0)
     constructor.newInstance(args:_*).asInstanceOf[T]
   }
 
-  /** Create an class instance, given a class fully qualified class name
+  /** Create a class instance, given a fully qualified class name
    *  and arguments to its constructor.  */
-  def byName[T](named: String)(args:AnyRef*): T = {
-    val classLoader = this.getClass.getClassLoader
-    val clazz = Class.forName(named, false, classLoader).asInstanceOf[Class[T]]
+  def byName[T](className: String)(args:AnyRef*): T = {
+    val classLoader = getClass.getClassLoader
+    val clazz = Class.forName(className, false, classLoader).asInstanceOf[Class[T]]
     byClass(clazz)(args:_*)
   }
 
@@ -44,5 +46,14 @@ object Instance {
     val clazz = runtimeMirror.reflectModule(module)
     val obj = clazz.instance.asInstanceOf[T]
     obj
+  }
+
+  /** Return the TypeTag for the given fully qualified class name */
+  def typeTagByClassName[T](className: String): TypeTag[T] = {
+    val classLoader = getClass.getClassLoader
+    val runtimeMirror = universe.runtimeMirror(classLoader)
+    val clazz = Class.forName(className, false, classLoader).asInstanceOf[Class[T]]
+    val typeTag = universe.internal.manifestToTypeTag(runtimeMirror, ManifestFactory.classType(clazz)).asInstanceOf[TypeTag[T]]
+    typeTag
   }
 }

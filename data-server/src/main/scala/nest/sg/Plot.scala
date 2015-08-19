@@ -1,10 +1,12 @@
 package nest.sg
 
+import com.typesafe.config.Config
+
 import scala.reflect.runtime.universe.typeTag
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import nest.sparkle.datastream.DataArray
-import nest.sparkle.store.{WriteableStore, Event}
+import nest.sparkle.store.Event
 import nest.sparkle.store.cassandra.RecoverCanSerialize
 import nest.sparkle.store.cassandra.serializers._
 import scala.reflect.runtime.universe._
@@ -13,11 +15,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import nest.sparkle.time.server.SparkleAPIServer
 import nest.sparkle.util.OptionConversion.OptionFuture
 import nest.sparkle.util.ObservableFuture._
-import nest.sparkle.util.{ReflectionUtil, Log, RandomUtil, Opt}
+import nest.sparkle.util.{ConfigUtil, ReflectionUtil, Log, RandomUtil, Opt}
 import spray.json.DefaultJsonProtocol
 import spray.json._
 import PlotParametersJson._
-import nest.sparkle.store.cassandra.CanSerialize
 import rx.lang.scala.Observable
 
 case class PlotParameterError(msg: String) extends RuntimeException
@@ -25,11 +26,14 @@ case class PlotParameterError(msg: String) extends RuntimeException
 /** Supporting launching a graph from the repl.
   */
 trait PlotConsole extends Log {
+  def rootConfig: Config
   def server: SparkleAPIServer
   def writeStore = server.readWriteStore
   implicit lazy val dispatcher = server.system.dispatcher
   val sessionId = RandomUtil.randomAlphaNum(5)
   var launched = false
+
+  lazy val recoverCanSerialize = new RecoverCanSerialize(ConfigUtil.configForSparkle(rootConfig))
 
   /** load a collection of values into the store and plot them. The keys for the values
     * will be the indices in the collection. */
@@ -123,8 +127,8 @@ trait PlotConsole extends Log {
   def writeEventStream[T: TypeTag, U: TypeTag](events: Observable[Event[T, U]], name: String = nowString()): Observable[Unit] = {
     val optSerializers =
       for {
-        serializeKey <- RecoverCanSerialize.optCanSerialize[T](typeTag[T])
-        serializeValue <- RecoverCanSerialize.optCanSerialize[U](typeTag[U])
+        serializeKey <- recoverCanSerialize.optCanSerialize[T](typeTag[T])
+        serializeValue <- recoverCanSerialize.optCanSerialize[U](typeTag[U])
       } yield {
         (serializeKey, serializeValue)
       }
@@ -151,8 +155,8 @@ trait PlotConsole extends Log {
   def writeDataArray[K:TypeTag,V:TypeTag](dataArray:DataArray[K,V], name:String = nowString()): Future[Unit] = {
     val optSerializers =
       for {
-        serializeKey <- RecoverCanSerialize.optCanSerialize[K](typeTag[K])
-        serializeValue <- RecoverCanSerialize.optCanSerialize[V](typeTag[V])
+        serializeKey <- recoverCanSerialize.optCanSerialize[K](typeTag[K])
+        serializeValue <- recoverCanSerialize.optCanSerialize[V](typeTag[V])
       } yield {
         (serializeKey, serializeValue)
       }

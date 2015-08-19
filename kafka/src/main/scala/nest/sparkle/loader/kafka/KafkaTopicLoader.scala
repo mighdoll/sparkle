@@ -44,8 +44,10 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
   
   implicit val execution: ExecutionContext = system.dispatcher 
 
+  val recoverCanSerialize = new RecoverCanSerialize(ConfigUtil.configForSparkle(rootConfig))
+
   /** Evidence for key serializing when writing to the store */
-  private implicit val keySerialize = RecoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
+  private implicit val keySerialize = recoverCanSerialize.tryCanSerialize[K](typeTag[K]).get
   
   val reader = KafkaReader(topic, rootConfig, None)(decoder)
 
@@ -358,7 +360,7 @@ class KafkaTopicLoader[K: TypeTag]( val rootConfig: Config,
       val timer = writeMetric.timerContext()
       val result =
         for {
-          valueSerialize <- RecoverCanSerialize.tryCanSerialize[U](valueType).toFuture
+          valueSerialize <- recoverCanSerialize.tryCanSerialize[U](valueType).toFuture
           castEvents = slice.dataArray.asInstanceOf[DataArray[K, U]]
           update <- writeEvents(castEvents, slice.columnPath)(valueSerialize)
         } yield {

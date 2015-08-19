@@ -36,6 +36,9 @@ case class SparkConnection(rootConfig: Config, applicationName: String = "Sparkl
 
   val sparkleConfig = configForSparkle(rootConfig)
 
+  lazy val columnTypes = new ColumnTypes(sparkleConfig)
+  lazy val recoverCanSerialize = new RecoverCanSerialize(sparkleConfig)
+
   /** open a connection to cassandra and the spark master */
   lazy val sparkContext: SparkContext = {
     val cassandraHost = {
@@ -66,7 +69,7 @@ case class SparkConnection(rootConfig: Config, applicationName: String = "Sparkl
   def allDataWithKeyType[K: TypeTag]: RDD[ColumnData[K, Any]] = {
     val valueTypes = 
       for {
-        serialInfo <- ColumnTypes.supportedColumnTypes
+        serialInfo <- columnTypes.supportedColumnTypes
         if (serialInfo.directToNative)
       } yield serialInfo.valueSerializer.typedTag
 
@@ -92,10 +95,10 @@ case class SparkConnection(rootConfig: Config, applicationName: String = "Sparkl
     // the name of the table we're fetching from, e.g. bigint0double
     val tableNameAndValueTypeTry =
       for {
-        keySerialize <- RecoverCanSerialize.tryCanSerialize[K](implicitly[TypeTag[K]])
-        valueSerialize <- RecoverCanSerialize.tryCanSerialize[V](implicitly[TypeTag[V]])
+        keySerialize <- recoverCanSerialize.tryCanSerialize[K](implicitly[TypeTag[K]])
+        valueSerialize <- recoverCanSerialize.tryCanSerialize[V](implicitly[TypeTag[V]])
       } yield {
-        ( ColumnTypes.serializationInfo[K, V]()(keySerialize, valueSerialize).tableName,
+        ( columnTypes.serializationInfo[K, V]()(keySerialize, valueSerialize).tableName,
           valueSerialize.nativeType
         )
       }

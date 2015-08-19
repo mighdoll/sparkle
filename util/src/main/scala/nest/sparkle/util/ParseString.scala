@@ -45,7 +45,6 @@ object ParseStringTo {
 
     implicit object StringToShort extends ParseStringTo[Short] {
       override def parse(s: String): Short = {
-        println(s"StringToShort: $s")
         java.lang.Short.parseShort(s)
       }
     }

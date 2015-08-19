@@ -11,7 +11,7 @@ object InitializeReflection {
   lazy val init = {
     RecoverOrdering.standardOrderings.foreach { _ => }
     RecoverJsonFormat.jsonFormats.foreach { _ => }
-    RecoverCanSerialize.canSerializers.foreach { _ => }
+    //RecoverCanSerialize.canSerializers.foreach { _ => }
     RecoverFractional.Implicits.standardFractional.foreach { _ => }
     RecoverNumeric.standardNumeric.foreach { _ => }
   }

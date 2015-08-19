@@ -71,8 +71,8 @@ class TestSparkConnection extends FunSuite with Matchers with CassandraStoreTest
 
   test("count elements by type (explicit types)") {
     countElementsByType("explicitTypes.csv") { (byType) =>
-      byType("Int") shouldBe 1
-      byType("Long") shouldBe 3 // short and GenericFlags are treated as a long, see TypedColumnHeader
+      byType("Int") shouldBe 2  // short is treated as a int, see TypedColumnHeader
+      byType("Long") shouldBe 2 // GenericFlags is treated as a long, see TypedColumnHeader
       byType("Double") shouldBe 1
       byType("String") shouldBe 3
       byType("Boolean") shouldBe 1

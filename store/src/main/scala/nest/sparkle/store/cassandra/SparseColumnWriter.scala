@@ -22,7 +22,6 @@ import com.datastax.driver.core.{ConsistencyLevel, BatchStatement, Session}
 
 import nest.sparkle.datastream.DataArray
 import nest.sparkle.store.{DataSetNotEnabled, Event, ColumnUpdate, WriteNotifier}
-import nest.sparkle.store.cassandra.ColumnTypes.serializationInfo
 import nest.sparkle.store.cassandra.SparseColumnWriterStatements._
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.{ Instrumented, Log }
@@ -37,7 +36,8 @@ object SparseColumnWriter
   /** constructor to create a SparseColumnWriter */
   def apply[T: CanSerialize, U: CanSerialize]( // format: OFF
         dataSetName: String, 
-        columnName: String, 
+        columnName: String,
+        columnTypes: ColumnTypes,
         columnCatalog: ColumnCatalog,
         entityCatalog: EntityCatalog,
         tryDataSetCatalog: Try[DataSetCatalog],
@@ -47,14 +47,15 @@ object SparseColumnWriter
         batchSize: Int
       ): SparseColumnWriter[T,U] = { // format: ON
 
-    new SparseColumnWriter[T, U](dataSetName, columnName, columnCatalog, entityCatalog,
+    new SparseColumnWriter[T, U](dataSetName, columnName, columnTypes, columnCatalog, entityCatalog,
       tryDataSetCatalog, writeNotifier, preparedSession, consistencyLevel, batchSize)
   }
 
   /** constructor to create a SparseColumnWriter and update the store */
   def instance[T: CanSerialize, U: CanSerialize]( // format: OFF
         dataSetName: String, 
-        columnName: String, 
+        columnName: String,
+        columnTypes: ColumnTypes,
         columnCatalog: ColumnCatalog,
         entityCatalog: EntityCatalog,
         tryDataSetCatalog: Try[DataSetCatalog],
@@ -64,7 +65,7 @@ object SparseColumnWriter
         batchSize: Int
       )(implicit execution:ExecutionContext):Future[SparseColumnWriter[T,U]] = { // format: ON
 
-    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, columnCatalog, entityCatalog,
+    val writer = new SparseColumnWriter[T, U](dataSetName, columnName, columnTypes, columnCatalog, entityCatalog,
       tryDataSetCatalog, writeNotifier, preparedSession, consistencyLevel, batchSize)
     writer.updateCatalog().map { _ =>
       writer
@@ -72,9 +73,9 @@ object SparseColumnWriter
   }
 
   /** create columns for default data types */
-  def createColumnTables(session: Session)(implicit execution: ExecutionContext): Future[Unit] = {
+  def createColumnTables(session: Session, columnTypes: ColumnTypes)(implicit execution: ExecutionContext): Future[Unit] = {
     // This gets rid of duplicate column table creates which C* 2.1 doesn't handle correctly.
-    val tables = ColumnTypes.supportedColumnTypes.map { serialInfo =>
+    val tables = columnTypes.supportedColumnTypes.map { serialInfo =>
       serialInfo.tableName -> ColumnTableInfo(serialInfo.tableName, serialInfo.keySerializer.columnType, serialInfo.valueSerializer.columnType)
     }.toMap
     val futures = tables.values.map { tableInfo =>
@@ -114,7 +115,7 @@ import nest.sparkle.store.cassandra.SparseColumnWriter._
   * a millisecond timestamp and a double value.
   */
 protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format: OFF
-    val dataSetName: String, val columnName: String,
+    val dataSetName: String, val columnName: String, columnTypes: ColumnTypes,
     columnCatalog: ColumnCatalog, entityCatalog: EntityCatalog, tryDataSetCatalog: Try[DataSetCatalog],
     writeNotifier:WriteNotifier, preparedSession: PreparedSession,
     consistencyLevel: ConsistencyLevel, batchSize: Int,
@@ -124,7 +125,7 @@ protected class SparseColumnWriter[T: CanSerialize, U: CanSerialize]( // format:
   with ColumnSupport 
   with Log { // format: ON
 
-  val serialInfo = serializationInfo[T, U]()
+  val serialInfo = columnTypes.serializationInfo[T, U]()
   val tableName = serialInfo.tableName
   
   val bucketSize: Long = 0L // unlimited bucket size for now

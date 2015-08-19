@@ -31,7 +31,7 @@ import nest.sparkle.store.cassandra.ObservableResultSet._
 import nest.sparkle.util.GuavaConverters._
 import nest.sparkle.util.OptionConversion._
 import nest.sparkle.util.TryToFuture._
-import nest.sparkle.util.{Log, TaggedKeyValue}
+import nest.sparkle.util.Log
 
 /** metadata about a column of data
   *
@@ -59,8 +59,9 @@ case class CatalogStatements(addCatalogEntry: PreparedStatement,
   * the cassandra table holding the column data, as well as other
   * metadata about the column like the type of data that is stored in the column.
   */
-case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathFormat,
-                         session: Session, cassandraConsistency: CassandraConsistency)
+case class ColumnCatalog(sparkleConfig: Config, columnTypes: ColumnTypes,
+    columnPathFormat: ColumnPathFormat, session: Session,
+    cassandraConsistency: CassandraConsistency)
     extends PreparedStatements[CatalogStatements] with Log {
 
   val tableName = ColumnCatalog.tableName
@@ -117,8 +118,8 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
     entryFields(0) = columnCategory
     val statement = catalogStatements.addCatalogEntry.bind(entryFields: _*)
     val result = session.executeAsync(statement).toFuture.map { _ =>
-      CatalogInfo(entry.tableName, CanSerialize.stringToTypeTag(entry.keyType),
-        CanSerialize.stringToTypeTag(entry.valueType), entry.bucketSize, entry.firstBucketStart)
+      CatalogInfo(entry.tableName, columnTypes.stringToTypeTag(entry.keyType),
+        columnTypes.stringToTypeTag(entry.valueType), entry.bucketSize, entry.firstBucketStart)
     }
     result.onFailure { case error => log.error("writing catalog entry failed", error)}
     result
@@ -155,8 +156,8 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
       row <- Option(resultSet.one()).toFutureOr(ColumnNotFound(columnPath).initCause(ColumnCategoryNotFound(columnCategory)))
     } yield {
       val tableName = row.getString(0)
-      val keyType = CanSerialize.stringToTypeTag(row.getString(1))
-      val valueType = CanSerialize.stringToTypeTag(row.getString(2))
+      val keyType = columnTypes.stringToTypeTag(row.getString(1))
+      val valueType = columnTypes.stringToTypeTag(row.getString(2))
       val bucketSize = row.getLong(3)
       val firstBucketStart = row.getLong(4)
       CatalogInfo(tableName, keyType, valueType, bucketSize, firstBucketStart)
@@ -203,7 +204,7 @@ case class ColumnCatalog(sparkleConfig: Config, columnPathFormat: ColumnPathForm
 }
 
 case class CatalogInfo(tableName: String, keyType: TypeTag[_], valueType: TypeTag[_],
-  bucketSize: Long, firstBucketStart: Long) extends TaggedKeyValue
+  bucketSize: Long, firstBucketStart: Long)
 
 object ColumnCatalog {
 
