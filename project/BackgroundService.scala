@@ -22,7 +22,7 @@ object BackgroundService {
     startSolo := startSoloTask.value,
     stopSolo := stopSoloTask.value,
     status := Revolver.reStatus.value,
-    healthCheckFn := { () => Success(false) }, // TODO instead check the health port by default
+    healthCheckFn := { () => Success() }, // TODO instead check the health port by default
     healthCheck := healthCheckTask.value,
     waitUntilHealthy := waitUntilHealthyTask.value,
     Revolver.reLogTag := name.value,
@@ -51,7 +51,7 @@ object BackgroundService {
   /** task that returns true/false if the service is healthy, based on the Build provided healthCheckFn */
   private lazy val healthCheckTask: Initialize[Task[Boolean]] = Def.task {
     val logger = spray.revolver.Utilities.colorLogger(streams.value.log)
-    val healthy = healthCheckFn.value.apply().getOrElse(false)
+    val healthy = healthCheckFn.value.apply().isSuccess
 
     val healthyStr = if (healthy) { "[GREEN]healthy" } else { "[RED]not healthy" }
     logger.info(s"${name.value} is $healthyStr")
@@ -100,13 +100,13 @@ object BackgroundService {
     val _ = (products in Compile).value // TODO necessary?
 
     val logger = spray.revolver.Utilities.colorLogger(streams.value.log)
-    val isHealthy: () => Try[Boolean] = healthCheckFn.value
+    lazy val isHealthy: Boolean = healthCheckFn.value.apply().isSuccess 
 
     spray.revolver.Actions.revolverState.getProcess(thisProjectRef.value) match {
       case Some(process) if process.isRunning =>
         logger.info(s"not starting ${Revolver.reLogTag.value}; already running")
         emptyTask
-      case _ if isHealthy().getOrElse(false) =>
+      case _ if isHealthy =>
         logger.info(s"not starting ${Revolver.reLogTag.value}; already healthy")
         emptyTask
       case _ =>
@@ -118,18 +118,18 @@ object BackgroundService {
   private lazy val waitUntilHealthyTask = Def.task {
     val logger = spray.revolver.Utilities.colorLogger(streams.value.log)
 
-    val tryHealth: () => Try[Boolean] = healthCheckFn.value
+    val tryHealth: () => Try[Unit] = healthCheckFn.value
 
     /** Return a try with the result of the healthCheckFn.
      *   
      *  If the background process has died, throw an exception, aborting further processing 
      *  of this command.
      */
-    def checkHealth(): Try[Boolean] = {
+    def checkHealth(): Try[Unit] = {
       tryHealth() match {
-        case checked: Success[Boolean] =>
+        case checked: Success[Unit] =>
           checked
-        case checkFail: Failure[Boolean] if processRunning() =>
+        case checkFail: Failure[Unit] if processRunning() =>
           checkFail // could be still trying to get started
         case Failure(err) =>
           logger.info(s"[RED]application ${name.value} has died; abort")

@@ -8,7 +8,7 @@ import java.io.Closeable
  *  so we can close them together.  */
 case class ClusterSession(cluster:Cluster, session:Session) extends Closeable {
   def close(): Unit = {
+    session.close() // maybe unnecessary given cluster.close() below
     cluster.close()
-    session.close()
   }
 }

@@ -39,7 +39,7 @@ object BackgroundServiceKeys {
   val waitUntilHealthy = taskKey[Unit]("Blocks until service is healthy")
 
   // project build can set these
-  val healthCheckFn = taskKey[() => Try[Boolean]]("Returns 'true' if service is up and healthy, 'false' otherwise")
+  val healthCheckFn = taskKey[() => Try[Unit]]("Returns Success if service is up and healthy, 'false' otherwise")
   val dependenciesToStart = settingKey[Seq[Project]]("other service projects to start before running this service")
   val adminPort = SettingKey[Option[Int]]("admin-port", "The TCP port where the admin HTTP for this service runs on")
   val healthPort = SettingKey[Option[Int]]("health-port", "Port to ping via HTTP request to /health to check the health of the service")
