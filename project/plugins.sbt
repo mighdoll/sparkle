@@ -18,6 +18,7 @@ libraryDependencies ++= Seq(
                                   exclude("com.sun.jdmk", "jmxtools")
                                   exclude("com.sun.jmx", "jmxri")
                                   exclude("org.slf4j", "slf4j-simple")
+                                  exclude("org.slf4j", "slf4j-log4j12")
 )
 
 addSbtPlugin("me.lessis" % "bintray-sbt" % "0.1.1")
