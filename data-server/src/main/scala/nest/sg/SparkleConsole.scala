@@ -8,7 +8,7 @@ import akka.actor.ActorSystem
 import nest.sparkle.store.{ReadWriteStore, WriteNotification, Store}
 import nest.sparkle.time.server.SparkleAPIServer
 import nest.sparkle.util.ConfigUtil._
-import nest.sparkle.util.{ConfigurationError, ConfigUtil, LogUtil, InitializeReflection}
+import nest.sparkle.util.{ConfigUtil, LogUtil}
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 import nest.sparkle.shell.SparkConnection
 
@@ -21,8 +21,6 @@ trait SparkleConsole
     with MeasurementConsole
     with PlotConsole
     with LoaderConsole {
-
-  InitializeReflection.init
 
   def configOverrides: Seq[(String, Any)] = Seq(
     s"$sparkleConfigName.port" -> 2323,

@@ -118,8 +118,6 @@ object SparkleAPIServer extends Log {
     */
   def apply(rootConfig: Config): SparkleAPIServer = {
 
-    InitializeReflection.init
-
     val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
     implicit val system = ActorSystem("sparkle", sparkleConfig)
 

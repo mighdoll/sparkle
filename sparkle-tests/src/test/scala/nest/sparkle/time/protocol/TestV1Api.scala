@@ -24,7 +24,6 @@ import spray.httpx.SprayJsonSupport._
 
 class TestV1Api extends PreloadedRamService with StreamRequestor {
 //  implicit val routeTestTimeout = RouteTestTimeout(1.hour)
-  nest.sparkle.util.InitializeReflection.init
 
   // TODO: update ram store to support entities
   ignore("List columns for known entity path") {

@@ -10,7 +10,7 @@ import org.clapper.argot.ArgotConverters._
 
 import nest.sparkle.store.{WriteableStore, Store}
 import nest.sparkle.store.WriteNotification  
-import nest.sparkle.util.{Log, InitializeReflection, SparkleApp}
+import nest.sparkle.util.{Log, SparkleApp}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
 /** main() entry point to launch a kafka loader.  Pass a command line argument (--conf) to
@@ -26,8 +26,7 @@ object Main
   val erase = parser.flag[Boolean](List("format"), "erase and format the database")
   
   initialize()
-  InitializeReflection.init
-  
+
   lazy val notification = new WriteNotification()
   
   /** Time to wait between attempts to create store */

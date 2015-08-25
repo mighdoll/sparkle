@@ -45,7 +45,6 @@ class TestingSelector(rootConfig: Config, store: Store) extends CustomSourceSele
 class TestCustomSelector extends PreloadedRamService with StreamRequestor {
   import TestingSelectorParamsFormat._
   import scala.collection.JavaConverters._
-  nest.sparkle.util.InitializeReflection.init
 
   lazy val testSelectorClassName = classOf[TestingSelector].getName
 

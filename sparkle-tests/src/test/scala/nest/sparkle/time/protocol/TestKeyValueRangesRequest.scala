@@ -17,7 +17,6 @@ import nest.sparkle.time.transform.KeyValueRangesJson.KeyValueRangesFormat
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 
 class TestKeyValueRangesRequest extends PreloadedRamStore with StreamRequestor with TestDataService {
-  nest.sparkle.util.InitializeReflection.init
 
   override def readWriteStore = writeableRamStore
 
