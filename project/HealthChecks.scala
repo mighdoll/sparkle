@@ -1,3 +1,6 @@
+import org.apache.log4j.helpers.LogLog
+import org.apache.log4j.xml.DOMConfigurator
+
 import scala.util.Try
 import scala.concurrent.duration._
 
@@ -15,9 +18,21 @@ import org.I0Itec.zkclient.ZkClient
 /** Status check functions to verify that various servers are up and running */
 object HealthChecks {
 
+  /** log4j isn't initializing itself properly inside sbt, so we initialize manually here */
+  lazy val setupLog4j: () => Unit = {
+    sys.props.foreach { case (key, value)=> println(s"$key: $value") }
+    val resource = getClass.getClassLoader.getResource("log4j.xml")
+    val logConfig = resource.getPath
+    LogLog.setQuietMode(true)
+    println(s"got log4j resource $resource")
+    DOMConfigurator.configure(logConfig)
+    () => Unit
+  }
+
   /** return a function that will check whether the cassandra server is alive */
   val cassandraIsHealthy = Def.task[() => Try[Unit]] { () =>
-    Try {
+    setupLog4j()
+     Try {
       val log = streams.value.log
 
       val builder = Cluster.builder()
@@ -34,6 +49,7 @@ object HealthChecks {
 
   /** return a function that will check whether the zookeeper service is alive */
   val zookeeperIsHealthy = Def.task[() => Try[Unit]] { () =>
+    setupLog4j()
     Try {
       val log = streams.value.log
       
@@ -55,6 +71,7 @@ object HealthChecks {
 
   /** return a function that will check whether a local kafka server is alive */
   val kafkaIsHealthy = Def.task[() => Try[Unit]] { () =>
+    setupLog4j()
     Try {
       val consumer = new SimpleConsumer(
         host = "127.0.0.1",
