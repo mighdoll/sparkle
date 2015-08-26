@@ -7,7 +7,7 @@ object Dependencies {
     val akka = "2.3.11"
     val spray = "1.3.3"
     val sprayJson = "1.3.2"
-    val spark = "1.2.2"
+    val spark = "1.4.1"
     val slf4j = "1.7.9"
   }
 
