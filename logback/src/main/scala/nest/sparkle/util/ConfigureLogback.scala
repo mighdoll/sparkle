@@ -71,7 +71,7 @@ object ConfigureLogback extends ConfigureLog with Log {
         slf4j.LoggerFactory.getLogger(key).asInstanceOf[Logger]
       }
       val level = entry.getValue.unwrapped.toString
-      println(s"logback configuring: $key -> $level")
+//      println(s"logback configuring: $key -> $level")
       logger.setLevel(Level.toLevel(level))
     }
 

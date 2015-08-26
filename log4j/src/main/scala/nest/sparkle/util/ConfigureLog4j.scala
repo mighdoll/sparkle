@@ -59,7 +59,7 @@ object ConfigureLog4j extends ConfigureLog {
           Logger.getLogger(key)
         }
       val level = entry.getValue.unwrapped.toString
-      println(s"log4j configuring $key -> $level")
+//      println(s"log4j configuring $key -> $level")
       logger.setLevel(Level.toLevel(level))
     }
 
