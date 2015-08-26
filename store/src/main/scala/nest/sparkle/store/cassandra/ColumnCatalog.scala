@@ -189,6 +189,8 @@ case class ColumnCatalog(sparkleConfig: Config, columnTypes: ColumnTypes,
 
   private def allColumnCategoriesSimpleStatement =
     new SimpleStatement(allColumnCategoriesStatement).setConsistencyLevel(cassandraConsistency.read)
+  // for cassandra driver 2.2.0+
+  //    session.newSimpleStatement(allColumnCategoriesStatement).setConsistencyLevel(cassandraConsistency.read)
 
   lazy val catalogStatements: CatalogStatements = {
     preparedStatements(makeStatements)
