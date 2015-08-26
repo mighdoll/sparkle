@@ -49,7 +49,6 @@ case class SparkConnection(rootConfig: Config, applicationName: String = "Sparkl
 
     val sparkConf = new SparkConf(true)
       .set("spark.cassandra.connection.host", cassandraHost)
-      .set("spark.local.dir", sparkleConfig.getString("spark.local-dir"))
       .set("spark.executor.memory", sparkleConfig.getString("spark.executor-memory"))
       .set("spark.logConf", "true")
       .set("spark.shuffle.consolidateFiles", "true")
