@@ -10,7 +10,7 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.datastax.cassandra"   %  "cassandra-driver-core"  % "2.1.6",
+  "com.datastax.cassandra"   %  "cassandra-driver-core"  % "2.1.7.1",
   "net.jpountz.lz4"          %  "lz4"                    % "1.3.0",
   "org.apache.kafka"         %% "kafka"                  % "0.8.2.1"
                                   exclude("javax.jms", "jms")
