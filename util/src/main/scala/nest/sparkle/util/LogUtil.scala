@@ -10,7 +10,7 @@ object LogUtil {
   private var loggingProvider:Option[ConfigureLog] = None
 
   /** setup java logging based on .conf settings for levels, file sizes, etc. */
-  def configureLogging(rootConfig: Config): Unit = {
+  def configureLogging(rootConfig: Config): Unit = synchronized {
     val sparkleConfig = ConfigUtil.configForSparkle(rootConfig)
     val providerName = sparkleConfig.getString("logging.provider")
     val providerClassName = providerName match {
