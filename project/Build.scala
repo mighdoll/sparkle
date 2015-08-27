@@ -329,6 +329,8 @@ object SparkleBuild extends Build {
       .settings(
         healthPort := Some(1235),
         dependenciesToStart := Seq(cassandraServer),
+        test in IntegrationTest := BackgroundService.itTestTask.value,
+
           //
           // The problem here is that the netty folks publish both netty-all and the netty 
           // component libraries separately. If both are on the same classpath, the build has no
