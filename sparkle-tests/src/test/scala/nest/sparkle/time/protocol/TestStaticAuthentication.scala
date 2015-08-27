@@ -13,7 +13,7 @@ import nest.sparkle.util.ConfigUtil.sparkleConfigName
 
 class TestStaticAuthentication extends PreloadedRamService with SparkleTestConfig with StreamRequestor {
   def password = "foo" // def for initialization order issues
-  override def configOverrides: List[(String, Any)] = super.configOverrides ++ List(
+  override def configOverrides: Seq[(String, Any)] = super.configOverrides ++ List(
     s"$sparkleConfigName.auth.password" -> password,
     s"$sparkleConfigName.auth.provider" -> classOf[StaticAuthentication].getCanonicalName
   )

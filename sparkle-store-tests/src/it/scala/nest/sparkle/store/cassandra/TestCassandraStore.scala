@@ -25,7 +25,7 @@ class TestCassandraStore
 
   override def testKeySpace = "testcassandrastore"
 
-  override def configOverrides: List[(String, Any)] =
+  override def configOverrides: Seq[(String, Any)] =
     super.configOverrides :+
     (s"$sparkleConfigName.sparkle-store-cassandra.replication-factor" -> replicationFactor)
 

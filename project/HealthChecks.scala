@@ -18,13 +18,10 @@ import org.I0Itec.zkclient.ZkClient
 /** Status check functions to verify that various servers are up and running */
 object HealthChecks {
 
-  /** log4j isn't initializing itself properly inside sbt, so we initialize manually here */
+  /** log4j isn't initializing itself properly inside sbt, so initialize log4j manually. */
   lazy val setupLog4j: () => Unit = {
-    sys.props.foreach { case (key, value)=> println(s"$key: $value") }
-    val resource = getClass.getClassLoader.getResource("log4j.xml")
-    val logConfig = resource.getPath
+    val logConfig = getClass.getClassLoader.getResource("log4j.xml").getPath
     LogLog.setQuietMode(true)
-    println(s"got log4j resource $resource")
     DOMConfigurator.configure(logConfig)
     () => Unit
   }

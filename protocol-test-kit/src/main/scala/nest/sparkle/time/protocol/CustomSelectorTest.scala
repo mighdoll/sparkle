@@ -25,7 +25,7 @@ trait CustomSelectorTest  {
     override def actorRefFactory: ActorSystem = actorSystem
     def selectors = Seq(className).asJava
 
-    override def configOverrides: List[(String, Any)] = super.configOverrides :+ (
+    override def configOverrides: Seq[(String, Any)] = super.configOverrides :+ (
       s"$sparkleConfigName.custom-selectors" -> selectors)
   }
 

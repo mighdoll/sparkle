@@ -104,10 +104,10 @@ object BackgroundService {
 
     spray.revolver.Actions.revolverState.getProcess(thisProjectRef.value) match {
       case Some(process) if process.isRunning =>
-        logger.info(s"not starting ${Revolver.reLogTag.value}; already running")
+        logger.info(s"${Revolver.reLogTag.value} already running")
         emptyTask
       case _ if isHealthy =>
-        logger.info(s"not starting ${Revolver.reLogTag.value}; already healthy")
+        logger.info(s"${Revolver.reLogTag.value} already healthy")
         emptyTask
       case _ =>
         waitUntilHealthy.dependsOn(startWithRevolver) // TODO use SbtUtil.inOrder?

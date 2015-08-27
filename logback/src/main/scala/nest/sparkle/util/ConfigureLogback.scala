@@ -35,13 +35,10 @@ import org.slf4j
 object ConfigureLogback extends ConfigureLog with Log {
 
   /** configure logging based on the .conf file */
-  private val configured = new AtomicBoolean(false)
   def configureLogging(sparkleConfig: Config): Unit = {
-    if (configured.compareAndSet(false, true)) {
-      slf4j.LoggerFactory.getLogger(slf4j.Logger.ROOT_LOGGER_NAME) match {
-        case rootLogger: Logger => configureLogBack(sparkleConfig, rootLogger)
-        case x                  => log.warn(s"unsupported logger, can't configure logging: ${x.getClass}")
-      }
+    slf4j.LoggerFactory.getLogger(slf4j.Logger.ROOT_LOGGER_NAME) match {
+      case rootLogger: Logger => configureLogBack(sparkleConfig, rootLogger)
+      case x                  => log.warn(s"unsupported logger, can't configure logging: ${x.getClass}")
     }
   }
 
@@ -74,7 +71,7 @@ object ConfigureLogback extends ConfigureLog with Log {
         slf4j.LoggerFactory.getLogger(key).asInstanceOf[Logger]
       }
       val level = entry.getValue.unwrapped.toString
-//      println(s"$key -> $level")
+      println(s"logback configuring: $key -> $level")
       logger.setLevel(Level.toLevel(level))
     }
 

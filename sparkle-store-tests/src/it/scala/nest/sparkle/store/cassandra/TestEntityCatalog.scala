@@ -18,7 +18,7 @@ class TestEntityCatalog extends FunSuite with Matchers with PropertyChecks with 
 
   private def replicationFactor = 1 // ensure replication factor so we can validate
 
-  override def configOverrides: List[(String, Any)] =
+  override def configOverrides: Seq[(String, Any)] =
     super.configOverrides ++
       List(s"$sparkleConfigName.sparkle-store-cassandra.replication-factor" -> replicationFactor,
         s"$sparkleConfigName.column-path-format" -> classOf[DummyEntityColumnPathFormat].getCanonicalName)

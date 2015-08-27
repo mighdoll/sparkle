@@ -19,7 +19,7 @@ class TestColumnCatalog extends FunSuite with Matchers with PropertyChecks with 
 
   private def replicationFactor = 1 // ensure replication factor so we can validate
 
-  override def configOverrides: List[(String, Any)] =
+  override def configOverrides: Seq[(String, Any)] =
     super.configOverrides :+
       (s"$sparkleConfigName.sparkle-store-cassandra.replication-factor" -> replicationFactor)
   
@@ -55,7 +55,7 @@ class TestColumnCatalogWithNonDefaultColumnPathFormat extends TestColumnCatalog 
 
   override def testKeySpace = "testcolumncatalognondefault"
 
-  override def configOverrides: List[(String, Any)] =
+  override def configOverrides: Seq[(String, Any)] =
     super.configOverrides :+
       (s"$sparkleConfigName.column-path-format" -> classOf[DummyColumnPathFormat].getCanonicalName)
 

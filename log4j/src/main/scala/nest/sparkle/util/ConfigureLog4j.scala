@@ -23,12 +23,10 @@ import com.typesafe.config.Config
 object ConfigureLog4j extends ConfigureLog {
 
   /** configure logging based on the .conf file */
-  private val configured = new AtomicBoolean(false)
   def configureLogging(sparkleConfig: Config): Unit = {
-    if (configured.compareAndSet(false, true)) {
-      configure(sparkleConfig)
-    }
+    configure(sparkleConfig)
   }
+
   /** temporarily set the log level for a logger, e.g. for a noisy unit test*/
   def withLogLevel[T](loggerName:String, level:String)(fn: =>T):T = {
     val logger = Logger.getLogger(loggerName)
@@ -61,6 +59,7 @@ object ConfigureLog4j extends ConfigureLog {
           Logger.getLogger(key)
         }
       val level = entry.getValue.unwrapped.toString
+      println(s"log4j configuring $key -> $level")
       logger.setLevel(Level.toLevel(level))
     }
 
@@ -96,7 +95,7 @@ object ConfigureLog4j extends ConfigureLog {
       consoleAppender.setName("Console")
 
       val pattern = logConfig.getString("console.pattern")
-      val patternLayout = new PatternLayout(pattern)
+      val patternLayout = new PatternLayout("L4J: " + pattern)
       consoleAppender.setLayout(patternLayout)
 
       val level = logConfig.getString("console.level")

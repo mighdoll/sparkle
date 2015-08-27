@@ -8,7 +8,7 @@ import akka.actor.ActorSystem
 import nest.sparkle.store.{ReadWriteStore, WriteNotification, Store}
 import nest.sparkle.time.server.SparkleAPIServer
 import nest.sparkle.util.ConfigUtil._
-import nest.sparkle.util.{ConfigUtil, LogUtil}
+import nest.sparkle.util.{FlexibleConfig, ConfigUtil}
 import nest.sparkle.util.RandomUtil.randomAlphaNum
 import nest.sparkle.shell.SparkConnection
 
@@ -17,19 +17,16 @@ object SparkleConsole extends SparkleConsole
 
 /** a collection of handy functions useful from the repl console */
 trait SparkleConsole
-    extends StorageConsole
+    extends FlexibleConfig
+    with StorageConsole
     with MeasurementConsole
     with PlotConsole
     with LoaderConsole {
 
-  def configOverrides: Seq[(String, Any)] = Seq(
+  override def configOverrides: Seq[(String, Any)] = Seq(
     s"$sparkleConfigName.port" -> 2323,
     s"$sparkleConfigName.web-root.resource" -> Seq("web/sg/plot-default")
   )
-
-  val rootConfig = modifiedConfig(ConfigFactory.load(), configOverrides: _*)
-  ConfigUtil.dumpConfigToFile(rootConfig)
-  LogUtil.configureLogging(rootConfig)
 
   var currentStore:Option[ReadWriteStore] = None
   var currentSpark:Option[SparkConnection] = None
