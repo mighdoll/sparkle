@@ -29,9 +29,7 @@ object HealthChecks {
   /** return a function that will check whether the cassandra server is alive */
   val cassandraIsHealthy = Def.task[() => Try[Unit]] { () =>
     setupLog4j()
-     Try {
-      val log = streams.value.log
-
+    Try {
       val builder = Cluster.builder()
       builder.addContactPoint("localhost")
       val cluster = builder.build()
@@ -58,11 +56,6 @@ object HealthChecks {
       } finally {
         zkClient.close()
       }
-      
-      // Forcing a 10s sleep makes Kafka health check work...most of the time.
-      // This is a work-around for KAFKA-1451 which will be fixed in Kafka 0.8.2.
-      // See https://issues.apache.org/jira/browse/KAFKA-1451 for details
-      Thread.sleep(10000)
     }
   }
 
