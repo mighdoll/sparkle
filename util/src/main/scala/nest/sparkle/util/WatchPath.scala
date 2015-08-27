@@ -32,8 +32,11 @@ trait PathWatcher {
   def watch(fn: WatchPath.Change => Unit): Future[Iterable[Path]]
   
   def close()(implicit system: ActorSystem): Unit = {
-    Option(TypedActor(system)).foreach { typedActor =>
-      typedActor.getActorRefFor(this) ! PoisonPill
+    for {
+      typedActor <- Option(TypedActor(system))
+      actorRef <- Option(typedActor.getActorRefFor(this)) // null if the system has been shutdown
+    } {
+      actorRef ! PoisonPill
     }
   }
 }
