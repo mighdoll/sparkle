@@ -114,7 +114,7 @@ class TestIntervalSumLarge extends FunSuite with Matchers with CassandraStoreTes
         }
       }
       val itemsPerSecond = numItems / (time / 1000)
-      println(s"loading $numRecords records ($numItems items). Total time: ${millisString(time)}.  ${numberString(itemsPerSecond)} items per second")
+//      println(s"loading $numRecords records ($numItems items). Total time: ${millisString(time)}.  ${numberString(itemsPerSecond)} items per second")
     }
 
     /** load data via api request, blocks until the request returns */
@@ -153,7 +153,7 @@ class TestIntervalSumLarge extends FunSuite with Matchers with CassandraStoreTes
       val queries = repeats * nodes
       val totalTime = millisString(time)
       val queriesPerSecond = numberString(queries / (time / 1000))
-      println(s"query $queries times ($records records per query). Total time: $totalTime.  $queriesPerSecond queries per second")
+//      println(s"query $queries times ($records records per query). Total time: $totalTime.  $queriesPerSecond queries per second")
     }
   }
 
@@ -161,18 +161,20 @@ class TestIntervalSumLarge extends FunSuite with Matchers with CassandraStoreTes
     intervalSumLargeTest(nodes = 2, records = 100, delta = 1.hour, flipChance = .01,
       summary = "1 day", repeats = 2, parallel = 10, warmups = 2)
   }
-  
-  ignore("timed intervalSum on 10K records") {  // 10K is a bit more than 1 year of daily records
+
+  def disable(name:String)(fn: => Unit) {}
+
+  disable("timed intervalSum on 10K records") {  // 10K is a bit more than 1 year of daily records
     intervalSumLargeTest(nodes = 1, records = 10000, delta = 1.hour, flipChance = .01,
       summary = "1 month", repeats = 200, parallel = 1, warmups = 0)
   }
-  
-  ignore("timed intervalSum on 100K records") {  // 10K is a bit more than 1 year of daily records
+
+  disable("timed intervalSum on 100K records") {  // 10K is a bit more than 1 year of daily records
     intervalSumLargeTest(nodes = 1, records = 100000, delta = 1.hour, flipChance = .01,
       summary = "1 month", repeats = 10, parallel = 1, warmups = 0)
   }
-  
-  ignore("timed intervalSum on 10K records, 10 requests in parallel, 1000 times") {
+
+  disable("timed intervalSum on 10K records, 10 requests in parallel, 1000 times") {
     intervalSumLargeTest(nodes = 10, records = 10000, delta = 1.hour, flipChance = .01,
       summary = "1 month", repeats = 1000, parallel = 10, warmups = 2)
   }
