@@ -34,10 +34,9 @@ object SparkleBuild extends Build {
       .dependsOn(sparkleCore)
       .dependsOn(sparkleStore % "compile->compile") // compile->compile to avoid test libs too
       .dependsOn(httpCommon)
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= logbackTest ++ web ++ Seq(
+        libraryDependencies ++= logbackUnitTest ++ web ++ Seq(
           unfiltered,
           metricsScala
         )
@@ -46,11 +45,10 @@ object SparkleBuild extends Build {
   lazy val sparkleCore =      // core libraries for streaming data
     Project(id = "sparkle-core", base = file("sparkle"))
       .dependsOn(util)
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
         resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases", // TODO - needed?
-        libraryDependencies ++= logbackTest ++ Seq(
+        libraryDependencies ++= logbackUnitTest ++ Seq(
           spire
         ),
         libraryDependencies <+= scalaVersion(scalaReflect % _)  // TODO use += .value style
@@ -61,31 +59,28 @@ object SparkleBuild extends Build {
     Project(id = "sparkle-store", base = file("store"))
       .dependsOn(util)
       .dependsOn(sparkleCore)
-      .dependsOn(testKit % "it->compile;test->compile") // testKit libs for our it, test
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .dependsOn(testKit % "test") // testKit libs for our it, test
+      .settings(sparkleSettingsNoIT: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= cassandraClient ++ logbackTest ++ Seq (
+        libraryDependencies ++= cassandraClient ++ logbackUnitTest ++ Seq (
           akkaActor,
           sprayCaching,
           sprayJson,  // needed?
           sprayUtil,  // needed?
           openCsv
         ),
-        dependenciesToStart := Seq(cassandraServer),
-        test in IntegrationTest := BackgroundService.itTestTask.value
+        dependenciesToStart := Seq(cassandraServer)
      )
 
   lazy val storeTestKit =        // utilities for testing sparkle stuff
     Project(id = "sparkle-store-test-kit", base = file("store-test-kit"))
       .dependsOn(util)
-      .dependsOn(testKit % "compile->compile")
-      .dependsOn(sparkleStore % "compile->compile")
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .dependsOn(testKit)
+      .dependsOn(sparkleStore)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= storeKitTestsAndLogging ++ logbackTest
+        libraryDependencies ++= storeKitTestsAndLogging ++ logbackUnitTest
       )
 
   lazy val storeTests = 
@@ -107,28 +102,27 @@ object SparkleBuild extends Build {
 
   lazy val sparkleLoader =
     Project(id = "sparkle-loader", base = file("loader"))
-      .dependsOn(sparkleStore % "compile->compile")
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .dependsOn(sparkleStore)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= logbackTest
+        libraryDependencies ++= logbackUnitTest
       )
 
   lazy val sparkleAvro =
     Project(id = "sparkle-avro-loader", base = file("avro-loader"))
-      .dependsOn(sparkleStore % "compile->compile")
+      .dependsOn(sparkleStore)
       .dependsOn(sparkleLoader)
-      .dependsOn(testKit % "it->compile;test->compile")
+      .dependsOn(testKit % "test;it")
       .configs(IntegrationTest)
       .settings(sparkleSettings: _*)
       .settings(
-        libraryDependencies ++= logbackTest ++ avro
+        libraryDependencies ++= logbackUnitTest ++ avro
       )
 
   lazy val kafkaLoader =    // loading from kafka into the store
     Project(id = "sparkle-kafka-loader", base = file("kafka"))
       .dependsOn(sparkleStore % "compile->compile") // we don't want store's logback in test,it
-      .dependsOn(storeTestKit % "it->compile;test->compile")
+      .dependsOn(storeTestKit % "it;test->compile")
       .dependsOn(sparkleLoader)
       .dependsOn(utilKafka % "compile->compile;test->test;it->it") // so we get it too
       .dependsOn(log4jConfig)
@@ -149,10 +143,9 @@ object SparkleBuild extends Build {
       .dependsOn(sparkShell)
       .dependsOn(sparkleAvro)
       .dependsOn(logbackConfig)
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= testAndLogging ++ spark ++ avro ++ Seq(
+        libraryDependencies ++= logging ++ spark ++ avro ++ Seq(
           apacheAvroMapred
         )
       )
@@ -160,12 +153,11 @@ object SparkleBuild extends Build {
   lazy val testKit =        // utilities for testing sparkle stuff
     Project(id = "sparkle-test-kit", base = file("test-kit"))
       .dependsOn(util)
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
         libraryDependencies ++= 
-          spray ++ kitTestsAndLogging ++ Seq(nScalaTime) ++ Seq(
-            Runtime.logback % "test;it"
+          sprayNoIT ++ kitTestsAndLogging ++ Seq(nScalaTime) ++ Seq(
+            Runtime.logback % "test"
           )
       )
 
@@ -175,21 +167,20 @@ object SparkleBuild extends Build {
       .dependsOn(testKit % "compile->compile")
       .dependsOn(storeTestKit)
       .dependsOn(sparkleStore % "compile->compile")
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= logbackTest
+        libraryDependencies ++= logbackUnitTest
       )
 
   lazy val sparkleTests =   // unit and integration for sparkle core and protocol libraries
     Project(id = "sparkle-tests", base = file("sparkle-tests"))
+      .configs(IntegrationTest)
       .dependsOn(protocol)
       .dependsOn(protocolTestKit % "it->compile;test->compile")
       .dependsOn(testKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
       .dependsOn(storeTestKit % "it->compile;test->compile")
       .dependsOn(util)
-      .configs(IntegrationTest)
       .settings(sparkleSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
@@ -203,10 +194,9 @@ object SparkleBuild extends Build {
 
   lazy val util =           // scala utilities useful in other projects too
     Project(id = "sparkle-util", base = file("util"))
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= logbackTest ++ Seq(
+        libraryDependencies ++= logbackUnitTest ++ Seq(
           argot,
           guava,
           jsr,
@@ -221,19 +211,18 @@ object SparkleBuild extends Build {
           sprayJson,
           sprayCan % "optional",
           sprayRouting % "optional"
-        ) ++ allTest
+        )
       )
 
   // tests for util, broken out to avoid circular dependency with sparkle-test-kit
   lazy val utilTests =          
     Project(id = "util-tests", base = file("util-tests"))
-      .dependsOn(testKit % "it->compile;test->compile")
+      .dependsOn(testKit % "test")
       .dependsOn(util)
       .dependsOn(logbackConfig)
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= logbackTest ++ Seq(
+        libraryDependencies ++= logbackUnitTest ++ Seq(
           Test.scalaTest,
           Test.scalaCheck
         ) 
@@ -254,16 +243,15 @@ object SparkleBuild extends Build {
   lazy val httpCommon =           // http/spray common code
     Project(id = "sparkle-http", base = file("http-common"))
       .dependsOn(util)
-      .configs(IntegrationTest)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= akka ++ spray ++ logbackTest 
+        libraryDependencies ++= akka ++ sprayNoIT ++ logbackUnitTest
       )
 
   lazy val logbackConfig =  // mix in to projects choosing logback
     Project(id = "logback-config", base = file("logback"))
       .dependsOn(util)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
         libraryDependencies ++= Seq(Runtime.logback) ++ Seq(Test.scalaTest)
       )
@@ -271,7 +259,7 @@ object SparkleBuild extends Build {
   lazy val log4jConfig =   // mix in to projects choosing log4j (kafka requires log4j)
     Project(id = "log4j-config", base = file("log4j"))
       .dependsOn(util)
-      .settings(sparkleSettings: _*)
+      .settings(sparkleSettingsNoIT: _*)
       .settings(
         libraryDependencies ++= log4jLogging ++ Seq(Test.scalaTest)
       )
@@ -318,11 +306,11 @@ object SparkleBuild extends Build {
   // The following projects are for starting servers for integration tests
   lazy val sparkleDataServer =  // standalone protocol server
     Project(id = "sparkle-data-server", base = file("data-server"))
+      .configs(IntegrationTest)
       .dependsOn(protocol)
       .dependsOn(protocolTestKit % "it->compile;test->compile")
       .dependsOn(logbackConfig)
       .dependsOn(sparkShell)
-      .configs(IntegrationTest)
       .settings(sparkleSettings ++ dataServerMergeSettings ++ BackgroundService.settings: _*)
       .settings(BuildSettings.setMainClass("nest.sparkle.time.server.Main"): _*)
       .settings(BuildSettings.sparkMergeSettings: _*)

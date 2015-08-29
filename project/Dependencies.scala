@@ -155,10 +155,13 @@ object Dependencies {
   
 
   val basicTest = Seq(
-    Test.scalaTest,
-    Test.scalaCheck,
     IT.scalaTest,
     IT.scalaCheck
+  )
+
+  val unitTest = Seq(
+    Test.scalaTest,
+    Test.scalaCheck
   )
   
   val allTest = Seq(
@@ -187,6 +190,10 @@ object Dependencies {
 
   val logbackTest = testAndLogging ++ Seq(
     Runtime.logback % "test;it"
+  )
+
+  val logbackUnitTest = unitTest ++ logging ++ Seq(
+    Runtime.logback % "test"
   )
 
   val log4jLogging = Seq(
@@ -221,6 +228,16 @@ object Dependencies {
     Test.akkaTestKit, // delete this after spray #446 is resolved
     IT.sprayTestKit,
     IT.akkaTestKit // delete this after spray #446 is resolved
+  )
+
+  val sprayNoIT = Seq(
+    sprayJson,
+    sprayClient,
+    sprayRouting,
+    sprayCan,
+    sprayCaching,
+    Test.sprayTestKit,
+    Test.akkaTestKit // delete this after spray #446 is resolved
   )
 
   val kafka = Seq(apacheKafka)

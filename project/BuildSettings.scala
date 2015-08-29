@@ -54,13 +54,22 @@ object BuildSettings {
     Debug.settings ++
     dependencySettings
 
+  lazy val sparkleSettingsNoIT =
+    orgSettings ++
+    compileSettings ++
+    eclipseSettings ++
+    slf4jSettings ++
+    publishSettings ++
+    Debug.settings ++
+    dependencySettings
+
   lazy val orgSettings = Seq(
     organization := "nest",
     licenses += ("Apache-2.0", url("http://apache.org/licenses/LICENSE-2.0.html"))
   )
 
   lazy val compileSettings = Seq(
-    scalaVersion := "2.11.6",
+    scalaVersion := "2.11.7",
     crossScalaVersions := Seq("2.10.5"),
     // TODO(ochafik): Do we need a custom binary version?
     // scalaBinaryVersion <<= scalaVersion { scalaVersion => 
