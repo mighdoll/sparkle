@@ -98,7 +98,7 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraStoreTestConf
     }
   }
 
-  ignore("load file with explicit short") {
+  test("load file with explicit short") {
     testLoadFile("explicitTypes.csv", "explicitTypes/sho") { results: Seq[Event[Long, Short]] =>
       results.head.value shouldBe 1
     }
@@ -116,7 +116,7 @@ class TestFilesLoader extends FunSuite with Matchers with CassandraStoreTestConf
     }
   }
 
-  ignore("load file with explicit char") {
+  test("load file with explicit char") {
     testLoadFile("explicitTypes.csv", "explicitTypes/cha") { results: Seq[Event[Long, Char]] =>
       results.head.value shouldBe 'c'
     }
