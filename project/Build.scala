@@ -116,7 +116,7 @@ object SparkleBuild extends Build {
       .configs(IntegrationTest)
       .settings(sparkleSettings: _*)
       .settings(
-        libraryDependencies ++= logbackUnitTest ++ avro
+        libraryDependencies ++= logbackTest ++ avro
       )
 
   lazy val kafkaLoader =    // loading from kafka into the store
