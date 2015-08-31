@@ -80,7 +80,7 @@ object SparkleBuild extends Build {
       .dependsOn(sparkleStore)
       .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= storeKitTestsAndLogging ++ logbackUnitTest
+        libraryDependencies ++= kitTests ++ logging ++ logbackUnitTest
       )
 
   lazy val storeTests = 
@@ -135,7 +135,7 @@ object SparkleBuild extends Build {
         test in IntegrationTest := BackgroundService.itTestTask.value
       )
       .settings(
-        libraryDependencies ++= allTest
+        libraryDependencies ++= unitTest ++ integrationTest
       )
 
   lazy val sparkAvro =   // avro libraries for spark loading
@@ -235,7 +235,7 @@ object SparkleBuild extends Build {
       .settings(sparkleSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= kafka ++ testAndLogging ++ log4jLogging ++ Seq(sprayJson),
+        libraryDependencies ++= kafka ++ integrationTest ++ logging ++ log4jLogging ++ Seq(sprayJson),
         dependenciesToStart := Seq(kafkaServer),
         test in IntegrationTest := BackgroundService.itTestTask.value
       )

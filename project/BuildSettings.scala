@@ -56,6 +56,7 @@ object BuildSettings {
 
   lazy val sparkleSettingsNoIT =
     orgSettings ++
+    noEvictionWarnings ++
     compileSettings ++
     eclipseSettings ++
     slf4jSettings ++
@@ -146,6 +147,10 @@ object BuildSettings {
         case x                                                       => old(x)
       }
     }
+  )
+
+  lazy val noEvictionWarnings = Seq(
+    evictionWarningOptions in update := EvictionWarningOptions.default.withWarnDirectEvictions(false)
   )
 
   /** settings so that we launch our favorite Main by default */

@@ -138,13 +138,11 @@ object Dependencies {
                               )
   }
   
-  object Kit {
-    val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest
-    val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck
-    val sprayTestKit        = "io.spray"                 %% "spray-testkit"          % V.spray
-    val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka
-  }
-  
+  val scalaTest           = "org.scalatest"            %% "scalatest"              % V.scalaTest
+  val scalaCheck          = "org.scalacheck"           %% "scalacheck"             % V.scalaCheck
+  val sprayTestKit        = "io.spray"                 %% "spray-testkit"          % V.spray
+  val akkaTestKit         = "com.typesafe.akka"        %% "akka-testkit"           % V.akka
+
   object Optional {
     val logback             = Runtime.logback               % "optional"
     val log4j               = Runtime.log4j                 % "optional"
@@ -154,7 +152,7 @@ object Dependencies {
   }
   
 
-  val basicTest = Seq(
+  val integrationTest = Seq(
     IT.scalaTest,
     IT.scalaCheck
   )
@@ -163,7 +161,14 @@ object Dependencies {
     Test.scalaTest,
     Test.scalaCheck
   )
-  
+
+  val kitTests =
+    Seq( // test libraries, but in main config, not in Test or IT
+      scalaTest,
+      scalaCheck,
+      akkaTestKit
+    )
+
   val allTest = Seq(
     Test.scalaTest,
     Test.scalaCheck,
@@ -175,20 +180,13 @@ object Dependencies {
     IT.akkaTestKit
   )
   
-  // For setting minimum versions
-  val versionOverrides = Set(
-      slf4j,
-      Runtime.log4j
-  )
 
   val logging = Seq(
     scalaLogging,
     slf4j
   )
 
-  val testAndLogging = basicTest ++ logging
-
-  val logbackTest = testAndLogging ++ Seq(
+  val logbackTest = integrationTest ++ logging ++ Seq(
     Runtime.logback % "test;it"
   )
 
@@ -201,20 +199,14 @@ object Dependencies {
     Runtime.log4j
   )
   
-  val storeKitTestsAndLogging = {
-    Seq( // test libraries, but in main config, not in Test or IT
-      Kit.scalaTest,
-      Kit.scalaCheck,
-      Kit.akkaTestKit
-    ) ++ logging
-  }
+
 
   val kitTestsAndLogging = {
     Seq( // test libraries, but in main config, not in Test or IT
-      Kit.scalaTest,
-      Kit.scalaCheck,
-      Kit.sprayTestKit,
-      Kit.akkaTestKit
+      scalaTest,
+      scalaCheck,
+      sprayTestKit,
+      akkaTestKit
     ) ++ logging
   }
 
@@ -279,5 +271,11 @@ object Dependencies {
       whenJs
     )
   }
+
+  // For setting minimum versions
+  val versionOverrides = Set(
+    slf4j,
+    Runtime.log4j
+  )
 
 }
