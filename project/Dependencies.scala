@@ -169,8 +169,6 @@ object Dependencies {
       sprayTestKit
     )
 
-  lazy val allTest = integrationTest ++ unitTest ++ sprayIntegrationTest
-
   lazy val sprayTest = Seq(
     Test.sprayTestKit
   )
