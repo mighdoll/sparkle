@@ -23,4 +23,7 @@ object Debug {
     Console.println("..continuing")
   }
 
+  /** disable e.g. a scalatest test */
+  def disable(name:String)(fn: => Unit) {}
+
 }

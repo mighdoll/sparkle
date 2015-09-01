@@ -6,6 +6,7 @@ import org.scalatest.Matchers
 import rx.lang.scala.Observable
 
 import nest.sparkle.util.Resources
+import nest.sparkle.util.Debug.disable
 
 /** These are currently development jigs, manually uncommented and run one a time
   * rather than as part of a test infrastructure.
@@ -15,7 +16,7 @@ import nest.sparkle.util.Resources
 class TestPlot extends FunSuite with Matchers with SparkleConsoleFixture {
   val measuresDirectory = Resources.filePathString("sample-measures")
 
-  ignore("plot an observable stream of sine") {
+  disable("plot an observable stream of sine") {
     withSparkleConsole { console =>
       val items = Observable.interval(300.milliseconds).map{ x =>
         math.sin((math.Pi * x) / 20)
@@ -25,14 +26,14 @@ class TestPlot extends FunSuite with Matchers with SparkleConsoleFixture {
     }
   }
 
-  ignore("plot a list of items") {
+  disable("plot a list of items") {
     withSparkleConsole { console =>
       console.plotCollection[Int](List(10,11,12))
       Thread.sleep(1000*60*60)
     }
   }
 
-  ignore("load some data and plot, with time and reduceMax") {
+  disable("load some data and plot, with time and reduceMax") {
     withSparkleConsole { console =>
       console.loadFiles(measuresDirectory)
       val plot = PlotParameters("spans/duration")
@@ -44,7 +45,7 @@ class TestPlot extends FunSuite with Matchers with SparkleConsoleFixture {
     }
   }
 
-  ignore("load some data and plot, simple") {
+  disable("load some data and plot, simple") {
     withSparkleConsole { console =>
       console.loadFiles(measuresDirectory)
       console.plotColumn("spans/duration")
@@ -52,7 +53,7 @@ class TestPlot extends FunSuite with Matchers with SparkleConsoleFixture {
     }
   }
 
-  ignore("start console and do nothing") {
+  disable("start console and do nothing") {
     withSparkleConsole { console =>
       console.loadFiles(measuresDirectory)
       Thread.sleep(1000*60*60)

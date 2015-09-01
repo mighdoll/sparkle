@@ -16,6 +16,7 @@ import scala.concurrent.forkjoin.ForkJoinPool
 import scala.collection.parallel._
 import scala.concurrent.duration.FiniteDuration
 import akka.util.Timeout
+import nest.sparkle.util.Debug.disable
 
 class TestIntervalSumLarge extends FunSuite with Matchers with CassandraStoreTestConfig with StreamRequestor with IntervalSumFixture {
 
@@ -162,7 +163,6 @@ class TestIntervalSumLarge extends FunSuite with Matchers with CassandraStoreTes
       summary = "1 day", repeats = 2, parallel = 10, warmups = 2)
   }
 
-  def disable(name:String)(fn: => Unit) {}
 
   disable("timed intervalSum on 10K records") {  // 10K is a bit more than 1 year of daily records
     intervalSumLargeTest(nodes = 1, records = 10000, delta = 1.hour, flipChance = .01,
