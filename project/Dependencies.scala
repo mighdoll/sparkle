@@ -166,19 +166,17 @@ object Dependencies {
     Seq( // test libraries, but in main config, not in Test or IT
       scalaTest,
       scalaCheck,
-      akkaTestKit
+      sprayTestKit
     )
 
   lazy val allTest = integrationTest ++ unitTest ++ sprayIntegrationTest
 
   lazy val sprayTest = Seq(
-    Test.sprayTestKit,
-    Test.akkaTestKit
+    Test.sprayTestKit
   )
 
   lazy val sprayIntegrationTest = sprayTest ++ Seq(
-    IT.sprayTestKit,
-    IT.akkaTestKit
+    IT.sprayTestKit
   )
 
   lazy val logging = Seq(
@@ -198,15 +196,6 @@ object Dependencies {
     Runtime.slf4jlog4j, 
     Runtime.log4j
   )
-
-  lazy val kitTestsAndLogging = {
-    Seq( // test libraries, but in main config, not in Test or IT
-      scalaTest,
-      scalaCheck,
-      sprayTestKit,
-      akkaTestKit
-    ) ++ logging
-  }
 
   lazy val spray = Seq(
     sprayJson,
