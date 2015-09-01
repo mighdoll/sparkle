@@ -43,17 +43,6 @@ object Debug {
 
 object BuildSettings {
 
-  lazy val sparkleSettings =
-    orgSettings ++
-    compileSettings ++
-    eclipseSettings ++
-    itSettingsWithEclipse ++
-    slf4jSettings ++
-    testSettings ++
-    publishSettings ++
-    Debug.settings ++
-    dependencySettings
-
   lazy val sparkleSettingsNoIT =
     orgSettings ++
     noEvictionWarnings ++
@@ -64,6 +53,14 @@ object BuildSettings {
     Debug.settings ++
     dependencySettings
 
+  lazy val sparkleItSettings =
+    Defaults.itSettings ++
+    eclipseItSettings
+
+  lazy val sparkleSettings =
+    sparkleSettingsNoIT ++
+    sparkleItSettings
+
   lazy val orgSettings = Seq(
     organization := "nest",
     licenses += ("Apache-2.0", url("http://apache.org/licenses/LICENSE-2.0.html"))
@@ -71,6 +68,7 @@ object BuildSettings {
 
   lazy val compileSettings = Seq(
     scalaVersion := "2.11.7",
+    ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) },
     crossScalaVersions := Seq("2.10.5"),
     // TODO(ochafik): Do we need a custom binary version?
     // scalaBinaryVersion <<= scalaVersion { scalaVersion => 
@@ -89,7 +87,7 @@ object BuildSettings {
     EclipseKeys.eclipseOutput := Some("eclipse-target")
   )
 
-  lazy val itSettingsWithEclipse = Defaults.itSettings ++ Seq(
+  lazy val eclipseItSettings = Seq(
     // include integration test code (src/it) in generated eclipse projects
     EclipseKeys.configurations := Set(sbt.Compile, sbt.Test, sbt.IntegrationTest)
   )
