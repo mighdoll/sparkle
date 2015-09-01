@@ -19,6 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language._
 import scala.util.{Failure, Success, Try}
 import scala.util.control.Exception._
+import scala.concurrent.duration._
 
 import com.datastax.driver.core.{ConsistencyLevel, Cluster, Row, Session}
 
@@ -230,7 +231,7 @@ trait ConfiguredCassandra extends Log {
   protected def format(session: Session): Unit = {
     dropTables(session)
 
-    SparseColumnWriter.createColumnTables(session, columnTypes).await
+    SparseColumnWriter.createColumnTables(session, columnTypes).await(20.seconds)
     ColumnCatalog.create(session)
     EntityCatalog.create(session)
     DataSetCatalog.create(session)
