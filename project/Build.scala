@@ -86,7 +86,7 @@ object SparkleBuild extends Build {
   lazy val storeTests = 
     Project(id = "sparkle-store-tests", base = file("sparkle-store-tests"))
       .dependsOn(sparkleStore)
-      .dependsOn(storeTestKit % "it->compile;test->compile")
+      .dependsOn(storeTestKit % "it;test")
       .dependsOn(logbackConfig)
       .dependsOn(util)
       .configs(IntegrationTest)
