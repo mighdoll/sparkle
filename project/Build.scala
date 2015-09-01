@@ -156,7 +156,7 @@ object SparkleBuild extends Build {
       .settings(sparkleSettingsNoIT: _*)
       .settings(
         libraryDependencies ++= 
-          sprayNoIT ++ kitTestsAndLogging ++ Seq(nScalaTime) ++ Seq(
+          spray ++ sprayTest ++ kitTestsAndLogging ++ Seq(nScalaTime) ++ Seq(
             Runtime.logback % "test"
           )
       )
@@ -184,7 +184,7 @@ object SparkleBuild extends Build {
       .settings(sparkleSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= logbackIntegrationTest ++ spray ++ Seq(
+        libraryDependencies ++= logbackIntegrationTest ++ spray ++ sprayIntegrationTest ++ Seq(
           metricsGraphite,
           IT.tubeSocks
         ),
@@ -245,7 +245,7 @@ object SparkleBuild extends Build {
       .dependsOn(util)
       .settings(sparkleSettingsNoIT: _*)
       .settings(
-        libraryDependencies ++= akka ++ sprayNoIT ++ logbackUnitTest
+        libraryDependencies ++= akka ++ spray ++ sprayTest ++ logbackUnitTest
       )
 
   lazy val logbackConfig =  // mix in to projects choosing logback

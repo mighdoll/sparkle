@@ -152,52 +152,54 @@ object Dependencies {
   }
   
 
-  val integrationTest = Seq(
+  lazy val integrationTest = Seq(
     IT.scalaTest,
     IT.scalaCheck
   )
 
-  val unitTest = Seq(
+  lazy val unitTest = Seq(
     Test.scalaTest,
     Test.scalaCheck
   )
 
-  val kitTests =
+  lazy val kitTests =
     Seq( // test libraries, but in main config, not in Test or IT
       scalaTest,
       scalaCheck,
       akkaTestKit
     )
 
-  val allTest = integrationTest ++ unitTest ++ Seq(
+  lazy val allTest = integrationTest ++ unitTest ++ sprayIntegrationTest
+
+  lazy val sprayTest = Seq(
     Test.sprayTestKit,
-    Test.akkaTestKit,
+    Test.akkaTestKit
+  )
+
+  lazy val sprayIntegrationTest = sprayTest ++ Seq(
     IT.sprayTestKit,
     IT.akkaTestKit
   )
-  
 
-  val logging = Seq(
+  lazy val logging = Seq(
     scalaLogging,
     slf4j
   )
 
-  val logbackIntegrationTest = unitTest ++ integrationTest ++ logging ++ Seq(
+  lazy val logbackIntegrationTest = unitTest ++ integrationTest ++ logging ++ Seq(
     Runtime.logback % "test;it"
   )
 
-  val logbackUnitTest = unitTest ++ logging ++ Seq(
+  lazy val logbackUnitTest = unitTest ++ logging ++ Seq(
     Runtime.logback % "test"
   )
 
-  val log4jLogging = Seq(
+  lazy val log4jLogging = Seq(
     Runtime.slf4jlog4j, 
     Runtime.log4j
   )
-  
 
-
-  val kitTestsAndLogging = {
+  lazy val kitTestsAndLogging = {
     Seq( // test libraries, but in main config, not in Test or IT
       scalaTest,
       scalaCheck,
@@ -206,49 +208,35 @@ object Dependencies {
     ) ++ logging
   }
 
-  val spray = Seq(
+  lazy val spray = Seq(
     sprayJson,
     sprayClient,
     sprayRouting,
     sprayCan,
-    sprayCaching,
-    Test.sprayTestKit,
-    Test.akkaTestKit, // delete this after spray #446 is resolved
-    IT.sprayTestKit,
-    IT.akkaTestKit // delete this after spray #446 is resolved
+    sprayCaching
   )
 
-  val sprayNoIT = Seq(
-    sprayJson,
-    sprayClient,
-    sprayRouting,
-    sprayCan,
-    sprayCaching,
-    Test.sprayTestKit,
-    Test.akkaTestKit // delete this after spray #446 is resolved
-  )
+  lazy val kafka = Seq(apacheKafka)
 
-  val kafka = Seq(apacheKafka)
+  lazy val avro = Seq(apacheAvro)
 
-  val avro = Seq(apacheAvro)
-
-  val akka = Seq(
+  lazy val akka = Seq(
     akkaActor,
     akkaRemoting,
     akkaSlf4j
   )
 
-  val cassandraClient = Seq(
+  lazy val cassandraClient = Seq(
     cassandraDriver,
     snappy,
     lz4
   )
 
-  val nativeMath = Seq(
+  lazy val nativeMath = Seq(
     breeze
   )
 
-  val spark = Seq(
+  lazy val spark = Seq(
     sparkCassandra,
     sparkMllib,
     sparkCore,
@@ -256,7 +244,7 @@ object Dependencies {
     sparkNetty
   ) ++ nativeMath
 
-  val web = {
+  lazy val web = {
     import Web._
     Seq(
       d3,
@@ -269,7 +257,7 @@ object Dependencies {
   }
 
   // For setting minimum versions
-  val versionOverrides = Set(
+  lazy val versionOverrides = Set(
     slf4j,
     Runtime.log4j
   )
