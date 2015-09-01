@@ -43,7 +43,7 @@ object Debug {
 
 object BuildSettings {
 
-  lazy val sparkleSettingsNoIT =
+  lazy val sparkleSettings =
     orgSettings ++
     noEvictionWarnings ++
     compileSettings ++
@@ -56,10 +56,6 @@ object BuildSettings {
   lazy val sparkleItSettings =
     Defaults.itSettings ++
     eclipseItSettings
-
-  lazy val sparkleSettings =
-    sparkleSettingsNoIT ++
-    sparkleItSettings
 
   lazy val orgSettings = Seq(
     organization := "nest",
