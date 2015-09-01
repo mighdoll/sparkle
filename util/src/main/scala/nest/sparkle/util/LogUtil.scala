@@ -35,7 +35,7 @@ object LogUtil {
   /** Temporarily set the log level for a single logger during a test.
     * Note that log levels are global to the jvm. Simultaneously running tests may conflict
     * on the desired log level. */
-  def withLogLevel[T](loggerName:String, level:String)(fn: =>T):T = {
+  def withLogLevel[T](loggerName:String, level:String)(fn: =>T):T = synchronized {
     loggingProvider.map {provider =>
       provider.withLogLevel(loggerName, level)(fn)
     }.getOrElse(fn)
@@ -44,7 +44,7 @@ object LogUtil {
   /** Temporarily set the log level for a single logger during a test.
     * Note that log levels are global to the jvm. Simultaneously running tests may conflict
     * on the desired log level. */
-  def withLogLevel[T](clazz:Class[_], level:String)(fn: =>T):T = {
+  def withLogLevel[T](clazz:Class[_], level:String)(fn: =>T):T = synchronized {
     loggingProvider.map {provider =>
       provider.withLogLevel(clazz.getName, level)(fn)
     }.getOrElse(fn)
