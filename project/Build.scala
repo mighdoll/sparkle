@@ -93,7 +93,7 @@ object SparkleBuild extends Build {
       .settings(sparkleSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= logbackTest ++ Seq(
+        libraryDependencies ++= logbackIntegrationTest ++ Seq(
           metricsGraphite
         ),
         dependenciesToStart := Seq(cassandraServer),
@@ -116,7 +116,7 @@ object SparkleBuild extends Build {
       .configs(IntegrationTest)
       .settings(sparkleSettings: _*)
       .settings(
-        libraryDependencies ++= logbackTest ++ avro
+        libraryDependencies ++= logbackIntegrationTest ++ avro
       )
 
   lazy val kafkaLoader =    // loading from kafka into the store
@@ -184,7 +184,7 @@ object SparkleBuild extends Build {
       .settings(sparkleSettings: _*)
       .settings(BackgroundService.settings: _*)
       .settings(
-        libraryDependencies ++= logbackTest ++ spray ++ Seq(
+        libraryDependencies ++= logbackIntegrationTest ++ spray ++ Seq(
           metricsGraphite,
           IT.tubeSocks
         ),
@@ -291,7 +291,7 @@ object SparkleBuild extends Build {
       .settings(BuildSettings.sparkMergeSettings: _*)
       .settings(BuildSettings.setMainClass("org.apache.spark.repl.Main"): _*)
       .settings(
-        libraryDependencies ++= spark ++ logbackTest ++ Seq(
+        libraryDependencies ++= spark ++ logbackIntegrationTest ++ Seq(
           sparkRepl
         ),
         dependenciesToStart := Seq(cassandraServer),
@@ -333,7 +333,7 @@ object SparkleBuild extends Build {
           //   so we bump netty-all to 4.0.27 to manually align things.
           // 
         dependencyOverrides += "io.netty" % "netty-all" % "4.0.27.Final", 
-        libraryDependencies ++= logbackTest ++ spark ++ Seq(
+        libraryDependencies ++= logbackIntegrationTest ++ spark ++ Seq(
           sparkRepl
         ),
         assemblyExclusions,

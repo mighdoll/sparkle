@@ -169,13 +169,9 @@ object Dependencies {
       akkaTestKit
     )
 
-  val allTest = Seq(
-    Test.scalaTest,
-    Test.scalaCheck,
+  val allTest = integrationTest ++ unitTest ++ Seq(
     Test.sprayTestKit,
     Test.akkaTestKit,
-    IT.scalaTest,
-    IT.scalaCheck,
     IT.sprayTestKit,
     IT.akkaTestKit
   )
@@ -186,7 +182,7 @@ object Dependencies {
     slf4j
   )
 
-  val logbackTest = integrationTest ++ logging ++ Seq(
+  val logbackIntegrationTest = unitTest ++ integrationTest ++ logging ++ Seq(
     Runtime.logback % "test;it"
   )
 
