@@ -237,6 +237,8 @@ object SparkleBuild extends Build {
   lazy val httpCommon =           // http/spray common code
     Project(id = "sparkle-http", base = file("http-common"))
       .dependsOn(util)
+      .dependsOn(testKit % "test")
+      .dependsOn(logbackConfig % "test")
       .settings(sparkleSettings: _*)
       .settings(
         libraryDependencies ++= akka ++ spray ++ sprayTest ++ logbackUnitTest
