@@ -156,9 +156,7 @@ object SparkleBuild extends Build {
       .settings(sparkleSettingsNoIT: _*)
       .settings(
         libraryDependencies ++= 
-          spray ++ sprayTest ++ kitTestsAndLogging ++ Seq(nScalaTime) ++ Seq(
-            Runtime.logback % "test"
-          )
+          spray ++ kitTests ++ logging ++ Seq(nScalaTime)
       )
 
   lazy val protocolTestKit =        // utilities for testing sparkle protocol
