@@ -63,13 +63,14 @@ class TestIntervalSum extends FunSuite with Matchers with CassandraStoreTestConf
           }
         }
       }"""
-      val service = new TestServiceWithCassandra(store, system)
-      val response = service.sendDataMessage(msg).await(4.seconds)
-      response.status shouldBe OK
-      val data = TestDataService.dataFromStreamsResponse[Seq[Long]](response).head.head // remove the type parameter to crash the compiler (2.10.4)! see SI-8824
-      val expectedTime = "2014-07-06T00:00:00.000Z".toMillis // first start time
-      val expectedValue = 2.hours.toMillis + 10.seconds.toMillis // total intervals
-      data shouldBe Event(expectedTime, Seq(expectedValue))
+      TestDataService.withTestService(store, system) { service =>
+        val response = service.sendDataMessage(msg).await(4.seconds)
+        response.status shouldBe OK
+        val data = TestDataService.dataFromStreamsResponse[Seq[Long]](response).head.head // remove the type parameter to crash the compiler (2.10.4)! see SI-8824
+        val expectedTime = "2014-07-06T00:00:00.000Z".toMillis // first start time
+        val expectedValue = 2.hours.toMillis + 10.seconds.toMillis // total intervals
+        data shouldBe Event(expectedTime, Seq(expectedValue))
+      }
     }
   }
 

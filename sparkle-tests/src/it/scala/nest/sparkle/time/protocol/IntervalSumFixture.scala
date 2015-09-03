@@ -18,13 +18,15 @@ trait IntervalSumFixture {
     
     val resourceFile = resource + ".csv"
     withLoadedFile(resourceFile) { (store, system) =>
-      val service = new TestServiceWithCassandra(store, system)
-      val params = IntervalParameters[Long](ranges = ranges, partBySize = partBySize, None)
-      val select = selector.getOrElse(SelectString(s"$resource/millis"))
-      val message = streamRequest("IntervalSum", params, select)
-      service.v1TypedRequest(message) { events: Seq[Seq[Event[Long, Seq[Long]]]] =>
-        val data = events.head
-        fn(data)
+
+      TestDataService.withTestService(store, system) { service =>
+        val params = IntervalParameters[Long](ranges = ranges, partBySize = partBySize, None)
+        val select = selector.getOrElse(SelectString(s"$resource/millis"))
+        val message = streamRequest("IntervalSum", params, select)
+        service.v1TypedRequest(message) { events: Seq[Seq[Event[Long, Seq[Long]]]] =>
+          val data = events.head
+          fn(data)
+        }
       }
     }
   }

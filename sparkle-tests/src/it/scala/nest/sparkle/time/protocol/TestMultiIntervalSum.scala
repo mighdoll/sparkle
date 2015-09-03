@@ -1,5 +1,6 @@
 package nest.sparkle.time.protocol
 
+import nest.sparkle.time.protocol.TestDataService.TestDataServiceInstance
 import org.scalatest.{ FunSuite, Matchers }
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import com.typesafe.config.Config
@@ -42,7 +43,7 @@ object MultiIntervalSum {
       |}""".stripMargin
 
   def withTestService[T](readWriteStore:ReadWriteStore, system: ActorSystem)(fn: TestDataService => T): T = {
-    val service = new TestServiceWithCassandra(readWriteStore, system) {
+    val service = new TestDataServiceInstance(readWriteStore, system) {
       override def configOverrides = {
         val selectors = Seq(s"${classOf[MultiSelect].getName}").asJava
         super.configOverrides :+ s"$sparkleConfigName.custom-selectors" -> selectors

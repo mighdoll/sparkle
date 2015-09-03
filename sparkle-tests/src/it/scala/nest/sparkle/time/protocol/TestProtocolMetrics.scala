@@ -16,23 +16,25 @@ class TestProtocolMetrics extends FunSuite with Matchers with
   test("protocol requests report a timing value on success") {
     withLoadedFile("epochs.csv") { (store, system) =>
       val request = stringRequest("epochs/p99", "reduceSum")
-      val service = new TestServiceWithCassandra(store, system)
-      val response = service.sendDataMessage(request).await
-      val timers = MetricsInstrumentation.registry.getTimers.asScala
-      val timer = timers("data-request-http")
-      timer.getCount >= 1 shouldBe true
+      TestDataService.withTestService(store, system) { service =>
+        val response = service.sendDataMessage(request).await
+        val timers = MetricsInstrumentation.registry.getTimers.asScala
+        val timer = timers("data-request-http")
+        timer.getCount >= 1 shouldBe true
+      }
     }
   }
 
   test("protocol requests report a timing value on error") {
     withLoadedFile("epochs.csv") { (store, system) =>
       val request = stringRequest("epochs/not-really-there", "reduceSum")
-      val service = new TestServiceWithCassandra(store, system)
-      LogUtil.withLogLevel(ProtocolError.getClass, "ERROR") {
-        val response = service.sendDataMessage(request).await
-        val timers = MetricsInstrumentation.registry.getTimers.asScala
-        val timer = timers("data-request-http-error")
-        timer.getCount >= 1 shouldBe true
+      TestDataService.withTestService(store, system) { service =>
+        LogUtil.withLogLevel(ProtocolError.getClass, "ERROR") {
+          val response = service.sendDataMessage(request).await
+          val timers = MetricsInstrumentation.registry.getTimers.asScala
+          val timer = timers("data-request-http-error")
+          timer.getCount >= 1 shouldBe true
+        }
       }
     }
   }

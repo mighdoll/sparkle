@@ -9,7 +9,7 @@ import akka.actor.Props
 import nest.sparkle.datastream.LargeReduction._
 import nest.sparkle.measure.{Measurements, DummySpan, Span}
 import nest.sparkle.store.cassandra.{ActorSystemFixture, CassandraStoreFixture}
-import nest.sparkle.time.protocol.{DataServiceFixture, TestDataService, TestServiceWithCassandra}
+import nest.sparkle.time.protocol.DataServiceFixture
 import nest.sparkle.time.server.ConfiguredDataServer
 import nest.sparkle.util.{ConfigUtil, SparkleApp}
 import nest.sparkle.util.ConfigUtil.sparkleConfigName

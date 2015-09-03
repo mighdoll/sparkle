@@ -18,9 +18,10 @@ class TestReductions extends FunSuite with Matchers
       ( fileOrDirectory:String, request:String )
       ( fn: HttpResponse => Unit ):Unit = {
     withLoadedFile(fileOrDirectory) { (store, system) =>
-      val service = new TestServiceWithCassandra(store, system)
-      val response = service.sendDataMessage(request).await
-      fn(response)
+      TestDataService.withTestService(store, system) { service =>
+        val response = service.sendDataMessage(request).await
+        fn(response)
+      }
     }
   }
 

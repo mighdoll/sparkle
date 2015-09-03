@@ -15,10 +15,11 @@ class TestVariousTypes extends FunSuite with Matchers with CassandraStoreTestCon
   def testExplicitType[T: JsonFormat](columnName: String)(fn: T => Unit) {
     val columnPath = s"explicitTypes/$columnName"
     withLoadedFile("explicitTypes.csv") { (store, system) =>
-      val service = new TestServiceWithCassandra(store, system)
-      val message = streamRequest("Raw", RawParameters[Long](), SelectString(columnPath))
-      service.v1TypedRequest(message) { events: Seq[Seq[Event[Long, T]]] =>
-        fn(events.head.head.value)
+      TestDataService.withTestService(store, system) { service =>
+        val message = streamRequest("Raw", RawParameters[Long](), SelectString(columnPath))
+        service.v1TypedRequest(message) { events: Seq[Seq[Event[Long, T]]] =>
+          fn(events.head.head.value)
+        }
       }
     }
   }
