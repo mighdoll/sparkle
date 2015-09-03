@@ -229,6 +229,7 @@ object SparkleBuild extends Build {
       .settings(sparkleSettings ++ sparkleItSettings : _*)
       .settings(BackgroundService.settings: _*)
       .settings(
+        updateOptions := updateOptions.value.withCachedResolution(false), // sbt bug, TODO file bug
         libraryDependencies ++= kafka ++ integrationTest ++ logging ++ log4jLogging ++ Seq(sprayJson),
         dependenciesToStart := Seq(kafkaServer),
         test in IntegrationTest := BackgroundService.itTestTask.value

@@ -73,7 +73,8 @@ object BuildSettings {
     //   major
     // },
     testOptions += Tests.Argument("-oF"), // show full stack traces during test failures
-    scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings", "-language:postfixOps", "-target:jvm-1.7")
+    scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings",
+                          "-language:postfixOps", "-target:jvm-1.7")
   )
 
   lazy val eclipseSettings = Seq(
