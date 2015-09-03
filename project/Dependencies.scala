@@ -39,7 +39,7 @@ object Dependencies {
   val scalaReflect          = "org.scala-lang"            %  "scala-reflect"
   val scalaLogging          = "com.typesafe.scala-logging" %% "scala-logging-slf4j"    % "2.1.2"
 
-  val rxScala               = "io.reactivex"              %% "rxscala"                % "0.23.1"
+  val rxScala               = "io.reactivex"              %% "rxscala"                % "0.25.0"
   val sparkCassandra        = ("com.datastax.spark"       %% "spark-cassandra-connector" % "1.4.0-M3" withSources() withJavadoc()
                                 excludeAll(ExclusionRule(organization = "org.apache.spark"))
                               )
