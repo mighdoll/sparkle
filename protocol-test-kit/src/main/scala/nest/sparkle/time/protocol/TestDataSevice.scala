@@ -53,13 +53,22 @@ trait TestDataService extends DataServiceFixture with SparkleTestConfig {
   // tell spray test config about our configuration (and trigger logging initialization)
   override def testConfig = configForSparkle(rootConfig)
 
-  def close(): Unit = measurements.close()
+  /** Close the data service and clean up. This is for use when the TestDataService
+    * is not being run by the scalatest test runner directly.
+    *
+    * e.g. in CassandraTestService.withTestService we create a TestDataService directly, not via
+    * the test runner). When the TestDataService is being run by the test framework, then
+    * afterAll() handles cleanup.
+    */
+  def close(): Unit = {
+    measurements.close()
+    cleanUp()
+  }
 
   override def afterAll(): Unit = {
     super.afterAll()
     measurements.close()
   }
-
 
   /** make a stream request, expecting a single stream of long/double results */
   def v1TypicalRequest(message: StreamRequestMessage)(fn: Seq[Event[Long, Double]] => Unit) {
