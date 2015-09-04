@@ -56,7 +56,7 @@ trait TestDataService extends DataServiceFixture with SparkleTestConfig {
   /** Close the data service and clean up. This is for use when the TestDataService
     * is not being run by the scalatest test runner directly.
     *
-    * e.g. in CassandraTestService.withTestService we create a TestDataService directly, not via
+    * e.g. in TestDataService.withTestService we create a TestDataService directly, not via
     * the test runner). When the TestDataService is being run by the test framework, then
     * afterAll() handles cleanup.
     */

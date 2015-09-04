@@ -13,6 +13,11 @@ class TestKafkaStatus
   implicit val zkProps = ZkConnectProps("localhost:2181", timeout, timeout)
   implicit override lazy val measurements =
     new MeasurementToTsvFile("/tmp/kafka-util-tests.tsv")(kafkaStatusContext)
+
+  override def afterAll(): Unit = {
+    super.afterAll()
+    measurements.close()
+  }
   
   private def checkTestTopic(topic: KafkaTopic) {
     topic.name shouldBe TopicName

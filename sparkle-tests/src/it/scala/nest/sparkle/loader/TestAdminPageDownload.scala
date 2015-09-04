@@ -20,7 +20,7 @@ import spray.routing.RoutingSettings
 import spray.testkit.ScalatestRouteTest
 
 import nest.sparkle.measure.MeasurementToTsvFile
-import nest.sparkle.store.Store
+import nest.sparkle.store.{ReadWriteStore, Store}
 import nest.sparkle.store.cassandra.CassandraStoreTestConfig
 import nest.sparkle.time.server.{DataAdminService, DataAdminService$, ConcreteBaseDataAdminService}
 import nest.sparkle.time.protocol.ExportData
@@ -45,10 +45,11 @@ class TestAdminPageDownload extends FunSuite with Matchers with CassandraStoreTe
   
   def requestWithLoadedEpochs(request:HttpRequest)(fn: HttpResponse => Unit) {
     withLoadedFile("epochs.csv") { (store, system) =>
-      val admin = new DataAdminTestService(store, rootConfig)(system)
-      admin.fetchRequest(request) {
-        response =>
-          fn(response)
+      DataAdminTestService.withTestService(store, rootConfig, system) { admin =>
+        admin.fetchRequest(request) {
+          response =>
+            fn(response)
+        }
       }
     }
   }
@@ -92,10 +93,43 @@ class DataAdminTestService
   implicit override val measurements =
     new MeasurementToTsvFile("/tmp/sparkle-admin-tests")(executionContext)
 
+  /** Close the data admin service and clean up. This is for use when the DataAdminTestService
+    * is not being run by the scalatest test runner directly.
+    *
+    * e.g. in DataAdminTestService.withTestService we create a DataAdminTestService directly, not via
+    * the test runner). When the DataAdminTestService is being run by the test framework, then
+    * afterAll() handles cleanup.
+    */
+  def close(): Unit = {
+    measurements.close()
+    cleanUp()
+  }
+
+  override def afterAll(): Unit = {
+    super.afterAll()
+    measurements.close()
+  }
+
   def fetchRequest(request: HttpRequest)(fn: HttpResponse => Unit): Unit = {
     request ~> sealRoute(routes) ~> check {
       fn(response)
     }
   }
 
+}
+
+object DataAdminTestService {
+
+  /** Run a function with a newly created test service.
+    * The test service is shut down after the function returns */
+  def withTestService[T]
+      (store: ReadWriteStore, rootConfig: Config, actorSystem: ActorSystem)
+      (fn: DataAdminTestService => T): T = {
+    val service = new DataAdminTestService(store, rootConfig)(actorSystem)
+    try {
+      fn(service)
+    } finally {
+      service.close()
+    }
+  }
 }

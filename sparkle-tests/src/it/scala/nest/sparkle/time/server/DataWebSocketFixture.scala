@@ -30,6 +30,7 @@ object DataWebSocketFixture {
       fn(port)
     } finally {
       webSocket.shutdown()
+      measurements.close()
     }
   }
 

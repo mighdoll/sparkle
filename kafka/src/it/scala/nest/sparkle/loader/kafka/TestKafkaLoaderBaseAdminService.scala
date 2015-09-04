@@ -27,6 +27,11 @@ class TestKafkaLoaderBaseAdminService
   
   // Some of the requests currently take a very long time
   implicit val routeTestTimeout = RouteTestTimeout(1.minute)
+
+  override def afterAll(): Unit = {
+    super.afterAll()
+    measurements.close()
+  }
   
   /** validate the response is JSON and convert to T */
   protected def convertJsonResponse[T: JsonFormat]: T = {
