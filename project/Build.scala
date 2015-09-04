@@ -18,11 +18,11 @@ object SparkleBuild extends Build {
     .aggregate(sparkleCore, sparkleDataServer, protocol, kafkaLoader, sparkShell, testKit, 
       sparkleTests, sparkleStore, storeTestKit, storeTests, sparkAvro, sparkleLoader, sparkleAvro,
       util, utilTests, logbackConfig, log4jConfig, httpCommon, utilKafka,
-      cassandraServer, zookeeperServer, kafkaServer, doc
+      cassandraServer, zookeeperServer, kafkaServer, docs
     )
 
-  lazy val doc =       // protocol server library serving the sparkle data api
-    Project(id = "doc", base = file("doc"))
+  lazy val docs =       // protocol server library serving the sparkle data api
+    Project(id = "docs", base = file("doc"))
     .settings(
       site.settings,
       site.jekyllSupport()
@@ -130,6 +130,7 @@ object SparkleBuild extends Build {
       .dependsOn(httpCommon)
       .settings(sparkleSettings ++ sparkleItSettings ++ BackgroundService.settings : _*)
       .settings(
+        scalacOptions in (Compile, doc) += "-no-link-warnings",
         dependenciesToStart := Seq(kafkaServer, cassandraServer),
         test in IntegrationTest := BackgroundService.itTestTask.value,
         libraryDependencies ++= unitTest ++ integrationTest
