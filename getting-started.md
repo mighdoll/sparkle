@@ -15,12 +15,11 @@
 
     # start the data server with the demos html page, 
     # and load some test data into the store
-      sparkle-data-server > reStart --root ../dashboard/demos --files ../sparkle-tests/src/test/resources/epochs.csv
+      > reStart 
 
     # optional, reloads .js files after edits, etc.
       sparkle-data-server > ~ products   
 
-    # then browse to localhost:1234
-    # (localhost:1235 for the admin page)
-
+    # then browse to localhost:1235
+    
 

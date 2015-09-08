@@ -1,11 +1,10 @@
 # Site settings
 title: Sparkle Visualization
-email: lee@underneath.ca
 description: > 
   Data Visualization with d3 and scala. 
 baseurl: "" # the subpath of your site, e.g. /blog/
 url: "http://mighdoll.github.io/sparkle"
-twitter_username: mighdoll
+twitter_username: nest
 github_username:  mighdoll
 
 # Build settings

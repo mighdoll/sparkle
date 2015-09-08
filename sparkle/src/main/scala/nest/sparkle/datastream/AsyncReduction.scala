@@ -31,8 +31,8 @@ sealed trait RequestGrouping
 case class ByDuration(duration:PeriodWithZone, emitEmpties:Boolean)
   extends RequestGrouping with ReductionGrouping
 case class ByCount(count:Int) extends RequestGrouping with ReductionGrouping
-case class IntoCountedParts(count:Int) extends RequestGrouping
-case class IntoDurationParts(count:Int, emitEmpties:Boolean) extends RequestGrouping
+case class IntoCountedParts(count:Int) extends RequestGrouping  // TODO rename to nPartsByCount
+case class IntoDurationParts(count:Int, emitEmpties:Boolean) extends RequestGrouping // TODO rename to nPartsByDuration
 
 
 // TODO specialize for efficiency

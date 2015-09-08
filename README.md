@@ -5,20 +5,29 @@ This is the 0.5.x version of Sparkle.
 
 Introduction
 -------
-**Sparkle** is a small suite of libraries for making interactive data visualizations. Sparkle includes a javascript client library, a scala/jvm server library and a well defined protocol for requesting and serving data for visualization. 
+**Sparkle** is a small suite of libraries for making interactive data visualizations. 
+Sparkle includes a javascript client library and a scala/jvm server library.
+The client and server are connected by websockets protocol for requesting and delivering data for visualization. 
 
-As a standalone tool, sparkle gives users an easy way to make visualize data from a directory of .csv files. The graphs are interactively zoomable in a d3 based web interface. With some easy customization, graphs can be aggregated into dashboards, and customized with simple declarative javascript, and data read in from other sources such as Apache Kafka.
+As a standalone tool, sparkle gives users an easy way to make visualize data from a directory of .csv files. 
+The graphs are interactively zoomable in a d3 based web interface. 
+With some easy customization, graphs can be aggregated into dashboards, and customized with simple declarative javascript, and data read in from other sources such as Apache Kafka.
 
 See [Sparkle Intro Talk](https://docs.google.com/presentation/d/1j704Lcj7HhL1O6K2sOYdQeDyhQ_porkbur7UOkKeD50) for an introduction presentation.
 See [Visualize the Things](https://docs.google.com/presentation/d/1YGeO2FEvdjGgSRihxU5HdEDdktBbv7mfYDtVAxW0FKU) for a brief introduction to sparkle, lessons on garbage collection with reative streams, and comments on the future of the Lambda Architecture.
-See [Sparkle Google Docs Folder](https://drive.google.com/folderview?id=0B6uZet2ug3aKfm9KRTdXcFZUc3o2UnFyU3FscWk2T2pNazdoR1AzMlZiU3lLRXFILXJHdlU) for protocol descriptions (slightly out of date).
+See [The Live Layer](https://docs.google.com/presentation/d/16onrz3i4aUORHxnKwdbX9mk9UgG9JJyq6eO4qDeZSn0) for a discussion of the Live Layer, 
+a key component missing from the Lambda Architecture.
+See [Sparkle Google Docs Folder](https://drive.google.com/folderview?id=0B6uZet2ug3aKfm9KRTdXcFZUc3o2UnFyU3FscWk2T2pNazdoR1AzMlZiU3lLRXFILXJHdlU) for other docs.
 
 Components
 ------
 Sparkle contains three core components:
 
-###Sparkle-Time Server 
-**sparkle-time** is a mini web server that provides HTTP and websocket apis for data visualization. Sparkle-time collects data from an extensible set of inputs (Apache Kafka and .csv/.tsv data files, hadoop and netcat support coming soon). Sparkle-time stores data in Cassandra.  Sparkle-time also hosts an extensible set of data transformations that transform data on demand (e.g. for aggregation).
+###Sparkle Data Server 
+**sparkle-data-server** is a mini web server that provides HTTP and websocket apis for data visualization. 
+Sparkle-data-server collects data from an extensible set of inputs (Apache Kafka and .csv/.tsv data files, hadoop and netcat support coming soon). 
+Sparkle-data-server stores data in Cassandra.  
+Sparkle-time also hosts an extensible set of data transformations that transform data on demand (e.g. for aggregation).
 
 Sparkle-time can be run as a library inside another server, or it can run standalone if no customization is needed.
 
@@ -51,5 +60,4 @@ Contributing to Sparkle
 -------
 See [Contributing](https://github.com/mighdoll/sparkle/blob/master/contributing.md), [Building](https://github.com/mighdoll/sparkle/blob/master/Building.md), and
  [javascript component model](https://github.com/mighdoll/sparkle/blob/master/component-model.md).
-
 

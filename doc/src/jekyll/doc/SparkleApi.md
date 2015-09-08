@@ -58,7 +58,7 @@ Here's an example request:
         transform: "summarizeMax",
         transformParameters: {
           ranges: [ { start: 1293840000000 } ],
-          partByDuration: "1 day"
+          intoDurationParts: "1 day"
         }
       }
     }

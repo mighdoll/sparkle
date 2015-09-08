@@ -13,6 +13,9 @@ as well as end to end encryption of the websocket handshake and data streams.
 Sparkle inherits the confidentiality, integrity and server authentication features from TLS.
 
 ### Client Authentication  
+The sparkle data server implementation provides application hooks for authorizing protocol 
+clients on a per request basis. Unauthorized requests return [613 - "authorization failed"](Errors.html#613).
+
 Client authentication is largely outside the scope of the Sparkle data protocol. 
 Nonetheless, here's some advice on how to do client authentication:
 

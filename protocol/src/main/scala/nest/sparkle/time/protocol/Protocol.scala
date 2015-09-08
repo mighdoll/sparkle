@@ -56,6 +56,7 @@ protected object LoggableRealmToServer {
 }
 
 /** request a transformed stream.  sent from from client to server */
+// TODO spec says: request, not itemLimit
 case class StreamRequest(sendUpdates: Option[Boolean], itemLimit: Option[Long], sources: Array[JsValue],
                          transform: String, transformParameters: JsObject) {
 }
@@ -116,7 +117,7 @@ case class UpdateMessage(requestId: Option[Long], realm: Option[RealmToClient], 
 }
 
 /** Limit the flow of data over a stream temporarily.  Sent from client to Server */
-case class StreamControl(streamId: Long, maxItems: Long)
+case class StreamControl(streamId: Long, maxItems: Long)  // TODO spec says requestMore
 
 /** Stop a stream.  Sent from client to server.*/
 case class StreamDrop(streamId: Long)
@@ -141,11 +142,12 @@ case class SummaryParameters[T](
   ranges: Option[Seq[RangeInterval[T]]] = None,
   partBySize: Option[String] = None,  // TODO change to partByDuration
   partByCount: Option[Int] = None,
-  intoCountedParts: Option[Int] = None,
-  intoDurationParts: Option[Int] = None,
+  intoCountedParts: Option[Int] = None, // TODO change to nPartsByCount
+  intoDurationParts: Option[Int] = None, // TODO change to nPartsByDuration
   emitEmptyPeriods: Option[Boolean] = None,
   timeZoneId: Option[String] = None,
-  ongoingBufferPeriod: Option[String] = None
+  ongoingBufferPeriod: Option[String] = None  // TODO change to ongoingPeriod
+                                              // TODO only trigger ongoing fetch if this is set
   )
 
 case class IntervalParameters[T](

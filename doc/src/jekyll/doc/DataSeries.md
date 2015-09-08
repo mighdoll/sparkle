@@ -3,9 +3,12 @@ layout: default
 title: Data Series
 ---
 
-###What is a data series?
+###Data Series
+A data series is a sequence of data items. Data items are either values or key-value pairs.
+
 The canonical example of a data series is a sequence of sensor data. 
 e.g. an array of timestamped sensor samples. 
+
 In the sparkle json API, a simple time series of numeric values is encoded like this: 
 
      [ [<timestamp_1>, [<data_1>]], 
@@ -13,36 +16,47 @@ In the sparkle json API, a simple time series of numeric values is encoded like 
        ...
      ] 
 
-For example, here's a typical time-value series:
-{% markdown typical-time-value.md %}
+Here's a typical time-value series:
+{% markdown sparkle/typical-time-value.md %}
 
-More generally, a data series is a sequence of data items, where items are either values or key-value pairs.
-In API responses, data series are labelled as 'KeyValue' or 'Value'. 
-KeyValue and Value items are not intermixed within the same series.
+In API responses, a data series is labelled as 'KeyValue' or 'Value'. 
+KeyValue and Value items are not intermixed within the same data series.
 
 ### Value Types
 Values may be scalar values (numbers, strings or booleans), records (json objects), or arrays. 
 Numbers are restricted to IEEE-754 double precision for javascript compatibility.
-Values in an item are optional (nullable).
+Data values may be optional (nullable). Optional values are encoded as single element arrays.
 
-In a series, all non-empty values must be of the same type. 
-i.e. String, number, boolean, record, and array values may not be intermixed in the same series. [^records-can-vary]
+## Consistency of value types
+Values are generally required to be of consistent type to ease decoding.
 
-[^records-can-vary]: The structure of record values (objects) is not required to be constant across the series. 
+All values must be of the same type (number, string, boolean, record, or array) in the data series.
+i.e. String, number, boolean, record, and array values may not be intermixed in the same series. 
+Element within an array must also all be the same type (number, string, boolean, record, or array).
+
+The structure of record values (objects) is not required to be constant across the series. 
+However, like named record fields must have consistent type across the series.
+
+See below for examples of valid data values.
 
 ### Key Types
 The API permits keys of any sortable scalar value (strings or numbers). 
 As with values, numbers are restricted to IEEE-754 double precision for javascript compatibility.
 
 ### Value Series
-In a Value series, items are single json values. 
+In a Value series, data items are simply json values or optional json values.
 
     [ <value>,    // item 1
       <value>,    // item 2
       ...
     ]
 
-Here's an example value series:
+    [ [<optional_value>],    // item 1
+      [<optional_value>],    // item 2
+      ...
+    ]
+
+Here's an example value series with record types:
 
     [ {'name': 'tom', 'height': 165, 'weight': 70}, 
       {'name': 'sally', 'height': 145, 'weight': 45}, 
@@ -52,9 +66,9 @@ Here's an example value series:
 
 Subsequent items delivered in the same series append items to the end of the sequence.
 
-#### KeyValue Series
+#### KeyValue Series <a name="KeyValue"></a>
 
-In KeyValue series , items are two element arrays. 
+In KeyValue series, items are two element arrays. 
 
     [ [<key>, [<optional_value>]],    // item 1
       [<key>, [<optional_value>]],    // item 2
@@ -72,7 +86,7 @@ A non-empty array contains the value at that key.
 The value may be any json value type: strings, numbers, arrays, or json objects.
 
 Here's a typical time value series:
-{% markdown typical-time-value.md %}
+{% markdown sparkle/typical-time-value.md %}
 
 The value can be any json type, including an array. Here are some examples of other series.
 
@@ -102,4 +116,6 @@ The microsecond portion of the time key can then be used as a sequence number to
 of values within the same millisecond. [^composite-keys]
 
 [^composite-keys]: A subsequent release is likely to support true composite keys.
+
+----
 

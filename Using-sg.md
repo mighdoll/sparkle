@@ -13,8 +13,6 @@ Command line Options
     --help              show this help
 
 
-In the current version of sparkle you need to specify a dashboard and a 
-
 Developing Your Own Dashboard
 ------
 ####Custom Dashboards 

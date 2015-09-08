@@ -175,6 +175,8 @@ case class ReduceTransform[V]
     futureGrouping
   }
 
+  // TODO consider fetching data for the rounded period, lest the first and last parts might be too small
+
   /** Convert IntoDurationParts into a ByDuration reduction and attach it to the streams.
     * The approach is to request the total duration from the database and then issue a ByDuration
     * reduction request with the appropriately rounded time duration. */
