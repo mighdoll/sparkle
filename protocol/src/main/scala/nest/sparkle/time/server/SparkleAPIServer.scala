@@ -72,6 +72,7 @@ class SparkleAPIServer // format: OFF
     openWebSocket.foreach { dataWebSocket =>
       dataWebSocket.shutdown()
     }
+    measurements.close()
   }
   
   /** Launch the http server for sparkle API requests.

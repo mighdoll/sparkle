@@ -65,6 +65,8 @@ trait KafkaTestSuite
     consumerIterators = Seq[ConsumerIterator[String,String]]()
     consumer.map(_.shutdown())
     consumer = None
+
+    measurements.close()
     
     statusThreadPool.shutdown()
     super.afterAll()

@@ -103,6 +103,8 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
         processEvents(watchKeys(key), events)
         key.reset()
       }
+      watchKeys.keys foreach { _.cancel() }
+      watcher.close()
     }
 
     /** drain all events from the given watch key, calling pollEvents until it returns an empty list */
@@ -157,7 +159,6 @@ protected[util] class FileSystemWatch(report: WatchPath.Change => Unit, glob: St
   context.execute(runner)
 
   def cancel(): Unit = {
-    watchKeys.keys foreach { _.cancel() }
     done = true
   }
 }

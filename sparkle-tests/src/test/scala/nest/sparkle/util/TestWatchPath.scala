@@ -107,6 +107,7 @@ class TestWatchPath extends FunSuite with Matchers {
       found.find(_.endsWith("c.csv")) should be ('defined)
     } finally {
       List(a, b, c, sub2, sub, root) foreach Files.deleteIfExists
+      watcher.close()
       system.shutdown()
     }
   }
