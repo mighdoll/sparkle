@@ -17,10 +17,10 @@ The server will respond with a Status message.
       }
     }
 
-## StreamId
+#### StreamId
 The `streamId` must match the streamId from a previously received [Streams](Streams.html) message.
 
-## Request
+#### Request
 {% markdown sparkle/requestParam.md %}
 
 If the request returns multiple streams, the requestMore value applies to each stream independently. 

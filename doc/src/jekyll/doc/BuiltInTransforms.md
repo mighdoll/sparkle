@@ -22,7 +22,7 @@ The raw transform simply copies its input to its output.
       }
     }
 
-### ranges
+#### ranges
 See [Range Selection](RangeSelection.html).
 If ranges is unspecified, the entire input is summarized.
 

@@ -16,6 +16,6 @@ A drop message from client to server tells the server to stop sending updates to
 
 See [Streaming](Streaming.html) for a discussion of data streaming.
 
-## streamId
+#### streamId
 The `streamId` must match the streamId from a previously received [Streams](Streams.html) message.
 

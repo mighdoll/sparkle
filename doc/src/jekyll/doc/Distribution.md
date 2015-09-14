@@ -37,7 +37,7 @@ Messages to and from the server look like this:
       message: { <varies> },          // message contents (may be empty)
     }
 
-### RequestId 
+#### RequestId 
 RequestIds are optional client supplied tags for requests, used to enable response multiplexing 
 over websockets.
 Servers copy the requestId into the server response message. 
@@ -51,27 +51,27 @@ Clients are advised to use an incrementing counter for generating requestIds.
 
 Clients are recommended to use requestIds particularly when using websockets. 
 
-### TraceId
+#### TraceId
 TraceId is a string intended for operational debugging. 
 The server will record this traceId with internal logging, 
 and propagate the traceId to subsidiary requests to other servers.  
 
-### Realm
+#### Realm
 All protocol messages are optionally scoped by realm. 
 Realm provides a scope for authentication/authorization and for future sparkle proxies to route to multiple backend services. 
 
-### name
+#### name
 Realm name uniquely identifies the scope of this realm. 
 Name is a case sensitive string containing letters, numbers and/or underscores. 
 Realm name is required when a realm object is provided. 
 
-### id
+#### id
 Realm id holds a client or user id. 
 Servers will typically authorize users to access only a portion of the data that they hold. 
 Servers providing addressable data may scope the data and reuse addresses for each client id, the addressing needn't be global. 
 id is only sent from a client to a server, never from a server to a protocol client.
 
-### auth
+#### auth
 Realm auth contains an arbitrary json string for authenticating a realm id. Typically this is a security token used to authenticate an id within the realm. auth is only sent to the server, never from the server to a protocol client.
 
 ## MessageType

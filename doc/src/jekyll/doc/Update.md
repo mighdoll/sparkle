@@ -31,11 +31,11 @@ message at any time.
 The client should interpret the data property in an Update payload as a modification 
 to any existing data that was received for the same streamId. See details below. 
 
-## data
+#### data
 Data contains an array of data items. 
 Data items formats are described in [DataSeries](DataSeries.html).
 
-## delete
+#### delete
 An optional `delete` property describes data items to be removed. 
 Each element in the the `delete` array references a key in the data stream.
 
@@ -48,7 +48,7 @@ A key listed both in `data` and in `delete` is replaced with the new value in `d
 
 `delete` is only applicable to [key value](DataSeries.html#KeyValue) streams. 
 
-## end
+#### end
 Optional field indicating that an data stream has completed.
 No more data will be sent over a completed stream.
 
@@ -65,7 +65,7 @@ Update messages to the same streamId append elements to Value stream.
 Update messages cannot remove element from the Value stream, 
 nor may they modify elements in the Value stream. 
 
-## bundling messages
+### Bundling messages
 The server is recommended to bundle stream updates into the same Update message 
 if they are semantically simultaneous. 
 e.g. all the updates to streams at time :00 should be sent in the same update message. 

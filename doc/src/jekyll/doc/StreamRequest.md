@@ -21,7 +21,7 @@ The results are returned as one or more data series inside one or more streams.
       }
     }
 
-## sources <a name="sources"></a>
+#### sources <a name="sources"></a>
 Identifies the server data series to transform and deliver.
 There are two forms of source selector, simple and custom.
 
@@ -37,7 +37,7 @@ The typical `sources` array contains just a single simple selector string,
 and returns a single stream in response.
 
 
-###Simple source selectors
+### Simple source selectors
 Simple source selectors specify one or more data series by name. 
 
 Data series names are typically constructed as slash separated strings. 
@@ -51,7 +51,7 @@ default browsing the available data series.
 
     sources: ["<alpha/beta/carrot>", …]
 
-###Custom source selectors
+### Custom source selectors
 Application specific selectors are built as server plugins. 
 Custom selectors are take 
 that take arbitrary parameters. 
@@ -63,7 +63,7 @@ that take arbitrary parameters.
       ...
     ]
 
-## sendUpdates
+#### sendUpdates
 If set to false, the server will buffer and send all data in a single response.
 No ongoing stream data will be sent.
 
@@ -75,7 +75,7 @@ should return all the data from 10 minutes ago until the present time in a singl
 In contrast, a SendUpdates:true request would be expected to continue sending Update message 
 as time progresses forwards.
 
-## request
+#### request
 Maximum number of data items to deliver over this stream until updated by subsequent StreamControl messages. 
 
 {% markdown sparkle/requestParam.md %}
@@ -83,12 +83,12 @@ Maximum number of data items to deliver over this stream until updated by subseq
 If the request returns multiple streams, the requestMore value applies to each stream independently. 
 See [Streaming](Streaming.html) for details.
 
-##transform
+####transform
 Identifies the name of the data transformation.
 
 `transform` must be a string containings ascii letters, numbers, dots, and underscores. 
 Case is significant
 
-##transformParameters
+####transformParameters
 An arbitrary json object that will be passed to the transform. 
 See (Built in Transforms](DataTransforms.html) for details of the prebuit transforms.

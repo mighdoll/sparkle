@@ -25,13 +25,13 @@ Optionally and typically, the streams message also includes a first set of strea
       }
     }
 
-## streamId
+#### streamId
 `streamId` is a server generated, numeric identifier for the stream. 
 `streamId` is a positive integer small enough to fit inside a javscript number.
 `streamId` is guaranteed by the server to be unique in this session.
 Typically the server will generate stream ids with a simple counter within the session, but this is not required.
 
-## metadata
+#### metadata
 
 `metadata` is an optional field used by data transforms to attach additional information about a stream.
 Metadata must be a json object. 
@@ -41,15 +41,15 @@ In cases where a transform produces multiple streams,
 
 Note that metadata is sent only with the start of the stream, not with each Update. 
 
-## StreamType
+#### streamType
 `streamType` is a string that describes the structure of stream items that will be sent over the stream.
 Supported stream types are: "KeyValue" and "Value".
 
-## Data
+#### data
 Data contains the actual stream items. 
 See [Data Series] for details.
 
-##End 
+####end 
 `end` indicates that the stream ends with data provided in this message. 
 Servers should always set `end` to true for messages delivered over http. 
 Over websockets, `end` is assumed to be false if it is not present.

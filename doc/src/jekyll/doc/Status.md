@@ -31,11 +31,11 @@ The description is intended for developer communication, not for parsing by clie
 Accordingly, description messages may vary, 
 e.g. compatible servers may add more contextual description of error causes.
 
-## code 
+#### code 
 The `code` field contains a positive whole number identifying specific errors or success.
 Codes are specified [here](Errors.html).
 
-## description
+#### description
 The `description` field contains a non-normative text description of the status condition intended
 to aid developers. 
 The `description` field is not intended to be shown to non-developer users.
