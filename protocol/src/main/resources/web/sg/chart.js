@@ -27,6 +27,7 @@ function chart() {
       _transformName = 'Raw',  
       _xScale = null,
       _timeSeries = true,
+      // TODO add setter for styles
       emptyGroups = [{label:'', series:[]}];
 
   /** Add chart components to the dom element selection. */
@@ -70,12 +71,12 @@ function chart() {
         chartId = domCache.saveIfEmpty(node, 'chartId', function() {
             return randomAlphaNum(8);
           }),
-        serverConfigWhen = chartData.serverConfigWhen;
+        serverConfigWhen = chartData.serverConfigWhen;    // TODO default to something reasonable
 
 //    console.log("redrawing chart"); // TODO we're redrawing overmuch
 
     // data driven css styling of the chart
-    if (chartData.styles) { selection.classed(chartData.styles, true); }
+    if (chartData.styles) { selection.classed(chartData.styles, true); }  
 
     // title
     showTitle(title, selection, plotSize[0], margin, titleMargin);
@@ -658,7 +659,7 @@ function chart() {
     * will know their maximum extent, as well as for convenience so that the first
     * plot can set its displayed range to the extent of the data)
     *
-    * Fetching is protected by 'namedFetched' latch - it only happens the first time.
+    * Fetching is protected by .fetched latch - it only happens the first time.
     * Return a when that completes the fetching is done. */
   function namedSeriesMetaData(groups, dataApi) {
     var whens = [];
@@ -728,7 +729,7 @@ function chart() {
   /** Fetch a namedSeries from the server via the /column REST api.
    *  Returns a promise that completes with a Series object.  */
   function fetchSeriesInfo(dataApi, namedSeries) {
-    var setAndColumn = namedSeries.columnPath,
+    var setAndColumn = namedSeries.columnPath,      // TODO change API to just take the whole path
         lastSlash = setAndColumn.lastIndexOf('/'),
         dataSetName = setAndColumn.slice(0, lastSlash),
         column = setAndColumn.slice(lastSlash+1, setAndColumn.length),

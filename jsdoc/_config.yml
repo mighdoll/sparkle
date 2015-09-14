@@ -1,0 +1,11 @@
+# Site settings
+title: Sparkle Graph Data Visualization
+description: > 
+  Sparkle Graph: Zooming Data Visualization with d3 
+baseurl: "" # the subpath of your site, e.g. /blog/
+url: "http://mighdoll.github.io/sparkle"
+twitter_username: nest
+github_username:  mighdoll
+
+# Build settings
+markdown: kramdown

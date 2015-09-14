@@ -1,19 +1,6 @@
 Directories
 ------
 
-##### sg.js
-- *sg* - The sg.js library for interactive server-centric charts.
-  
-- *css* - Styling for sg.js charts and dashboards.
-  
-- *dashboard* - Example sparkle-graph dashboards.
-  
-- *lib* - Javascript libraries used by sg.js  (primarily: require.js, when.js, d3.js) 
-
-##### sg.js tests
-- *test/web/spec* - unit tests (using jasmine 2)
-
-- *test/web/test* - utilities for unit tests.
 
 ##### sparkle-graph server
 - */scala/nest/sparkle/util* - generic utilities used by sparkle-graph server (Filesystem watching, option and future conversion, etc.)
@@ -40,7 +27,6 @@ http api protocol (v0 is being slowly replaced by v1), basic data transformation
 
 Building
 ------
-    $ cd sparkle-graph
     $ sbt/sbt
     > assembly
     > exit
