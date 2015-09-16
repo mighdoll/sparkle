@@ -123,6 +123,7 @@ Here's an example chart configuration for a line chart with showing a handful of
 A zoom brush event is reported as a custom DOM event by the zoom component.
 
     One of the following properties will be set:
+    ZoomEvent
       ?.extent:[Number,Number]    -- extent from the underlying brush.  If present, this field indicates 
                                      the user has just released the mouse at the end of a brush gesture
       ?.zoomReset:Boolean         -- true if the user double clicked, (indicating user wants to reset the zoom 

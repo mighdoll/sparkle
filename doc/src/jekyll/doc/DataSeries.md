@@ -110,7 +110,7 @@ If multiple values may appear at the same time key,
 subsequent values will replace prior values at the same time key.
 
 One option is to use a higher pseudo-resolution in the time keys than is present in the underlying data.
-For this reason, the API typically uses microsecond precision time keys 
+For this reason, the time API is likely to change to use microsecond precision time keys 
 even though data is typically recorded at millisecond resolution or less.
 The microsecond portion of the time key can then be used as a sequence number to distinguish hundreds
 of values within the same millisecond. [^composite-keys]

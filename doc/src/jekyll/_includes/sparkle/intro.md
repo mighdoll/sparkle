@@ -16,10 +16,10 @@ Sparkle components
 **sparkle-data-server** is a mini web server that provides HTTP and websocket apis for data visualization.
 
 The sparkle data server includes modules to store data in Casssandra or RAM, 
-and to collect data from .csv/.dsv data files or Kafka.
+and to collect data from .csv/.tsv data files or Kafka.
 
 the sparkle data server hosts an extensible set of data transformations that transform data on demand 
-(e.g. for aggregation). See [Data Transformation](/doc/DataTransformation.html) for details.
+(e.g. for aggregation). See [Data Transformation](/doc/DataTransform.html) for details.
 
 The sparkle data server can be used as a library inside another server, 
 or it can run standalone if no additonal customization is needed.

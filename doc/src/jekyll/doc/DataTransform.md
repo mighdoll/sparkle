@@ -30,7 +30,8 @@ a custom transform should include [range](BuiltInTransforms.html#range).
 ## Built In Transforms
 Built in transforms are provided for timeseries streams.
 
-The built in transforms enable clients:
+The built in transforms enable clients to:
+
 * fetch raw unprocessed data
 * select time slices for time value streams
 * group time slices into calendar periods
