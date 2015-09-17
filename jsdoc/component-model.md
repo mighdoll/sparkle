@@ -3,11 +3,11 @@ layout: default
 title: sg.js component model
 ---
 
-## sg.js javascript component model
+## sg.js Javascript Component Model
 
 Sg.js components follow the [d3 proposed object model](http://bost.ocks.org/mike/chart).
 Components are function objects with getter and setter properties
-that are draw by [joining data](#dataJoing) to DOM elements.
+that are draw by [joining data](#dataJoin) to DOM elements.
 
 Sg.js components extend the basic d3 [object model](http://bost.ocks.org/mike/chart)
 in the following ways.
@@ -38,19 +38,19 @@ Individual Sg.js components have the following capabilities:
         domSelection.call(my);
         
 
-## Heirarchcal Structure
-Sg.js components are used heirarchically. 
+## Hierarchical Structure
+Sg.js components are used hierarchically. 
 A `chart` typically contains several subcomponents including e.g. 
 a `sideAxis`, a `richAxis`, and a `barPlot`.
 
 The [configuration data](chart-configuration.html) for a chart is 
-also arranged heirarchically,  
-so that the user of the chart api can pass a single nested object 
+also arranged hierarchically, 
+so that the user of the chart api can pass a single nested configuration object 
 to create a chart.
-The chart internally will pass the appropriate subparts of the configuration
+The chart internally will pass the appropriate subparts of the nested configuration object 
 to the appropriate subcomponents.
 
-### Definitions
+## Definitions for Understanding the Component Model
 * __component__ - A sg.js d3 module using the d3 conventions for creating, 
 getting and setting properties, and component binding.  
 * __component configurator__ <a name='configurator'/> - A caller visible object 
@@ -77,7 +77,7 @@ A properly implemented component will, however, update the DOM to match the curr
 the data when it is rebound ([component bound](#componentBind)) 
 to the DOM node containing the data.
     
-#### To Draw
+## To Draw a Component
 To draw or redraw a component on the page, a code using a component will:
 
 1. [attach](#attach) a container DOM node into which the component will draw 
@@ -97,7 +97,7 @@ The component will internally perform a [data join](#dataJoin):
 1. Remove any extra HTML/SVG elements.
     _(only if previously drawn data has been removed from the data array)_
   
-### What's in .data()?  
+### Debugging: What's in .data()?  
 There are several kinds of data stored in the DOM node of an sg.js component.
 Note that the data is visible as the private porpoerty `__data__` in the DOM node.
 
@@ -107,19 +107,27 @@ component users pass configuration that varies per instance
 to the component via changes in the .data configuration.  
 1. _Internal state storage_ for the component's use.
 
-### Implementation tips for components:
-* __Configure fluently and via bound data__  Most component configuration settings should be exposed two ways:
-  via the `configurator.myProperty("foo")` _and_ 
-  via data bound configuation data: `selection.data({myProperty:"foo"});  selection.call(configurator);`
+### Implementation Tips for Component Authors
+* __Configure fluently and via bound data.__ 
+Most component configuration settings should be exposed two ways:  
+  
+  via the configurator:
+
+      configurator.myProperty("foo");
+
+  _and_ via data bound configuation data: 
+
+      selection.data({myProperty:"foo"});  
+      selection.call(configurator);
 * __Handle transitions__  As bind calls propagate from component to subcomponent, components
-  should inherit any active transitions by calling d3.transition(selection) internally.  
+  should inherit any active transitions by calling d3.transition(selection) internally.
   This enables a zoom transition to synchronize the transition across many components.
 * __Cache local state in the DOM__  Sometimes components have some local state that they may
-  need for e.g. a subsequent transition.  Storing the data within the local closure (component
-  instance) will break if the caller chooses to reconfigure the component.  Instead, store
-  the data in a local property of the DOM node, e.g. this.__myComponent.
+  need for e.g. a subsequent transition. Storing the data within the local closure ([component
+  instance](#componentInstance)) will break if the caller chooses to use a new [configurator](#configurator). 
+  Instead, store component state in a local property of the DOM node, e.g. this.__myComponent.
 * __Reconfigure or cache subcomponents__  Components should guarantee the same result when re-bound to
   a new configurator with the same settings.  
-  If your component uses a subcomponent, it can either cache the subcomponent configurator, 
-  or recreate one.  
+  If a component uses a subcomponent, the component can either cache the subcomponent configurator in
+  DOM state, or recreate and reconfigure the subcomponent [configurator](#configurator).  
 
