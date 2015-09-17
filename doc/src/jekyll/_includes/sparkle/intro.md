@@ -18,7 +18,7 @@ Sparkle components
 The sparkle data server includes modules to store data in Casssandra or RAM, 
 and to collect data from .csv/.tsv data files or Kafka.
 
-the sparkle data server hosts an extensible set of data transformations that transform data on demand 
+The sparkle data server hosts an extensible set of data transformations that transform data on demand 
 (e.g. for aggregation). See [Data Transformation](/doc/DataTransform.html) for details.
 
 The sparkle data server can be used as a library inside another server, 
@@ -34,7 +34,7 @@ sg.js supports the sparkle-time api, enabling zooming charts of potentially huge
 ###Sparkle Data API
 To enable interoperation of multiple clients and servers, 
 the sparkle-time server and sg.js javascript library speak a well-defined data protocol: 
-the [Sparkle Data Protocol](https://docs.google.com/document/d/1OvRxFbTzjuLSh7J3NXEM3jNQKxCCiBEfKr5fE6EeBJk/pub). 
+the [Sparkle Data Protocol](doc/ProtocolFlow.html). 
 The protocol allows clients to request data transformations and data streams from a comformant server.
 
 ----

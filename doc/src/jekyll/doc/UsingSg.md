@@ -1,3 +1,17 @@
+---
+layout: default
+title: Using the sg Tool
+---
+
+Sparkle comes with a standalone `sg` tool for desktop visualization of data series.
+The `sg` tool is an easy way for engineers to make exploratory interactive visualizations. 
+
+
+_The standalone sg build is broken as of 9/15/2015. 
+Also, this documentation doesn't yet describe the new angular.js based dashboard. 
+Stay tuned._ 
+
+
 Command line Options 
 ------
 
@@ -14,8 +28,9 @@ Command line Options
 
 
 Developing Your Own Dashboard
-------
-####Custom Dashboards 
+---
+
+###Custom Dashboards 
 A custom dashboard is an html or javascript file that specifies the data and look and feel of a dashboard.  Most of the work is done by the sg.js library, so a simple dashboard is mostly configuration: picking chart types, colors and etc.  An example:
 
     { title: "90th Percentile Request Time",
@@ -34,17 +49,19 @@ See [sparkle-graph example dashboards](https://github.com/mighdoll/sparkle/tree/
 It is also possible to extend the server to include custom code on the server that your dashboard can use.  For example, see 
 [TestCustomApi](https://github.com/mighdoll/sparkle/blob/master/src/test/scala/nest/sparkle/graph/TestCustomApi.scala)
 
-#####Trying custom dashboards
+###Trying custom dashboards
 Run with your dashboard and data:
 
     > run --root my-dashboard-dir --files my-data-dir
 
-While developing, just edit the dashboard file and refresh the browser.  It is not necessary to restart the server after changing data files or dashboard javascript files.
-(The server doesn't cache the dashboard html/javascript files.  The server caches data files, but it is clever enough to reload the data files as they change on disk.)
+While developing, just edit the dashboard file and refresh the browser.  
+It is not necessary to restart the server after changing data files or dashboard javascript files.
+The server doesn't cache the dashboard html/javascript files. 
+The server caches data files, but it is clever enough to reload the data files as they change on disk.
 
 Built-in serving is handy in development, but production services will normally prefer to serve static files through e.g. nginx or cloudfront.
 
-Data formats for .tsv .csv files
+Data formats for .tsv and .csv files
 ------
 Sparkle-Graph Server reads time series numerical data.  You can point the server at either a single file or a directory.
 

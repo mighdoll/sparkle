@@ -37,7 +37,7 @@ Messages to and from the server look like this:
       message: { <varies> },          // message contents (may be empty)
     }
 
-#### RequestId 
+#### requestId  <a name='requestId'/>
 RequestIds are optional client supplied tags for requests, used to enable response multiplexing 
 over websockets.
 Servers copy the requestId into the server response message. 
@@ -51,12 +51,12 @@ Clients are advised to use an incrementing counter for generating requestIds.
 
 Clients are recommended to use requestIds particularly when using websockets. 
 
-#### TraceId
+#### traceId
 TraceId is a string intended for operational debugging. 
 The server will record this traceId with internal logging, 
 and propagate the traceId to subsidiary requests to other servers.  
 
-#### Realm
+#### realm
 All protocol messages are optionally scoped by realm. 
 Realm provides a scope for authentication/authorization and for future sparkle proxies to route to multiple backend services. 
 

@@ -1,3 +1,7 @@
+---
+layout: default
+title: Server Loggging Levels
+---
 ### Log levels in the server code
 
 * **TRACE** - Detailed information temporarily enabled by a developer locally. TRACE is never enabled on the main branch or on production systems.

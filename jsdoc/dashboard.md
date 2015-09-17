@@ -8,9 +8,9 @@ Sparkle Graph Dashboard
 
 The Sparkle Graph Dashboard includes:
 
-* An autocomplete based chooser for selecting data series from the server.
-* A widget for uploading .csv/.tsv files via drag and drop.
 * A control panel for changing graph types, summary parameters, time series and non time series, etc.
+* An autocomplete based chooser for selecting data series from the server. (NYI on the server side.)
+* A widget for uploading .csv/.tsv files via drag and drop.
 
 ## Key Components
 
