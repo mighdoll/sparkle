@@ -13,9 +13,9 @@ As a standalone tool, sparkle gives users an easy way to make visualize data fro
 The graphs are interactively zoomable in a d3 based web interface. 
 With some easy customization, graphs can be aggregated into dashboards, and customized with simple declarative javascript, and data read in from other sources such as Apache Kafka.
 
-See [Sparkle Intro Talk](https://docs.google.com/presentation/d/1j704Lcj7HhL1O6K2sOYdQeDyhQ_porkbur7UOkKeD50) for an introduction presentation.
-See [Visualize the Things](https://docs.google.com/presentation/d/1YGeO2FEvdjGgSRihxU5HdEDdktBbv7mfYDtVAxW0FKU) for a brief introduction to sparkle, lessons on garbage collection with reative streams, and comments on the future of the Lambda Architecture.
-See [The Live Layer](https://docs.google.com/presentation/d/16onrz3i4aUORHxnKwdbX9mk9UgG9JJyq6eO4qDeZSn0) for a discussion of the Live Layer, 
+See [Sparkle Intro Talk](https://docs.google.com/presentation/d/1j704Lcj7HhL1O6K2sOYdQeDyhQ_porkbur7UOkKeD50/edit?usp=sharing) for an introduction presentation.
+See [Visualize the Things](https://docs.google.com/presentation/d/1YGeO2FEvdjGgSRihxU5HdEDdktBbv7mfYDtVAxW0FKU/edit?usp=sharing) for a brief introduction to sparkle, lessons on garbage collection with reative streams, and comments on the future of the Lambda Architecture.
+See [The Live Layer](https://docs.google.com/presentation/d/16onrz3i4aUORHxnKwdbX9mk9UgG9JJyq6eO4qDeZSn0/edit?usp=sharing) for a discussion of the Live Layer, 
 a key component missing from the Lambda Architecture.
 See [Sparkle Google Docs Folder](https://drive.google.com/folderview?id=0B6uZet2ug3aKfm9KRTdXcFZUc3o2UnFyU3FscWk2T2pNazdoR1AzMlZiU3lLRXFILXJHdlU) for other docs.
 
@@ -39,16 +39,16 @@ sg.js also includes a dashboard component for constructing pages that aggregate 
 sg.js supports the sparkle-time api, enabling zooming charts of potentially huge server hosted data sets, the option of offloading data transformations to the server, and (soon) server pushed updates to locally displayed charts.
 
 ###Sparkle Data API
-To enable interoperation of multiple clients and servers, the sparkle-time server and sg.js javascript library speak a well-defined data protocol: the [Sparkle Data Protocol](https://docs.google.com/document/d/1OvRxFbTzjuLSh7J3NXEM3jNQKxCCiBEfKr5fE6EeBJk/pub). The protocol allows clients to request data transformations and data streams from a comformant server.
+To enable interoperation of multiple clients and servers, the sparkle-time server and sg.js javascript library speak a well-defined data protocol: the [Sparkle Data Protocol](https://docs.google.com/document/d/1c0Iz46UsfUkuAKbADgWCc4UlhOE5Wjcw9_cBH-RQwAA/edit?usp=sharing). The protocol allows clients to request data transformations and data streams from a comformant server.
 
-See [Sparkle Data Protocol](https://docs.google.com/document/d/1OvRxFbTzjuLSh7J3NXEM3jNQKxCCiBEfKr5fE6EeBJk/pub) for details of the protocol. See [Sparkle Transforms](https://docs.google.com/document/d/1rz_7otdjla5d9990zdvM6Uev-5c_jqbZhepyLIKQO6U/pub) for the current set of built in transforms.
+See [Sparkle Data Protocol](https://docs.google.com/document/d/1c0Iz46UsfUkuAKbADgWCc4UlhOE5Wjcw9_cBH-RQwAA/edit?usp=sharing) for details of the protocol. See [Sparkle Transforms](https://docs.google.com/document/d/14eAX9L64yY2PsQF4-FCGCNPDr5I2tajv3Due0vglBUk/edit?usp=sharing) for the current set of built in transforms.
 
 
 Plans
 -------
 Sparkle is currently at version 0.5.x.  Sparkle 0.6 will:
 * clean out legacy code 
-* more fully support the [Sparkle Data Protocol](https://docs.google.com/document/d/1OvRxFbTzjuLSh7J3NXEM3jNQKxCCiBEfKr5fE6EeBJk/pub) between visualization client and visualizaton server.
+* more fully support the [Sparkle Data Protocol](https://docs.google.com/document/d/1c0Iz46UsfUkuAKbADgWCc4UlhOE5Wjcw9_cBH-RQwAA/edit?usp=sharing) between visualization client and visualizaton server.
 
 Many more future features are listed in the [todo list](https://github.com/mighdoll/sparkle/blob/master/ToDo)
 
